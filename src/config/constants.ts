@@ -17,7 +17,9 @@ export const DEFAULTS = {
   temperature: 0.7,
   maxOutputTokens: 2048,
   // Editable placeholder — never hard-code an unchangeable model id.
-  defaultGeminiModelId: "gemini-1.5-flash",
+  // Free-tier friendly (Jul 2026). Avoid Pro models — paid-only / expensive.
+  // Cheapest: gemini-2.5-flash-lite | Balanced: gemini-2.5-flash
+  defaultGeminiModelId: "gemini-2.5-flash",
 } as const;
 
 /** Timezone for display. Storage is always UTC (business rule 13). */
