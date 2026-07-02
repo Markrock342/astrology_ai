@@ -1,34 +1,68 @@
 @import "tailwindcss";
 
-/* HoraSard — dark, premium, mystical theme (spec 4). Avoid excessive glow. */
+/* HoraSard — near-black + gold + turquoise theme (confirmed design). No violet. */
 :root {
-  --background: #0b0b13;
-  --surface: #14141f;
-  --surface-2: #1c1c2b;
-  --border: #2a2a3d;
+  --background: #0d0d0f;
+  --surface: #14141a;
+  --surface-2: #1c1c24;
+  --surface-3: #23232d;
+  --border: #2a2a33;
   --foreground: #ececf2;
   --muted: #9a9ab0;
-  --primary: #b79bff; /* soft cosmic violet */
-  --primary-foreground: #12101c;
-  --accent: #e4c78a; /* warm gold */
+  --muted-2: #6f6f82;
+  --primary: #c9a24b; /* gold */
+  --primary-hover: #d8b25c;
+  --primary-foreground: #1a1508;
+  --accent: #c9a24b; /* gold (alias) */
+  --secondary: #1f8f7a; /* turquoise green */
+  --secondary-active: #12b886; /* active turquoise */
+  --secondary-foreground: #04120e;
   --danger: #f87171;
+  --ring: rgba(201, 162, 75, 0.45);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-border: var(--border);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
+  --color-muted-2: var(--muted-2);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-accent: var(--accent);
+  --color-secondary: var(--secondary);
+  --color-secondary-active: var(--secondary-active);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-danger: var(--danger);
   --font-sans: var(--font-thai), var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
+  color: var(--foreground);
+}
+
+/* Thin, subtle scrollbars to match the dark UI. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 9999px;
+}
+
+/* Native select options render with the OS palette; nudge toward dark. */
+select option {
+  background: var(--surface-2);
   color: var(--foreground);
 }
