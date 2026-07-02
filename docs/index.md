@@ -18,7 +18,7 @@
 | Chat schema (Conversation/Message) + Birth profile fields | 🚧 M2 กำลังทำ | [backend_chat_schema.md](./backend_chat_schema.md) | `prisma/schema.prisma`, `prisma/migrations/*` |
 | Birth profile API (พ.ศ.→ค.ศ., editCount≤1) | 🚧 M2 กำลังทำ | [backend_birth_profile.md](./backend_birth_profile.md) | `src/app/api/me/birth-profile`, `src/server/user/birth-profile-service.ts` |
 | Google auth + auto-create user | 🚧 M2 กำลังทำ | [backend_google_auth.md](./backend_google_auth.md) | `src/server/auth/*`, `src/auth.ts` |
-| User API (`/api/me`, `/api/me/package`) | ⏳ วางแผน | — | `src/app/api/me/*` |
+| User API (`/api/me`, `/api/me/package`) | 🚧 M2 กำลังทำ | [backend_me_api.md](./backend_me_api.md) | `src/app/api/me/*`, `src/server/user/account-service.ts` |
 | Admin API (users, categories, packages) | ⏳ วางแผน | — | `src/app/api/admin/*` |
 
 ## Milestone ปัจจุบัน
