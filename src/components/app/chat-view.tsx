@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DEFAULTS } from "@/config/constants";
+import { FEATURES } from "@/config/features";
 import { findCategory } from "./nav-data";
 
 type Message = {
@@ -53,6 +54,7 @@ export function ChatView() {
   // Reset the thread when the selected category changes.
   useEffect(() => {
     if (streamTimer.current) window.clearInterval(streamTimer.current);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages([]);
     setState(locked ? "locked" : "idle");
     setInput("");
@@ -94,6 +96,14 @@ export function ChatView() {
   async function send(text: string) {
     const content = text.trim();
     if (!content || state === "processing" || state === "streaming") return;
+    // Phase 2 demo: the AI engine ships in the next milestone.
+    if (!FEATURES.aiChat) {
+      setErrorText(
+        "ระบบดูดวงด้วย AI กำลังอยู่ระหว่างพัฒนา และจะเปิดให้ใช้งานในเฟสถัดไป",
+      );
+      setState("error");
+      return;
+    }
     if (locked) {
       setState("locked");
       return;
@@ -154,6 +164,11 @@ export function ChatView() {
   return (
     <div className="flex flex-1 flex-col">
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 md:px-8">
+        {!FEATURES.aiChat && (
+          <div className="animate-fade-in mx-auto mb-6 max-w-3xl rounded-xl border border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 text-center text-xs text-[var(--muted)]">
+            ตัวอย่างระบบ (เฟสนี้) — ระบบดูดวงด้วย AI จะเปิดให้ใช้งานจริงในเฟสถัดไป
+          </div>
+        )}
         {showEmpty ? (
           <EmptyState
             category={category?.label}
@@ -219,6 +234,7 @@ export function ChatView() {
         onChange={setInput}
         onSend={() => send(input)}
         disabled={state === "processing" || state === "streaming"}
+        aiEnabled={FEATURES.aiChat}
       />
     </div>
   );
@@ -321,11 +337,13 @@ function Composer({
   onChange,
   onSend,
   disabled,
+  aiEnabled,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
   disabled: boolean;
+  aiEnabled: boolean;
 }) {
   return (
     <div className="px-4 pb-6 md:px-8">
@@ -339,8 +357,9 @@ function Composer({
               onSend();
             }
           }}
-          placeholder="สอบถามเราได้เลย"
-          className="w-full bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none"
+          disabled={!aiEnabled}
+          placeholder={aiEnabled ? "สอบถามเราได้เลย" : "เปิดให้ใช้งานในเฟสถัดไป"}
+          className="w-full bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed"
         />
         {/* Phone/Voice = Phase 2 → shown disabled per design. */}
         <button
@@ -361,7 +380,7 @@ function Composer({
         <button
           type="button"
           onClick={onSend}
-          disabled={disabled || !value.trim()}
+          disabled={disabled || !aiEnabled || !value.trim()}
           className="press-scale flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] hover:shadow-[0_0_12px_var(--ring)] disabled:opacity-40"
           aria-label="ส่ง"
         >

@@ -1,11 +1,16 @@
 import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
 import { promptUpdateSchema } from "@/lib/admin-schemas";
-import { updatePrompt, deletePrompt } from "@/server/admin/ai-admin-service";
+import {
+  updatePrompt,
+  deletePrompt,
+  assertAiAdminEnabled,
+} from "@/server/admin/ai-admin-service";
 
 /** PATCH /api/admin/prompts/:id — edit (content change bumps version). */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   return handle(async () => {
+    assertAiAdminEnabled();
     const admin = await requireAdmin();
     const { id } = await ctx.params;
     const data = promptUpdateSchema.parse(await req.json());
@@ -17,6 +22,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 /** DELETE /api/admin/prompts/:id — delete if unused (audited). */
 export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
   return handle(async () => {
+    assertAiAdminEnabled();
     const admin = await requireAdmin();
     const { id } = await ctx.params;
     const ip = req.headers.get("x-forwarded-for") ?? undefined;

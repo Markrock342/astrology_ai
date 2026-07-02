@@ -3,6 +3,8 @@ import { requireUser } from "@/server/auth/rbac";
 import { rateLimit } from "@/lib/rate-limit";
 import { createReadingSchema } from "@/lib/schemas";
 import { createReading } from "@/server/horoscope/reading-service";
+import { FEATURES } from "@/config/features";
+import { AppError } from "@/lib/errors";
 
 /**
  * Create a horoscope reading (spec 5.6). The `Idempotency-Key` header prevents
@@ -11,6 +13,13 @@ import { createReading } from "@/server/horoscope/reading-service";
  */
 export async function POST(req: Request) {
   return handle(async () => {
+    // Phase 2 demo: AI engine ships next milestone — keep it off in production.
+    if (!FEATURES.aiChat) {
+      throw new AppError(
+        "FEATURE_DISABLED",
+        "ระบบดูดวงด้วย AI จะเปิดให้ใช้งานในเฟสถัดไป",
+      );
+    }
     const user = await requireUser();
     rateLimit(`reading:${user.id}`, 10, 60_000);
 
