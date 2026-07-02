@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { MOCK_USER } from "./nav-data";
 
 /**
@@ -51,10 +52,7 @@ export function SettingsPopover({ onClose }: { onClose: () => void }) {
       <Row label="จัดการแพ็กเกจ" highlight onClick={() => router.push("/account")} />
       <Row
         label="ออกจากระบบ"
-        onClick={() => {
-          // TODO(auth): signOut(); for now just return to sign-in.
-          router.push("/login");
-        }}
+        onClick={() => void signOut({ callbackUrl: "/login" })}
       />
       <Row label="ยกเลิกการเป็นสมาชิก" muted onClick={() => {}} />
     </div>

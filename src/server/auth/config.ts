@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { env } from "@/config/env";
-import { ensureOAuthUser } from "@/server/auth/provisioning";
+import { ensureOAuthUser, provisionUser } from "@/server/auth/provisioning";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -35,18 +35,22 @@ export const authConfig: NextAuthConfig = {
       authorize: async (raw) => {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
+        const { email, password } = parsed.data;
 
-        const user = await prisma.user.findUnique({
-          where: { email: parsed.data.email },
-        });
-        if (!user || !user.passwordHash) return null;
-        if (user.status === "DISABLED") return null;
+        let user = await prisma.user.findUnique({ where: { email } });
 
-        const valid = await bcrypt.compare(
-          parsed.data.password,
-          user.passwordHash,
-        );
-        if (!valid) return null;
+        // Design 01: single sign-in surface — first email sign-in auto-creates
+        // the account (no separate register page).
+        if (!user) {
+          const passwordHash = await bcrypt.hash(password, 10);
+          user = await provisionUser({ email, passwordHash });
+        } else {
+          if (user.status === "DISABLED") return null;
+          // Account exists but was created via Google — password login not set.
+          if (!user.passwordHash) return null;
+          const valid = await bcrypt.compare(password, user.passwordHash);
+          if (!valid) return null;
+        }
 
         return {
           id: user.id,

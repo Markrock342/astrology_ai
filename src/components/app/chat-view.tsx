@@ -2,10 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { DEFAULTS } from "@/config/constants";
 import { findCategory } from "./nav-data";
 
-type Message = { id: string; role: "user" | "assistant"; content: string };
-type ChatState = "idle" | "processing" | "locked" | "no-quota" | "error";
+type Message = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  /** Model that produced this reply (assistant only) — from AIProviderConfig. */
+  modelId?: string;
+};
+type ChatState = "idle" | "processing" | "streaming" | "locked" | "no-quota" | "error";
+
+/** Pretty label for a model id, e.g. "gemini-2.5-flash" → "Gemini 2.5 Flash". */
+function modelLabel(modelId: string): string {
+  return modelId
+    .split("-")
+    .map((w) => (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
 
 const EMPTY_HEADING = "ในทางโหราศาสตร์ไทย ดวงดาวเป็นเพียงเครื่องมือ\nบอกจังหวะชีวิตเพื่อให้เราเตรียมพร้อม";
 const EMPTY_PARAGRAPH =
@@ -25,9 +40,11 @@ export function ChatView() {
   const [input, setInput] = useState("");
   const [state, setState] = useState<ChatState>("idle");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const streamTimer = useRef<number | null>(null);
 
   // Reset the thread when the selected category changes.
   useEffect(() => {
+    if (streamTimer.current) window.clearInterval(streamTimer.current);
     setMessages([]);
     setState(locked ? "locked" : "idle");
     setInput("");
@@ -37,9 +54,37 @@ export function ChatView() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, state]);
 
+  useEffect(() => {
+    return () => {
+      if (streamTimer.current) window.clearInterval(streamTimer.current);
+    };
+  }, []);
+
+  /** Reveal the reply progressively (typewriter) like ChatGPT streaming. */
+  function streamReply(full: string, modelId: string) {
+    const id = crypto.randomUUID();
+    setMessages((m) => [...m, { id, role: "assistant", content: "", modelId }]);
+    setState("streaming");
+
+    let i = 0;
+    streamTimer.current = window.setInterval(() => {
+      // Reveal a few characters per tick for a natural pace.
+      i = Math.min(full.length, i + 3);
+      const slice = full.slice(0, i);
+      setMessages((m) =>
+        m.map((msg) => (msg.id === id ? { ...msg, content: slice } : msg)),
+      );
+      if (i >= full.length) {
+        if (streamTimer.current) window.clearInterval(streamTimer.current);
+        streamTimer.current = null;
+        setState("idle");
+      }
+    }, 24);
+  }
+
   function send(text: string) {
     const content = text.trim();
-    if (!content || state === "processing") return;
+    if (!content || state === "processing" || state === "streaming") return;
     if (locked) {
       setState("locked");
       return;
@@ -53,12 +98,8 @@ export function ChatView() {
     setState("processing");
 
     window.setTimeout(() => {
-      setMessages((m) => [
-        ...m,
-        { id: crypto.randomUUID(), role: "assistant", content: MOCK_REPLY },
-      ]);
-      setState("idle");
-    }, 1200);
+      streamReply(MOCK_REPLY, DEFAULTS.defaultGeminiModelId);
+    }, 1400);
   }
 
   const showEmpty = messages.length === 0 && state !== "locked";
@@ -76,22 +117,36 @@ export function ChatView() {
           <LockedState category={category?.label} />
         ) : (
           <div className="mx-auto flex max-w-3xl flex-col gap-6">
-            {messages.map((m) =>
+            {messages.map((m, idx) =>
               m.role === "user" ? (
-                <div key={m.id} className="flex justify-end">
+                <div key={m.id} className="animate-msg-in flex justify-end">
                   <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl bg-[var(--surface-3)] px-4 py-2.5 text-sm text-[var(--foreground)]">
                     {m.content}
                   </div>
                 </div>
               ) : (
-                <div key={m.id} className="max-w-[85%] whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)]">
-                  {m.content}
+                <div key={m.id} className="animate-msg-in max-w-[85%]">
+                  <div
+                    className={`whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)] ${
+                      state === "streaming" && idx === messages.length - 1
+                        ? "stream-caret"
+                        : ""
+                    }`}
+                  >
+                    {m.content}
+                  </div>
+                  {m.modelId && !(state === "streaming" && idx === messages.length - 1) && (
+                    <p className="animate-fade-in mt-2 flex items-center gap-1.5 text-[10px] text-[var(--muted-2)]">
+                      <SparkleIcon />
+                      ตอบโดย {modelLabel(m.modelId)}
+                    </p>
+                  )}
                 </div>
               ),
             )}
-            {state === "processing" && <TypingDots />}
+            {state === "processing" && <ThinkingIndicator />}
             {state === "error" && (
-              <p className="text-sm text-[var(--danger)]">
+              <p className="animate-fade-in text-sm text-[var(--danger)]">
                 เกิดข้อผิดพลาด ลองใหม่อีกครั้ง
               </p>
             )}
@@ -103,7 +158,7 @@ export function ChatView() {
         value={input}
         onChange={setInput}
         onSend={() => send(input)}
-        disabled={state === "processing"}
+        disabled={state === "processing" || state === "streaming"}
       />
     </div>
   );
@@ -120,22 +175,26 @@ function EmptyState({
 }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center pt-10 text-center">
-      <h1 className="whitespace-pre-line text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
+      <h1 className="animate-fade-up whitespace-pre-line text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
         {EMPTY_HEADING}
       </h1>
-      <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{EMPTY_PARAGRAPH}</p>
+      <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
+        {EMPTY_PARAGRAPH}
+      </p>
 
       {category && (
-        <p className="mt-6 text-xs text-[var(--muted-2)]">หัวข้อ: {category}</p>
+        <p className="animate-fade-up stagger-2 mt-6 text-xs text-[var(--muted-2)]">
+          หัวข้อ: {category}
+        </p>
       )}
       {suggestions.length > 0 && (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
-          {suggestions.map((q) => (
+          {suggestions.map((q, i) => (
             <button
               key={q}
               type="button"
               onClick={() => onPick(q)}
-              className="rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)]"
+              className={`animate-fade-up stagger-${Math.min(i + 2, 6)} press-scale rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-xs text-[var(--muted)] transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:text-[var(--foreground)]`}
             >
               {q}
             </button>
@@ -171,13 +230,29 @@ function LockedState({ category }: { category?: string }) {
   );
 }
 
-function TypingDots() {
+/** AI "thinking" indicator — gold star-dots rising in a wave + shimmer label. */
+function ThinkingIndicator() {
   return (
-    <div className="flex items-center gap-1 text-[var(--muted-2)]">
-      <span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" />
-      <span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" />
-      <span className="h-2 w-2 animate-bounce rounded-full bg-current" />
+    <div className="animate-fade-in flex items-center gap-3">
+      <div className="flex items-end gap-1.5">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <span
+            key={i}
+            className="wave-dot inline-block h-1.5 w-1.5 rounded-full bg-[var(--primary)]"
+            style={{ animationDelay: `${i * 0.12}s` }}
+          />
+        ))}
+      </div>
+      <span className="shimmer-text text-xs font-medium">กำลังเพ่งดวงดาว…</span>
     </div>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2l2.1 6.4L20.5 10l-6.4 2.1L12 18.5 9.9 12.1 3.5 10l6.4-1.6L12 2z" />
+    </svg>
   );
 }
 
@@ -194,7 +269,7 @@ function Composer({
 }) {
   return (
     <div className="px-4 pb-6 md:px-8">
-      <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5">
+      <div className="mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5 transition-shadow duration-300 focus-within:border-[var(--primary)]/50 focus-within:shadow-[0_0_0_3px_var(--ring)]">
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -227,7 +302,7 @@ function Composer({
           type="button"
           onClick={onSend}
           disabled={disabled || !value.trim()}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-40"
+          className="press-scale flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] hover:shadow-[0_0_12px_var(--ring)] disabled:opacity-40"
           aria-label="ส่ง"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">

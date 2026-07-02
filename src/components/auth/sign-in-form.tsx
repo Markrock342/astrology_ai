@@ -1,22 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-// import { signIn } from "next-auth/react"; // TODO(auth): restore real sign-in
-
-/** DEV bypass: let anyone click straight into the app to test pages. */
-const DEV_BYPASS_AUTH = true;
+import { signIn } from "next-auth/react";
 
 /**
  * Single sign-in surface (design 01): Google + email. There is no separate
- * register page — first email/Google sign-in auto-creates the account.
+ * register page — first email/Google sign-in auto-creates the account
+ * (see Credentials authorize + ensureOAuthUser).
  *
  * NOTE (PM): email flow (magic-link vs email+password) is still unconfirmed.
  * We show the email field first (matching the mockup) and progressively reveal
  * a password field so either decision is a small change here.
  */
-export function SignInForm() {
-  const router = useRouter();
+export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [step, setStep] = useState<"email" | "password">("email");
@@ -25,23 +21,17 @@ export function SignInForm() {
 
   async function handleGoogle() {
     setError(null);
-    if (DEV_BYPASS_AUTH) {
-      router.push("/onboarding");
+    if (!googleEnabled) {
+      setError("Google login ยังไม่เปิดใช้งาน (รอตั้งค่า AUTH_GOOGLE_ID/SECRET)");
       return;
     }
     setLoading("google");
-    // TODO(auth): await signIn("google", { callbackUrl: "/onboarding" });
+    await signIn("google", { callbackUrl: "/onboarding" });
   }
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-
-    // DEV bypass: skip real credential validation so pages are easy to test.
-    if (DEV_BYPASS_AUTH) {
-      router.push("/onboarding");
-      return;
-    }
 
     if (step === "email") {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -58,18 +48,28 @@ export function SignInForm() {
     }
 
     setLoading("email");
-    // TODO(auth): const res = await signIn("credentials", { email, password, redirect: false });
+    const res = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
     setLoading(null);
+
+    if (res?.error) {
+      setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
+      return;
+    }
+    // Full reload so the new session cookie is picked up by server components.
     window.location.href = "/onboarding";
   }
 
   return (
-    <div className="w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 shadow-2xl backdrop-blur">
+    <div className="animate-fade-up w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 shadow-2xl backdrop-blur">
       <button
         type="button"
         onClick={handleGoogle}
         disabled={loading !== null}
-        className="flex w-full items-center justify-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-3)] disabled:opacity-60"
+        className="press-scale flex w-full items-center justify-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-3)] disabled:opacity-60"
       >
         <GoogleIcon />
         {loading === "google" ? "กำลังเชื่อมต่อ…" : "Continue with Google"}
@@ -110,7 +110,7 @@ export function SignInForm() {
         <button
           type="submit"
           disabled={loading !== null}
-          className="w-full rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
+          className="press-scale w-full rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
         >
           {loading === "email"
             ? "กำลังเข้าสู่ระบบ…"

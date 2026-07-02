@@ -1,6 +1,19 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { BirthForm } from "@/components/birth/birth-form";
+import {
+  getBirthProfile,
+  MAX_BIRTH_EDITS,
+} from "@/server/user/birth-profile-service";
 
-export default function OnboardingPage() {
+export default async function OnboardingPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  // Also serves "เปลี่ยนวันเกิด" from settings — allowed while edits remain.
+  const profile = await getBirthProfile(session.user.id);
+  if (profile && profile.editCount >= MAX_BIRTH_EDITS) redirect("/dashboard");
+
   return (
     <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-10">
       <div className="mb-8 max-w-2xl text-center">
@@ -15,7 +28,7 @@ export default function OnboardingPage() {
           ไม่ว่าดวงจะบอกอะไร เราก็ยังเป็นผู้เลือกทางเดินของตัวเองได้เสมอ
         </p>
       </div>
-      <BirthForm editCount={0} />
+      <BirthForm editCount={profile?.editCount ?? 0} />
     </div>
   );
 }

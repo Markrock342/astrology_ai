@@ -123,8 +123,8 @@ async function main() {
     create: {
       id: "seed-gemini-default",
       provider: "GEMINI",
-      modelId: "gemini-1.5-flash",
-      displayName: "Gemini 1.5 Flash (default)",
+      modelId: "gemini-2.5-flash",
+      displayName: "Gemini 2.5 Flash (free-tier default)",
       secretReference: "GEMINI_API_KEY",
       planScope: "ALL",
       promptTemplateId: persona.id,

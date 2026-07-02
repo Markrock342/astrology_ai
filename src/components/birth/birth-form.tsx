@@ -24,14 +24,12 @@ type Era = "BE" | "CE"; // พ.ศ. / ค.ศ.
 const CURRENT_CE = new Date().getFullYear();
 
 /**
- * Birth-profile form (design 02). Year accepts พ.ศ. or ค.ศ. but we always store
- * ค.ศ. (UTC). Country defaults to ไทย; province/district are required.
+ * Birth-profile form (design 02). Year accepts พ.ศ. or ค.ศ.; the backend
+ * normalizes to ค.ศ. and stores UTC. Country defaults to ไทย; province/district
+ * are required. Submits to PUT /api/me/birth-profile.
  *
  * `editCount` is provided by the caller (0 on first entry). Backend enforces the
  * "edit at most once more" rule; this only mirrors it for messaging.
- *
- * TODO(backend): on submit, PUT /api/me/birth-profile with the assembled UTC
- * date + location. For now it validates client-side then enters the app.
  */
 export function BirthForm({ editCount = 0 }: { editCount?: number }) {
   const router = useRouter();
@@ -62,7 +60,7 @@ export function BirthForm({ editCount = 0 }: { editCount?: number }) {
   const districtOptions = province ? (DISTRICTS[province] ?? []) : [];
   const hasDistrictData = districtOptions.length > 0;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -79,30 +77,47 @@ export function BirthForm({ editCount = 0 }: { editCount?: number }) {
       return;
     }
 
-    const ceYear = era === "BE" ? Number(year) - 543 : Number(year);
-    const monthIndex = THAI_MONTHS.indexOf(month);
-    // Stored as UTC (business rule 13). Backend re-validates before saving.
-    const birthDateUtc = new Date(
-      Date.UTC(ceYear, monthIndex, Number(day), Number(hour), Number(minute)),
-    ).toISOString();
-
+    // Backend contract (birthProfileSchema): numeric fields + yearEra; the
+    // service normalizes พ.ศ. → ค.ศ. and stores the instant in UTC (rule 13).
     const payload = {
-      birthDate: birthDateUtc,
-      birthTime: `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`,
+      year: Number(year),
+      month: THAI_MONTHS.indexOf(month) + 1,
+      day: Number(day),
+      yearEra: era,
+      birthTimeKnown: true,
+      hour: Number(hour),
+      minute: Number(minute),
       birthCountry: country,
       birthProvince: province,
-      birthDistrict: district || null,
+      // Schema requires a district; use the province as fallback when we have
+      // no district dataset for it yet.
+      birthDistrict: district || province,
     };
-    void payload; // TODO(backend): PUT /api/me/birth-profile
 
     setSubmitting(true);
-    router.push("/dashboard");
+    try {
+      const res = await fetch("/api/me/birth-profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setError(json?.error?.message ?? "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่");
+        setSubmitting(false);
+        return;
+      }
+      router.push("/dashboard");
+    } catch {
+      setError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองใหม่");
+      setSubmitting(false);
+    }
   }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full max-w-2xl rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 shadow-2xl backdrop-blur"
+      className="animate-fade-up stagger-1 w-full max-w-2xl rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 shadow-2xl backdrop-blur"
     >
       <h2 className="text-lg font-semibold text-[var(--primary)]">
         กรอกข้อมูลวันเกิด
