@@ -1,13 +1,11 @@
-import { ScaffoldNote } from "@/components/scaffold-note";
+import { BrandLogo } from "@/components/brand-logo";
+import { SignInForm } from "@/components/auth/sign-in-form";
 
 export default function LoginPage() {
   return (
-    <main className="flex flex-1 items-center">
-      <ScaffoldNote title="เข้าสู่ระบบ" owner="Frontend">
-        ฟอร์ม email/password + ลืมรหัสผ่าน + ปุ่ม Google (ถ้าเปิดใช้). เรียก
-        <code className="mx-1">signIn</code> จาก NextAuth. Backend มี
-        <code className="mx-1">/api/auth/[...nextauth]</code> พร้อมแล้ว.
-      </ScaffoldNote>
+    <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
+      <BrandLogo size={44} className="mb-10" />
+      <SignInForm />
     </main>
   );
 }

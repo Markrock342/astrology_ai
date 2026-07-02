@@ -1,12 +1,10 @@
-import { ScaffoldNote } from "@/components/scaffold-note";
+import { ChatView } from "@/components/app/chat-view";
 
+/**
+ * Main app surface = chat (design 03/05). The selected category comes from the
+ * `?cat=` query set by the sidebar; empty state shows the intro + suggested
+ * questions.
+ */
 export default function DashboardPage() {
-  return (
-    <ScaffoldNote title="แดชบอร์ดผู้ใช้" owner="Both">
-      แสดง: แพ็กเกจปัจจุบัน · เครดิต/สิทธิ์คงเหลือ · หมวดหมู่ (ล็อก Pro) ·
-      ประวัติล่าสุด · ปุ่มอัปเกรด. Backend ให้ข้อมูลผ่าน
-      <code className="mx-1">/api/me</code>, <code className="mx-1">/api/me/credits</code>,
-      <code className="mx-1">/api/horoscope/categories</code>.
-    </ScaffoldNote>
-  );
+  return <ChatView />;
 }
