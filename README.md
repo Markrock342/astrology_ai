@@ -103,6 +103,10 @@ prisma/
 The scaffold compiles, builds, and every page/route exists as a stub. Pick up
 your lane and replace the `ScaffoldNote` placeholders with real work.
 
+> **Per-role guides with git workflow + milestone checklists:**
+> Frontend → [`FRONTEND_TASKS.md`](./FRONTEND_TASKS.md) ·
+> Backend → [`BACKEND_TASKS.md`](./BACKEND_TASKS.md)
+
 ### 🟦 Frontend developer
 
 Owns everything visual + client state. Talk to the backend only via the JSON API.
