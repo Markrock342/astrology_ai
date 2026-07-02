@@ -12,13 +12,62 @@ const prisma = new PrismaClient();
  */
 
 const CATEGORIES = [
-  { slug: "self", nameTh: "ตัวตน", accessLevel: "FREE", sortOrder: 1, icon: "user" },
-  { slug: "career", nameTh: "การงาน", accessLevel: "FREE", sortOrder: 2, icon: "briefcase" },
-  { slug: "finance", nameTh: "การเงิน", accessLevel: "PRO", sortOrder: 3, icon: "coins" },
-  { slug: "love", nameTh: "ความรัก", accessLevel: "PRO", sortOrder: 4, icon: "heart" },
-  { slug: "health", nameTh: "สุขภาพ", accessLevel: "PRO", sortOrder: 5, icon: "heart-pulse" },
-  { slug: "fortune", nameTh: "โชคลาภ", accessLevel: "PRO", sortOrder: 6, icon: "sparkles" },
-  { slug: "overview", nameTh: "ภาพรวมชีวิต", accessLevel: "PRO", sortOrder: 7, icon: "compass" },
+  {
+    slug: "self",
+    nameTh: "ตัวตน",
+    accessLevel: "FREE",
+    sortOrder: 1,
+    icon: "user",
+    suggestedQuestions: ["จุดแข็งของฉันคืออะไร", "ฉันควรพัฒนาตัวเองด้านไหน", "บุคลิกที่แท้จริงของฉันเป็นอย่างไร"],
+  },
+  {
+    slug: "career",
+    nameTh: "การงาน",
+    accessLevel: "FREE",
+    sortOrder: 2,
+    icon: "briefcase",
+    suggestedQuestions: ["งานสายไหนเหมาะกับฉัน", "ช่วงนี้ควรเปลี่ยนงานไหม", "โอกาสก้าวหน้าในงานเป็นอย่างไร"],
+  },
+  {
+    slug: "finance",
+    nameTh: "การเงิน",
+    accessLevel: "PRO",
+    sortOrder: 3,
+    icon: "coins",
+    suggestedQuestions: ["การเงินช่วงนี้เป็นอย่างไร", "ควรลงทุนหรือเก็บออม", "มีเกณฑ์รายได้เพิ่มไหม"],
+  },
+  {
+    slug: "love",
+    nameTh: "ความรัก",
+    accessLevel: "PRO",
+    sortOrder: 4,
+    icon: "heart",
+    suggestedQuestions: ["ความรักช่วงนี้เป็นอย่างไร", "เนื้อคู่ของฉันเป็นคนแบบไหน", "ความสัมพันธ์ปัจจุบันจะไปได้ดีไหม"],
+  },
+  {
+    slug: "health",
+    nameTh: "สุขภาพ",
+    accessLevel: "PRO",
+    sortOrder: 5,
+    icon: "heart-pulse",
+    suggestedQuestions: ["สุขภาพช่วงนี้ต้องระวังอะไร", "ควรดูแลตัวเองด้านไหนเป็นพิเศษ"],
+  },
+  {
+    slug: "fortune",
+    nameTh: "โชคลาภ",
+    accessLevel: "PRO",
+    sortOrder: 6,
+    icon: "sparkles",
+    suggestedQuestions: ["ช่วงนี้มีเกณฑ์โชคลาภไหม", "เลขนำโชคของฉันคืออะไร", "วันไหนเป็นวันมงคลของฉัน"],
+  },
+  {
+    slug: "overview",
+    nameTh: "ภาพรวมชีวิต",
+    accessLevel: "PRO",
+    sortOrder: 7,
+    icon: "compass",
+    suggestedQuestions: ["ภาพรวมชีวิตปีนี้เป็นอย่างไร", "ช่วงนี้ควรโฟกัสเรื่องใด"],
+  },
 ] as const;
 
 async function main() {
@@ -96,6 +145,7 @@ async function main() {
         accessLevel: c.accessLevel,
         creditCost: 1,
         sortOrder: c.sortOrder,
+        suggestedQuestions: [...c.suggestedQuestions],
         promptTemplateId: persona.id,
       },
     });
