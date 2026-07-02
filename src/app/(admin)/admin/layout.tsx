@@ -8,6 +8,7 @@ const ADMIN_NAV = [
   { href: "/admin/categories", label: "หมวดหมู่" },
   { href: "/admin/prompts", label: "Prompt / Persona" },
   { href: "/admin/ai-configs", label: "AI Models" },
+  { href: "/admin/knowledge", label: "คลังความรู้" },
   { href: "/admin/packages", label: "แพ็กเกจ" },
   { href: "/admin/payments", label: "การชำระเงิน" },
   { href: "/admin/usage", label: "Usage / AI Logs" },

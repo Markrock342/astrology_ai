@@ -2,6 +2,7 @@ import type { AIProvider } from "@prisma/client";
 import type { AIProviderAdapter } from "@/server/ai/adapter";
 import type { GenerateAIInput, GenerateAIResult } from "@/types";
 import { GeminiAdapter } from "@/server/ai/providers/gemini";
+import { OpenAIAdapter } from "@/server/ai/providers/openai";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 
@@ -16,24 +17,34 @@ function adapterFor(provider: AIProvider): AIProviderAdapter {
   switch (provider) {
     case "GEMINI":
       return new GeminiAdapter();
-    // case "OPENAI": return new OpenAIAdapter();  // future provider
+    case "OPENAI":
+      return new OpenAIAdapter();
     default:
       throw new AppError("AI_PROVIDER_ERROR", `Unsupported provider ${provider}`);
   }
 }
 
-/** Resolve the active config for a category + plan scope. */
+/**
+ * Resolve the active config for a category + plan scope.
+ * Priority: category-specific beats global, and an exact plan match (FREE/PRO)
+ * beats ALL — so admins can point Free at a cheaper model than Pro.
+ */
 export async function resolveConfig(categoryId: string, planScope: "FREE" | "PRO") {
-  const config = await prisma.aIProviderConfig.findFirst({
+  const candidates = await prisma.aIProviderConfig.findMany({
     where: {
       enabled: true,
       OR: [{ categoryId }, { categoryId: null }],
       planScope: { in: [planScope, "ALL"] },
     },
-    orderBy: [{ categoryId: "desc" }], // prefer a category-specific config
   });
-  if (!config) throw new AppError("AI_PROVIDER_ERROR", "No AI config available");
-  return config;
+  if (candidates.length === 0) {
+    throw new AppError("AI_PROVIDER_ERROR", "No AI config available");
+  }
+
+  const score = (c: (typeof candidates)[number]) =>
+    (c.categoryId === categoryId ? 2 : 0) + (c.planScope === planScope ? 1 : 0);
+  candidates.sort((a, b) => score(b) - score(a));
+  return candidates[0];
 }
 
 type RunInput = Omit<GenerateAIInput, "modelId" | "temperature" | "maxOutputTokens" | "timeoutMs" | "secretReference" | "systemPrompt"> & {

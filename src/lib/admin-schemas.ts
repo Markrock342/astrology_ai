@@ -67,3 +67,47 @@ export const packageCreateSchema = z.object({
 });
 
 export const packageUpdateSchema = packageCreateSchema.partial();
+
+export const promptCreateSchema = z.object({
+  code: z
+    .string()
+    .min(1)
+    .max(60)
+    .regex(/^[a-z0-9_-]+$/, "code ต้องเป็นตัวพิมพ์เล็ก ตัวเลข _ หรือ - เท่านั้น"),
+  name: z.string().min(1).max(120),
+  type: z.enum(["SYSTEM", "PERSONA", "CATEGORY", "FORMAT"]),
+  content: z.string().min(1).max(20_000),
+  enabled: z.boolean().default(true),
+});
+
+export const promptUpdateSchema = promptCreateSchema.omit({ code: true }).partial();
+
+export const aiConfigCreateSchema = z.object({
+  provider: z.enum(["GEMINI", "OPENAI"]).default("GEMINI"),
+  modelId: z.string().min(1).max(120),
+  displayName: z.string().min(1).max(120),
+  // Env var NAME only — the key value never touches the database.
+  secretReference: z.string().min(1).max(120),
+  enabled: z.boolean().default(true),
+  temperature: z.number().min(0).max(2).default(0.7),
+  maxOutputTokens: z.number().int().min(64).max(32_768).default(2048),
+  timeoutMs: z.number().int().min(1000).max(120_000).default(30_000),
+  fallbackConfigId: z.string().nullish(),
+  planScope: z.enum(["FREE", "PRO", "ALL"]).default("ALL"),
+  categoryId: z.string().nullish(),
+  promptTemplateId: z.string().nullish(),
+  versionLabel: z.string().max(60).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+export const aiConfigUpdateSchema = aiConfigCreateSchema.partial();
+
+export const knowledgeCreateSchema = z.object({
+  title: z.string().min(1).max(200),
+  content: z.string().min(1).max(50_000),
+  categoryId: z.string().nullish(),
+  enabled: z.boolean().default(true),
+  sortOrder: z.number().int().default(0),
+});
+
+export const knowledgeUpdateSchema = knowledgeCreateSchema.partial();
