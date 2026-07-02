@@ -1,6 +1,7 @@
 # 🟩 Backend — งานของคุณ (HoraSard)
 
 คู่มือเฉพาะ Backend dev อ่านคู่กับ `README.md` (สถาปัตยกรรม + วิธีรัน)
+และ **`PROJECT_STRUCTURE.md`** (โครงสร้างโปรเจกต์ / ความจำกลางของทีม)
 ฝั่ง Frontend อยู่ในไฟล์ `FRONTEND_TASKS.md`
 
 **ขอบเขตของคุณ:** service layer + API + ฐานข้อมูล + AI integration

@@ -16,6 +16,8 @@ payments and usage logs.
 > - **Never** double-charge credit on AI error or duplicate click — deduct only
 >   after a validated success, guarded by an `Idempotency-Key`.
 
+> **Canonical project reference:** [`PROJECT_STRUCTURE.md`](./PROJECT_STRUCTURE.md) — folder layout, DB, API, AI strategy, Phase boundaries, milestones.
+
 ---
 
 ## Tech stack
