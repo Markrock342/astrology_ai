@@ -3,12 +3,11 @@ import { prisma } from "@/server/db";
 import { registerSchema } from "@/lib/schemas";
 import { handle, ok, fail } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
-import { addCredits } from "@/server/credit/credit-service";
-import { DEFAULTS } from "@/config/constants";
+import { provisionUser } from "@/server/auth/provisioning";
 
 /**
- * Register a new local user. Creates the user, a credit wallet with the Free
- * grant, and a default Free subscription — all in one transaction. Password is
+ * Register a new local user. Provisioning (user + wallet + Free subscription +
+ * initial credit grant) is shared with first-time Google sign-in. Password is
  * hashed; never stored or logged in plain text.
  */
 export async function POST(req: Request) {
@@ -22,31 +21,10 @@ export async function POST(req: Request) {
     if (existing) return fail("VALIDATION", "อีเมลนี้ถูกใช้งานแล้ว", 422);
 
     const passwordHash = await bcrypt.hash(data.password, 10);
-
-    const user = await prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: { name: data.name, email: data.email, passwordHash, role: "USER" },
-      });
-      await tx.creditWallet.create({ data: { userId: created.id, balance: 0 } });
-
-      const freePkg = await tx.package.findUnique({ where: { code: "FREE" } });
-      if (freePkg) {
-        await tx.userSubscription.create({
-          data: {
-            userId: created.id,
-            packageId: freePkg.id,
-            status: "ACTIVE",
-            activationSource: "SYSTEM_DEFAULT",
-          },
-        });
-      }
-      return created;
-    });
-
-    // Initial free credit grant (immutable ledger entry).
-    await addCredits(user.id, DEFAULTS.freeCreditQuota, {
-      type: "INITIAL_GRANT",
-      note: "Free sign-up grant",
+    const user = await provisionUser({
+      email: data.email,
+      name: data.name,
+      passwordHash,
     });
 
     return ok({ id: user.id, email: user.email }, { status: 201 });
