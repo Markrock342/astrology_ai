@@ -7,6 +7,31 @@
 **โฟลเดอร์ที่ดูแล:** `src/app/(public|app|admin)/`, `src/components/`
 **คุยกับ Backend ผ่าน JSON API เท่านั้น** — ห้ามเรียก AI/DB ตรงจากหน้าเว็บ
 
+> อัปเดตตามดีไซน์จริง `Horasard UI` (ดูรูปใน `design/mockups/`) — มีของเปลี่ยนจากแผนเดิม ดูข้อ 0
+
+---
+
+## 0. ⚠️ สรุปดีไซน์จริง + สิ่งที่เปลี่ยนจากแผนเดิม
+
+ดูรูปประกอบใน `design/mockups/` (01_Sign-in … 05_Chat)
+
+**แบรนด์/ธีม (ยืนยันแล้ว)**
+- ชื่อ **โหราศาสตร์ / HORASARD** · โดเมน `horasard.com` · โลโก้สีทอง
+- ธีม **ดำเกือบสนิท + ทอง (primary) + เขียวเทอร์ควอยซ์ (secondary/active)** — ไม่มีสีม่วงแล้ว
+  (ค่าที่จะใช้: bg `#0d0d0f`, สีทอง `#c9a24b`, เขียว `#1f8f7a`/active `#12b886`)
+- ฟอนต์ Noto Sans Thai (มีให้ใน `design/.../Font/`)
+
+**สิ่งที่ต่างจากแผนเดิม (สำคัญ)**
+1. **ตัวแอปเป็นแบบ Chat** (สนทนา) ไม่ใช่หน้า "ดูดวง" ยิงครั้งเดียว — มี sidebar + ห้องแชท + ประวัติเป็นเธรด
+2. **ไม่มีหน้า Register แยก** — Sign-in หน้าเดียว (Google + อีเมล) ผู้ใช้ใหม่ระบบสร้างบัญชีให้อัตโนมัติ
+3. **Google login มีในดีไซน์** (อยู่ใน Phase 1)
+4. เข้าครั้งแรก **บังคับกรอกวันเกิดก่อน** ถึงใช้แอปได้
+5. **แก้วันเกิดได้อีกแค่ 1 ครั้ง** (แสดงตัวนับ "ครั้งที่ 1/2") — กันเอาวันเกิดคนอื่นมาใช้
+6. ฟอร์มวันเกิดใช้ **ปี พ.ศ./ค.ศ.** + เวลาเป็น ชม./นาที + **ประเทศ/จังหวัด/อำเภอ (บังคับ)**
+7. มี 2 โหมด: **พื้นดวงเดิม** (natal, มีหมวด Free/Pro) และ **ดวงจร** (transit, Pro เท่านั้น) — *ดวงจรรอ PM ยืนยันสโคป*
+8. **Voice/โทร (ไอคอนโทรศัพท์ในช่องแชท) = Phase 2 อย่าทำ** ทำแค่แชทข้อความ
+9. มี **คำถามแนะนำ** (suggested questions) ต่อหมวด
+
 ---
 
 ## 1. Git workflow (อ่านก่อนเริ่ม — สำคัญที่สุด)
@@ -14,111 +39,91 @@
 เราใช้ **feature branch + Pull Request** ไม่ใช่ branch ถาวรต่อคน
 
 ### กติกา 6 ข้อ
-
 1. **ห้าม push ตรงเข้า `main`** — `main` ต้องรันได้เสมอ
-2. **1 งาน = 1 branch สั้นๆ** อายุ 1-3 วัน แล้ว merge กลับ (อย่าดองไว้นาน)
-3. **ก่อนเริ่มงานทุกครั้ง** ดึงล่าสุดก่อน: `git checkout main && git pull`
+2. **1 งาน = 1 branch สั้นๆ** อายุ 1-3 วัน แล้ว merge กลับ
+3. **ก่อนเริ่มงานทุกครั้ง** ดึงล่าสุด: `git checkout main && git pull`
 4. **PR เล็กๆ** ดีกว่า PR ใหญ่ก้อนเดียว
-5. **PM รีวิวแล้วค่อย merge** เข้า `main`
+5. **PM รีวิวแล้วค่อย merge**
 6. **คุยกับ Backend ก่อนแก้ไฟล์กลาง** (ดูข้อ 4)
 
-### ชื่อ branch: `fe/<งาน>`  เช่น `fe/login-page`, `fe/reading-ui`
-
-### ขั้นตอนทำงาน (ทำซ้ำทุกงาน)
-
-```bash
-git checkout main
-git pull                          # ดึงล่าสุดก่อนเสมอ
-git checkout -b fe/login-page     # แตก branch ใหม่จาก main
-
-# ...เขียนโค้ด...
-npm run typecheck && npm run lint # เช็คก่อน commit
-
-git add -A
-git commit -m "feat(login): add login form and validation"
-git push -u origin fe/login-page  # push branch ของตัวเอง
-
-# เปิด PR บน GitHub → รอ PM รีวิว → merge → ลบ branch
-```
-
-### ถ้าเจอ conflict
+### ชื่อ branch: `fe/<งาน>`  เช่น `fe/signin-page`, `fe/chat-ui`
 
 ```bash
 git checkout main && git pull
-git checkout fe/login-page
-git merge main        # แก้ conflict ในไฟล์ที่ชนกัน — ไม่แน่ใจให้ถาม PM ก่อน
+git checkout -b fe/signin-page
+# ...เขียนโค้ด...
+npm run typecheck && npm run lint
+git add -A && git commit -m "feat(signin): add sign-in page"
+git push -u origin fe/signin-page
+# เปิด PR → รอ PM รีวิว → merge → ลบ branch
+```
+
+### conflict
+```bash
+git checkout main && git pull
+git checkout fe/signin-page
+git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 ```
 
 ---
 
-## 2. Checklist ราย Milestone
+## 2. Checklist ราย Milestone (อัปเดตตามดีไซน์จริง)
 
-> ค่าเริ่มต้นบางอย่างยังรอลูกค้ายืนยัน (ดูท้ายไฟล์) — ทำตาม default ไปก่อนได้
+### 🎯 Milestone 2 — Sign-in, Birth form, Layout, Settings
 
-### 🎯 Milestone 2 — Auth, Birth Profile, Free/Pro, Admin UI พื้นฐาน
+- [ ] **ตั้งธีมจริง** ใน `globals.css`: พื้นดำ + ทอง + เขียวเทอร์ควอยซ์ (แทนค่า placeholder เดิม) + วางโลโก้ HORASARD
+- [ ] **หน้า Sign-in** (`01`): ปุ่ม Continue with Google + ตัวคั่น "หรือ" + ช่องอีเมล + ปุ่ม "ลงชื่อเข้าใช้ด้วยอีเมล" + ข้อความนโยบายความเป็นส่วนตัว *(ยืนยันกับ PM: อีเมลเป็น magic-link หรือมีขั้นตอนกรอกรหัสผ่านต่อ)*
+- [ ] **App shell** (`04`): sidebar ซ้าย (ปุ่มเริ่มสนทนาใหม่ · ค้นหา · หัวข้อพื้นดวงเดิมพร้อม badge Free/🔒Pro · ส่วนดวงจร · รายการประวัติแชท) + แถบล่าง (Username · Pro/Free · เกียร์ตั้งค่า) + ปุ่มพับ sidebar
+- [ ] **หน้า Birth form** (`02`): dropdown วัน/เดือน/ปี(พ.ศ.·ค.ศ.)/เวลา(ชม.·นาที) + ประเทศ(default ไทย)/จังหวัด/อำเภอ + 2 checkbox (ยอมรับนโยบาย, รับทราบว่าแก้วันเกิดได้อีก 1 ครั้ง) + ปุ่ม "ทำนาย" + validation
+- [ ] บังคับ flow: เข้าครั้งแรก → ยังไม่มี birth profile → เด้งไปหน้า Birth form ก่อน
+- [ ] **Settings popover** (`03`): เปลี่ยนชื่อผู้ใช้ · เปลี่ยนรหัสผ่าน · เปลี่ยนวันเกิด (แสดงตัวนับครั้งที่ x/2, disable เมื่อครบ) · จัดการแพ็กเกจ · ออกจากระบบ · ยกเลิกการเป็นสมาชิก
+- [ ] responsive: sidebar ยุบได้ + มือถือใช้ bottom/drawer nav
 
-- [ ] หน้า Landing เต็ม (hero, categories, Free vs Pro, how-it-works, FAQ, footer)
-- [ ] หน้า Register / Login / Forgot password (ต่อ API + แสดง error)
-- [ ] หน้า Onboarding (ฟอร์ม birth profile + validation ฝั่ง client)
-- [ ] Dashboard: แพ็กเกจ + เครดิตคงเหลือ + รายการหมวด (ล็อก Pro)
-- [ ] Sidebar (desktop) + bottom nav (mobile)
-- [ ] Admin UI: ตารางผู้ใช้ + หน้ารายละเอียด + ฟอร์มปรับสิทธิ์/เครดิต
-- [ ] Admin UI: หน้าจัดการ categories, packages
+### 🎯 Milestone 3 — Chat, History, Package, Admin UI
 
-**Acceptance ฝั่งคุณ:** ทุกฟอร์มต่อ API ได้ · แสดง loading/error ครบ · responsive เบื้องต้น
-
-### 🎯 Milestone 3 — Reading Flow, History, Admin config UI
-
-- [ ] หน้าดูดวง: เลือกหมวด → กรอกคำถาม → ส่งพร้อมส่ง header `Idempotency-Key`
-- [ ] ครบทุก state: loading · AI processing · success · no-quota · locked · timeout · error · **retry (ปุ่มลองใหม่ต้องใช้ Idempotency-Key เดิม เพื่อไม่หักเครดิตซ้ำ)**
-- [ ] แสดงผลคำอ่านแบบมีโครงสร้าง (title / summary / interpretation / strengths / cautions / guidance / closing)
-- [ ] History list + filter ตามหมวด + หน้ารายละเอียด
-- [ ] Admin UI: จัดการ prompt/persona, AI models (+ ปุ่ม Test), ตาราง Usage logs
-
-**Acceptance ฝั่งคุณ:** เลือกหมวด → เห็นผล AI · state ครบ · retry ไม่ยิงซ้ำแบบสร้าง reading ใหม่ · history เปิดดูได้
+- [ ] **หน้าแชท** (`04`/`05`): เลือกหัวข้อจาก sidebar → ห้องแชท, ข้อความ user (ขวา) / AI (ซ้าย, ข้อความยาวอ่านง่าย), ช่องพิมพ์ "สอบถามเราได้เลย" + ปุ่มส่ง
+  - ส่งข้อความไปที่ API แชท พร้อม header `Idempotency-Key` (กันกดซ้ำ/หักเครดิตซ้ำ); ปุ่มลองใหม่ใช้ key เดิม
+  - state: loading · AI processing · success · **no-quota** · **locked (Pro)** · timeout · error · retry
+  - **ไอคอนโทรศัพท์/Voice = Phase 2 → แสดงเป็น disabled หรือไม่ต้องใส่**
+- [ ] **คำถามแนะนำ** ต่อหมวด (ปุ่ม/ชิปให้กดเลือก) — ดึงจาก API หมวด
+- [ ] **ประวัติแชท** ใน sidebar: รายการเธรด + ค้นหา + เปิดอ่านย้อนหลัง (ของผู้ใช้เท่านั้น)
+- [ ] **หน้า/โมดัลจัดการแพ็กเกจ** + วิธีอัปเกรดเป็น Pro (Phase 1 เป็น manual)
+- [ ] **ล็อกหมวด Pro / โหมดดวงจร**: กดแล้วโชว์ CTA อัปเกรด ไม่ยิง AI
+- [ ] Admin UI: หน้าจัดการ prompt/persona, AI models (+ ปุ่ม Test), ตาราง Usage logs, users, categories, packages, payments
 
 ### 🎯 Milestone 4 — Polish
-
-- [ ] ขัด UX/UI · responsive ทุกหน้า (มือถือ / แท็บเล็ต / จอใหญ่)
-- [ ] Empty state, error state, loading skeleton ให้เนียน
-- [ ] ธีมมืดสไตล์โหราศาสตร์ให้สม่ำเสมอ (ใช้ตัวแปรสีใน `globals.css`)
+- [ ] ขัด UX/UI ให้ตรงดีไซน์ · responsive ทุกหน้า · empty/error/skeleton เนียน
+- [ ] หน้า/เอกสาร นโยบายความเป็นส่วนตัว + เงื่อนไข + disclaimer (จำเป็นตามกฎหมาย)
 
 ---
 
 ## 3. เทคนิค & จุดที่ต้องรู้
-
-- **UI มืดสไตล์โหราศาสตร์** ตั้งไว้ใน `src/app/globals.css` แล้ว (ตัวแปร `--primary`, `--accent`, `--surface` ฯลฯ) — อย่า hard-code สี
-- แทนที่ placeholder `ScaffoldNote` ในแต่ละหน้าได้เลย (ลบ `src/components/scaffold-note.tsx` เมื่อไม่มีหน้าไหนใช้แล้ว)
-- **Auth:** ใช้ `signIn` / `signOut` จาก NextAuth; สมัครสมาชิกยิงไปที่ `POST /api/auth/register`
-- **การดูดวง:** สร้าง `Idempotency-Key` (UUID) ตอนเปิดฟอร์ม แล้วส่งเป็น header เดิมทุกครั้งที่กด (รวมถึงปุ่ม retry) → กันหักเครดิตซ้ำ
-- แนะนำเพิ่ม shadcn/ui สำหรับ component พื้นฐาน (ปุ่ม, input, dialog)
-- font ไทยตั้งไว้แล้ว (Noto Sans Thai) — ใช้ `font-sans` ได้เลย
+- แทนที่ placeholder `ScaffoldNote` ในแต่ละหน้า (ลบ component เมื่อไม่มีใครใช้)
+- **Auth:** ใช้ `signIn("google")` / `signIn("credentials")` / `signOut` จาก NextAuth
+- **แชท:** สร้าง `Idempotency-Key` (UUID) ต่อ 1 ข้อความ แล้วส่งเป็น header เดิมทุกครั้งที่ retry
+- ต้องมีชุดข้อมูล **จังหวัด/อำเภอไทย** สำหรับ dropdown (คุยกับ Backend ว่าจะยิง API หรือฝัง JSON ที่ฝั่ง client)
+- ปี **พ.ศ.**: ให้ผู้ใช้เลือก พ.ศ./ค.ศ. ได้ แต่ backend เก็บเป็น ค.ศ. (UTC) — ส่งค่าที่ตกลงกันไว้ให้ตรง
+- แนะนำเพิ่ม shadcn/ui สำหรับ component พื้นฐาน
 
 ---
 
 ## 4. สัญญากับ Backend (contract)
-
 ทุก API ตอบรูปแบบเดียวกัน:
-
 ```jsonc
-// สำเร็จ
 { "ok": true, "data": { /* ... */ } }
-// ล้มเหลว
 { "ok": false, "error": { "code": "NO_QUOTA", "message": "..." } }
 ```
-
-โค้ด error ที่ต้องแมปเป็น state บนหน้าดูดวง:
-`NO_QUOTA` (เครดิตหมด) · `CATEGORY_LOCKED` (หมวด Pro) · `AI_TIMEOUT` · `AI_PROVIDER_ERROR` · `USER_DISABLED` · `RATE_LIMITED` · `VALIDATION`
+โค้ด error ที่ต้องแมปเป็น state บนแชท:
+`NO_QUOTA` · `CATEGORY_LOCKED` · `AI_TIMEOUT` · `AI_PROVIDER_ERROR` · `USER_DISABLED` · `RATE_LIMITED` · `VALIDATION`
 
 **ไฟล์กลางที่ต้องคุยกับ Backend ก่อนแก้:**
-`src/types/index.ts` (เช่น `HoroscopeResponse`) · `src/lib/schemas.ts` (รูปแบบ request) · `src/config/constants.ts` · `package.json`
+`src/types/index.ts` · `src/lib/schemas.ts` · `src/config/constants.ts` · `package.json`
 
 ---
 
-## 5. รอลูกค้ายืนยัน (มีผลกับ UI — ถาม PM)
-
-- รายการ categories สุดท้าย + อันไหน Free / Pro
-- ต้องมีปุ่ม Google login ไหม
-- ถามแบบพิมพ์เอง / เลือกคำถามสำเร็จรูป / ทั้งคู่
-- แบรนด์/โลโก้/สี/ฟอนต์สุดท้าย
-- ความยาวคำตอบ Free vs Pro
+## 5. รอ PM ยืนยัน (มีผลกับ UI)
+- **ดวงจร (transit)** อยู่ใน Phase 1 ไหม (เพิ่มงานเยอะ) หรือเลื่อน
+- Sign-in อีเมลแบบ **magic-link** หรือ **อีเมล+รหัสผ่าน**
+- ประวัติแชท: เก็บแยกตามหัวข้อ หรือรวมใน "ดวงจร" (ดีไซน์มี 2 ไอเดีย)
+- แหล่งข้อมูลจังหวัด/อำเภอ (ชุดข้อมูลไทยเต็ม?)
+- คำถามแนะนำ: ใครเป็นคนกำหนดเนื้อหา (ลูกค้า/แอดมิน)
