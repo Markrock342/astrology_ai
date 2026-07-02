@@ -19,9 +19,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex flex-1 overflow-hidden">
       <aside
         className={`${
-          collapsed ? "w-0 -translate-x-full" : "w-72"
-        } fixed inset-y-0 left-0 z-30 flex shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] transition-all md:static md:translate-x-0`}
+          collapsed ? "w-0 -translate-x-full border-r-0" : "w-72 border-r"
+        } fixed inset-y-0 left-0 z-30 shrink-0 overflow-hidden border-[var(--border)] bg-[var(--surface)] transition-all duration-300 md:static md:translate-x-0`}
       >
+        {/* Fixed-width inner wrapper: content is clipped (not squished) while
+            the aside animates between w-72 and w-0. */}
+        <div className="flex h-full w-72 flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4">
           <Link href="/dashboard" className="flex items-center gap-2">
@@ -124,15 +127,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </div>
+        </div>
       </aside>
 
       {/* Main */}
-      <div className="flex flex-1 flex-col">
+      <div className="relative flex flex-1 flex-col">
         {collapsed && (
           <button
             type="button"
             onClick={() => setCollapsed(false)}
-            className="absolute left-3 top-3 z-40 rounded-md bg-[var(--surface-2)] p-2 text-[var(--muted)] hover:text-[var(--foreground)]"
+            className="animate-fade-in press-scale absolute left-3 top-3 z-40 rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-2 text-[var(--muted)] transition hover:text-[var(--foreground)]"
             aria-label="เปิดแถบข้าง"
           >
             <CollapseIcon />
@@ -214,7 +218,7 @@ function CategoryIcon({ slug }: { slug: string }) {
           <path d="M4 21c0-4 3.5-6 8-6s8 2 8 6" {...stroke} />
         </svg>
       );
-    case "work":
+    case "career":
       return (
         <svg {...common}>
           <rect x="3" y="7" width="18" height="13" rx="2" {...stroke} />
@@ -240,7 +244,7 @@ function CategoryIcon({ slug }: { slug: string }) {
           <rect x="4" y="4" width="16" height="16" rx="4" {...stroke} />
         </svg>
       );
-    case "luck":
+    case "fortune":
       return (
         <svg {...common}>
           <path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z" {...stroke} />
