@@ -116,7 +116,9 @@ async function main() {
     },
   });
 
-  // ---- Gemini AI config (key referenced by env NAME only) ----
+  // ---- Gemini AI configs (key referenced by env NAME only) ----
+  // Free/Pro use different models: Free gets the cheaper flash-lite, Pro gets
+  // the fuller flash. Both editable from Admin CMS (/admin/ai-configs).
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-default" },
     update: {},
@@ -124,12 +126,48 @@ async function main() {
       id: "seed-gemini-default",
       provider: "GEMINI",
       modelId: "gemini-2.5-flash",
-      displayName: "Gemini 2.5 Flash (free-tier default)",
+      displayName: "Gemini 2.5 Flash (fallback ทุกแพลน)",
       secretReference: "GEMINI_API_KEY",
       planScope: "ALL",
       promptTemplateId: persona.id,
       versionLabel: "v1",
       notes: "Seed default. Model id is editable from Admin CMS.",
+    },
+  });
+
+  await prisma.aIProviderConfig.upsert({
+    where: { id: "seed-gemini-free" },
+    update: {},
+    create: {
+      id: "seed-gemini-free",
+      provider: "GEMINI",
+      modelId: "gemini-2.5-flash-lite",
+      displayName: "Free — Gemini 2.5 Flash Lite (ประหยัด)",
+      secretReference: "GEMINI_API_KEY",
+      planScope: "FREE",
+      maxOutputTokens: 1024,
+      fallbackConfigId: "seed-gemini-default",
+      promptTemplateId: persona.id,
+      versionLabel: "v1",
+      notes: "Free users: cheaper model, shorter answers.",
+    },
+  });
+
+  await prisma.aIProviderConfig.upsert({
+    where: { id: "seed-gemini-pro" },
+    update: {},
+    create: {
+      id: "seed-gemini-pro",
+      provider: "GEMINI",
+      modelId: "gemini-2.5-flash",
+      displayName: "Pro — Gemini 2.5 Flash (ละเอียด)",
+      secretReference: "GEMINI_API_KEY",
+      planScope: "PRO",
+      maxOutputTokens: 4096,
+      fallbackConfigId: "seed-gemini-default",
+      promptTemplateId: persona.id,
+      versionLabel: "v1",
+      notes: "Pro users: fuller model, longer answers.",
     },
   });
 
