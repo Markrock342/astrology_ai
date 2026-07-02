@@ -1,26 +1,34 @@
 @import "tailwindcss";
 
+/* HoraSard — dark, premium, mystical theme (spec 4). Avoid excessive glow. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b0b13;
+  --surface: #14141f;
+  --surface-2: #1c1c2b;
+  --border: #2a2a3d;
+  --foreground: #ececf2;
+  --muted: #9a9ab0;
+  --primary: #b79bff; /* soft cosmic violet */
+  --primary-foreground: #12101c;
+  --accent: #e4c78a; /* warm gold */
+  --danger: #f87171;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-thai), var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
