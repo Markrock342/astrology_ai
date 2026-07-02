@@ -28,7 +28,7 @@ export const NATAL_CATEGORIES: Category[] = [
     ],
   },
   {
-    slug: "work",
+    slug: "career",
     label: "การงาน",
     tier: "FREE",
     suggestedQuestions: [
@@ -56,7 +56,7 @@ export const NATAL_CATEGORIES: Category[] = [
     suggestedQuestions: ["ต้องระวังสุขภาพเรื่องใด", "ช่วงนี้ควรดูแลตัวเองยังไง"],
   },
   {
-    slug: "luck",
+    slug: "fortune",
     label: "โชคลาภ",
     tier: "PRO",
     suggestedQuestions: ["ช่วงนี้ดวงโชคลาภเป็นยังไง", "เลขมงคลของฉัน"],
