@@ -17,15 +17,32 @@ export const loginSchema = z.object({
   password: z.string().min(8),
 });
 
-export const birthProfileSchema = z.object({
-  nickname: z.string().max(60).optional(),
-  birthDate: z.coerce.date(),
-  birthTime: z.string().optional(),
-  birthTimeKnown: z.boolean().default(true),
-  gender: z.string().max(40).optional(),
-  birthLocation: z.string().max(120).optional(),
-  additionalInfo: z.string().max(500).optional(),
-});
+/**
+ * Birth profile input (central FE/BE contract — coordinate before changing).
+ * Year may be Buddhist (พ.ศ.) or Gregorian (ค.ศ.); the service normalizes it to
+ * Gregorian and stores the instant in UTC. Province/district are required
+ * (structured Thai location); country defaults to ไทย.
+ */
+export const birthProfileSchema = z
+  .object({
+    nickname: z.string().max(60).optional(),
+    year: z.number().int().min(1900).max(2600),
+    month: z.number().int().min(1).max(12),
+    day: z.number().int().min(1).max(31),
+    yearEra: z.enum(["BE", "CE"]).optional(),
+    birthTimeKnown: z.boolean().default(true),
+    hour: z.number().int().min(0).max(23).optional(),
+    minute: z.number().int().min(0).max(59).optional(),
+    gender: z.string().max(40).optional(),
+    birthCountry: z.string().max(60).default("ไทย"),
+    birthProvince: z.string().min(1).max(80),
+    birthDistrict: z.string().min(1).max(80),
+    additionalInfo: z.string().max(500).optional(),
+  })
+  .refine((v) => !v.birthTimeKnown || (v.hour !== undefined && v.minute !== undefined), {
+    message: "ต้องระบุเวลาเกิด (ชั่วโมงและนาที) เมื่อทราบเวลาเกิด",
+    path: ["hour"],
+  });
 
 export const createReadingSchema = z.object({
   categorySlug: z.string().min(1),

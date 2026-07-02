@@ -11,6 +11,7 @@ export type AppErrorCode =
   | "NOT_FOUND"
   | "VALIDATION"
   | "CATEGORY_LOCKED"
+  | "EDIT_LIMIT_REACHED"
   | "NO_QUOTA"
   | "AI_TIMEOUT"
   | "AI_PROVIDER_ERROR"
@@ -26,6 +27,7 @@ const STATUS: Record<AppErrorCode, number> = {
   NOT_FOUND: 404,
   VALIDATION: 422,
   CATEGORY_LOCKED: 403,
+  EDIT_LIMIT_REACHED: 409,
   NO_QUOTA: 402,
   AI_TIMEOUT: 504,
   AI_PROVIDER_ERROR: 502,
