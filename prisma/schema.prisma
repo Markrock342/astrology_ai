@@ -84,6 +84,18 @@ enum ReadingStatus {
   TIMEOUT
 }
 
+// Chat thread mode. NATAL = natal chart (Free/Pro categories); TRANSIT = ดวงจร
+// (Pro-only). Transit auto-calculation is gated until confirmed in Phase 1.
+enum ConversationMode {
+  NATAL
+  TRANSIT
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
 enum UsageStatus {
   SUCCESS
   FAILED
@@ -116,6 +128,7 @@ model User {
   subscriptions UserSubscription[]
   creditTxns    CreditTransaction[]
   readings      HoroscopeReading[]
+  conversations Conversation[]
   usageLogs     AIUsageLog[]
   payments      Payment[]
 
@@ -168,14 +181,23 @@ model BirthProfile {
   id             String   @id @default(cuid())
   userId         String   @unique
   nickname       String?
+  // Always stored as Gregorian (ค.ศ.) in UTC. The service converts a Buddhist
+  // (พ.ศ.) year to Gregorian before persisting (rule: store UTC).
   birthDate      DateTime
   // Stored separately so an unknown birth time can be flagged explicitly.
   birthTime      String?
   birthTimeKnown Boolean  @default(true)
   gender         String?
+  // Structured Thai location. birthLocation kept for legacy free-text.
+  birthCountry   String   @default("ไทย")
+  birthProvince  String?
+  birthDistrict  String?
   birthLocation  String?
   additionalInfo String?
   consentVersion String?
+  // Birth info may be edited only once more (0 = never edited, max 1). Enforced
+  // in the birth-profile service, not just the DB.
+  editCount      Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -189,24 +211,27 @@ model BirthProfile {
 // ---------------------------------------------------------------------------
 
 model HoroscopeCategory {
-  id               String      @id @default(cuid())
-  slug             String      @unique
-  nameTh           String
-  nameEn           String?
-  description      String?
-  icon             String?
-  accessLevel      AccessLevel @default(FREE)
-  creditCost       Int         @default(1)
-  enabled          Boolean     @default(true)
-  sortOrder        Int         @default(0)
-  promptTemplateId String?
-  aiConfigId       String?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  id                 String      @id @default(cuid())
+  slug               String      @unique
+  nameTh             String
+  nameEn             String?
+  description        String?
+  icon               String?
+  accessLevel        AccessLevel @default(FREE)
+  creditCost         Int         @default(1)
+  enabled            Boolean     @default(true)
+  sortOrder          Int         @default(0)
+  // Suggested starter questions shown in the chat UI (array of Thai strings).
+  suggestedQuestions Json?
+  promptTemplateId   String?
+  aiConfigId         String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   promptTemplate PromptTemplate?    @relation(fields: [promptTemplateId], references: [id])
   aiConfig       AIProviderConfig?  @relation(fields: [aiConfigId], references: [id])
   readings       HoroscopeReading[]
+  conversations  Conversation[]
 
   @@index([enabled, sortOrder])
   @@map("horoscope_categories")
@@ -388,6 +413,56 @@ model AIUsageLog {
   @@index([userId, createdAt])
   @@index([status])
   @@map("ai_usage_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Chat: conversations (threads) + messages
+// ---------------------------------------------------------------------------
+
+// A chat thread scoped to one category + mode. Credit is charged per assistant
+// message (see Message.creditCost), not per thread.
+model Conversation {
+  id         String           @id @default(cuid())
+  userId     String
+  categoryId String
+  mode       ConversationMode @default(NATAL)
+  title      String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category HoroscopeCategory @relation(fields: [categoryId], references: [id])
+  messages Message[]
+
+  @@index([userId, createdAt])
+  @@index([categoryId])
+  @@map("conversations")
+}
+
+model Message {
+  id               String        @id @default(cuid())
+  conversationId   String
+  role             MessageRole
+  content          String
+  // Idempotency guard for assistant answers: prevents duplicate messages +
+  // double charge on retry/double-click (enforced by the message service).
+  idempotencyKey   String?
+  // Assistant-only metadata (null for USER messages).
+  provider         AIProvider?
+  modelId          String?
+  promptTemplateId String?
+  promptVersion    Int?
+  creditCost       Int           @default(0)
+  status           ReadingStatus @default(SUCCESS)
+  inputUsage       Int?
+  outputUsage      Int?
+  createdAt        DateTime      @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, idempotencyKey])
+  @@index([conversationId, createdAt])
+  @@map("messages")
 }
 
 // ---------------------------------------------------------------------------
