@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { env } from "@/config/env";
+import { ensureOAuthUser } from "@/server/auth/provisioning";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -59,10 +60,33 @@ export const authConfig: NextAuthConfig = {
     // Google provider is added at runtime in `auth.ts` only when configured.
   ],
   callbacks: {
-    jwt({ token, user }) {
+    /**
+     * On OAuth (Google) sign-in, auto-create the user on first login and block
+     * disabled accounts. Credentials sign-in is already validated in authorize.
+     */
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        if (!user.email) return false;
+        const result = await ensureOAuthUser({ email: user.email, name: user.name });
+        return result === "ok";
+      }
+      return true;
+    },
+    /**
+     * Carry our DB user id/role/status on the token. For Google (no DB adapter,
+     * JWT strategy) we resolve the user by email so token.sub is OUR user id.
+     */
+    async jwt({ token, user }) {
       if (user) {
-        token.role = (user as { role?: string }).role;
-        token.status = (user as { status?: string }).status;
+        const email = user.email ?? (token.email as string | undefined);
+        if (email) {
+          const dbUser = await prisma.user.findUnique({ where: { email } });
+          if (dbUser) {
+            token.sub = dbUser.id;
+            token.role = dbUser.role;
+            token.status = dbUser.status;
+          }
+        }
       }
       return token;
     },
