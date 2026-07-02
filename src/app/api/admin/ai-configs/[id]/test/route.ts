@@ -3,6 +3,7 @@ import { requireAdmin } from "@/server/auth/rbac";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/server/db";
 import { generateWithFallback } from "@/server/ai/router";
+import { assertAiAdminEnabled } from "@/server/admin/ai-admin-service";
 
 /**
  * POST /api/admin/ai-configs/:id/test — fire a short real request at the model
@@ -10,6 +11,7 @@ import { generateWithFallback } from "@/server/ai/router";
  */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   return handle(async () => {
+    assertAiAdminEnabled();
     await requireAdmin();
     const { id } = await ctx.params;
 

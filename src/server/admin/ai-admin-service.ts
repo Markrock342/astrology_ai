@@ -2,6 +2,17 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/server/audit/audit-service";
+import { FEATURES } from "@/config/features";
+
+/**
+ * Guard the AI CMS behind the current phase (defense in depth — the UI is also
+ * hidden). Call at the top of every AI-admin API route.
+ */
+export function assertAiAdminEnabled() {
+  if (!FEATURES.aiAdmin) {
+    throw new AppError("FEATURE_DISABLED", "โมดูลจัดการ AI จะเปิดใช้งานในเฟสถัดไป");
+  }
+}
 
 /**
  * Admin AI CMS service: CRUD for prompt templates, AI provider configs, and
