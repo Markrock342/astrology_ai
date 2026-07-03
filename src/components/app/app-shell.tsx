@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BrandMark } from "@/components/brand-logo";
@@ -16,7 +16,10 @@ import { useAppData, isCategoryLocked } from "./app-data-provider";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  // Two-phase mobile drawer so it can animate on both enter and exit:
+  // `mobileRender` keeps it mounted, `mobileShown` drives the slide/fade.
+  const [mobileRender, setMobileRender] = useState(false);
+  const [mobileShown, setMobileShown] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<SettingsModal>(null);
@@ -38,16 +41,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const displayName = user?.name ?? (loading ? "…" : "ผู้ใช้");
   const planLabel = user?.plan === "PRO" ? "Pro" : "Free";
 
-  function closeMobile() {
-    setMobileOpen(false);
-  }
+  const openMobile = useCallback(() => {
+    setMobileRender(true);
+    // Mount first, then flip to shown on the next frame so the transition runs.
+    requestAnimationFrame(() => setMobileShown(true));
+  }, []);
+
+  const closeMobile = useCallback(() => {
+    setMobileShown(false);
+    // Unmount after the exit transition. The global reduced-motion rule
+    // collapses the transition to ~0ms, so this is effectively instant then.
+    window.setTimeout(() => setMobileRender(false), 240);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileRender) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closeMobile();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileRender, closeMobile]);
 
   // Modal state lives here (not in the popover) so it survives the popover
   // closing/unmounting and never duplicates across sidebar variants.
   function openModal(m: SettingsModal) {
     setActiveModal(m);
     setSettingsOpen(false);
-    setMobileOpen(false);
+    closeMobile();
   }
 
   const sidebarContent = (
@@ -202,26 +223,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
-      {/* Mobile menu button */}
-      <button
-        type="button"
-        onClick={() => setMobileOpen(true)}
-        className="fixed left-3 top-3 z-40 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2 text-[var(--muted)] md:hidden"
-        aria-label="เปิดเมนู"
-      >
-        <MenuIcon />
-      </button>
-
-      {/* Mobile drawer overlay */}
-      {mobileOpen && (
+      {/* Mobile drawer: overlay fades, panel slides. transform/opacity only. */}
+      {mobileRender && (
         <div className="fixed inset-0 z-40 md:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-black/50"
+            className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ease-[var(--ease-out-quart)] ${
+              mobileShown ? "opacity-100" : "opacity-0"
+            }`}
             onClick={closeMobile}
             aria-label="ปิดเมนู"
           />
-          <aside className="relative z-50 flex h-full w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)] shadow-xl">
+          <aside
+            className={`relative z-50 flex h-full w-[86vw] max-w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-transform duration-[240ms] ease-[var(--ease-out-quart)] will-change-transform ${
+              mobileShown ? "translate-x-0" : "-translate-x-full"
+            }`}
+          >
             {sidebarContent}
           </aside>
         </div>
@@ -258,7 +275,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="relative flex flex-1 flex-col">{children}</div>
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        {/* Mobile top bar — gives the menu a home + brand context without a
+            floating button overlapping page content. */}
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 md:hidden">
+          <button
+            type="button"
+            onClick={openMobile}
+            className="press-scale rounded-lg p-2 text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+            aria-label="เปิดเมนู"
+          >
+            <MenuIcon />
+          </button>
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <BrandMark size={26} />
+            <span className="text-sm font-semibold text-[var(--primary)]">
+              {APP_NAME_TH}
+            </span>
+          </Link>
+        </header>
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      </div>
 
       {/* Settings modals — rendered once here so they survive the popover
           closing and never duplicate across sidebar variants. */}
