@@ -1,4 +1,5 @@
 import { ChatView } from "@/components/app/chat-view";
+import { NatalChartBanner } from "@/components/app/natal-chart-banner";
 
 /**
  * Main app surface = chat (design 03/05). The selected category comes from the
@@ -6,5 +7,10 @@ import { ChatView } from "@/components/app/chat-view";
  * questions.
  */
 export default function DashboardPage() {
-  return <ChatView />;
+  return (
+    <div className="flex flex-1 flex-col">
+      <NatalChartBanner />
+      <ChatView />
+    </div>
+  );
 }

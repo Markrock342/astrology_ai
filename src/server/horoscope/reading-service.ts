@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
+import { getEffectivePlan } from "@/server/user/account-service";
 import { deductCredits } from "@/server/credit/credit-service";
 import { generateWithFallback, resolveConfig } from "@/server/ai/router";
 import { buildSystemPrompt, buildUserPrompt } from "@/server/ai/prompt-builder";
@@ -50,10 +51,13 @@ export async function createReading(input: CreateReadingInput) {
     throw new AppError("NOT_FOUND", "Category not available");
   }
 
-  // 3. Permission: Free users cannot use Pro-locked categories.
+  // 3. Flowchart: Free users cannot chat at all; Pro-only categories stay locked for Free.
   const plan = await getEffectivePlan(userId);
-  if (category.accessLevel === "PRO" && plan !== "PRO") {
-    throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
+  if (plan !== "PRO") {
+    throw new AppError(
+      "CHAT_REQUIRES_PRO",
+      "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
+    );
   }
 
   // 4. Quota pre-check (final atomic check happens inside the transaction).
@@ -169,17 +173,4 @@ export async function createReading(input: CreateReadingInput) {
   });
 
   return reading;
-}
-
-/** Effective plan = ACTIVE, non-expired Pro subscription, else FREE. */
-async function getEffectivePlan(userId: string): Promise<"FREE" | "PRO"> {
-  const sub = await prisma.userSubscription.findFirst({
-    where: {
-      userId,
-      status: "ACTIVE",
-      package: { type: "PRO" },
-      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    },
-  });
-  return sub ? "PRO" : "FREE";
 }

@@ -24,11 +24,17 @@
 2. **แก้วันเกิดได้อีกแค่ 1 ครั้ง** → เพิ่ม `birthProfile.editCount` (เริ่ม 0, แก้ได้จนถึง 1) + บังคับที่ service
 3. **ฟิลด์วันเกิดเพิ่ม**: `birthCountry` (default ไทย), `birthProvince`, `birthDistrict` (บังคับ), เวลาเป็น ชม./นาที
    - รับปีเป็น **พ.ศ. หรือ ค.ศ.** จาก client แต่ **เก็บเป็น ค.ศ. (UTC) เสมอ** (แปลงก่อนบันทึก)
-4. **2 โหมด**: `NATAL` (หมวด Free/Pro) และ `TRANSIT`/ดวงจร (**Pro เท่านั้นทั้งโหมด**) — *รอ PM ยืนยันว่าดวงจรอยู่ Phase 1 ไหม*
+4. **2 โหมด**: `NATAL` (หมวด Free/Pro) และ `TRANSIT`/ดวงจร (**Pro เท่านั้นทั้งโหมด**)
 5. **Google login อยู่ Phase 1** + ผู้ใช้ใหม่ **auto-create บัญชีตอน sign-in ครั้งแรก**
 6. **คำถามแนะนำต่อหมวด** → เพิ่ม `HoroscopeCategory.suggestedQuestions` (Json อาเรย์)
 7. **Voice/STT/TTS = Phase 2 อย่าทำ** (ในดีไซน์เป็นไอคอนโทรศัพท์ไว้เฉยๆ)
 8. ต้องมีเนื้อหา **นโยบายความเป็นส่วนตัว/เงื่อนไข** (เก็บใน `app_settings` หรือหน้า static)
+
+**กฎ Flowchart (ยืนยัน PM แล้ว)**
+- **Free ห้ามแชท AI** — `reading-service` + `message-service` คืน `CHAT_REQUIRES_PRO`; `GET /api/me` มี `canChat: plan === "PRO"`
+- **Free หมวด:** ตัวตน + การงานเท่านั้น (หมวด Pro ยัง lock ด้วย `CATEGORY_LOCKED`)
+- **`NatalChart`** model + stub service หลัง save birth — engine จริง port จาก `newhora` ภายหลัง
+- **ดวงจร:** `TRANSIT_REQUIRES_PRO` + ฟิลด์ transit บน `Conversation`
 
 > โมเดลเดิม `HoroscopeReading`/`ai_usage_logs` ยังใช้เป็นฐานได้ — ปรับ `reading-service.ts` ให้ทำงานระดับ "ข้อความ" แทน "reading" แล้ว migrate ชื่อ/ความสัมพันธ์ให้ตรงโมเดลแชท
 
@@ -83,8 +89,10 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 ### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History
 
-- [ ] API แชท: `POST /api/conversations` (เริ่มเธรดตามหัวข้อ/โหมด), `POST /api/conversations/:id/messages` (ส่งข้อความ → AI ตอบ), `GET /api/conversations`, `GET /api/conversations/:id`
-- [ ] ปรับ `reading-service.ts` → **message-service**: เช็คสิทธิ์ (Free/Pro, ดวงจร=Pro) → เช็ค quota → เรียก AI → **หักเครดิตหลังสำเร็จ** → บันทึก message + usage ใน transaction เดียว → idempotency กันกดซ้ำ
+- [x] API แชท (บางส่วน): `GET /api/conversations`, `GET /api/conversations/:id`, `POST /api/conversations`, `POST /api/conversations/:id/messages` (ยัง delegate ผ่าน `reading-service` + sync Message)
+- [x] กฎ Free ห้ามแชท: `CHAT_REQUIRES_PRO` + `canChat` ใน `/api/me`
+- [x] `NatalChart` stub + `GET /api/me/natal-chart` หลัง save birth
+- [ ] ปรับ `reading-service.ts` → **message-service** เต็มรูป: context เธรด + ไม่พึ่ง HoroscopeReading
 - [ ] `providers/gemini.ts` — เรียก Gemini จริง + `AbortController(timeoutMs)`, ใช้ `resolveSecret()`; **ห้าม throw** เมื่อ error (คืน `ok:false` เพื่อ fallback และไม่หักเครดิต)
 - [ ] Prompt builder: รองรับประวัติสนทนา (ส่ง context ของเธรด) + persona แม่หมอ + โหมด natal/transit
 - [ ] คำถามแนะนำต่อหมวด (ตอบใน `GET /api/horoscope/categories`)

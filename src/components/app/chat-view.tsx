@@ -28,6 +28,7 @@ type ChatState =
 const ERROR_MESSAGES: Record<string, string> = {
   NO_QUOTA: "เครดิตหมดแล้ว เติมเครดิตหรืออัปเกรดเป็น Pro เพื่อถามต่อ",
   CATEGORY_LOCKED: "หมวดนี้สำหรับสมาชิก Pro",
+  CHAT_REQUIRES_PRO: "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
   AI_TIMEOUT: "หมอดูใช้เวลานานเกินไป ลองถามใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
   AI_PROVIDER_ERROR: "ระบบทำนายขัดข้องชั่วคราว ลองใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
   VALIDATION: "กรุณากรอกข้อมูลวันเกิดก่อนเริ่มดูดวง",
@@ -61,6 +62,7 @@ export function ChatView() {
   const { user, refresh } = useAppData();
   const category = useCategory(catSlug);
   const locked = isCategoryLocked(category, user?.plan ?? "FREE");
+  const chatBlocked = FEATURES.aiChat && Boolean(user && !user.canChat);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -154,6 +156,11 @@ export function ChatView() {
       setState("locked");
       return;
     }
+    if (chatBlocked) {
+      setErrorText(ERROR_MESSAGES.CHAT_REQUIRES_PRO);
+      setState("error");
+      return;
+    }
     if (!catSlug) {
       setErrorText("เลือกหมวดจากแถบข้างก่อนเริ่มดูดวง");
       setState("error");
@@ -192,6 +199,11 @@ export function ChatView() {
           setState("locked");
           return;
         }
+        if (code === "CHAT_REQUIRES_PRO") {
+          setErrorText(ERROR_MESSAGES.CHAT_REQUIRES_PRO);
+          setState("error");
+          return;
+        }
         setErrorText(
           ERROR_MESSAGES[code] ??
             json?.error?.message ??
@@ -219,8 +231,10 @@ export function ChatView() {
     }
   }
 
+  const showUpgrade =
+    messages.length === 0 && chatBlocked && !locked && !loadingThread && !threadId;
   const showEmpty =
-    messages.length === 0 && state !== "locked" && !loadingThread && !threadId;
+    messages.length === 0 && !chatBlocked && state !== "locked" && !loadingThread && !threadId;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -232,6 +246,8 @@ export function ChatView() {
         )}
         {loadingThread ? (
           <p className="text-center text-sm text-[var(--muted)]">กำลังโหลดประวัติ…</p>
+        ) : showUpgrade ? (
+          <UpgradeProState category={category?.label} />
         ) : showEmpty ? (
           <EmptyState
             category={category?.label}
@@ -290,8 +306,10 @@ export function ChatView() {
         value={input}
         onChange={setInput}
         onSend={() => send(input)}
-        disabled={state === "processing" || state === "streaming" || locked}
-        aiEnabled={FEATURES.aiChat && !locked}
+        disabled={
+          state === "processing" || state === "streaming" || locked || chatBlocked
+        }
+        aiEnabled={FEATURES.aiChat && !locked && !chatBlocked}
       />
     </div>
   );
@@ -371,6 +389,37 @@ function EmptyState({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function UpgradeProState({ category }: { category?: string }) {
+  return (
+    <div className="mx-auto flex max-w-md flex-col items-center pt-20 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[var(--primary)]/40 text-[var(--primary)]">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+      <h2 className="text-lg font-semibold text-[var(--foreground)]">
+        สนทนากับ AI สำหรับสมาชิก Pro
+      </h2>
+      <p className="mt-2 text-sm text-[var(--muted)]">
+        {category
+          ? `หมวด“${category}”ดูได้ในบัญชี Free แต่การถาม–ตอบกับ AI ต้องอัปเกรดเป็น Pro`
+          : "บัญชี Free ดูหมวดพื้นดวงเดิมได้ แต่การถาม–ตอบกับ AI ต้องอัปเกรดเป็น Pro"}
+      </p>
+      <a
+        href="/account"
+        className="mt-5 rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+      >
+        อัปเกรดเป็น Pro
+      </a>
     </div>
   );
 }

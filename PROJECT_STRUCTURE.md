@@ -19,6 +19,8 @@ Repo: [github.com/Markrock342/astrology_ai](https://github.com/Markrock342/astro
 - **ประเภท:** แอปดูดวง AI แบบ **แชท** (สนทนาหลายข้อความ) ไม่ใช่ Q&A ยิงครั้งเดียว
 - **ผู้ใช้:** สมัคร/เข้าสู่ระบบ → กรอกวันเกิด (บังคับครั้งแรก) → เลือกหมวด → แชทถาม AI
 - **สิทธิ์:** Free / Pro + เครดิต (ไม่แสดง token ดิบ)
+  - **Free:** หมวดตัวตน+การงาน · ดูได้แต่ **ห้ามแชท AI** (`canChat=false`)
+  - **Pro:** แชททุกหมวด + ดวงจร
 - **แอดมิน:** CMS จัดการ user, หมวด, prompt/persona, AI model, แพ็กเกจ, เครดิต, การชำระเงิน manual, usage logs
 
 ---
@@ -56,7 +58,7 @@ hora_ai/
 │   │   ├── db.ts
 │   │   ├── auth/             # config, rbac (requireUser, requireAdmin)
 │   │   ├── credit/           # หัก/เพิ่มเครดิต atomic
-│   │   ├── horoscope/        # reading-service (→ จะเป็น message-service)
+│   │   ├── horoscope/        # reading-service, message-service, natal-chart-service, thread-service
 │   │   ├── ai/               # adapter, router, prompt-builder, gemini, usage-logger
 │   │   └── audit/            # admin audit logs
 │   ├── lib/                  # errors, http, schemas, rate-limit, date

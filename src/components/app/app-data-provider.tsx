@@ -20,6 +20,7 @@ export type AppUser = {
   email: string;
   plan: "FREE" | "PRO";
   creditBalance: number;
+  canChat: boolean;
 };
 
 type AppDataContextValue = {
@@ -60,6 +61,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             email: meJson.data.email,
             plan: meJson.data.plan,
             creditBalance: meJson.data.creditBalance,
+            canChat: meJson.data.canChat ?? meJson.data.plan === "PRO",
           });
         }
       }
