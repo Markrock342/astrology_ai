@@ -165,4 +165,5 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 - [ ] `suggestedQuestions` ใน `GET /api/horoscope/categories`
 
 - [ ] นโยบายความเป็นส่วนตัว/เงื่อนไข (M4)
+- [ ] **เชื่อมส่งอีเมลจริง** (password reset) — ตอนนี้ dev fallback เท่านั้น ดู [backend_auth_register_reset.md](./backend_auth_register_reset.md)
 
