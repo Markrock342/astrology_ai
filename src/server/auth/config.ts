@@ -79,9 +79,16 @@ export const authConfig: NextAuthConfig = {
      */
     async jwt({ token, user }) {
       if (user) {
-        const email = user.email ?? (token.email as string | undefined);
-        if (email) {
-          const dbUser = await prisma.user.findUnique({ where: { email } });
+        // Credentials authorize already returns our DB id/role/status — skip an
+        // extra round-trip to Supabase on every login/register.
+        if (user.id) token.sub = user.id;
+        const u = user as { role?: string; status?: string; email?: string | null };
+        if (u.role) token.role = u.role;
+        if (u.status) token.status = u.status;
+
+        // Google OAuth: resolve our user id by email when not on the user object.
+        if (!token.sub && u.email) {
+          const dbUser = await prisma.user.findUnique({ where: { email: u.email } });
           if (dbUser) {
             token.sub = dbUser.id;
             token.role = dbUser.role;
