@@ -236,7 +236,7 @@ export function ChatView() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 pt-14 md:px-8 md:pt-6">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 md:px-8">
         {!FEATURES.aiChat && (
           <div className="animate-fade-in mx-auto mb-6 max-w-3xl rounded-xl border border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 text-center text-xs text-[var(--muted)]">
             ตัวอย่างระบบ (เฟสนี้) — ระบบดูดวงด้วย AI จะเปิดให้ใช้งานจริงในเฟสถัดไป
