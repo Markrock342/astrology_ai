@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useAppData } from "./app-data-provider";
 
 // Total birthday settings allowed = 1 initial + 1 edit (design shows x/2).
 const BIRTH_TOTAL = 2;
@@ -13,14 +12,16 @@ export type SettingsModal = "rename" | "password" | "cancel" | null;
 export function SettingsPopover({
   onClose,
   onOpenModal,
+  anchorRef,
 }: {
   onClose: () => void;
   onOpenModal: (m: SettingsModal) => void;
+  anchorRef?: React.RefObject<HTMLElement | null>;
 }) {
   const router = useRouter();
-  const { user } = useAppData();
   const ref = useRef<HTMLDivElement>(null);
   const [editsRemaining, setEditsRemaining] = useState<number | null>(null);
+  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -37,9 +38,42 @@ export function SettingsPopover({
     };
   }, []);
 
+  // Anchor the popover to the gear button and float it up-and-right over the
+  // content area (design 02). Fixed positioning escapes the sidebar overflow.
+  useLayoutEffect(() => {
+    function place() {
+      const el = anchorRef?.current;
+      if (!el) {
+        setPos({ left: 12, bottom: 84 });
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) {
+        setPos({ left: 12, bottom: 84 });
+        return;
+      }
+      const width = 340;
+      let left = r.left - 6;
+      const maxLeft = window.innerWidth - width - 12;
+      if (left > maxLeft) left = maxLeft;
+      if (left < 12) left = 12;
+      const bottom = window.innerHeight - r.top + 12;
+      setPos({ left, bottom });
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [anchorRef]);
+
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (anchorRef?.current?.contains(target)) return;
+      if (ref.current && !ref.current.contains(target)) onClose();
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -50,7 +84,7 @@ export function SettingsPopover({
       document.removeEventListener("mousedown", onClick);
       document.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, [onClose, anchorRef]);
 
   const birthExhausted = editsRemaining === 0;
   const birthCurrent = BIRTH_TOTAL - (editsRemaining ?? BIRTH_TOTAL - 1);
@@ -61,61 +95,64 @@ export function SettingsPopover({
         ? "ครบแล้ว"
         : `(ครั้งที่ ${birthCurrent}/${BIRTH_TOTAL})`;
 
-  const displayName = user?.name ?? "ผู้ใช้";
-
   return (
     <div
       ref={ref}
-      className="animate-fade-up absolute bottom-full left-0 z-50 mb-2 w-full min-w-[260px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-1.5 shadow-2xl"
+      style={pos ? { left: pos.left, bottom: pos.bottom } : undefined}
+      className={`animate-fade-up fixed z-[60] w-[340px] max-w-[calc(100vw-24px)] overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface-2)] p-3 shadow-2xl ${
+        pos ? "" : "invisible"
+      }`}
     >
-      <p className="px-3 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-[var(--muted-2)]">
-        การตั้งค่า
-      </p>
-      <Row
-        icon={<UserIcon />}
-        label="เปลี่ยนชื่อผู้ใช้"
-        hint={displayName}
-        onClick={() => onOpenModal("rename")}
-      />
-      <Row
-        icon={<KeyIcon />}
-        label="เปลี่ยนรหัสผ่าน"
-        hint="(Password)"
-        onClick={() => onOpenModal("password")}
-      />
-      <Row
-        icon={<CalendarIcon />}
-        label="เปลี่ยนวันเกิด"
-        hint={birthHint}
-        disabled={birthExhausted}
-        onClick={() => {
-          onClose();
-          router.push("/onboarding");
-        }}
-      />
-      <Row
-        icon={<PackageIcon />}
-        label="จัดการแพ็กเกจ"
-        highlight
-        onClick={() => {
-          onClose();
-          router.push("/account");
-        }}
-      />
-      <Row
-        icon={<LogoutIcon />}
-        label="ออกจากระบบ"
-        onClick={() => void signOut({ callbackUrl: "/login" })}
-      />
-      <div className="mt-1 border-t border-[var(--border)] pt-1">
-        <button
-          type="button"
-          onClick={() => onOpenModal("cancel")}
-          className="w-full rounded-lg px-3 py-2 text-center text-xs text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--muted)]"
-        >
-          ยกเลิกการเป็นสมาชิก
-        </button>
+      <div className="flex items-center gap-3 px-1 pb-2.5 pt-0.5">
+        <span className="text-[12px] font-medium text-[var(--muted)]">
+          การตั้งค่า
+        </span>
+        <span className="h-px flex-1 bg-[var(--border)]" />
       </div>
+      <div className="flex flex-col gap-2">
+        <Row
+          icon={<UserIcon />}
+          label="เปลี่ยนชื่อผู้ใช้"
+          hint="(Username)"
+          onClick={() => onOpenModal("rename")}
+        />
+        <Row
+          icon={<KeyIcon />}
+          label="เปลี่ยนรหัสผ่าน"
+          hint="(Password)"
+          onClick={() => onOpenModal("password")}
+        />
+        <Row
+          icon={<CalendarIcon />}
+          label="เปลี่ยนวันเกิด"
+          hint={birthHint}
+          disabled={birthExhausted}
+          onClick={() => {
+            onClose();
+            router.push("/onboarding");
+          }}
+        />
+        <Row
+          icon={<PackageIcon />}
+          label="จัดการแพ็กเกจ"
+          onClick={() => {
+            onClose();
+            router.push("/account");
+          }}
+        />
+        <Row
+          icon={<LogoutIcon />}
+          label="ออกจากระบบ"
+          onClick={() => void signOut({ callbackUrl: "/login" })}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={() => onOpenModal("cancel")}
+        className="mt-2.5 w-full rounded-lg px-3 py-1.5 text-center text-[11px] text-[var(--muted-2)] transition hover:text-[var(--muted)]"
+      >
+        ยกเลิกการเป็นสมาชิก
+      </button>
     </div>
   );
 }
@@ -140,19 +177,25 @@ function Row({
       type="button"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${
+      className={`press-scale flex w-full items-center gap-3 rounded-full py-2.5 pl-2.5 pr-5 text-left text-[13px] transition ${
         highlight
-          ? "bg-[var(--surface-3)] text-[var(--foreground)]"
-          : "text-[var(--foreground)] hover:bg-[var(--surface-3)]"
+          ? "bg-[var(--surface-3)] text-[var(--foreground)] hover:bg-[var(--border)]"
+          : "bg-[var(--background)] text-[var(--foreground)] hover:bg-[var(--surface-3)]"
       } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
     >
-      <span className="shrink-0 text-[var(--muted)]">{icon}</span>
-      <span className="flex-1">{label}</span>
-      {hint && (
-        <span className="max-w-[100px] truncate text-xs text-[var(--muted-2)]">
-          {hint}
-        </span>
-      )}
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+          highlight
+            ? "bg-[var(--background)] text-[var(--primary)]"
+            : "bg-[var(--surface-2)] text-[var(--primary)]"
+        }`}
+      >
+        {icon}
+      </span>
+      <span className="flex-1">
+        {label}
+        {hint && <span className="ml-1 text-[var(--muted-2)]">{hint}</span>}
+      </span>
     </button>
   );
 }
