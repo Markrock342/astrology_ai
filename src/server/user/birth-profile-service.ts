@@ -15,6 +15,17 @@ import { buildBirthDateUtc, type YearEra } from "@/lib/date";
 
 export const MAX_BIRTH_EDITS = 1;
 
+/** True when the user may still submit one more birth-profile update. */
+export function canEditBirthProfile(editCount: number): boolean {
+  return editCount < MAX_BIRTH_EDITS;
+}
+
+/** Remaining edits allowed (0 or 1 under M2 rules). */
+export function getEditsRemaining(editCount: number | null | undefined): number {
+  if (editCount == null) return MAX_BIRTH_EDITS;
+  return Math.max(0, MAX_BIRTH_EDITS - editCount);
+}
+
 export type BirthProfileInput = {
   nickname?: string;
   year: number;
@@ -38,7 +49,7 @@ export async function getBirthProfile(userId: string) {
 export async function upsertBirthProfile(userId: string, input: BirthProfileInput) {
   const existing = await prisma.birthProfile.findUnique({ where: { userId } });
 
-  if (existing && existing.editCount >= MAX_BIRTH_EDITS) {
+  if (existing && !canEditBirthProfile(existing.editCount)) {
     throw new AppError(
       "EDIT_LIMIT_REACHED",
       "แก้ไขข้อมูลวันเกิดได้เพียงครั้งเดียว ไม่สามารถแก้ไขเพิ่มได้",

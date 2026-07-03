@@ -1,32 +1,29 @@
 # Backend — Chat schema + Birth profile fields (M2)
 
 ## สถานะปัจจุบันของฟีเจอร์นี้ (Current Status)
-- ปรับ Prisma schema เป็นโมเดลแชท (Conversation + Message) เพิ่มฟิลด์ birth profile และ suggestedQuestions เสร็จแล้ว พร้อม migration แบบ offline (init + delta) — รอรันกับ DB จริงด้วย `npm run db:migrate`
+- ✅ **เสร็จและ merge แล้ว** (PR #1 `be/chat-model` → `main`) — schema แชท + ฟิลด์ birth profile + suggestedQuestions พร้อม migration 2 ไฟล์ (init + M2 delta)
 
 ## งานที่เพิ่งทำเสร็จ (Recently Completed)
-- `prisma/schema.prisma`:
-  - เพิ่ม enum `ConversationMode` (NATAL/TRANSIT), `MessageRole` (USER/ASSISTANT)
-  - เพิ่มโมเดล `Conversation` (userId, categoryId, mode, title) + `Message` (role, content, idempotencyKey, provider/modelId/promptVersion/creditCost/inputUsage/outputUsage) — หักเครดิต "ต่อข้อความ AI"
-  - `BirthProfile`: เพิ่ม `birthCountry` (default "ไทย"), `birthProvince`, `birthDistrict`, `editCount` (default 0)
-  - `HoroscopeCategory`: เพิ่ม `suggestedQuestions Json?`
-- `prisma/migrations/20260702000001_init` — baseline (โปรเจกต์เดิมไม่เคยมี migration)
-- `prisma/migrations/20260702000002_m2_chat_birthprofile_suggested` — delta ของ M2
-- `prisma/seed.ts` — เพิ่ม suggestedQuestions ต่อหมวด
-- ผ่าน `prisma validate` + `db:generate` + `typecheck` + `lint`
+- `prisma/schema.prisma`: `Conversation` + `Message`, `ConversationMode` (NATAL/TRANSIT), `MessageRole` (USER/ASSISTANT)
+- `BirthProfile`: `birthCountry`, `birthProvince`, `birthDistrict`, `editCount`
+- `HoroscopeCategory.suggestedQuestions` (Json)
+- `KnowledgeDoc` เพิ่มใน schema ภายหลัง (commit `8a0f4da`) — ยังไม่มี migration แยก
+- `prisma/migrations/20260702000001_init` + `20260702000002_m2_chat_birthprofile_suggested`
+- `prisma/seed.ts` — suggestedQuestions ต่อหมวด
 
 ## บันทึกการแก้บัค (Bug & Troubleshooting Log)
-- [ปัญหา]: ไม่มี DB/`.env` → รัน `prisma migrate dev` ไม่ได้
-  - [วิธีที่ลองแก้]: สร้าง migration แบบ offline ด้วย `prisma migrate diff --from-empty` (init) และ `--from-schema-datamodel ... --to-schema-datamodel` (delta) แล้วเขียนไฟล์ SQL เอง
-- [ปัญหา]: ค่า default ภาษาไทย `'ไทย'` เพี้ยนเป็น mojibake เมื่อ pipe ผ่าน PowerShell `Out-File`
-  - [วิธีที่ลองแก้]: เขียนไฟล์ migration.sql ใหม่ด้วย UTF-8 และลบ BOM แบบ byte-level
+- [ปัญหา]: สร้าง migration offline เพราะไม่มี Postgres ตอนพัฒนา
+  - [วิธีที่ลองแก้]: `prisma migrate diff` → เขียน SQL เอง; แก้ mojibake ค่า default `'ไทย'` ด้วย UTF-8 ไม่มี BOM
+- [ปัญหา]: Vercel build ไม่มี Prisma client
+  - [วิธีที่ลองแก้]: `7279249` — generate client ก่อน build ใน pipeline
 
 ## สิ่งที่ยังค้างอยู่และปัญหาที่ทราบ (Pending & Known Issues)
-- migration ยังไม่ได้รันกับ Postgres จริง (สภาพแวดล้อมนี้ไม่มี DB) — ต้อง `npm run db:migrate` ยืนยันก่อน merge
-- `birthProvince`/`birthDistrict` เป็น nullable ที่ DB (ปลอดภัยต่อ migration) แต่จะ "บังคับ" ที่ service/Zod ใน PR ถัดไป
-- ยังไม่แตะ `HoroscopeReading`/`AIUsageLog` (การแปลง reading→message เป็นงาน M3)
+- `HoroscopeReading` ยังใช้งานอยู่ — ยังไม่ย้าย flow ไป `Conversation`/`Message` (งาน M3)
+- `KnowledgeDoc` ใน schema อาจต้อง `db:migrate` เพิ่มถ้า DB เก่ายังไม่มีตาราง
+- `GET /api/horoscope/categories` ยังไม่ส่ง `suggestedQuestions` (M3)
 
 ## Checklist งานต่อไป (Next Steps)
-- [ ] เปิด PR `be/chat-model` → PM รีวิว
-- [ ] รัน `npm run db:migrate` กับ DB จริงเพื่อยืนยัน migration
-- [ ] birth-profile service + API (พ.ศ.→ค.ศ., editCount≤1) — PR `be/birth-profile`
-- [ ] เสิร์ฟ suggestedQuestions ใน `GET /api/horoscope/categories` (M3)
+- [x] เปิด PR `be/chat-model` → merge แล้ว
+- [ ] รัน `npm run db:migrate` + `db:seed` บน DB จริง (Supabase) หลัง deploy
+- [ ] เขียน migration สำหรับ `knowledge_docs` ถ้ายังไม่มีในฐานข้อมูล
+- [ ] message-service + API `/api/conversations/*` (M3)
