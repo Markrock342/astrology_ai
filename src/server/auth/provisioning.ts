@@ -15,7 +15,7 @@ export async function provisionUser(input: {
   passwordHash?: string | null;
   role?: Role;
 }) {
-  const user = await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
       data: {
         email: input.email,
@@ -37,15 +37,16 @@ export async function provisionUser(input: {
         },
       });
     }
+
+    await addCredits(
+      created.id,
+      DEFAULTS.freeCreditQuota,
+      { type: "INITIAL_GRANT", note: "Free sign-up grant" },
+      tx,
+    );
+
     return created;
   });
-
-  await addCredits(user.id, DEFAULTS.freeCreditQuota, {
-    type: "INITIAL_GRANT",
-    note: "Free sign-up grant",
-  });
-
-  return user;
 }
 
 export type EnsureOAuthResult = "ok" | "disabled";

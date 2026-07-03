@@ -30,6 +30,9 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
   const [step, setStep] = useState<Step>("email");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
+  const [loadingPhase, setLoadingPhase] = useState<"check" | "register" | "login" | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
   async function handleGoogle() {
@@ -59,6 +62,7 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
     }
 
     setLoading("email");
+    setLoadingPhase("check");
     try {
       const res = await fetch("/api/auth/check-email", {
         method: "POST",
@@ -84,6 +88,7 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
       setError("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
     } finally {
       setLoading(null);
+      setLoadingPhase(null);
     }
   }
 
@@ -101,36 +106,36 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
     }
 
     setLoading("email");
+    setLoadingPhase("register");
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, acceptTerms: true }),
       });
-      const json = (await res.json()) as { ok: boolean; error?: { message: string } };
+      const json = (await res.json()) as {
+        ok: boolean;
+        data?: { signedIn?: boolean };
+        error?: { message: string };
+      };
 
       if (!json.ok) {
         setError(json.error?.message ?? "สมัครสมาชิกไม่สำเร็จ");
         return;
       }
 
-      const signInRes = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (signInRes?.error) {
-        setError("สมัครสำเร็จแล้ว แต่เข้าสู่ระบบไม่ได้ กรุณาลองอีกครั้ง");
-        setStep("login");
+      if (json.data?.signedIn) {
+        window.location.href = "/onboarding";
         return;
       }
 
-      window.location.href = "/onboarding";
+      setStep("login");
+      setError("สมัครสำเร็จแล้ว กรุณาเข้าสู่ระบบอีกครั้ง");
     } catch {
       setError("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
     } finally {
       setLoading(null);
+      setLoadingPhase(null);
     }
   }
 
@@ -144,12 +149,14 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
     }
 
     setLoading("email");
+    setLoadingPhase("login");
     const res = await signIn("credentials", {
       email,
       password,
       redirect: false,
     });
     setLoading(null);
+    setLoadingPhase(null);
 
     if (res?.error) {
       setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
@@ -169,7 +176,13 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
 
   const submitLabel =
     loading === "email"
-      ? "กำลังดำเนินการ…"
+      ? loadingPhase === "check"
+        ? "กำลังตรวจสอบอีเมล…"
+        : loadingPhase === "register"
+          ? "กำลังสร้างบัญชี…"
+          : loadingPhase === "login"
+            ? "กำลังเข้าสู่ระบบ…"
+            : "กำลังดำเนินการ…"
       : step === "email"
         ? "ลงชื่อเข้าใช้ด้วยอีเมล"
         : step === "register"
