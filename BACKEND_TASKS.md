@@ -85,7 +85,7 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 **Acceptance:** sign-in (Google+email) ได้ · กรอก/แก้วันเกิด (จำกัด 1 ครั้ง) ได้ · admin จัดการผู้ใช้/หมวด/แพ็กเกจได้
 
-> **ปิด M2 (`be/m2-close`):** migration `knowledge_docs`, geo API, vitest, email+password sign-in (ตัดสินใจแล้ว ไม่ใช้ magic-link). DB migrate+seed บน Supabase แล้ว.
+> **M2 ปิดแล้ว** (`be/m2-close` + `fe/milestone2-3-ui` + flowchart rules). DB migrate+seed บน Supabase แล้ว.
 
 ### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History
 
