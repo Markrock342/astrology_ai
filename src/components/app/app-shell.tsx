@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BrandMark } from "@/components/brand-logo";
@@ -20,6 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<SettingsModal>(null);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
   const searchParams = useSearchParams();
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
@@ -170,6 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SettingsPopover
             onClose={() => setSettingsOpen(false)}
             onOpenModal={openModal}
+            anchorRef={settingsBtnRef}
           />
         )}
         <div className="flex items-center justify-between rounded-xl px-2 py-2">
@@ -185,6 +187,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <button
+            ref={settingsBtnRef}
             type="button"
             onClick={() => setSettingsOpen((v) => !v)}
             className="rounded-full p-2 text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
@@ -198,7 +201,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex h-[100dvh] overflow-hidden">
       {/* Mobile menu button */}
       <button
         type="button"
@@ -298,6 +301,7 @@ function CollapsedRail({
   displayName: string;
 }) {
   const { filteredCategories } = useAppData();
+  const railBtnRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="flex h-full w-16 flex-col items-center py-4">
@@ -343,9 +347,14 @@ function CollapsedRail({
 
       <div className="relative mt-2 flex flex-col items-center gap-1">
         {settingsOpen && (
-          <SettingsPopover onClose={onCloseSettings} onOpenModal={onOpenModal} />
+          <SettingsPopover
+            onClose={onCloseSettings}
+            onOpenModal={onOpenModal}
+            anchorRef={railBtnRef}
+          />
         )}
         <button
+          ref={railBtnRef}
           type="button"
           onClick={onToggleSettings}
           className="rounded-full p-2 text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
