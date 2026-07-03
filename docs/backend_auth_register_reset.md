@@ -4,7 +4,7 @@
 - ✅ หน้า `/login` เดียว — แยก **สมัคร** (อีเมลใหม่ + รหัส 2 ครั้ง) vs **เข้าสู่ระบบ** (รหัสเดียว) ผ่าน `POST /api/auth/check-email`
 - ✅ ปิด silent auto-create ใน Credentials — สมัครต้องเรียก `POST /api/auth/register` ชัดเจน
 - ✅ ลืมรหัสผ่าน: `/forgot-password` → token ใน DB → `/reset-password?token=...`
-- ⚠️ ส่งอีเมลจริง: รอ `RESEND_API_KEY` — ตอนนี้ dev fallback (log ลิงก์ใน console)
+- ⚠️ **ยังไม่ได้เชื่อมส่งอีเมลจริง** — ใช้ dev fallback (log ลิงก์รีเซ็ตใน server console) จนกว่าจะตั้ง `RESEND_API_KEY` + `EMAIL_FROM`
 
 ## งานที่เพิ่งทำเสร็จ (Recently Completed)
 - `PasswordResetToken` model + migration `20260703140000_password_reset_token`
@@ -20,9 +20,12 @@
   - [วิธีที่ลองแก้]: ลบ auto-create; สมัครผ่าน register API + UI ยืนยันรหัส 2 ครั้ง
 
 ## สิ่งที่ยังค้างอยู่และปัญหาที่ทราบ (Pending & Known Issues)
-- ยังไม่มี `RESEND_API_KEY` — production ต้องตั้ง env ก่อนส่งเมลจริง
+- **อีเมลยังไม่เชื่อมจริง** — `mailer.ts` มี path Resend พร้อมแล้ว แต่ยังไม่มี `RESEND_API_KEY` ใน `.env` / Vercel → ลิงก์รีเซ็ตไปที่ terminal เท่านั้น
+- Gmail SMTP / nodemailer — **ยังไม่ implement** (เป็นงานอนาคตถ้าไม่ใช้ Resend)
 - บัญชี Google-only ยังไม่มี flow ตั้งรหัสผ่าน (ใช้ Google หรือ admin)
+- หลังเพิ่ม model `PasswordResetToken` ต้อง `npx prisma generate` และ restart dev server (มิฉะนั้น forgot-password 500)
 
 ## Checklist งานต่อไป (Next Steps)
-- [ ] ตั้ง `RESEND_API_KEY` + `EMAIL_FROM` บน Vercel
+- [ ] **เชื่อมส่งอีเมลจริง:** ตั้ง `RESEND_API_KEY` + `EMAIL_FROM` (+ `APP_BASE_URL`) บน `.env` / Vercel
+- [ ] (optional) Gmail SMTP ผ่าน nodemailer ถ้าไม่ใช้ Resend
 - [ ] (optional) `PUT /api/me/password` สำหรับ Google-only → ตั้งรหัสผ่านได้
