@@ -47,6 +47,8 @@ export async function getMe(userId: string) {
     birthEditsRemaining: editsRemaining,
     plan,
     creditBalance: balance,
+    /** Flowchart: only Pro may use AI chat. */
+    canChat: plan === "PRO",
   };
 }
 
@@ -80,5 +82,11 @@ export async function getMyPackage(userId: string) {
     getBalance(userId),
   ]);
 
-  return { plan, creditBalance: balance, subscription };
+  return {
+    plan,
+    credits: balance,
+    creditBalance: balance,
+    canChat: plan === "PRO",
+    subscription,
+  };
 }

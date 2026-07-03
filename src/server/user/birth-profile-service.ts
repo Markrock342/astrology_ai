@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { buildBirthDateUtc, type YearEra } from "@/lib/date";
+import { queueNatalChart } from "@/server/horoscope/natal-chart-service";
 
 /**
  * Birth profile service. Enforces the Milestone 2 rules:
@@ -91,11 +92,17 @@ export async function upsertBirthProfile(userId: string, input: BirthProfileInpu
   };
 
   if (!existing) {
-    return prisma.birthProfile.create({ data: { userId, ...data, editCount: 0 } });
+    const profile = await prisma.birthProfile.create({
+      data: { userId, ...data, editCount: 0 },
+    });
+    await queueNatalChart(userId, profile.id);
+    return profile;
   }
 
-  return prisma.birthProfile.update({
+  const profile = await prisma.birthProfile.update({
     where: { userId },
     data: { ...data, editCount: { increment: 1 } },
   });
+  await queueNatalChart(userId, profile.id);
+  return profile;
 }
