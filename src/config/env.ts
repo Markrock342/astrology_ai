@@ -12,6 +12,14 @@ const serverEnvSchema = z.object({
   AUTH_GOOGLE_ID: z.string().optional(),
   AUTH_GOOGLE_SECRET: z.string().optional(),
 
+  // Email delivery (password reset, etc). Optional: when unset the mailer logs
+  // to the console (dev fallback) instead of sending a real email. Fill these
+  // to switch on real delivery via Resend — no code change needed.
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  // Public base URL used to build links inside emails (falls back to AUTH_URL).
+  APP_BASE_URL: z.string().url().optional(),
+
   // AI keys are read by name via secretReference; kept optional so the app can
   // boot without them during early Milestone 1 work.
   GEMINI_API_KEY: z.string().optional(),

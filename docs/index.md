@@ -71,6 +71,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 | Thailand geo API | ✅ M2 | [backend_geo_api.md](./backend_geo_api.md) | `src/data/thailand-geo.ts`, `src/app/api/geo/thailand` |
 
 | Google auth + auto-create user | ✅ M2 | [backend_google_auth.md](./backend_google_auth.md) | `src/server/auth/provisioning.ts`, `src/auth.ts` |
+| Register + password reset (หน้า login เดียว) | ✅ | [backend_auth_register_reset.md](./backend_auth_register_reset.md) | `sign-in-form.tsx`, `/api/auth/*` |
 
 | User API (`/api/me`, package, credits) | ✅ M2 | [backend_me_api.md](./backend_me_api.md) | `src/server/user/account-service.ts`, `src/app/api/me/*` |
 
@@ -104,7 +105,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 
 
 
-**Auth:** `POST /api/auth/register` · NextAuth `[...nextauth]`
+**Auth:** `POST /api/auth/register` · `POST /api/auth/check-email` · `POST /api/auth/forgot-password` · `POST /api/auth/reset-password` · NextAuth `[...nextauth]`
 
 
 

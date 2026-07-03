@@ -1,19 +1,33 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 
+type Step = "email" | "login" | "register" | "google-only";
+
+type CheckEmailResponse = {
+  ok: boolean;
+  data?: { exists: boolean; hasPassword: boolean };
+  error?: { message: string };
+};
+
 /**
- * Single sign-in surface (design 01): Google + email. There is no separate
- * register page — first email/Google sign-in auto-creates the account
- * (see Credentials authorize + ensureOAuthUser).
+ * Single sign-in surface (design 01): Google + email.
  *
- * Email sign-in: email + password, stored in our DB (Credentials). No magic-link.
+ * Flow:
+ *   1. Enter email → check with backend
+ *   2a. New email        → register (password + confirm)
+ *   2b. Existing + pwd   → login (password only)
+ *   2c. Existing Google  → guide to Google button
+ *
+ * Registration is explicit (POST /api/auth/register); sign-in never auto-creates.
  */
 export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [step, setStep] = useState<"email" | "password">("email");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [step, setStep] = useState<Step>("email");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,18 +42,101 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
     await signIn("google", { callbackUrl: "/onboarding" });
   }
 
-  async function handleEmail(e: React.FormEvent) {
+  function resetToEmail() {
+    setStep("email");
+    setPassword("");
+    setConfirmPassword("");
+    setError(null);
+  }
+
+  async function handleEmailStep(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    if (step === "email") {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        setError("กรุณากรอกอีเมลให้ถูกต้อง");
-        return;
-      }
-      setStep("password");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("กรุณากรอกอีเมลให้ถูกต้อง");
       return;
     }
+
+    setLoading("email");
+    try {
+      const res = await fetch("/api/auth/check-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const json = (await res.json()) as CheckEmailResponse;
+
+      if (!json.ok || !json.data) {
+        setError(json.error?.message ?? "ไม่สามารถตรวจสอบอีเมลได้");
+        return;
+      }
+
+      const { exists, hasPassword } = json.data;
+      if (!exists) {
+        setStep("register");
+      } else if (hasPassword) {
+        setStep("login");
+      } else {
+        setStep("google-only");
+      }
+    } catch {
+      setError("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (password.length < 8) {
+      setError("รหัสผ่านอย่างน้อย 8 ตัวอักษร");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("รหัสผ่านไม่ตรงกัน");
+      return;
+    }
+
+    setLoading("email");
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, acceptTerms: true }),
+      });
+      const json = (await res.json()) as { ok: boolean; error?: { message: string } };
+
+      if (!json.ok) {
+        setError(json.error?.message ?? "สมัครสมาชิกไม่สำเร็จ");
+        return;
+      }
+
+      const signInRes = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (signInRes?.error) {
+        setError("สมัครสำเร็จแล้ว แต่เข้าสู่ระบบไม่ได้ กรุณาลองอีกครั้ง");
+        setStep("login");
+        return;
+      }
+
+      window.location.href = "/onboarding";
+    } catch {
+      setError("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
 
     if (password.length < 8) {
       setError("รหัสผ่านอย่างน้อย 8 ตัวอักษร");
@@ -58,9 +155,28 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
       setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       return;
     }
-    // Full reload so the new session cookie is picked up by server components.
     window.location.href = "/onboarding";
   }
+
+  const onSubmit =
+    step === "email"
+      ? handleEmailStep
+      : step === "register"
+        ? handleRegister
+        : step === "login"
+          ? handleLogin
+          : undefined;
+
+  const submitLabel =
+    loading === "email"
+      ? "กำลังดำเนินการ…"
+      : step === "email"
+        ? "ลงชื่อเข้าใช้ด้วยอีเมล"
+        : step === "register"
+          ? "สมัครสมาชิก"
+          : step === "login"
+            ? "เข้าสู่ระบบ"
+            : "";
 
   return (
     <div className="animate-fade-up w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 shadow-2xl backdrop-blur">
@@ -80,69 +196,96 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
         <span className="h-px flex-1 bg-[var(--border)]" />
       </div>
 
-      <form onSubmit={handleEmail} className="flex flex-col gap-3">
-        <input
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="อีเมล"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={step === "password"}
-          className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-70"
-        />
-
-        {step === "password" && (
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              placeholder="รหัสผ่าน"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoFocus
-              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 pr-11 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--ring)]"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-2)] transition hover:text-[var(--foreground)]"
-              aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
-              tabIndex={-1}
-            >
-              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-            </button>
-          </div>
-        )}
-
-        {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={loading !== null}
-          className="press-scale w-full rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
-        >
-          {loading === "email"
-            ? "กำลังเข้าสู่ระบบ…"
-            : step === "email"
-              ? "ลงชื่อเข้าใช้ด้วยอีเมล"
-              : "เข้าสู่ระบบ"}
-        </button>
-
-        {step === "password" && (
+      {step === "google-only" ? (
+        <div className="flex flex-col gap-3">
+          <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--muted)]">
+            บัญชี <span className="font-medium text-[var(--foreground)]">{email}</span>{" "}
+            สมัครด้วย Google — กรุณาใช้ปุ่ม &quot;Continue with Google&quot; ด้านบน
+          </p>
           <button
             type="button"
-            onClick={() => {
-              setStep("email");
-              setPassword("");
-              setError(null);
-            }}
+            onClick={resetToEmail}
             className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
           >
             ← ใช้อีเมลอื่น
           </button>
-        )}
-      </form>
+        </div>
+      ) : (
+        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+          <input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="อีเมล"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={step !== "email"}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-70"
+          />
+
+          {step === "register" && (
+            <>
+              <PasswordField
+                value={password}
+                onChange={setPassword}
+                placeholder="รหัสผ่าน (อย่างน้อย 8 ตัว)"
+                autoComplete="new-password"
+                show={showPassword}
+                onToggle={() => setShowPassword((v) => !v)}
+                autoFocus
+              />
+              <PasswordField
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                placeholder="ยืนยันรหัสผ่าน"
+                autoComplete="new-password"
+                show={showPassword}
+                onToggle={() => setShowPassword((v) => !v)}
+              />
+            </>
+          )}
+
+          {step === "login" && (
+            <>
+              <PasswordField
+                value={password}
+                onChange={setPassword}
+                placeholder="รหัสผ่าน"
+                autoComplete="current-password"
+                show={showPassword}
+                onToggle={() => setShowPassword((v) => !v)}
+                autoFocus
+              />
+              <Link
+                href="/forgot-password"
+                className="self-end text-xs text-[var(--muted)] underline underline-offset-2 hover:text-[var(--foreground)]"
+              >
+                ลืมรหัสผ่าน?
+              </Link>
+            </>
+          )}
+
+          {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={loading !== null}
+            className="press-scale w-full rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
+          >
+            {submitLabel}
+          </button>
+
+          {step !== "email" && (
+            <button
+              type="button"
+              onClick={resetToEmail}
+              className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+            >
+              ← ใช้อีเมลอื่น
+            </button>
+          )}
+        </form>
+      )}
 
       <p className="mt-6 text-center text-[11px] leading-relaxed text-[var(--muted-2)]">
         การดำเนินการต่อ ถือว่าคุณยอมรับ{" "}
@@ -155,10 +298,57 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
   );
 }
 
+function PasswordField({
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+  show,
+  onToggle,
+  autoFocus,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  autoComplete: string;
+  show: boolean;
+  onToggle: () => void;
+  autoFocus?: boolean;
+}) {
+  return (
+    <div className="relative">
+      <input
+        type={show ? "text" : "password"}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus={autoFocus}
+        className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 pr-11 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--ring)]"
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-2)] transition hover:text-[var(--foreground)]"
+        aria-label={show ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+        tabIndex={-1}
+      >
+        {show ? <EyeOffIcon /> : <EyeIcon />}
+      </button>
+    </div>
+  );
+}
+
 function EyeIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
     </svg>
   );
@@ -167,8 +357,20 @@ function EyeIcon() {
 function EyeOffIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M9.9 5.2A9.5 9.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.4 3.3M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.5 9.5 0 0 0 4.4-1.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M9.9 5.2A9.5 9.5 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.4 3.3M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.5 9.5 0 0 0 4.4-1.1"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
