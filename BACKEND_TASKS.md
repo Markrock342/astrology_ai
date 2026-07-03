@@ -72,14 +72,14 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 - [x] เตรียม dataset **จังหวัด/อำเภอไทย** (เสิร์ฟผ่าน `GET /api/geo/thailand` + `src/data/thailand-geo.ts`; อำเภอยังชุดย่อ)
 - [x] แปลงปี **พ.ศ.→ค.ศ.** ก่อนบันทึก (เก็บ UTC)
 - [x] Auth: เปิด **Google provider** ใน `src/auth.ts` + **auto-create user ตอน sign-in ครั้งแรก**
-- [ ] Sign-in อีเมล: ยืนยันกับ PM (magic-link vs อีเมล+รหัสผ่าน) — ใช้ Credentials อยู่ชั่วคราว
+- [x] Sign-in อีเมล: **อีเมล+รหัสผ่าน** สมัครตรง เก็บ `passwordHash` ใน DB เรา (Credentials) — **ไม่ใช้ magic-link**
 - [x] `GET/PUT /api/me/birth-profile` — **บังคับ editCount ≤ 1** (แก้ได้อีกครั้งเดียว)
 - [x] `GET /api/me`, `/api/me/package`, `/api/me/credits`
 - [x] Admin API: users (list/detail/status/credits/subscription) + CRUD categories, packages (+ `writeAudit` ทุก mutation)
 
 **Acceptance:** sign-in (Google+email) ได้ · กรอก/แก้วันเกิด (จำกัด 1 ครั้ง) ได้ · admin จัดการผู้ใช้/หมวด/แพ็กเกจได้
 
-> **ปิด M2 (`be/m2-close`):** migration `knowledge_docs`, geo API, vitest (`tests/date.test.ts`, `tests/birth-profile-rules.test.ts`). รัน `npm run db:migrate` + `db:seed` บน Supabase ก่อน deploy.
+> **ปิด M2 (`be/m2-close`):** migration `knowledge_docs`, geo API, vitest, email+password sign-in (ตัดสินใจแล้ว ไม่ใช้ magic-link). DB migrate+seed บน Supabase แล้ว.
 
 ### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History
 
@@ -140,7 +140,7 @@ export async function POST(req: Request) {
 
 ## 6. รอ PM ยืนยัน (มีผลกับ backend)
 - **ดวงจร (transit)** อยู่ Phase 1 ไหม (เพิ่มงานเยอะ: คำนวณ/หาวันอัตโนมัติ) หรือเลื่อน
-- Sign-in อีเมล: magic-link หรือ อีเมล+รหัสผ่าน
+- ~~Sign-in อีเมล~~ → **ตัดสินใจแล้ว:** อีเมล+รหัสผ่าน สมัครตรง เก็บ DB (ไม่ใช้ magic-link)
 - Free/Pro quota + ราคา + credit cost ต่อข้อความ/หมวด (ตอนนี้: Free 3, Pro 100, 199฿)
 - Pro หมดอายุรายเดือน หรือ manual ไม่มีกำหนด
 - ประวัติแชท: แยกตามหัวข้อ หรือรวมใน ดวงจร (ดีไซน์มี 2 ไอเดีย)
