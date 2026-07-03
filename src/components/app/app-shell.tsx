@@ -5,24 +5,231 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BrandMark } from "@/components/brand-logo";
 import { APP_NAME_TH } from "@/config/constants";
-import { SettingsPopover } from "./settings-popover";
-import { MOCK_THREADS, MOCK_USER, NATAL_CATEGORIES } from "./nav-data";
+import { SettingsPopover, type SettingsModal } from "./settings-popover";
+import {
+  CancelMembershipModal,
+  ChangePasswordModal,
+  RenameModal,
+} from "./settings-modals";
+import { CategoryIcon } from "./category-icon";
+import { useAppData, isCategoryLocked } from "./app-data-provider";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState<SettingsModal>(null);
   const searchParams = useSearchParams();
   const activeCat = searchParams.get("cat");
+  const activeThread = searchParams.get("thread");
+
+  const {
+    user,
+    refresh,
+    filteredCategories,
+    filteredThreads,
+    searchQuery,
+    setSearchQuery,
+    loading,
+  } = useAppData();
+
+  const displayName = user?.name ?? (loading ? "…" : "ผู้ใช้");
+  const planLabel = user?.plan === "PRO" ? "Pro" : "Free";
+
+  function closeMobile() {
+    setMobileOpen(false);
+  }
+
+  // Modal state lives here (not in the popover) so it survives the popover
+  // closing/unmounting and never duplicates across sidebar variants.
+  function openModal(m: SettingsModal) {
+    setActiveModal(m);
+    setSettingsOpen(false);
+    setMobileOpen(false);
+  }
+
+  const sidebarContent = (
+    <>
+      <div className="flex items-center justify-between px-4 pt-4">
+        <Link href="/dashboard" className="flex items-center gap-2" onClick={closeMobile}>
+          <BrandMark size={30} />
+          <span className="text-sm font-semibold text-[var(--primary)]">{APP_NAME_TH}</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => {
+            setCollapsed(true);
+            closeMobile();
+          }}
+          className="hidden rounded-md p-1.5 text-[var(--muted-2)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] md:inline-flex"
+          aria-label="พับแถบข้าง"
+        >
+          <CollapseIcon />
+        </button>
+        <button
+          type="button"
+          onClick={closeMobile}
+          className="rounded-md p-1.5 text-[var(--muted-2)] hover:text-[var(--foreground)] md:hidden"
+          aria-label="ปิดเมนู"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-1 px-3 pt-4">
+        <Link
+          href="/dashboard"
+          onClick={closeMobile}
+          className="press-scale flex items-center gap-2.5 rounded-full border border-[var(--secondary)]/45 bg-[var(--secondary)]/10 px-3.5 py-2.5 text-sm font-semibold text-[var(--secondary-active)] transition hover:bg-[var(--secondary)]/15"
+        >
+          <CirclePlusIcon /> เริ่มสนทนาใหม่
+        </Link>
+        <button
+          type="button"
+          onClick={() => setSearchOpen((v) => !v)}
+          className="flex items-center gap-2.5 rounded-lg px-3.5 py-2 text-sm text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+        >
+          <SearchIcon /> ค้นหา
+        </button>
+        {searchOpen && (
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="ค้นหาหมวดหรือประวัติ…"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+            autoFocus
+          />
+        )}
+      </div>
+
+      <div className="mt-4 flex-1 overflow-y-auto px-3 pb-2">
+        <SectionLabel>พื้นดวงเดิม</SectionLabel>
+        <nav className="flex flex-col gap-0.5">
+          {filteredCategories.map((cat) => {
+            const locked = isCategoryLocked(cat, user?.plan ?? "FREE");
+            const active = activeCat === cat.slug;
+            return (
+              <Link
+                key={cat.slug}
+                href={`/dashboard?cat=${cat.slug}`}
+                onClick={closeMobile}
+                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
+                  active
+                    ? "bg-[var(--surface-3)] text-[var(--foreground)]"
+                    : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+                } ${locked ? "opacity-80" : ""}`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <CategoryIcon slug={cat.slug} /> {cat.label}
+                </span>
+                {locked ? (
+                  <LockIcon />
+                ) : cat.tier === "FREE" ? (
+                  <span className="rounded px-1.5 py-0.5 text-[10px] text-[var(--secondary-active)]">
+                    Free
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <SectionLabel className="mt-5">ประวัติสนทนา</SectionLabel>
+        <nav className="flex flex-col gap-0.5">
+          {filteredThreads.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-[var(--muted-2)]">
+              {loading ? "กำลังโหลด…" : "ยังไม่มีประวัติ"}
+            </p>
+          ) : (
+            filteredThreads.map((t) => (
+              <Link
+                key={t.id}
+                href={`/dashboard?thread=${t.id}${t.categorySlug ? `&cat=${t.categorySlug}` : ""}`}
+                onClick={closeMobile}
+                className={`truncate rounded-lg px-3 py-2 text-xs transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] ${
+                  activeThread === t.id
+                    ? "bg-[var(--surface-3)] text-[var(--foreground)]"
+                    : "text-[var(--muted)]"
+                }`}
+              >
+                {t.title}
+              </Link>
+            ))
+          )}
+        </nav>
+
+        <SectionLabel className="mt-5">ดวงจร</SectionLabel>
+        <p className="px-3 py-2 text-xs text-[var(--muted-2)]">
+          โหมดดวงจร (Pro) — รอ PM ยืนยันสโคป
+        </p>
+      </div>
+
+      <div className="relative border-t border-[var(--border)] p-3">
+        {settingsOpen && !collapsed && (
+          <SettingsPopover
+            onClose={() => setSettingsOpen(false)}
+            onOpenModal={openModal}
+          />
+        )}
+        <div className="flex items-center justify-between rounded-xl px-2 py-2">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-3)] text-[var(--foreground)]">
+              <AvatarIcon />
+            </div>
+            <div className="leading-tight">
+              <p className="max-w-[140px] truncate text-sm font-medium text-[var(--foreground)]">
+                {displayName}
+              </p>
+              <p className="text-[11px] text-[var(--muted-2)]">{planLabel}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((v) => !v)}
+            className="rounded-full p-2 text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+            aria-label="ตั้งค่า"
+          >
+            <GearIcon />
+          </button>
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <div className="flex flex-1 overflow-hidden">
+      {/* Mobile menu button */}
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        className="fixed left-3 top-3 z-40 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2 text-[var(--muted)] md:hidden"
+        aria-label="เปิดเมนู"
+      >
+        <MenuIcon />
+      </button>
+
+      {/* Mobile drawer overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            onClick={closeMobile}
+            aria-label="ปิดเมนู"
+          />
+          <aside className="relative z-50 flex h-full w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)] shadow-xl">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
       <aside
         className={`${
           collapsed ? "w-16" : "w-72"
-        } relative z-30 shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)]`}
+        } relative z-30 hidden shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)] md:flex md:flex-col`}
       >
-        {/* Collapsed rail (icons + profile stay visible), cross-fades in.
-            No clipping here so the settings popover can overflow past the rail. */}
         <div
           className={`absolute inset-0 transition-opacity duration-200 ${
             collapsed ? "opacity-100" : "pointer-events-none opacity-0"
@@ -30,152 +237,70 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           <CollapsedRail
             activeCat={activeCat}
-            settingsOpen={settingsOpen}
+            settingsOpen={settingsOpen && collapsed}
             onToggleSettings={() => setSettingsOpen((v) => !v)}
             onCloseSettings={() => setSettingsOpen(false)}
             onExpand={() => setCollapsed(false)}
+            onOpenModal={openModal}
+            displayName={displayName}
           />
         </div>
 
-        {/* Full panel — clipped to the aside width so its fixed w-72 layout
-            never squishes; fades out when collapsed. */}
         <div
           className={`absolute inset-0 overflow-hidden transition-opacity duration-200 ${
             collapsed ? "pointer-events-none opacity-0" : "opacity-100"
           }`}
         >
-        <div className="flex h-full w-72 flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <BrandMark size={30} />
-            <span className="text-sm font-semibold text-[var(--primary)]">
-              {APP_NAME_TH}
-            </span>
-          </Link>
-          <button
-            type="button"
-            onClick={() => setCollapsed(true)}
-            className="rounded-md p-1.5 text-[var(--muted-2)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] md:inline-flex"
-            aria-label="พับแถบข้าง"
-          >
-            <CollapseIcon />
-          </button>
-        </div>
-
-        {/* New chat + search */}
-        <div className="flex flex-col gap-1 px-3 pt-4">
-          <Link
-            href="/dashboard"
-            className="press-scale flex items-center gap-2.5 rounded-full border border-[var(--secondary)]/45 bg-[var(--secondary)]/10 px-3.5 py-2.5 text-sm font-semibold text-[var(--secondary-active)] transition hover:bg-[var(--secondary)]/15"
-          >
-            <CirclePlusIcon /> เริ่มสนทนาใหม่
-          </Link>
-          <button
-            type="button"
-            className="flex items-center gap-2.5 rounded-lg px-3.5 py-2 text-sm text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
-          >
-            <SearchIcon /> ค้นหา
-          </button>
-        </div>
-
-        {/* Scroll area */}
-        <div className="mt-4 flex-1 overflow-y-auto px-3 pb-2">
-          <SectionLabel>พื้นดวงเดิม</SectionLabel>
-          <nav className="flex flex-col gap-0.5">
-            {NATAL_CATEGORIES.map((cat) => {
-              const locked = cat.tier === "PRO";
-              const active = activeCat === cat.slug;
-              return (
-                <Link
-                  key={cat.slug}
-                  href={`/dashboard?cat=${cat.slug}`}
-                  className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
-                    active
-                      ? "bg-[var(--surface-3)] text-[var(--foreground)]"
-                      : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
-                  } ${locked ? "opacity-70" : ""}`}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <CategoryIcon slug={cat.slug} /> {cat.label}
-                  </span>
-                  {locked && <LockIcon />}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <SectionLabel className="mt-5">ดวงจร</SectionLabel>
-          <nav className="flex flex-col gap-0.5">
-            {MOCK_THREADS.map((t) => (
-              <Link
-                key={t.id}
-                href={`/dashboard?thread=${t.id}`}
-                className="truncate rounded-lg px-3 py-2 text-xs text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
-              >
-                {t.title}
-              </Link>
-            ))}
-          </nav>
-        </div>
-
-        {/* User bar + settings */}
-        <div className="relative border-t border-[var(--border)] p-3">
-          {settingsOpen && (
-            <SettingsPopover onClose={() => setSettingsOpen(false)} />
-          )}
-          <div className="flex items-center justify-between rounded-xl px-2 py-2">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-3)] text-[var(--foreground)]">
-                <AvatarIcon />
-              </div>
-              <div className="leading-tight">
-                <p className="text-sm font-medium text-[var(--foreground)]">{MOCK_USER.name}</p>
-                <p className="text-[11px] text-[var(--muted-2)]">
-                  {MOCK_USER.tier === "PRO" ? "Pro" : "Pro หรือ Free"}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSettingsOpen((v) => !v)}
-              className="rounded-full p-2 text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-              aria-label="ตั้งค่า"
-            >
-              <GearIcon />
-            </button>
-          </div>
-        </div>
-        </div>
+          <div className="flex h-full w-72 flex-col">{sidebarContent}</div>
         </div>
       </aside>
 
-      {/* Main */}
       <div className="relative flex flex-1 flex-col">{children}</div>
+
+      {/* Settings modals — rendered once here so they survive the popover
+          closing and never duplicate across sidebar variants. */}
+      {activeModal === "rename" && (
+        <RenameModal
+          currentName={displayName}
+          onClose={() => setActiveModal(null)}
+          onSaved={() => refresh()}
+        />
+      )}
+      {activeModal === "password" && (
+        <ChangePasswordModal onClose={() => setActiveModal(null)} />
+      )}
+      {activeModal === "cancel" && (
+        <CancelMembershipModal
+          isPro={user?.plan === "PRO"}
+          onClose={() => setActiveModal(null)}
+          onCancelled={() => refresh()}
+        />
+      )}
     </div>
   );
 }
 
-/**
- * Narrow icon rail shown when the sidebar is collapsed — keeps category icons,
- * new-chat, and the user profile reachable without expanding.
- */
 function CollapsedRail({
   activeCat,
   settingsOpen,
   onToggleSettings,
   onCloseSettings,
   onExpand,
+  onOpenModal,
+  displayName,
 }: {
   activeCat: string | null;
   settingsOpen: boolean;
   onToggleSettings: () => void;
   onCloseSettings: () => void;
   onExpand: () => void;
+  onOpenModal: (m: SettingsModal) => void;
+  displayName: string;
 }) {
+  const { filteredCategories } = useAppData();
+
   return (
     <div className="flex h-full w-16 flex-col items-center py-4">
-      {/* Expand */}
       <button
         type="button"
         onClick={onExpand}
@@ -186,7 +311,6 @@ function CollapsedRail({
         <CollapseIcon />
       </button>
 
-      {/* New chat */}
       <Link
         href="/dashboard"
         className="press-scale mt-4 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--secondary-active)] text-[var(--secondary-foreground)] transition hover:brightness-110"
@@ -196,9 +320,8 @@ function CollapsedRail({
         <PlusIcon />
       </Link>
 
-      {/* Category icons */}
       <nav className="mt-4 flex flex-1 flex-col items-center gap-1 overflow-y-auto">
-        {NATAL_CATEGORIES.map((cat) => {
+        {filteredCategories.map((cat) => {
           const active = activeCat === cat.slug;
           return (
             <Link
@@ -218,9 +341,10 @@ function CollapsedRail({
         })}
       </nav>
 
-      {/* Profile + settings */}
       <div className="relative mt-2 flex flex-col items-center gap-1">
-        {settingsOpen && <SettingsPopover onClose={onCloseSettings} />}
+        {settingsOpen && (
+          <SettingsPopover onClose={onCloseSettings} onOpenModal={onOpenModal} />
+        )}
         <button
           type="button"
           onClick={onToggleSettings}
@@ -232,7 +356,7 @@ function CollapsedRail({
         </button>
         <div
           className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-3)] text-[var(--foreground)]"
-          title={MOCK_USER.name}
+          title={displayName}
         >
           <AvatarIcon />
         </div>
@@ -257,6 +381,13 @@ function SectionLabel({
   );
 }
 
+function MenuIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
 function PlusIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -264,7 +395,6 @@ function PlusIcon() {
     </svg>
   );
 }
-/** Filled turquoise circle with a white plus — matches the design's "เริ่มสนทนาใหม่". */
 function CirclePlusIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -273,7 +403,6 @@ function CirclePlusIcon() {
     </svg>
   );
 }
-/** Outlined person-in-circle avatar (design shows an icon, not initials). */
 function AvatarIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -317,57 +446,4 @@ function CollapseIcon() {
       <rect x="6" y="8" width="4.5" height="8" rx="1" fill="currentColor" />
     </svg>
   );
-}
-function CategoryIcon({ slug }: { slug: string }) {
-  const common = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none" } as const;
-  const stroke = { stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  switch (slug) {
-    case "self":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="8" r="4" {...stroke} />
-          <path d="M4 21c0-4 3.5-6 8-6s8 2 8 6" {...stroke} />
-        </svg>
-      );
-    case "career":
-      return (
-        <svg {...common}>
-          <rect x="3" y="7" width="18" height="13" rx="2" {...stroke} />
-          <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" {...stroke} />
-        </svg>
-      );
-    case "finance":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="8.5" {...stroke} />
-          <path d="M12 7.5v9M14 9.7c-.6-.7-1.4-1-2.2-1-1.1 0-2 .6-2 1.6 0 2 4.4 1.1 4.4 3.2 0 1-.9 1.7-2.2 1.7-.9 0-1.7-.4-2.2-1.1" {...stroke} />
-        </svg>
-      );
-    case "love":
-      return (
-        <svg {...common}>
-          <path d="M12 20s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9z" {...stroke} />
-        </svg>
-      );
-    case "health":
-      return (
-        <svg {...common}>
-          <path d="M12 21s-6-5.1-6-10a6 6 0 1 1 12 0c0 4.9-6 10-6 10z" {...stroke} />
-          <circle cx="12" cy="11" r="2.3" {...stroke} />
-        </svg>
-      );
-    case "fortune":
-      return (
-        <svg {...common}>
-          <path d="M12 2.5c.7 4.9 1.9 6.1 6.8 6.8-4.9.7-6.1 1.9-6.8 6.8-.7-4.9-1.9-6.1-6.8-6.8 4.9-.7 6.1-1.9 6.8-6.8z" {...stroke} />
-          <path d="M18.5 15.5c.3 1.9.8 2.4 2.7 2.7-1.9.3-2.4.8-2.7 2.7-.3-1.9-.8-2.4-2.7-2.7 1.9-.3 2.4-.8 2.7-2.7z" {...stroke} />
-        </svg>
-      );
-    default:
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="8" {...stroke} />
-        </svg>
-      );
-  }
 }

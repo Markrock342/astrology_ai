@@ -1,22 +1,41 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { MOCK_USER } from "./nav-data";
+import { useAppData } from "./app-data-provider";
 
-/**
- * Settings popover (design 04). Opens above the user bar. Birthday change shows
- * a used/total counter and disables when the one allowed edit is spent.
- *
- * TODO(backend): wire each action (rename, change password, edit birthday,
- * manage package, sign out, cancel membership) to its API/route.
- */
-export function SettingsPopover({ onClose }: { onClose: () => void }) {
+// Total birthday settings allowed = 1 initial + 1 edit (design shows x/2).
+const BIRTH_TOTAL = 2;
+
+export type SettingsModal = "rename" | "password" | "cancel" | null;
+
+export function SettingsPopover({
+  onClose,
+  onOpenModal,
+}: {
+  onClose: () => void;
+  onOpenModal: (m: SettingsModal) => void;
+}) {
   const router = useRouter();
+  const { user } = useAppData();
   const ref = useRef<HTMLDivElement>(null);
-  const editUsed = MOCK_USER.birthEditCount; // 0 or 1
-  const editExhausted = editUsed >= 1;
+  const [editsRemaining, setEditsRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/me/birth-profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (alive && json?.data) {
+          setEditsRemaining(json.data.editsRemaining ?? 0);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -33,10 +52,21 @@ export function SettingsPopover({ onClose }: { onClose: () => void }) {
     };
   }, [onClose]);
 
+  const birthExhausted = editsRemaining === 0;
+  const birthCurrent = BIRTH_TOTAL - (editsRemaining ?? BIRTH_TOTAL - 1);
+  const birthHint =
+    editsRemaining === null
+      ? "…"
+      : birthExhausted
+        ? "ครบแล้ว"
+        : `(ครั้งที่ ${birthCurrent}/${BIRTH_TOTAL})`;
+
+  const displayName = user?.name ?? "ผู้ใช้";
+
   return (
     <div
       ref={ref}
-      className="animate-fade-up absolute bottom-full left-0 mb-2 w-full min-w-[260px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-1.5 shadow-2xl"
+      className="animate-fade-up absolute bottom-full left-0 z-50 mb-2 w-full min-w-[260px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-1.5 shadow-2xl"
     >
       <p className="px-3 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-[var(--muted-2)]">
         การตั้งค่า
@@ -44,20 +74,20 @@ export function SettingsPopover({ onClose }: { onClose: () => void }) {
       <Row
         icon={<UserIcon />}
         label="เปลี่ยนชื่อผู้ใช้"
-        hint="(Username)"
-        onClick={() => {}}
+        hint={displayName}
+        onClick={() => onOpenModal("rename")}
       />
       <Row
         icon={<KeyIcon />}
         label="เปลี่ยนรหัสผ่าน"
         hint="(Password)"
-        onClick={() => {}}
+        onClick={() => onOpenModal("password")}
       />
       <Row
         icon={<CalendarIcon />}
         label="เปลี่ยนวันเกิด"
-        hint={`(ครั้งที่ ${editUsed + 1}/2)`}
-        disabled={editExhausted}
+        hint={birthHint}
+        disabled={birthExhausted}
         onClick={() => {
           onClose();
           router.push("/onboarding");
@@ -67,7 +97,10 @@ export function SettingsPopover({ onClose }: { onClose: () => void }) {
         icon={<PackageIcon />}
         label="จัดการแพ็กเกจ"
         highlight
-        onClick={() => router.push("/account")}
+        onClick={() => {
+          onClose();
+          router.push("/account");
+        }}
       />
       <Row
         icon={<LogoutIcon />}
@@ -77,7 +110,7 @@ export function SettingsPopover({ onClose }: { onClose: () => void }) {
       <div className="mt-1 border-t border-[var(--border)] pt-1">
         <button
           type="button"
-          onClick={() => {}}
+          onClick={() => onOpenModal("cancel")}
           className="w-full rounded-lg px-3 py-2 text-center text-xs text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--muted)]"
         >
           ยกเลิกการเป็นสมาชิก
@@ -115,7 +148,11 @@ function Row({
     >
       <span className="shrink-0 text-[var(--muted)]">{icon}</span>
       <span className="flex-1">{label}</span>
-      {hint && <span className="text-xs text-[var(--muted-2)]">{hint}</span>}
+      {hint && (
+        <span className="max-w-[100px] truncate text-xs text-[var(--muted-2)]">
+          {hint}
+        </span>
+      )}
     </button>
   );
 }

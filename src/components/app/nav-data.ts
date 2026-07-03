@@ -63,8 +63,14 @@ export const NATAL_CATEGORIES: Category[] = [
   },
 ];
 
-/** Chat history threads (mock). */
-export type Thread = { id: string; title: string };
+/** Chat history threads. */
+export type Thread = {
+  id: string;
+  title: string;
+  categorySlug?: string;
+  categoryLabel?: string;
+  createdAt?: string;
+};
 
 export const MOCK_THREADS: Thread[] = [
   { id: "t1", title: "หัวข้อเราใช้ข้อความเริ่มต้นของการสนทนา" },
@@ -72,9 +78,27 @@ export const MOCK_THREADS: Thread[] = [
   { id: "t3", title: "หัวข้อเราใช้ข้อความเริ่มต้นของการสนทนา" },
 ];
 
-export function findCategory(slug: string | null): Category | undefined {
+export function findCategory(
+  slug: string | null,
+  categories: Category[] = NATAL_CATEGORIES,
+): Category | undefined {
   if (!slug) return undefined;
-  return NATAL_CATEGORIES.find((c) => c.slug === slug);
+  return categories.find((c) => c.slug === slug);
+}
+
+/** Map API category row → UI Category. */
+export function mapApiCategory(c: {
+  slug: string;
+  nameTh: string;
+  accessLevel: string;
+  suggestedQuestions?: string[];
+}): Category {
+  return {
+    slug: c.slug,
+    label: c.nameTh,
+    tier: c.accessLevel === "PRO" ? "PRO" : "FREE",
+    suggestedQuestions: c.suggestedQuestions ?? [],
+  };
 }
 
 /** Mock user shown in the bottom bar / settings. */
