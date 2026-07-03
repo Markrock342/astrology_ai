@@ -10,7 +10,7 @@ import { requestPasswordReset } from "@/server/auth/password-reset-service";
  */
 export async function POST(req: Request) {
   return handle(async () => {
-    rateLimit(`forgot-password:${req.headers.get("x-forwarded-for") ?? "local"}`, 5, 60_000);
+    rateLimit(`forgot-password:${req.headers.get("x-forwarded-for") ?? "local"}`, 10, 60_000);
     const { email } = forgotPasswordSchema.parse(await req.json());
     await requestPasswordReset(email);
     return ok({ sent: true });
