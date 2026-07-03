@@ -64,6 +64,8 @@ export const packageCreateSchema = z.object({
   monthlyLimit: z.number().int().min(0).nullish(),
   enabled: z.boolean().default(true),
   description: z.string().max(500).optional(),
+  features: z.array(z.string().min(1).max(200)).default([]),
+  upgradeSteps: z.array(z.string().min(1).max(300)).default([]),
 });
 
 export const packageUpdateSchema = packageCreateSchema.partial();

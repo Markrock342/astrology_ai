@@ -89,7 +89,13 @@ async function main() {
   // ---- Packages ----
   const freePkg = await prisma.package.upsert({
     where: { code: "FREE" },
-    update: {},
+    update: {
+      features: [
+        "เครดิต 3 ครั้ง",
+        "หมวดพื้นดวงเดิม (บางหมวด)",
+        "ถาม–ตอบกับ AI",
+      ],
+    },
     create: {
       code: "FREE",
       name: "Free",
@@ -98,12 +104,28 @@ async function main() {
       creditQuota: 3,
       dailyLimit: 3,
       description: "ทดลองใช้งานฟรี เข้าถึงหมวดพื้นฐาน",
+      features: [
+        "เครดิต 3 ครั้ง",
+        "หมวดพื้นดวงเดิม (บางหมวด)",
+        "ถาม–ตอบกับ AI",
+      ],
     },
   });
 
   await prisma.package.upsert({
     where: { code: "PRO" },
-    update: {},
+    update: {
+      features: [
+        "เครดิต 100 ครั้ง",
+        "ปลดล็อกทุกหมวด + โหมดดวงจร",
+        "คำถามแนะนำครบทุกหมวด",
+      ],
+      upgradeSteps: [
+        "โอนเงินตามยอดแพ็กเกจ Pro (199 บาท)",
+        "แจ้งหลักฐานการโอนให้แอดมิน",
+        "แอดมินตรวจสอบและเปิดสิทธิ์ Pro ให้บัญชีของคุณ",
+      ],
+    },
     create: {
       code: "PRO",
       name: "Pro",
@@ -113,6 +135,16 @@ async function main() {
       creditQuota: 100,
       monthlyLimit: 100,
       description: "ปลดล็อกทุกหมวดหมู่ พร้อมคำอ่านแบบละเอียด",
+      features: [
+        "เครดิต 100 ครั้ง",
+        "ปลดล็อกทุกหมวด + โหมดดวงจร",
+        "คำถามแนะนำครบทุกหมวด",
+      ],
+      upgradeSteps: [
+        "โอนเงินตามยอดแพ็กเกจ Pro (199 บาท)",
+        "แจ้งหลักฐานการโอนให้แอดมิน",
+        "แอดมินตรวจสอบและเปิดสิทธิ์ Pro ให้บัญชีของคุณ",
+      ],
     },
   });
 

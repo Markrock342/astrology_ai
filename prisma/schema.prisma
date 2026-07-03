@@ -251,6 +251,10 @@ model Package {
   monthlyLimit Int?
   enabled      Boolean     @default(true)
   description  String?
+  /// Bullet points shown on the account/package comparison cards.
+  features     String[]    @default([])
+  /// Steps for manual Pro upgrade (read from the PRO package row).
+  upgradeSteps String[]    @default([])
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
