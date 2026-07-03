@@ -1,17 +1,15 @@
-import { ScaffoldNote } from "@/components/scaffold-note";
+import { redirect } from "next/navigation";
 
+/**
+ * Legacy per-category reading route. The app moved to a single chat surface on
+ * /dashboard where the category is selected via `?cat=`. Keep the path working
+ * by redirecting so old links (and bookmarks) don't 404.
+ */
 export default async function ReadingPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  return (
-    <ScaffoldNote title={`หน้าดูดวง — หมวด: ${slug}`} owner="Both">
-      Flow ตาม spec 5.6. ต้องรองรับ state: loading · AI processing · success ·
-      no quota · locked · timeout · provider error · retry (ห้ามหักเครดิตซ้ำ).
-      เรียก <code className="mx-1">POST /api/horoscope/readings</code> พร้อม header
-      <code className="mx-1">Idempotency-Key</code>.
-    </ScaffoldNote>
-  );
+  redirect(`/dashboard?cat=${encodeURIComponent(slug)}`);
 }

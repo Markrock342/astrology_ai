@@ -109,8 +109,8 @@ export function CategoriesManager() {
   async function save() {
     setBusy(true);
     setError(null);
-    const body = {
-      slug: form.slug,
+    // Slug is immutable after creation, so it's only sent on POST (create).
+    const patch = {
       nameTh: form.nameTh,
       nameEn: form.nameEn || undefined,
       description: form.description || undefined,
@@ -122,7 +122,6 @@ export function CategoriesManager() {
     };
     try {
       if (editingId) {
-        const { slug: _slug, ...patch } = body;
         await adminFetch(`/api/admin/categories/${editingId}`, {
           method: "PATCH",
           body: JSON.stringify(patch),
@@ -130,7 +129,7 @@ export function CategoriesManager() {
       } else {
         await adminFetch("/api/admin/categories", {
           method: "POST",
-          body: JSON.stringify(body),
+          body: JSON.stringify({ slug: form.slug, ...patch }),
         });
       }
       setEditingId(null);
