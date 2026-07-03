@@ -6,7 +6,9 @@ import { z } from "zod";
  */
 
 export const registerSchema = z.object({
-  name: z.string().min(1).max(80),
+  // The unified sign-in surface only collects email + password; name is optional
+  // and can be filled in later from account settings.
+  name: z.string().min(1).max(80).optional(),
   email: z.string().email(),
   password: z.string().min(8).max(128),
   acceptTerms: z.literal(true),
@@ -15,6 +17,19 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+});
+
+export const checkEmailSchema = z.object({
+  email: z.string().email(),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(16),
+  password: z.string().min(8).max(128),
 });
 
 /**

@@ -4,6 +4,7 @@ import { registerSchema } from "@/lib/schemas";
 import { handle, ok, fail } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { provisionUser } from "@/server/auth/provisioning";
+import { normalizeEmail } from "@/server/auth/account-lookup";
 
 /**
  * Register a new local user. Provisioning (user + wallet + Free subscription +
@@ -16,13 +17,14 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const data = registerSchema.parse(body);
+    const email = normalizeEmail(data.email);
 
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return fail("VALIDATION", "อีเมลนี้ถูกใช้งานแล้ว", 422);
 
     const passwordHash = await bcrypt.hash(data.password, 10);
     const user = await provisionUser({
-      email: data.email,
+      email,
       name: data.name,
       passwordHash,
     });

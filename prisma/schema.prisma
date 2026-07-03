@@ -149,9 +149,28 @@ model User {
   accounts Account[]
   sessions Session[]
 
+  passwordResetTokens PasswordResetToken[]
+
   @@index([role])
   @@index([status])
   @@map("users")
+}
+
+// Password reset tokens for the self-service "forgot password" flow. We store
+// only a SHA-256 hash of the token (never the raw value), so a DB leak cannot be
+// used to reset accounts. Tokens are single-use (usedAt) and short-lived.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 // Auth.js adapter tables (kept minimal; only needed for OAuth providers).

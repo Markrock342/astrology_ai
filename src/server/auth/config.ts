@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/server/db";
 import { env } from "@/config/env";
-import { ensureOAuthUser, provisionUser } from "@/server/auth/provisioning";
+import { ensureOAuthUser } from "@/server/auth/provisioning";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -35,22 +35,19 @@ export const authConfig: NextAuthConfig = {
       authorize: async (raw) => {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
-        const { email, password } = parsed.data;
+        const email = parsed.data.email.trim().toLowerCase();
+        const { password } = parsed.data;
 
-        let user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({ where: { email } });
 
-        // Design 01: single sign-in surface — first email sign-in auto-creates
-        // the account (no separate register page).
-        if (!user) {
-          const passwordHash = await bcrypt.hash(password, 10);
-          user = await provisionUser({ email, passwordHash });
-        } else {
-          if (user.status === "DISABLED") return null;
-          // Account exists but was created via Google — password login not set.
-          if (!user.passwordHash) return null;
-          const valid = await bcrypt.compare(password, user.passwordHash);
-          if (!valid) return null;
-        }
+        // Registration is explicit (POST /api/auth/register). Sign-in never
+        // silently creates an account, so a typo'd email cannot spawn one.
+        if (!user) return null;
+        if (user.status === "DISABLED") return null;
+        // Account created via Google — has no password to check.
+        if (!user.passwordHash) return null;
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) return null;
 
         return {
           id: user.id,
