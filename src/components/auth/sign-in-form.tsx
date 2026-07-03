@@ -8,9 +8,7 @@ import { signIn } from "next-auth/react";
  * register page — first email/Google sign-in auto-creates the account
  * (see Credentials authorize + ensureOAuthUser).
  *
- * NOTE (PM): email flow (magic-link vs email+password) is still unconfirmed.
- * We show the email field first (matching the mockup) and progressively reveal
- * a password field so either decision is a small change here.
+ * Email sign-in: email + password, stored in our DB (Credentials). No magic-link.
  */
 export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean }) {
   const [email, setEmail] = useState("");
