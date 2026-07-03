@@ -1,10 +1,5 @@
-import { ScaffoldNote } from "@/components/scaffold-note";
+import { CategoriesManager } from "@/components/admin/categories-manager";
 
 export default function AdminCategoriesPage() {
-  return (
-    <ScaffoldNote title="Admin · หมวดหมู่" owner="Both">
-      CRUD หมวดหมู่ดูดวง: title/description/icon · sort · เปิด-ปิด · Free/Pro ·
-      creditCost · assign prompt · assign AI config.
-    </ScaffoldNote>
-  );
+  return <CategoriesManager />;
 }

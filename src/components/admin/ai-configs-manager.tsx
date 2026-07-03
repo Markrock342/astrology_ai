@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   adminFetch,
+  AdminPage,
   Badge,
   Button,
   Card,
@@ -190,7 +191,7 @@ export function AiConfigsManager() {
     id ? (prompts.find((p) => p.id === id)?.name ?? id) : "—";
 
   return (
-    <section className="mx-auto max-w-5xl px-6 py-8">
+    <AdminPage>
       <PageHeader
         title="AI Models"
         description="ตั้งค่าว่าหมวดไหน/แพลนไหนใช้โมเดลอะไร — API key อยู่ใน env เท่านั้น DB เก็บแค่ชื่อ secret"
@@ -411,6 +412,6 @@ export function AiConfigsManager() {
           <p className="text-sm text-[var(--muted-2)]">ยังไม่มี config</p>
         )}
       </div>
-    </section>
+    </AdminPage>
   );
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   adminFetch,
+  AdminPage,
   Badge,
   Button,
   Card,
@@ -123,7 +124,7 @@ export function PromptsManager() {
   }
 
   return (
-    <section className="mx-auto max-w-5xl px-6 py-8">
+    <AdminPage>
       <PageHeader
         title="Prompt / Persona"
         description="กำหนดนิสัย โทนเสียง และกฎการตอบของ AI — แก้เนื้อหาแล้ว version จะ +1 อัตโนมัติ (การตั้งค่า prompt ไม่ใช่การเทรนโมเดล)"
@@ -235,6 +236,6 @@ export function PromptsManager() {
           <p className="text-sm text-[var(--muted-2)]">ยังไม่มี prompt</p>
         )}
       </div>
-    </section>
+    </AdminPage>
   );
 }

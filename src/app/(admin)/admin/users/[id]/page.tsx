@@ -1,4 +1,4 @@
-import { ScaffoldNote } from "@/components/scaffold-note";
+import { UserDetailManager } from "@/components/admin/user-detail-manager";
 
 export default async function AdminUserDetailPage({
   params,
@@ -6,10 +6,5 @@ export default async function AdminUserDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return (
-    <ScaffoldNote title="Admin · รายละเอียดผู้ใช้" owner="Both">
-      user id: <code className="mx-1">{id}</code> — โปรไฟล์ + birth profile +
-      แพ็กเกจ/สถานะ + เครดิต + ประวัติ + usage logs + ปุ่มปรับสิทธิ์.
-    </ScaffoldNote>
-  );
+  return <UserDetailManager userId={id} />;
 }
