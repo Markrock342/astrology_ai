@@ -233,6 +233,7 @@ model HoroscopeCategory {
   aiConfig       AIProviderConfig?  @relation(fields: [aiConfigId], references: [id])
   readings       HoroscopeReading[]
   conversations  Conversation[]
+  knowledgeDocs  KnowledgeDoc[]
 
   @@index([enabled, sortOrder])
   @@map("horoscope_categories")
@@ -250,6 +251,10 @@ model Package {
   monthlyLimit Int?
   enabled      Boolean     @default(true)
   description  String?
+  /// Bullet points shown on the account/package comparison cards.
+  features     String[]    @default([])
+  /// Steps for manual Pro upgrade (read from the PRO package row).
+  upgradeSteps String[]    @default([])
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -358,6 +363,26 @@ model AIProviderConfig {
 
   @@index([enabled, planScope])
   @@map("ai_provider_configs")
+}
+
+// Admin-managed knowledge snippets injected into the system prompt (simple
+// knowledge base — Phase 1). categoryId = null means "applies to all
+// categories". If the corpus grows large, upgrade to chunked RAG (pgvector)
+// reusing this table as the source of truth.
+model KnowledgeDoc {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  categoryId String?
+  enabled    Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category HoroscopeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([enabled, categoryId])
+  @@map("knowledge_docs")
 }
 
 // ---------------------------------------------------------------------------

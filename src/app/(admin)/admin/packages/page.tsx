@@ -1,10 +1,5 @@
-import { ScaffoldNote } from "@/components/scaffold-note";
+import { PackagesManager } from "@/components/admin/packages-manager";
 
 export default function AdminPackagesPage() {
-  return (
-    <ScaffoldNote title="Admin · แพ็กเกจ" owner="Both">
-      จัดการแพ็กเกจ Free/Pro: ราคา · billing label · credit quota ·
-      daily/monthly limit · หมวดที่เข้าถึงได้ · AI config · เปิด-ปิด.
-    </ScaffoldNote>
-  );
+  return <PackagesManager />;
 }

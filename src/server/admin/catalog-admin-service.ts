@@ -37,8 +37,10 @@ export type PackageCreateInput = {
   creditQuota: number;
   dailyLimit?: number | null;
   monthlyLimit?: number | null;
-  enabled: boolean;
+  enabled?: boolean;
   description?: string;
+  features?: string[];
+  upgradeSteps?: string[];
 };
 
 export type PackageUpdateInput = Partial<PackageCreateInput>;
@@ -136,6 +138,26 @@ export async function deleteCategory(id: string, actor: Actor) {
 
 export function listPackages() {
   return prisma.package.findMany({ orderBy: { price: "asc" } });
+}
+
+/** Enabled packages for the account page (no secrets). */
+export function listPublicPackages() {
+  return prisma.package.findMany({
+    where: { enabled: true },
+    orderBy: { price: "asc" },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      type: true,
+      price: true,
+      billingLabel: true,
+      creditQuota: true,
+      description: true,
+      features: true,
+      upgradeSteps: true,
+    },
+  });
 }
 
 export async function getPackage(id: string) {

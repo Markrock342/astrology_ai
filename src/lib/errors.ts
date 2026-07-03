@@ -18,6 +18,7 @@ export type AppErrorCode =
   | "AI_INVALID_OUTPUT"
   | "DUPLICATE_REQUEST"
   | "RATE_LIMITED"
+  | "FEATURE_DISABLED"
   | "INTERNAL";
 
 const STATUS: Record<AppErrorCode, number> = {
@@ -34,6 +35,7 @@ const STATUS: Record<AppErrorCode, number> = {
   AI_INVALID_OUTPUT: 502,
   DUPLICATE_REQUEST: 409,
   RATE_LIMITED: 429,
+  FEATURE_DISABLED: 403,
   INTERNAL: 500,
 };
 

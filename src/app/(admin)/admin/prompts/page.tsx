@@ -1,10 +1,8 @@
-import { ScaffoldNote } from "@/components/scaffold-note";
+import { redirect } from "next/navigation";
+import { FEATURES } from "@/config/features";
+import { PromptsManager } from "@/components/admin/prompts-manager";
 
 export default function AdminPromptsPage() {
-  return (
-    <ScaffoldNote title="Admin · Prompt / Persona" owner="Both">
-      จัดการ system/persona/category/format prompt + Free/Pro style + version +
-      active/inactive. (นี่คือการตั้งค่า prompt ไม่ใช่การเทรนโมเดล)
-    </ScaffoldNote>
-  );
+  if (!FEATURES.aiAdmin) redirect("/admin/dashboard");
+  return <PromptsManager />;
 }

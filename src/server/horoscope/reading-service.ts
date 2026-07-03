@@ -76,16 +76,33 @@ export async function createReading(input: CreateReadingInput) {
   };
 
   // 6. Resolve config + prompt, then call AI (no charge yet).
+  // Prompt priority: category-specific template > config template > default.
   const config = await resolveConfig(category.id, plan);
-  const template = config.promptTemplateId
-    ? await prisma.promptTemplate.findUnique({ where: { id: config.promptTemplateId } })
+  const templateId = category.promptTemplateId ?? config.promptTemplateId;
+  const template = templateId
+    ? await prisma.promptTemplate.findUnique({ where: { id: templateId } })
     : null;
+  const activeTemplate = template?.enabled ? template : null;
+
+  // Admin-managed knowledge: docs for this category + global docs, in order.
+  const knowledgeDocs = await prisma.knowledgeDoc.findMany({
+    where: { enabled: true, OR: [{ categoryId: category.id }, { categoryId: null }] },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  const knowledge =
+    knowledgeDocs.length > 0
+      ? "ความรู้อ้างอิง (ใช้ประกอบการตอบ):\n\n" +
+        knowledgeDocs.map((d) => `## ${d.title}\n${d.content}`).join("\n\n")
+      : undefined;
 
   const systemPrompt = buildSystemPrompt({
     safety: "ให้คำแนะนำเชิงบวก ไม่ทำนายแบบฟันธงหรือสร้างความกลัว",
-    persona: template?.content ?? "คุณคือแม่หมอผู้ให้คำปรึกษาด้วยน้ำเสียงอบอุ่นและน่าเชื่อถือ",
+    persona:
+      activeTemplate?.content ??
+      "คุณคือแม่หมอผู้ให้คำปรึกษาด้วยน้ำเสียงอบอุ่นและน่าเชื่อถือ",
     plan: plan === "PRO" ? "ผู้ใช้ระดับ Pro: ตอบละเอียด" : "ผู้ใช้ระดับ Free: ตอบกระชับ",
     category: category.description ?? category.nameTh,
+    knowledge,
     outputFormat: "ตอบเป็นภาษาไทยที่สุภาพ อ่านง่าย และมีข้อคิดปิดท้าย",
   });
   const userPrompt = buildUserPrompt(snapshot, question);
@@ -120,8 +137,8 @@ export async function createReading(input: CreateReadingInput) {
         responseText: result.rawText,
         provider: result.provider,
         modelId: result.modelId,
-        promptTemplateId: template?.id,
-        promptVersion: template?.version,
+        promptTemplateId: activeTemplate?.id,
+        promptVersion: activeTemplate?.version,
         status: "SUCCESS",
         creditCost: category.creditCost,
       },
