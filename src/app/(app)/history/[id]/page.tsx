@@ -1,15 +1,11 @@
-import { ScaffoldNote } from "@/components/scaffold-note";
+import { redirect } from "next/navigation";
 
+/** Legacy route — threads open on the dashboard chat surface. */
 export default async function HistoryDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return (
-    <ScaffoldNote title="รายละเอียดคำอ่าน" owner="Both">
-      แสดงคำอ่านฉบับเต็มของ reading id: <code className="mx-1">{id}</code>{" "}
-      (<code className="mx-1">GET /api/me/history/:id</code>). ตรวจ ownership.
-    </ScaffoldNote>
-  );
+  redirect(`/dashboard?thread=${id}`);
 }
