@@ -68,16 +68,18 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 ### 🎯 Milestone 2 — Schema chat, Auth, Birth profile, Admin API
 
-- [ ] **ปรับ schema**: เพิ่ม `Conversation` + `Message`, ปรับ `BirthProfile` (country/province/district + `editCount`), เพิ่ม `suggestedQuestions` ที่ category → เขียน migration
-- [ ] เตรียม dataset **จังหวัด/อำเภอไทย** (เสิร์ฟผ่าน API หรือฝัง JSON) + ตกลงรูปแบบกับ Frontend
-- [ ] แปลงปี **พ.ศ.→ค.ศ.** ก่อนบันทึก (เก็บ UTC)
-- [ ] Auth: เปิด **Google provider** ใน `src/auth.ts` + **auto-create user ตอน sign-in ครั้งแรก**
-- [ ] Sign-in อีเมล: ยืนยันกับ PM (magic-link vs อีเมล+รหัสผ่าน) แล้ว implement ให้ตรง
-- [ ] `GET/PUT /api/me/birth-profile` — **บังคับ editCount ≤ 1** (แก้ได้อีกครั้งเดียว)
-- [ ] `GET /api/me`, `/api/me/package`, `/api/me/credits`
-- [ ] Admin API: users (list/detail/status/credits/subscription) + CRUD categories, packages (+ `writeAudit` ทุก mutation)
+- [x] **ปรับ schema**: เพิ่ม `Conversation` + `Message`, ปรับ `BirthProfile` (country/province/district + `editCount`), เพิ่ม `suggestedQuestions` ที่ category → เขียน migration
+- [x] เตรียม dataset **จังหวัด/อำเภอไทย** (เสิร์ฟผ่าน `GET /api/geo/thailand` + `src/data/thailand-geo.ts`; อำเภอยังชุดย่อ)
+- [x] แปลงปี **พ.ศ.→ค.ศ.** ก่อนบันทึก (เก็บ UTC)
+- [x] Auth: เปิด **Google provider** ใน `src/auth.ts` + **auto-create user ตอน sign-in ครั้งแรก**
+- [ ] Sign-in อีเมล: ยืนยันกับ PM (magic-link vs อีเมล+รหัสผ่าน) — ใช้ Credentials อยู่ชั่วคราว
+- [x] `GET/PUT /api/me/birth-profile` — **บังคับ editCount ≤ 1** (แก้ได้อีกครั้งเดียว)
+- [x] `GET /api/me`, `/api/me/package`, `/api/me/credits`
+- [x] Admin API: users (list/detail/status/credits/subscription) + CRUD categories, packages (+ `writeAudit` ทุก mutation)
 
 **Acceptance:** sign-in (Google+email) ได้ · กรอก/แก้วันเกิด (จำกัด 1 ครั้ง) ได้ · admin จัดการผู้ใช้/หมวด/แพ็กเกจได้
+
+> **ปิด M2 (`be/m2-close`):** migration `knowledge_docs`, geo API, vitest (`tests/date.test.ts`, `tests/birth-profile-rules.test.ts`). รัน `npm run db:migrate` + `db:seed` บน Supabase ก่อน deploy.
 
 ### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History
 
