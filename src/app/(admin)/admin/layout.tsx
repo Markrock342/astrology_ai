@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { FEATURES } from "@/config/features";
 
 const ADMIN_NAV = [
   { href: "/admin/dashboard", label: "ภาพรวม" },
   { href: "/admin/users", label: "ผู้ใช้" },
   { href: "/admin/categories", label: "หมวดหมู่" },
-  { href: "/admin/prompts", label: "Prompt / Persona" },
-  { href: "/admin/ai-configs", label: "AI Models" },
+  { href: "/admin/prompts", label: "Prompt / Persona", aiOnly: true },
+  { href: "/admin/ai-configs", label: "AI Models", aiOnly: true },
+  { href: "/admin/knowledge", label: "คลังความรู้", aiOnly: true },
   { href: "/admin/packages", label: "แพ็กเกจ" },
   { href: "/admin/payments", label: "การชำระเงิน" },
-  { href: "/admin/usage", label: "Usage / AI Logs" },
+  { href: "/admin/usage", label: "Usage / AI Logs", aiOnly: true },
   { href: "/admin/audit-logs", label: "Audit Logs" },
-];
+].filter((item) => FEATURES.aiAdmin || !item.aiOnly);
 
 /**
  * Admin CMS shell (spec 6). Server-side role guard: only ADMIN / SUPER_ADMIN.

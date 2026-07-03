@@ -260,7 +260,7 @@ export function BirthForm({ editCount = 0 }: { editCount?: number }) {
       <button
         type="submit"
         disabled={submitting}
-        className="mt-6 w-full rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
+        className="press-scale mt-6 self-start rounded-xl bg-[var(--primary)] px-10 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
       >
         {submitting ? "กำลังบันทึก…" : "ทำนาย"}
       </button>
@@ -317,19 +317,13 @@ function Select({
         {children}
       </select>
       <svg
-        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-2)]"
-        width="14"
-        height="14"
+        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--primary)]"
+        width="12"
+        height="12"
         viewBox="0 0 24 24"
-        fill="none"
+        fill="currentColor"
       >
-        <path
-          d="M6 9l6 6 6-6"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d="M12 16L4 7h16z" />
       </svg>
     </div>
   );
