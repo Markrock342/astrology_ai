@@ -78,8 +78,8 @@ export function PackagesManager() {
       creditQuota: pkg.creditQuota,
       enabled: pkg.enabled,
       description: pkg.description ?? "",
-      featuresText: arrayToLines(pkg.features),
-      upgradeStepsText: arrayToLines(pkg.upgradeSteps),
+      featuresText: arrayToLines(pkg.features ?? []),
+      upgradeStepsText: arrayToLines(pkg.upgradeSteps ?? []),
     });
   }
 
@@ -219,7 +219,7 @@ export function PackagesManager() {
               </div>
             </div>
             <ul className="mt-2 list-inside list-disc text-xs text-[var(--muted)]">
-              {(pkg.features.length > 0
+              {(pkg.features && pkg.features.length > 0
                 ? pkg.features
                 : [`เครดิต ${pkg.creditQuota} ครั้ง`]
               ).map((f) => (

@@ -36,11 +36,25 @@ export function SettingsPopover({ onClose }: { onClose: () => void }) {
   return (
     <div
       ref={ref}
-      className="absolute bottom-full left-0 mb-2 w-full overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] shadow-2xl"
+      className="animate-fade-up absolute bottom-full left-0 mb-2 w-full min-w-[260px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-1.5 shadow-2xl"
     >
-      <Row label="เปลี่ยนชื่อผู้ใช้" hint={MOCK_USER.name} onClick={() => {}} />
-      <Row label="เปลี่ยนรหัสผ่าน" hint="Password" onClick={() => {}} />
+      <p className="px-3 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-[var(--muted-2)]">
+        การตั้งค่า
+      </p>
       <Row
+        icon={<UserIcon />}
+        label="เปลี่ยนชื่อผู้ใช้"
+        hint="(Username)"
+        onClick={() => {}}
+      />
+      <Row
+        icon={<KeyIcon />}
+        label="เปลี่ยนรหัสผ่าน"
+        hint="(Password)"
+        onClick={() => {}}
+      />
+      <Row
+        icon={<CalendarIcon />}
         label="เปลี่ยนวันเกิด"
         hint={`(ครั้งที่ ${editUsed + 1}/2)`}
         disabled={editExhausted}
@@ -49,29 +63,43 @@ export function SettingsPopover({ onClose }: { onClose: () => void }) {
           router.push("/onboarding");
         }}
       />
-      <Row label="จัดการแพ็กเกจ" highlight onClick={() => router.push("/account")} />
       <Row
+        icon={<PackageIcon />}
+        label="จัดการแพ็กเกจ"
+        highlight
+        onClick={() => router.push("/account")}
+      />
+      <Row
+        icon={<LogoutIcon />}
         label="ออกจากระบบ"
         onClick={() => void signOut({ callbackUrl: "/login" })}
       />
-      <Row label="ยกเลิกการเป็นสมาชิก" muted onClick={() => {}} />
+      <div className="mt-1 border-t border-[var(--border)] pt-1">
+        <button
+          type="button"
+          onClick={() => {}}
+          className="w-full rounded-lg px-3 py-2 text-center text-xs text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--muted)]"
+        >
+          ยกเลิกการเป็นสมาชิก
+        </button>
+      </div>
     </div>
   );
 }
 
 function Row({
+  icon,
   label,
   hint,
   onClick,
   highlight,
-  muted,
   disabled,
 }: {
+  icon: React.ReactNode;
   label: string;
   hint?: string;
   onClick: () => void;
   highlight?: boolean;
-  muted?: boolean;
   disabled?: boolean;
 }) {
   return (
@@ -79,16 +107,66 @@ function Row({
       type="button"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition ${
+      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${
         highlight
           ? "bg-[var(--surface-3)] text-[var(--foreground)]"
-          : muted
-            ? "text-[var(--muted-2)] hover:bg-[var(--surface-3)]"
-            : "text-[var(--foreground)] hover:bg-[var(--surface-3)]"
+          : "text-[var(--foreground)] hover:bg-[var(--surface-3)]"
       } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
     >
-      <span>{label}</span>
+      <span className="shrink-0 text-[var(--muted)]">{icon}</span>
+      <span className="flex-1">{label}</span>
       {hint && <span className="text-xs text-[var(--muted-2)]">{hint}</span>}
     </button>
+  );
+}
+
+const ICON = { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none" } as const;
+const LINE = {
+  stroke: "currentColor",
+  strokeWidth: 1.8,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
+function UserIcon() {
+  return (
+    <svg {...ICON}>
+      <circle cx="12" cy="8" r="3.4" {...LINE} />
+      <path d="M5.5 20c.6-3.3 3.2-5 6.5-5s5.9 1.7 6.5 5" {...LINE} />
+    </svg>
+  );
+}
+function KeyIcon() {
+  return (
+    <svg {...ICON}>
+      <circle cx="8" cy="15" r="3.5" {...LINE} />
+      <path d="M10.5 12.5L20 3M17 6l2 2M14 9l2 2" {...LINE} />
+    </svg>
+  );
+}
+function CalendarIcon() {
+  return (
+    <svg {...ICON}>
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" {...LINE} />
+      <path d="M3.5 9.5h17M8 3v3M16 3v3" {...LINE} />
+    </svg>
+  );
+}
+function PackageIcon() {
+  return (
+    <svg {...ICON}>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" {...LINE} />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" {...LINE} />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" {...LINE} />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" {...LINE} />
+    </svg>
+  );
+}
+function LogoutIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" {...LINE} />
+      <path d="M15 8l4 4-4 4M19 12H9" {...LINE} />
+    </svg>
   );
 }
