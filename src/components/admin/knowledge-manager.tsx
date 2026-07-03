@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   adminFetch,
+  AdminPage,
   Badge,
   Button,
   Card,
@@ -129,7 +130,7 @@ export function KnowledgeManager() {
   const totalChars = docs.filter((d) => d.enabled).reduce((s, d) => s + d.content.length, 0);
 
   return (
-    <section className="mx-auto max-w-5xl px-6 py-8">
+    <AdminPage>
       <PageHeader
         title="คลังความรู้ (Knowledge)"
         description="วางเนื้อหา FAQ/ตำรา ให้ AI ใช้อ้างอิงตอบ — เนื้อหาที่เปิดใช้จะถูกส่งเข้า prompt ทุกครั้ง ยิ่งยาวยิ่งใช้ token มาก"
@@ -247,6 +248,6 @@ export function KnowledgeManager() {
           </p>
         )}
       </div>
-    </section>
+    </AdminPage>
   );
 }

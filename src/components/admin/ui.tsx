@@ -142,12 +142,90 @@ export function Badge({
   );
 }
 
-export function Card({ children }: { children: React.ReactNode }) {
+export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+    <div className={`rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 ${className}`}>
       {children}
     </div>
   );
+}
+
+export function StatCard({
+  label,
+  value,
+  hint,
+  tone = "default",
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+  tone?: "default" | "gold" | "green" | "danger";
+}) {
+  const valueColor =
+    tone === "gold"
+      ? "text-[var(--primary)]"
+      : tone === "green"
+        ? "text-[var(--secondary-active)]"
+        : tone === "danger"
+          ? "text-[var(--danger)]"
+          : "text-[var(--foreground)]";
+  return (
+    <Card className="!p-4">
+      <p className="text-[11px] text-[var(--muted)]">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold tabular-nums ${valueColor}`}>{value}</p>
+      {hint && <p className="mt-1 text-[10px] text-[var(--muted-2)]">{hint}</p>}
+    </Card>
+  );
+}
+
+export function TableShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+      <table className="w-full min-w-[640px] text-left text-sm">{children}</table>
+    </div>
+  );
+}
+
+export function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <th
+      className={`border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide text-[var(--muted)] ${className}`}
+    >
+      {children}
+    </th>
+  );
+}
+
+export function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <td className={`border-b border-[var(--border)]/60 px-4 py-3 text-[var(--foreground)] ${className}`}>
+      {children}
+    </td>
+  );
+}
+
+export function EmptyPanel({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <Card className="flex flex-col items-center justify-center py-12 text-center">
+      <p className="text-sm font-medium text-[var(--foreground)]">{title}</p>
+      {description && (
+        <p className="mt-2 max-w-md text-xs leading-relaxed text-[var(--muted)]">{description}</p>
+      )}
+      {action && <div className="mt-4">{action}</div>}
+    </Card>
+  );
+}
+
+export function AdminPage({ children }: { children: React.ReactNode }) {
+  return <section className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">{children}</section>;
 }
 
 /** Uniform fetch helper for admin API routes. Throws on { ok: false }. */

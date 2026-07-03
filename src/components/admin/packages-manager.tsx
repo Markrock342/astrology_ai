@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   adminFetch,
+  AdminPage,
   Badge,
   Button,
   Card,
@@ -111,7 +112,7 @@ export function PackagesManager() {
   }
 
   return (
-    <section className="mx-auto max-w-5xl px-6 py-8">
+    <AdminPage>
       <PageHeader
         title="แพ็กเกจ Free / Pro"
         description="แก้ราคา รายละเอียด และ bullet ที่แสดงในหน้าบัญชี & แพ็กเกจของผู้ใช้ — บันทึกแล้วมีผลทันที"
@@ -229,6 +230,6 @@ export function PackagesManager() {
           </Card>
         ))}
       </div>
-    </section>
+    </AdminPage>
   );
 }
