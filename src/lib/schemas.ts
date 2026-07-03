@@ -49,6 +49,15 @@ export const createReadingSchema = z.object({
   question: z.string().min(1).max(1000),
 });
 
+export const updateProfileSchema = z.object({
+  name: z.string().min(1).max(80),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(8),
+  newPassword: z.string().min(8).max(128),
+});
+
 export const adminCreditSchema = z.object({
   amount: z.number().int(),
   type: z.enum(["ADMIN_ADD", "ADMIN_DEDUCT", "PROMOTION", "REFUND"]),

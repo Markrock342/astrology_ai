@@ -4,16 +4,25 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
-import { findCategory } from "./nav-data";
+import {
+  isCategoryLocked,
+  useAppData,
+  useCategory,
+} from "./app-data-provider";
 
 type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  /** Model that produced this reply (assistant only) — from AIProviderConfig. */
   modelId?: string;
 };
-type ChatState = "idle" | "processing" | "streaming" | "locked" | "no-quota" | "error";
+type ChatState =
+  | "idle"
+  | "processing"
+  | "streaming"
+  | "locked"
+  | "no-quota"
+  | "error";
 
 /** Map API error codes (lib/errors.ts) to friendly Thai messages. */
 const ERROR_MESSAGES: Record<string, string> = {
@@ -24,9 +33,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   VALIDATION: "กรุณากรอกข้อมูลวันเกิดก่อนเริ่มดูดวง",
   RATE_LIMITED: "ถามถี่เกินไป รอสักครู่แล้วลองใหม่",
   UNAUTHENTICATED: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
+  USER_DISABLED: "บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อแอดมิน",
+  FEATURE_DISABLED: "ระบบดูดวงด้วย AI กำลังอยู่ระหว่างพัฒนา",
 };
 
-/** Pretty label for a model id, e.g. "gemini-2.5-flash" → "Gemini 2.5 Flash". */
 function modelLabel(modelId: string): string {
   return modelId
     .split("-")
@@ -34,35 +44,74 @@ function modelLabel(modelId: string): string {
     .join(" ");
 }
 
-const EMPTY_HEADING = "ในทางโหราศาสตร์ไทย ดวงดาวเป็นเพียงเครื่องมือ\nบอกจังหวะชีวิตเพื่อให้เราเตรียมพร้อม";
+const EMPTY_HEADING =
+  "ในทางโหราศาสตร์ไทย ดวงดาวเป็นเพียงเครื่องมือ\nบอกจังหวะชีวิตเพื่อให้เราเตรียมพร้อม";
 const EMPTY_PARAGRAPH =
   "การทำนายไม่ใช่การกำหนดชะตา แต่เป็นแนวทางให้เรารู้จังหวะ เพื่อวางแผนและลงมือทำอย่างมีสติ สิ่งที่สำคัญที่สุดคือการกระทำและจิตใจของเราเอง ไม่ว่าดวงจะบอกอะไร เราก็ยังเป็นผู้เลือกทางเดินของตัวเองได้เสมอ";
+
+type PendingRetry = {
+  question: string;
+  idempotencyKey: string;
+};
 
 export function ChatView() {
   const searchParams = useSearchParams();
   const catSlug = searchParams.get("cat");
-  const category = findCategory(catSlug);
-  const locked = category?.tier === "PRO";
+  const threadId = searchParams.get("thread");
+  const { user, refresh } = useAppData();
+  const category = useCategory(catSlug);
+  const locked = isCategoryLocked(category, user?.plan ?? "FREE");
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [state, setState] = useState<ChatState>("idle");
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [pendingRetry, setPendingRetry] = useState<PendingRetry | null>(null);
+  const [loadingThread, setLoadingThread] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamTimer = useRef<number | null>(null);
 
-  // Reset the thread when the selected category changes.
+  // Load past thread when ?thread= is set.
   useEffect(() => {
+    if (!threadId) return;
+    let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoadingThread(true);
+    fetch(`/api/conversations/${threadId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!alive || !json?.ok) return;
+        setMessages(json.data.messages);
+        setState("idle");
+        setErrorText(null);
+        setPendingRetry(null);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setLoadingThread(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [threadId]);
+
+  // Reset the thread when the selected category changes (new chat).
+  useEffect(() => {
+    if (threadId) return;
     if (streamTimer.current) window.clearInterval(streamTimer.current);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages([]);
     setState(locked ? "locked" : "idle");
     setInput("");
     setErrorText(null);
-  }, [catSlug, locked]);
+    setPendingRetry(null);
+  }, [catSlug, locked, threadId]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages, state]);
 
   useEffect(() => {
@@ -71,7 +120,6 @@ export function ChatView() {
     };
   }, []);
 
-  /** Reveal the reply progressively (typewriter) like ChatGPT streaming. */
   function streamReply(full: string, modelId: string) {
     const id = crypto.randomUUID();
     setMessages((m) => [...m, { id, role: "assistant", content: "", modelId }]);
@@ -79,7 +127,6 @@ export function ChatView() {
 
     let i = 0;
     streamTimer.current = window.setInterval(() => {
-      // Reveal a few characters per tick for a natural pace.
       i = Math.min(full.length, i + 3);
       const slice = full.slice(0, i);
       setMessages((m) =>
@@ -89,18 +136,17 @@ export function ChatView() {
         if (streamTimer.current) window.clearInterval(streamTimer.current);
         streamTimer.current = null;
         setState("idle");
+        refresh();
       }
     }, 24);
   }
 
-  async function send(text: string) {
+  async function send(text: string, retryKey?: string) {
     const content = text.trim();
     if (!content || state === "processing" || state === "streaming") return;
-    // Phase 2 demo: the AI engine ships in the next milestone.
+
     if (!FEATURES.aiChat) {
-      setErrorText(
-        "ระบบดูดวงด้วย AI กำลังอยู่ระหว่างพัฒนา และจะเปิดให้ใช้งานในเฟสถัดไป",
-      );
+      setErrorText(ERROR_MESSAGES.FEATURE_DISABLED);
       setState("error");
       return;
     }
@@ -114,15 +160,20 @@ export function ChatView() {
       return;
     }
 
-    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content };
-    setMessages((m) => [...m, userMsg]);
-    setInput("");
+    const isRetry = Boolean(retryKey);
+    if (!isRetry) {
+      const userMsg: Message = { id: crypto.randomUUID(), role: "user", content };
+      setMessages((m) => [...m, userMsg]);
+      setInput("");
+    }
+
     setErrorText(null);
     setState("processing");
 
-    // Stable per-request key: a retry of the SAME question reuses the reading
-    // on the server instead of charging credit twice.
-    const idempotencyKey = crypto.randomUUID();
+    const idempotencyKey = retryKey ?? crypto.randomUUID();
+    if (!isRetry) {
+      setPendingRetry({ question: content, idempotencyKey });
+    }
 
     try {
       const res = await fetch("/api/horoscope/readings", {
@@ -142,12 +193,21 @@ export function ChatView() {
           return;
         }
         setErrorText(
-          ERROR_MESSAGES[code] ?? json?.error?.message ?? "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
+          ERROR_MESSAGES[code] ??
+            json?.error?.message ??
+            "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
         );
-        setState(code === "NO_QUOTA" ? "no-quota" : "error");
+        setState(
+          code === "NO_QUOTA"
+            ? "no-quota"
+            : code === "USER_DISABLED"
+              ? "error"
+              : "error",
+        );
         return;
       }
 
+      setPendingRetry(null);
       const reading = json.data as { responseText: string; modelId: string | null };
       streamReply(
         reading.responseText,
@@ -159,23 +219,26 @@ export function ChatView() {
     }
   }
 
-  const showEmpty = messages.length === 0 && state !== "locked";
+  const showEmpty =
+    messages.length === 0 && state !== "locked" && !loadingThread && !threadId;
 
   return (
     <div className="flex flex-1 flex-col">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 md:px-8">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 pt-14 md:px-8 md:pt-6">
         {!FEATURES.aiChat && (
           <div className="animate-fade-in mx-auto mb-6 max-w-3xl rounded-xl border border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 text-center text-xs text-[var(--muted)]">
             ตัวอย่างระบบ (เฟสนี้) — ระบบดูดวงด้วย AI จะเปิดให้ใช้งานจริงในเฟสถัดไป
           </div>
         )}
-        {showEmpty ? (
+        {loadingThread ? (
+          <p className="text-center text-sm text-[var(--muted)]">กำลังโหลดประวัติ…</p>
+        ) : showEmpty ? (
           <EmptyState
             category={category?.label}
             suggestions={category?.suggestedQuestions ?? []}
             onPick={send}
           />
-        ) : state === "locked" ? (
+        ) : state === "locked" && messages.length === 0 ? (
           <LockedState category={category?.label} />
         ) : (
           <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -197,33 +260,27 @@ export function ChatView() {
                   >
                     {m.content}
                   </div>
-                  {m.modelId && !(state === "streaming" && idx === messages.length - 1) && (
-                    <p className="animate-fade-in mt-2 flex items-center gap-1.5 text-[10px] text-[var(--muted-2)]">
-                      <SparkleIcon />
-                      ตอบโดย {modelLabel(m.modelId)}
-                    </p>
-                  )}
+                  {m.modelId &&
+                    !(state === "streaming" && idx === messages.length - 1) && (
+                      <p className="animate-fade-in mt-2 flex items-center gap-1.5 text-[10px] text-[var(--muted-2)]">
+                        <SparkleIcon />
+                        ตอบโดย {modelLabel(m.modelId)}
+                      </p>
+                    )}
                 </div>
               ),
             )}
             {state === "processing" && <ThinkingIndicator />}
-            {state === "error" && (
-              <p className="animate-fade-in text-sm text-[var(--danger)]">
-                {errorText ?? "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง"}
-              </p>
-            )}
-            {state === "no-quota" && (
-              <div className="animate-fade-in flex flex-col items-start gap-2">
-                <p className="text-sm text-[var(--danger)]">
-                  {errorText ?? "เครดิตหมดแล้ว"}
-                </p>
-                <a
-                  href="/account"
-                  className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
-                >
-                  ดูแพ็กเกจ / เติมเครดิต
-                </a>
-              </div>
+            {(state === "error" || state === "no-quota") && (
+              <ErrorBanner
+                state={state}
+                errorText={errorText}
+                onRetry={
+                  pendingRetry
+                    ? () => send(pendingRetry.question, pendingRetry.idempotencyKey)
+                    : undefined
+                }
+              />
             )}
           </div>
         )}
@@ -233,9 +290,46 @@ export function ChatView() {
         value={input}
         onChange={setInput}
         onSend={() => send(input)}
-        disabled={state === "processing" || state === "streaming"}
-        aiEnabled={FEATURES.aiChat}
+        disabled={state === "processing" || state === "streaming" || locked}
+        aiEnabled={FEATURES.aiChat && !locked}
       />
+    </div>
+  );
+}
+
+function ErrorBanner({
+  state,
+  errorText,
+  onRetry,
+}: {
+  state: "error" | "no-quota";
+  errorText: string | null;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="animate-fade-in flex flex-col items-start gap-2">
+      <p className="text-sm text-[var(--danger)]">
+        {errorText ?? "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง"}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="press-scale rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)]"
+          >
+            ลองใหม่
+          </button>
+        )}
+        {state === "no-quota" && (
+          <a
+            href="/account"
+            className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+          >
+            ดูแพ็กเกจ / เติมเครดิต
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -306,7 +400,6 @@ function LockedState({ category }: { category?: string }) {
   );
 }
 
-/** AI "thinking" indicator — gold star-dots rising in a wave + shimmer label. */
 function ThinkingIndicator() {
   return (
     <div className="animate-fade-in flex items-center gap-3">
@@ -361,7 +454,6 @@ function Composer({
           placeholder={aiEnabled ? "สอบถามเราได้เลย" : "เปิดให้ใช้งานในเฟสถัดไป"}
           className="w-full bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed"
         />
-        {/* Phone/Voice = Phase 2 → shown disabled per design. */}
         <button
           type="button"
           disabled
