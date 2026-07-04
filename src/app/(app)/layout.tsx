@@ -5,6 +5,9 @@ import { AppShell } from "@/components/app/app-shell";
 import { AppDataProvider } from "@/components/app/app-data-provider";
 import { BirthProfileGate } from "@/components/app/birth-profile-gate";
 import { getMe } from "@/server/user/account-service";
+import { AppError } from "@/lib/errors";
+
+export const dynamic = "force-dynamic";
 
 /**
  * Authenticated user shell (sidebar + chat area, design 03/04).
@@ -16,9 +19,16 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user?.id) redirect("/login");
 
-  const me = await getMe(session.user.id);
+  let me;
+  try {
+    me = await getMe(session.user.id);
+  } catch (err) {
+    // Stale JWT (e.g. wrong Google provider id) — force a clean sign-in.
+    if (err instanceof AppError && err.code === "NOT_FOUND") redirect("/login");
+    throw err;
+  }
 
   return (
     <AppDataProvider>

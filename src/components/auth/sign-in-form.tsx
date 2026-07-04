@@ -42,7 +42,7 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
       return;
     }
     setLoading("google");
-    await signIn("google", { callbackUrl: "/onboarding" });
+    await signIn("google", { callbackUrl: "/continue" });
   }
 
   function resetToEmail() {
@@ -125,7 +125,7 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
       }
 
       if (json.data?.signedIn) {
-        window.location.href = "/onboarding";
+        window.location.href = "/continue";
         return;
       }
 
@@ -162,7 +162,7 @@ export function SignInForm({ googleEnabled = false }: { googleEnabled?: boolean 
       setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       return;
     }
-    window.location.href = "/onboarding";
+    window.location.href = "/continue";
   }
 
   const onSubmit =
