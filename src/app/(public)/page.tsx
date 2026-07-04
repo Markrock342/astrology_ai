@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { BrandMark } from "@/components/brand-logo";
 import { APP_NAME_TH } from "@/config/constants";
+import { AppError } from "@/lib/errors";
 import { resolveAppEntryPath } from "@/server/auth/app-entry";
+import { getMe } from "@/server/user/account-service";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +16,12 @@ export const dynamic = "force-dynamic";
 export default async function LandingPage() {
   const session = await auth();
   if (session?.user?.id) {
-    redirect(await resolveAppEntryPath(session.user.id));
+    try {
+      await getMe(session.user.id);
+      redirect(await resolveAppEntryPath(session.user.id));
+    } catch (err) {
+      if (!(err instanceof AppError && err.code === "NOT_FOUND")) throw err;
+    }
   }
 
   return (
