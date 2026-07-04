@@ -1,17 +1,18 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import { BirthForm } from "@/components/birth/birth-form";
 import {
   getBirthProfile,
   MAX_BIRTH_EDITS,
 } from "@/server/user/birth-profile-service";
+import { requireSessionUserId } from "@/server/auth/session-guard";
+
+export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+  const userId = await requireSessionUserId();
 
   // Also serves "เปลี่ยนวันเกิด" from settings — allowed while edits remain.
-  const profile = await getBirthProfile(session.user.id);
+  const profile = await getBirthProfile(userId);
   if (profile && profile.editCount >= MAX_BIRTH_EDITS) redirect("/dashboard");
 
   return (
