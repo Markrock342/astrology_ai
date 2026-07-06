@@ -1,11 +1,11 @@
 import Image from "next/image";
 import { APP_NAME_TH } from "@/config/constants";
 
-/** Real brand mark (public/logo.png). Shown in sidebar, sign-in, admin, etc. */
+/** Brand mark — replace public/logo.svg when the client sends final artwork. */
 export function BrandMark({ size = 40 }: { size?: number }) {
   return (
     <Image
-      src="/logo.png"
+      src="/logo.svg"
       alt={APP_NAME_TH}
       width={size}
       height={size}
@@ -33,5 +33,16 @@ export function BrandLogo({
         HORASARD
       </span>
     </div>
+  );
+}
+
+/** Sidebar wordmark matching client mock (horosard in gold). */
+export function BrandWordmark({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`text-base font-semibold lowercase tracking-wide text-[var(--primary)] ${className}`}
+    >
+      horosard
+    </span>
   );
 }

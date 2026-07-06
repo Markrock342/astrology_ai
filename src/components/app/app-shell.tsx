@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { BrandMark } from "@/components/brand-logo";
-import { APP_NAME_TH } from "@/config/constants";
+import { BrandMark, BrandWordmark } from "@/components/brand-logo";
 import { SettingsPopover, type SettingsModal } from "./settings-popover";
 import {
   CancelMembershipModal,
@@ -14,6 +13,7 @@ import {
 import { CategoryIcon } from "./category-icon";
 import { useAppData, isCategoryLocked } from "./app-data-provider";
 import { VerifyEmailBanner } from "./verify-email-banner";
+import { UserAvatar } from "./user-avatar";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -75,9 +75,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarContent = (
     <>
       <div className="flex items-center justify-between px-4 pt-4">
-        <Link href="/dashboard" className="flex items-center gap-2" onClick={closeMobile}>
-          <BrandMark size={30} />
-          <span className="text-sm font-semibold text-[var(--primary)]">{APP_NAME_TH}</span>
+        <Link href="/dashboard" className="flex items-center gap-2.5" onClick={closeMobile}>
+          <BrandMark size={28} />
+          <BrandWordmark />
         </Link>
         <button
           type="button"
@@ -158,11 +158,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <SectionLabel className="mt-5">ประวัติสนทนา</SectionLabel>
+        <SidebarDivider />
+
+        <SectionLabel>ดวงจร</SectionLabel>
         <nav className="flex flex-col gap-0.5">
           {filteredThreads.length === 0 ? (
             <p className="px-3 py-2 text-xs text-[var(--muted-2)]">
-              {loading ? "กำลังโหลด…" : "ยังไม่มีประวัติ"}
+              {loading ? "กำลังโหลด…" : "ยังไม่มีดวงจร"}
             </p>
           ) : (
             filteredThreads.map((t) => (
@@ -181,11 +183,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))
           )}
         </nav>
-
-        <SectionLabel className="mt-5">ดวงจร</SectionLabel>
-        <p className="px-3 py-2 text-xs text-[var(--muted-2)]">
-          โหมดดวงจร (Pro) — รอ PM ยืนยันสโคป
-        </p>
       </div>
 
       <div className="relative border-t border-[var(--border)] p-3">
@@ -198,9 +195,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         <div className="flex items-center justify-between rounded-xl px-2 py-2">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-3)] text-[var(--foreground)]">
-              <AvatarIcon />
-            </div>
+            <UserAvatar name={displayName} image={user?.image} size={36} />
             <div className="leading-tight">
               <p className="max-w-[140px] truncate text-sm font-medium text-[var(--foreground)]">
                 {displayName}
@@ -264,6 +259,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onExpand={() => setCollapsed(false)}
             onOpenModal={openModal}
             displayName={displayName}
+            image={user?.image}
           />
         </div>
 
@@ -290,9 +286,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
           <Link href="/dashboard" className="flex items-center gap-2">
             <BrandMark size={26} />
-            <span className="text-sm font-semibold text-[var(--primary)]">
-              {APP_NAME_TH}
-            </span>
+            <BrandWordmark className="text-sm" />
           </Link>
         </header>
         <div className="flex min-h-0 flex-1 flex-col">
@@ -332,6 +326,7 @@ function CollapsedRail({
   onExpand,
   onOpenModal,
   displayName,
+  image,
 }: {
   activeCat: string | null;
   settingsOpen: boolean;
@@ -340,6 +335,7 @@ function CollapsedRail({
   onExpand: () => void;
   onOpenModal: (m: SettingsModal) => void;
   displayName: string;
+  image?: string | null;
 }) {
   const { filteredCategories } = useAppData();
   const railBtnRef = useRef<HTMLButtonElement>(null);
@@ -404,15 +400,14 @@ function CollapsedRail({
         >
           <GearIcon />
         </button>
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-3)] text-[var(--foreground)]"
-          title={displayName}
-        >
-          <AvatarIcon />
-        </div>
+        <UserAvatar name={displayName} image={image} size={36} />
       </div>
     </div>
   );
+}
+
+function SidebarDivider() {
+  return <div className="my-4 border-t border-[var(--border)]" aria-hidden />;
 }
 
 function SectionLabel({
@@ -450,14 +445,6 @@ function CirclePlusIcon() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="12" r="10" fill="var(--secondary-active)" />
       <path d="M12 8v8M8 12h8" stroke="var(--secondary-foreground)" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-function AvatarIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="9" r="3.2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M5.5 20c.7-3.4 3.3-5 6.5-5s5.8 1.6 6.5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

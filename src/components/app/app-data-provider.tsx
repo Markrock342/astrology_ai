@@ -18,11 +18,13 @@ import {
 export type AppUser = {
   name: string;
   email: string;
+  image: string | null;
   plan: "FREE" | "PRO";
   creditBalance: number;
   canChat: boolean;
   emailVerified: boolean;
   needsEmailVerification: boolean;
+  hasPassword: boolean;
 };
 
 type AppDataContextValue = {
@@ -52,7 +54,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const [meRes, catRes, threadRes] = await Promise.all([
         fetch("/api/me"),
         fetch("/api/horoscope/categories"),
-        fetch("/api/conversations"),
+        fetch("/api/conversations?mode=TRANSIT"),
       ]);
 
       if (meRes.ok) {
@@ -61,11 +63,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           setUser({
             name: meJson.data.name ?? meJson.data.email?.split("@")[0] ?? "ผู้ใช้",
             email: meJson.data.email,
+            image: meJson.data.image ?? null,
             plan: meJson.data.plan,
             creditBalance: meJson.data.creditBalance,
             canChat: meJson.data.canChat ?? meJson.data.plan === "PRO",
             emailVerified: meJson.data.emailVerified ?? true,
             needsEmailVerification: meJson.data.needsEmailVerification ?? false,
+            hasPassword: meJson.data.hasPassword ?? false,
           });
         }
       }

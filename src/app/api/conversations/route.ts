@@ -1,8 +1,12 @@
 import { z } from "zod";
 import { handle, ok } from "@/lib/http";
 import { requireUser } from "@/server/auth/rbac";
-import { listUserThreads } from "@/server/horoscope/thread-service";
+import { listTransitThreads, listUserThreads } from "@/server/horoscope/thread-service";
 import { createConversation } from "@/server/horoscope/message-service";
+
+const listQuerySchema = z.object({
+  mode: z.enum(["TRANSIT", "NATAL"]).optional(),
+});
 
 const createSchema = z.object({
   categorySlug: z.string().min(1),
@@ -14,11 +18,20 @@ const createSchema = z.object({
   transitDistrict: z.string().optional(),
 });
 
-/** Chat history threads (derived from past readings until full chat model ships). */
-export async function GET() {
+/** Sidebar threads — TRANSIT (ดวงจร) by default; NATAL for legacy/history. */
+export async function GET(req: Request) {
   return handle(async () => {
     const user = await requireUser();
-    return ok(await listUserThreads(user.id));
+    const url = new URL(req.url);
+    const { mode } = listQuerySchema.parse({
+      mode: url.searchParams.get("mode") ?? undefined,
+    });
+
+    if (mode === "NATAL") {
+      return ok(await listUserThreads(user.id));
+    }
+
+    return ok(await listTransitThreads(user.id));
   });
 }
 

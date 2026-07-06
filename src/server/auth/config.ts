@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/server/db";
 import { env } from "@/config/env";
 import { ensureOAuthUser } from "@/server/auth/provisioning";
+import { syncGoogleProfile } from "@/server/user/avatar-service";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -69,7 +70,13 @@ export const authConfig: NextAuthConfig = {
       if (account?.provider === "google") {
         if (!user.email) return false;
         const result = await ensureOAuthUser({ email: user.email, name: user.name });
-        return result === "ok";
+        if (result !== "ok") return false;
+        await syncGoogleProfile({
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        });
+        return true;
       }
       return true;
     },

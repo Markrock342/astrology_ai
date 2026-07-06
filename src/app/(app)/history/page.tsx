@@ -10,18 +10,14 @@ export default function HistoryPage() {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-10 pt-16 md:px-10 md:pt-10">
       <div className="mx-auto max-w-3xl">
-        <h1 className="text-2xl font-semibold text-[var(--foreground)]">
-          ประวัติการสนทนา
-        </h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          บทสนทนาย้อนหลังของคุณ
-        </p>
+        <h1 className="text-2xl font-semibold text-[var(--foreground)]">ดวงจร</h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">ประวัติดวงจร (Transit) ของคุณ</p>
 
         <div className="mt-6 flex flex-col gap-2">
           {loading ? (
             <p className="text-sm text-[var(--muted)]">กำลังโหลด…</p>
           ) : threads.length === 0 ? (
-            <p className="text-sm text-[var(--muted-2)]">ยังไม่มีประวัติการสนทนา</p>
+            <p className="text-sm text-[var(--muted-2)]">ยังไม่มีดวงจร</p>
           ) : (
             threads.map((t) => (
               <Link
