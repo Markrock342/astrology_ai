@@ -43,32 +43,32 @@ export function BrandWordmark({
       height={height}
       priority
       unoptimized
-      className={`w-auto object-contain ${className}`}
+      // Inline height overrides Tailwind preflight's `img { height: auto }`,
+      // which would otherwise blow the wordmark up to its intrinsic 700px.
+      style={{ height, width: "auto" }}
+      className={`object-contain ${className}`}
     />
   );
 }
 
-/** Thai tagline(s) from the client design. */
+/**
+ * Thai tagline(s) from the client design — line 1 (h1) is the large, bold
+ * headline; line 2 (h2) is the smaller, muted sub-line.
+ */
 export function BrandTagline({
   className = "",
-  size = "sm",
   showSub = false,
 }: {
   className?: string;
-  size?: "xs" | "sm";
   showSub?: boolean;
 }) {
-  const sizes = {
-    xs: "text-[10px] leading-snug",
-    sm: "text-xs leading-snug",
-  };
   return (
     <div className={className}>
-      <h1 className={`font-medium text-[var(--foreground)]/90 ${sizes[size]}`}>
+      <h1 className="text-base font-semibold leading-snug text-[var(--foreground)] sm:text-lg">
         {APP_TAGLINE_TH}
       </h1>
       {showSub && (
-        <h2 className={`mt-1 font-normal text-[var(--muted)] ${sizes[size]}`}>
+        <h2 className="mt-1.5 text-xs font-normal leading-snug text-[var(--muted)] sm:text-sm">
           {APP_TAGLINE_SUB_TH}
         </h2>
       )}
@@ -87,8 +87,8 @@ export function BrandLogo({
   return (
     <div className={`flex flex-col items-center gap-3 text-center ${className}`}>
       <BrandMark size={size} />
-      <BrandWordmark height={38} />
-      <BrandTagline size="sm" showSub className="max-w-[340px]" />
+      <BrandWordmark height={28} />
+      <BrandTagline showSub className="max-w-[420px]" />
     </div>
   );
 }
