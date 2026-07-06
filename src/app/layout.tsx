@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Nunito, Noto_Sans_Thai } from "next/font/google";
+import { Geist_Mono, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { APP_NAME_TH, APP_TAGLINE_TH } from "@/config/constants";
 
@@ -7,13 +7,6 @@ const notoThai = Noto_Sans_Thai({
   variable: "--font-thai",
   subsets: ["thai", "latin"],
   weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-});
-
-const nunito = Nunito({
-  variable: "--font-wordmark",
-  subsets: ["latin"],
-  weight: ["600", "700"],
   display: "swap",
 });
 
@@ -33,7 +26,7 @@ export default function RootLayout({
   return (
     <html
       lang="th"
-      className={`${notoThai.variable} ${nunito.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${notoThai.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className={`${notoThai.className} min-h-full flex flex-col`}>
         {children}

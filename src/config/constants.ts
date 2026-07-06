@@ -6,10 +6,13 @@
 
 export const APP_NAME = "HoraSard";
 export const APP_NAME_TH = "โหราศาสตร์";
-/** Client PSD wordmark (lowercase latin). */
+/** Client PSD wordmark (lowercase latin). Rendered as artwork: public/wordmark.png */
 export const APP_WORDMARK = "horasard";
-/** Tagline under the wordmark in Website_Design.psd. */
-export const APP_TAGLINE_TH = "ดวงขุมทรัพย์โหราศาสตร์ไทยแบบสิริศาสตร์";
+/** Primary tagline under the wordmark (Website_Design.psd). */
+export const APP_TAGLINE_TH = "ดูดวงตามหลักโหราศาสตร์ไทย ระบบสุริยยาตร์";
+/** Secondary sub-tagline (Website_Design.psd). */
+export const APP_TAGLINE_SUB_TH =
+  "ปลอดภัย ใช้แค่ วัน เดือน ปี เวลา และ สถานที่เกิด ไม่ต้องใช้ข้อมูลอื่น";
 
 /** Default seed values — override via Admin CMS once client confirms. */
 export const DEFAULTS = {
