@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Noto_Sans_Thai } from "next/font/google";
+import { Geist_Mono, Nunito, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
-import { APP_NAME_TH } from "@/config/constants";
+import { APP_NAME_TH, APP_TAGLINE_TH } from "@/config/constants";
 
 const notoThai = Noto_Sans_Thai({
   variable: "--font-thai",
   subsets: ["thai", "latin"],
   weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+});
+
+const nunito = Nunito({
+  variable: "--font-wordmark",
+  subsets: ["latin"],
+  weight: ["600", "700"],
   display: "swap",
 });
 
@@ -16,8 +23,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: `${APP_NAME_TH} — ดูดวงด้วย AI`,
-  description: "แอปดูดวงด้วย AI สไตล์แม่หมอ อ่านดวงจากข้อมูลวันเกิดของคุณ",
+  title: `${APP_NAME_TH} — ${APP_TAGLINE_TH}`,
+  description: APP_TAGLINE_TH,
 };
 
 export default function RootLayout({
@@ -26,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="th"
-      className={`${notoThai.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${notoThai.variable} ${nunito.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className={`${notoThai.className} min-h-full flex flex-col`}>
         {children}
