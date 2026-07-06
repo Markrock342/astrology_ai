@@ -179,11 +179,92 @@ export const CMS_DEFAULTS: Record<CmsKey, unknown> = {
 export const CMS_LABELS: Record<CmsKey, string> = {
   [CMS_KEYS.privacyPolicy]: "นโยบายความเป็นส่วนตัว",
   [CMS_KEYS.termsOfService]: "เงื่อนไขการใช้งาน",
-  [CMS_KEYS.disclaimer]: "ข้อจำกัดความรับผิด (Disclaimer)",
-  [CMS_KEYS.consentRegister]: "ข้อความยินยอม — สมัครสมาชิก",
-  [CMS_KEYS.consentBirthPrivacy]: "ข้อความยินยอม — ฟอร์มวันเกิด (นโยบาย)",
-  [CMS_KEYS.consentBirthEditLimit]: "ข้อความยินยอม — ฟอร์มวันเกิด (แก้ได้ 1 ครั้ง)",
-  [CMS_KEYS.contact]: "ข้อมูลติดต่อ",
-  [CMS_KEYS.maintenanceMode]: "โหมดปิดปรับปรุงระบบ",
-  [CMS_KEYS.paymentInfo]: "คำแนะนำชำระเงิน (Manual)",
+  [CMS_KEYS.disclaimer]: "คำเตือนทำนาย",
+  [CMS_KEYS.consentRegister]: "สมัครสมาชิก",
+  [CMS_KEYS.consentBirthPrivacy]: "ฟอร์มวันเกิด — ยอมรับนโยบาย",
+  [CMS_KEYS.consentBirthEditLimit]: "ฟอร์มวันเกิด — แจ้งแก้ได้ 1 ครั้ง",
+  [CMS_KEYS.contact]: "อีเมลติดต่อทีมงาน",
+  [CMS_KEYS.maintenanceMode]: "ปิดระบบชั่วคราว",
+  [CMS_KEYS.paymentInfo]: "วิธีโอนเงิน Pro",
 };
+
+/** Sidebar groups for /admin/settings — plain Thai, no jargon. */
+export type CmsGroupId = "legal" | "consent" | "payment" | "system";
+
+export const CMS_GROUPS: { id: CmsGroupId; label: string; hint: string }[] = [
+  { id: "legal", label: "หน้านโยบาย", hint: "เอกสารที่ผู้ใช้อ่านได้" },
+  { id: "consent", label: "ข้อความยินยอม", hint: "ข้อความใน checkbox" },
+  { id: "payment", label: "ชำระเงิน", hint: "ข้อมูลบัญชี & ขั้นตอน" },
+  { id: "system", label: "ระบบ", hint: "ตั้งค่าระบบทั่วไป" },
+];
+
+export type CmsMeta = {
+  group: CmsGroupId;
+  /** One-line explanation shown in the editor. */
+  help: string;
+  /** Where users will see this content. */
+  where: string;
+  /** Public page to preview (opens in new tab). */
+  previewPath?: string;
+};
+
+export const CMS_META: Record<CmsKey, CmsMeta> = {
+  [CMS_KEYS.privacyPolicy]: {
+    group: "legal",
+    help: "เอกสารนโยบายความเป็นส่วนตัวแบบเต็มหน้า — แก้หัวข้อและรายการได้ตามต้องการ",
+    where: "หน้า /privacy · ลิงก์จากฟอร์มสมัครสมาชิก",
+    previewPath: "/privacy",
+  },
+  [CMS_KEYS.termsOfService]: {
+    group: "legal",
+    help: "เงื่อนไขการใช้บริการ — แยกจากนโยบายความเป็นส่วนตัว",
+    where: "หน้า /terms",
+    previewPath: "/terms",
+  },
+  [CMS_KEYS.disclaimer]: {
+    group: "legal",
+    help: "ข้อความสั้น ๆ ว่าคำทำนายมีไว้เพื่อความบันเทิง ไม่ใช่คำแนะนำทางการแพทย์หรือการเงิน",
+    where: "หน้า /disclaimer",
+    previewPath: "/disclaimer",
+  },
+  [CMS_KEYS.consentRegister]: {
+    group: "consent",
+    help: "ข้อความข้าง checkbox ตอนสมัครสมาชิก — มักเขียนว่า “ยอมรับนโยบายความเป็นส่วนตัว”",
+    where: "หน้าสมัครสมาชิก /register",
+    previewPath: "/register",
+  },
+  [CMS_KEYS.consentBirthPrivacy]: {
+    group: "consent",
+    help: "ข้อความยืนยันว่าผู้ใช้อ่านนโยบายแล้ว ก่อนกรอกวันเกิด",
+    where: "ฟอร์มวันเกิด /onboarding",
+    previewPath: "/onboarding",
+  },
+  [CMS_KEYS.consentBirthEditLimit]: {
+    group: "consent",
+    help: "แจ้งผู้ใช้ว่าแก้วันเกิดได้จำกัดจำนวนครั้ง",
+    where: "ฟอร์มวันเกิด /onboarding",
+    previewPath: "/onboarding",
+  },
+  [CMS_KEYS.contact]: {
+    group: "system",
+    help: "อีเมลที่ผู้ใช้ติดต่อทีมงาน — แสดงในหน้านโยบายและข้อความช่วยเหลือ",
+    where: "หน้านโยบาย · ข้อความในแอป",
+  },
+  [CMS_KEYS.maintenanceMode]: {
+    group: "system",
+    help: "เปิดเมื่อต้องการปิดแอปชั่วคราว — ผู้ใช้ทั่วไปจะเห็นข้อความด้านล่าง (แอดมินยังเข้าได้)",
+    where: "ทุกหน้าในแอป (ยกเว้นแอดมิน)",
+  },
+  [CMS_KEYS.paymentInfo]: {
+    group: "payment",
+    help: "บัญชีธนาคารและขั้นตอนโอนเงิน — ผู้ใช้เห็นในหน้าบัญชีก่อนแจ้งชำระ",
+    where: "หน้าบัญชี /account",
+    previewPath: "/account",
+  },
+};
+
+export function cmsKeysInGroup(group: CmsGroupId): CmsKey[] {
+  return (Object.values(CMS_KEYS) as CmsKey[]).filter(
+    (key) => CMS_META[key].group === group,
+  );
+}

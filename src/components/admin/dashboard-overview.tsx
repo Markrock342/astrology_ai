@@ -73,11 +73,11 @@ export function DashboardOverview() {
           <h2 className="text-sm font-semibold text-[var(--foreground)]">ทางลัด</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             <QuickLink href="/admin/users" label="จัดการผู้ใช้" />
-            <QuickLink href="/admin/categories" label="หมวดหมู่" />
-            <QuickLink href="/admin/packages" label="แพ็กเกจ" />
-            <QuickLink href="/admin/settings" label="เนื้อหา / นโยบาย" />
-            <QuickLink href="/admin/payments" label="การชำระเงิน" />
-            <QuickLink href="/admin/prompts" label="Prompt / Persona" />
+            <QuickLink href="/admin/categories" label="หมวดดูดวง" />
+            <QuickLink href="/admin/packages" label="แพ็กเกจ & โควตา" />
+            <QuickLink href="/admin/settings" label="ข้อความเว็บ" />
+            <QuickLink href="/admin/payments" label="ตรวจการโอนเงิน" />
+            <QuickLink href="/admin/prompts" label="บุคลิก AI" />
             <QuickLink href="/admin/ai-configs" label="AI Models" />
             <QuickLink href="/admin/audit-logs" label="Audit Logs" />
           </div>

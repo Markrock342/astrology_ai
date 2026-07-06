@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type {
   CmsContact,
@@ -10,12 +11,21 @@ import type {
   CmsSection,
   CmsText,
 } from "@/lib/cms-keys";
-import { CMS_KEYS, CMS_LABELS } from "@/lib/cms-keys";
+import {
+  CMS_GROUPS,
+  CMS_KEYS,
+  CMS_LABELS,
+  CMS_META,
+  cmsKeysInGroup,
+} from "@/lib/cms-keys";
 import {
   AdminPage,
+  Badge,
   Button,
   Card,
   Field,
+  InfoBox,
+  NavGroupLabel,
   PageHeader,
   TextArea,
   TextInput,
@@ -87,55 +97,99 @@ export function SettingsManager() {
   }
 
   const activeRow = rows.find((r) => r.key === activeKey);
+  const meta = CMS_META[activeKey];
 
   return (
     <AdminPage>
       <PageHeader
-        title="เนื้อหา & นโยบาย (CMS)"
-        description="แก้ไขข้อความทางกฎหมาย ข้อความยินยอม คำแนะนำชำระเงิน และข้อมูลติดต่อ — มีผลทันทีบนหน้าเว็บ"
+        title="แก้ข้อความบนเว็บ"
+        description="เลือกรายการทางซ้าย → แก้ข้อความ → กดบันทึก — มีผลทันที ไม่ต้อง deploy ใหม่"
       />
+
+      <InfoBox>
+        <strong className="text-[var(--foreground)]">วิธีใช้:</strong>{" "}
+        1) เลือกว่าจะแก้อะไรจากเมนูซ้าย · 2) แก้ข้อความในช่อง · 3) กด{" "}
+        <strong className="text-[var(--foreground)]">บันทึก</strong> — ถ้ายังไม่เคยบันทึก
+        ระบบใช้ค่าเริ่มต้น (มีป้าย “ค่าเริ่มต้น”)
+      </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
       {saved && (
-        <p className="mb-4 text-sm text-[var(--secondary-active)]">บันทึกแล้ว</p>
+        <p className="mb-4 rounded-lg border border-[var(--secondary-active)]/30 bg-[var(--secondary-active)]/10 px-3 py-2 text-sm text-[var(--secondary-active)]">
+          บันทึกแล้ว — ผู้ใช้จะเห็นข้อความใหม่ทันที
+        </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-        <Card className="!p-3">
-          <nav className="flex flex-col gap-1">
-            {(Object.values(CMS_KEYS) as CmsKey[]).map((key) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => selectKey(key)}
-                className={`rounded-lg px-3 py-2 text-left text-xs transition ${
-                  activeKey === key
-                    ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-                    : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                {CMS_LABELS[key]}
-                {rows.find((r) => r.key === key)?.isDefault && (
-                  <span className="ml-1 text-[10px] text-[var(--muted-2)]">(default)</span>
-                )}
-              </button>
+      <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+        <Card className="!p-2">
+          <nav className="flex flex-col">
+            {CMS_GROUPS.map((group) => (
+              <div key={group.id}>
+                <NavGroupLabel hint={group.hint}>{group.label}</NavGroupLabel>
+                <div className="flex flex-col gap-0.5 pb-2">
+                  {cmsKeysInGroup(group.id).map((key) => {
+                    const row = rows.find((r) => r.key === key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => selectKey(key)}
+                        className={`rounded-lg px-3 py-2 text-left transition ${
+                          activeKey === key
+                            ? "bg-[var(--primary)]/15 text-[var(--primary)]"
+                            : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+                        }`}
+                      >
+                        <span className="block text-xs font-medium">{CMS_LABELS[key]}</span>
+                        {row?.isDefault && (
+                          <span className="mt-0.5 block text-[10px] text-[var(--muted-2)]">
+                            ค่าเริ่มต้น
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
           </nav>
         </Card>
 
         <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--foreground)]">
-              {CMS_LABELS[activeKey]}
-            </h2>
-            {activeRow?.updatedAt && (
-              <span className="text-[10px] text-[var(--muted-2)]">
-                แก้ล่าสุด{" "}
-                {new Date(activeRow.updatedAt).toLocaleString("th-TH", {
-                  timeZone: "Asia/Bangkok",
-                })}
-              </span>
-            )}
+          <div className="mb-5 border-b border-[var(--border)] pb-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-semibold text-[var(--foreground)]">
+                  {CMS_LABELS[activeKey]}
+                </h2>
+                <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
+                  {meta.help}
+                </p>
+                <p className="mt-2 text-[11px] text-[var(--muted-2)]">
+                  แสดงที่: {meta.where}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {activeRow?.isDefault && <Badge tone="muted">ค่าเริ่มต้น</Badge>}
+                {activeRow?.updatedAt && (
+                  <span className="text-[10px] text-[var(--muted-2)]">
+                    แก้ล่าสุด{" "}
+                    {new Date(activeRow.updatedAt).toLocaleString("th-TH", {
+                      timeZone: "Asia/Bangkok",
+                    })}
+                  </span>
+                )}
+                {meta.previewPath && (
+                  <Link
+                    href={meta.previewPath}
+                    target="_blank"
+                    className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] text-[var(--primary)] hover:bg-[var(--surface-2)]"
+                  >
+                    ดูหน้าเว็บ ↗
+                  </Link>
+                )}
+              </div>
+            </div>
           </div>
 
           {draft != null && (
@@ -146,7 +200,10 @@ export function SettingsManager() {
             />
           )}
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex items-center justify-between border-t border-[var(--border)] pt-4">
+            <p className="text-[11px] text-[var(--muted-2)]">
+              กดบันทึกเมื่อแก้เสร็จ — ไม่ต้องรีเฟรชหน้าแอดมิน
+            </p>
             <Button onClick={save} disabled={busy || draft == null}>
               {busy ? "กำลังบันทึก…" : "บันทึก"}
             </Button>
@@ -185,7 +242,10 @@ function SettingEditor({
   ) {
     const v = value as CmsText;
     return (
-      <Field label="ข้อความ">
+      <Field
+        label="ข้อความที่แสดง"
+        hint="เขียนให้สั้น ชัดเจน — ผู้ใช้จะเห็นตามที่ตั้งไว้"
+      >
         <TextArea
           rows={3}
           value={v.text}
@@ -198,14 +258,14 @@ function SettingEditor({
     const v = value as CmsContact;
     return (
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="อีเมลติดต่อ">
+        <Field label="อีเมลติดต่อ" hint="ที่ผู้ใช้ส่งคำถามหรือขอลบบัญชี">
           <TextInput
             type="email"
             value={v.email}
             onChange={(e) => onChange({ ...v, email: e.target.value })}
           />
         </Field>
-        <Field label="ชื่อผู้ติดต่อ">
+        <Field label="ชื่อทีมงาน (แสดงข้างอีเมล)">
           <TextInput
             value={v.label ?? ""}
             onChange={(e) => onChange({ ...v, label: e.target.value })}
@@ -221,9 +281,12 @@ function SettingEditor({
         <Toggle
           checked={v.enabled}
           onChange={(enabled) => onChange({ ...v, enabled })}
-          label="เปิดโหมดปิดปรับปรุง (ผู้ใช้ทั่วไปจะเห็นข้อความด้านล่าง)"
+          label="ปิดแอปชั่วคราว (ผู้ใช้ทั่วไปเข้าไม่ได้ — แอดมินยังเข้าได้)"
         />
-        <Field label="ข้อความแจ้งเตือน">
+        <Field
+          label="ข้อความที่ผู้ใช้เห็น"
+          hint="แสดงเมื่อเปิดโหมดปิดปรับปรุง"
+        >
           <TextArea
             rows={3}
             value={v.message}
@@ -261,20 +324,20 @@ function DocumentEditor({
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="หัวข้อหน้า">
+        <Field label="ชื่อหน้า (หัวข้อใหญ่)">
           <TextInput
             value={doc.title}
             onChange={(e) => onChange({ ...doc, title: e.target.value })}
           />
         </Field>
-        <Field label="วันที่ปรับปรุง (แสดงบนหน้า)">
+        <Field label="วันที่ปรับปรุง (แสดงใต้หัวข้อ)">
           <TextInput
             value={doc.lastUpdated}
             onChange={(e) => onChange({ ...doc, lastUpdated: e.target.value })}
           />
         </Field>
       </div>
-      <Field label="บทนำ">
+      <Field label="ย่อหน้าเปิด (บทนำ)" hint="ย่อหน้าแรกก่อนรายการหัวข้อ">
         <TextArea
           rows={3}
           value={doc.intro}
@@ -286,13 +349,19 @@ function DocumentEditor({
           key={i}
           className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3"
         >
-          <Field label={`หัวข้อ ${i + 1}`}>
+          <p className="mb-2 text-[11px] font-medium text-[var(--muted)]">
+            หัวข้อที่ {i + 1}
+          </p>
+          <Field label="ชื่อหัวข้อ">
             <TextInput
               value={section.heading}
               onChange={(e) => updateSection(i, { heading: e.target.value })}
             />
           </Field>
-          <Field label="เนื้อหา (หนึ่งบรรทัดต่อหนึ่ง bullet)">
+          <Field
+            label="รายการเนื้อหา"
+            hint="หนึ่งบรรทัด = หนึ่ง bullet บนหน้าเว็บ"
+          >
             <TextArea
               rows={4}
               value={arrayToLines(section.body)}
@@ -303,7 +372,7 @@ function DocumentEditor({
           </Field>
         </div>
       ))}
-      <Field label="ท้ายหน้า (footer)">
+      <Field label="ข้อความท้ายหน้า (ไม่บังคับ)">
         <TextInput
           value={doc.footer ?? ""}
           onChange={(e) => onChange({ ...doc, footer: e.target.value })}
@@ -322,7 +391,7 @@ function PaymentInfoEditor({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <Field label="หัวข้อ">
+      <Field label="หัวข้อบล็อกชำระเงิน" hint="แสดงด้านบนในหน้าบัญชีผู้ใช้">
         <TextInput
           value={info.title}
           onChange={(e) => onChange({ ...info, title: e.target.value })}
@@ -347,14 +416,14 @@ function PaymentInfoEditor({
             onChange={(e) => onChange({ ...info, accountName: e.target.value })}
           />
         </Field>
-        <Field label="หมายเหตุยอดเงิน">
+        <Field label="หมายเหตุยอดเงิน" hint="เช่น โอนตามราคา Pro ที่แสดง">
           <TextInput
             value={info.amountNote}
             onChange={(e) => onChange({ ...info, amountNote: e.target.value })}
           />
         </Field>
       </div>
-      <Field label="ขั้นตอน (หนึ่งบรรทัดต่อขั้น)">
+      <Field label="ขั้นตอนสำหรับผู้ใช้" hint="หนึ่งบรรทัด = หนึ่งขั้นตอน">
         <TextArea
           rows={5}
           value={arrayToLines(info.steps)}
@@ -363,7 +432,7 @@ function PaymentInfoEditor({
           }
         />
       </Field>
-      <Field label="ท้ายข้อความ">
+      <Field label="ข้อความท้าย (ไม่บังคับ)">
         <TextInput
           value={info.footer ?? ""}
           onChange={(e) => onChange({ ...info, footer: e.target.value })}

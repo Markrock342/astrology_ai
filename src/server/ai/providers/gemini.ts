@@ -28,9 +28,24 @@ function parseHoroscopeText(raw: string): HoroscopeResponse | undefined {
   return undefined;
 }
 
+/** Gemini 3.x uses thinkingLevel; 2.5 uses thinkingBudget — never both. */
+function buildGenerationConfig(input: GenerateAIInput) {
+  const config: Record<string, unknown> = {
+    temperature: input.temperature,
+    maxOutputTokens: input.maxOutputTokens,
+  };
+  const id = input.modelId.toLowerCase();
+  if (id.includes("gemini-3")) {
+    config.thinkingConfig = { thinkingLevel: "MINIMAL" };
+  } else if (id.includes("gemini-2.5")) {
+    config.thinkingConfig = { thinkingBudget: 0 };
+  }
+  return config;
+}
+
 /**
- * Gemini REST adapter (server-only). Uses model id from Admin CMS — default
- * `gemini-2.5-flash` (free tier friendly). Never throws; returns ok:false on errors.
+ * Gemini REST adapter (server-only). Model id comes from Admin CMS.
+ * Never throws; returns ok:false on errors.
  */
 export class GeminiAdapter implements AIProviderAdapter {
   async generate(input: GenerateAIInput): Promise<GenerateAIResult> {
@@ -64,12 +79,7 @@ export class GeminiAdapter implements AIProviderAdapter {
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: input.systemPrompt }] },
           contents: [{ role: "user", parts: [{ text: input.userPrompt }] }],
-          generationConfig: {
-            temperature: input.temperature,
-            maxOutputTokens: input.maxOutputTokens,
-            // Disable thinking tokens on 2.5 Flash — saves free-tier quota (see Google thinking docs).
-            thinkingConfig: { thinkingBudget: 0 },
-          },
+          generationConfig: buildGenerationConfig(input),
         }),
       });
 

@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  DEFAULT_GEMINI_MODEL_ID,
+  GEMINI_MODEL_PRESETS,
+  geminiReplacementHint,
+} from "@/config/gemini-models";
+import {
   adminFetch,
   AdminPage,
   Badge,
@@ -43,7 +48,7 @@ type TestResult = {
 
 const EMPTY_FORM = {
   provider: "GEMINI" as "GEMINI" | "OPENAI",
-  modelId: "gemini-2.5-flash",
+  modelId: DEFAULT_GEMINI_MODEL_ID,
   displayName: "",
   secretReference: "GEMINI_API_KEY",
   enabled: true,
@@ -224,11 +229,36 @@ export function AiConfigsManager() {
                 <option value="OPENAI">OpenAI</option>
               </Select>
             </Field>
-            <Field label="Model ID" hint="เช่น gemini-2.5-flash-lite, gpt-4o-mini">
+            <Field label="Model ID" hint="เลือกจากรายการ หรือพิมพ์เอง — Google ยกเลิก 2.5 แล้ว">
+              <Select
+                value={
+                  GEMINI_MODEL_PRESETS.some((p) => p.id === form.modelId)
+                    ? form.modelId
+                    : "__custom__"
+                }
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v !== "__custom__") setForm({ ...form, modelId: v });
+                }}
+                className="mb-2"
+              >
+                {GEMINI_MODEL_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+                <option value="__custom__">อื่น ๆ (พิมพ์เอง)</option>
+              </Select>
               <TextInput
                 value={form.modelId}
                 onChange={(e) => setForm({ ...form, modelId: e.target.value })}
+                placeholder="gemini-3.5-flash"
               />
+              {form.provider === "GEMINI" && geminiReplacementHint(form.modelId) && (
+                <p className="mt-1 text-[10px] text-[var(--danger)]">
+                  {geminiReplacementHint(form.modelId)}
+                </p>
+              )}
             </Field>
             <Field label="ชื่อที่แสดง">
               <TextInput
@@ -385,6 +415,11 @@ export function AiConfigsManager() {
                 {cfg.maxOutputTokens} tok · timeout {cfg.timeoutMs / 1000}s · secret{" "}
                 {cfg.secretReference}
               </p>
+              {cfg.provider === "GEMINI" && geminiReplacementHint(cfg.modelId) && (
+                <p className="mt-2 text-[11px] text-[var(--danger)]">
+                  ⚠ {geminiReplacementHint(cfg.modelId)}
+                </p>
+              )}
               {result && result !== "loading" && (
                 <div
                   className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
