@@ -46,6 +46,67 @@ export const aiUsageQuerySchema = listQuerySchema.extend({
   status: z.enum(["SUCCESS", "FAILED", "TIMEOUT"]).optional(),
 });
 
+/** CMS document page (privacy, terms). */
+export const cmsDocumentSchema = z.object({
+  title: z.string().min(1).max(200),
+  lastUpdated: z.string().max(80),
+  intro: z.string().max(2000),
+  sections: z
+    .array(
+      z.object({
+        heading: z.string().min(1).max(200),
+        body: z.array(z.string().min(1).max(1000)).min(1),
+      }),
+    )
+    .min(1),
+  footer: z.string().max(1000).optional(),
+});
+
+export const cmsTextSchema = z.object({
+  text: z.string().min(1).max(500),
+});
+
+export const cmsContactSchema = z.object({
+  email: z.string().email().max(120),
+  label: z.string().max(120).optional(),
+});
+
+export const cmsMaintenanceSchema = z.object({
+  enabled: z.boolean(),
+  message: z.string().max(500),
+});
+
+export const cmsPaymentInfoSchema = z.object({
+  title: z.string().min(1).max(200),
+  bankName: z.string().min(1).max(120),
+  accountName: z.string().min(1).max(120),
+  accountNumber: z.string().min(1).max(60),
+  amountNote: z.string().max(300),
+  steps: z.array(z.string().min(1).max(300)).min(1),
+  footer: z.string().max(500).optional(),
+});
+
+export const settingUpdateSchema = z.object({
+  value: z.unknown(),
+});
+
+export const submitPaymentSchema = z.object({
+  amount: z.number().int().positive(),
+  reference: z.string().max(120).optional(),
+  note: z.string().max(300).optional(),
+  proofUrl: z.string().url().max(2000).optional().or(z.literal("")),
+});
+
+export const paymentListQuerySchema = listQuerySchema.extend({
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+});
+
+export const paymentReviewSchema = z.object({
+  status: z.enum(["APPROVED", "REJECTED"]),
+  note: z.string().max(300).optional(),
+  packageCode: z.string().min(1).optional(),
+});
+
 export const categoryCreateSchema = z.object({
   slug: z
     .string()
@@ -61,8 +122,8 @@ export const categoryCreateSchema = z.object({
   enabled: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
   suggestedQuestions: z.array(z.string().min(1).max(200)).max(10).optional(),
-  promptTemplateId: z.string().optional(),
-  aiConfigId: z.string().optional(),
+  promptTemplateId: z.string().nullish(),
+  aiConfigId: z.string().nullish(),
 });
 
 export const categoryUpdateSchema = categoryCreateSchema.partial();

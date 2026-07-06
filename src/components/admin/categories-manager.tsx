@@ -26,7 +26,12 @@ type Category = {
   enabled: boolean;
   sortOrder: number;
   suggestedQuestions: string[] | null;
+  promptTemplateId: string | null;
+  aiConfigId: string | null;
 };
+
+type PromptOption = { id: string; code: string; name: string };
+type AiConfigOption = { id: string; displayName: string; modelId: string };
 
 function linesToArray(text: string): string[] {
   return text
@@ -37,6 +42,8 @@ function linesToArray(text: string): string[] {
 
 export function CategoriesManager() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [prompts, setPrompts] = useState<PromptOption[]>([]);
+  const [aiConfigs, setAiConfigs] = useState<AiConfigOption[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
@@ -49,6 +56,8 @@ export function CategoriesManager() {
     enabled: true,
     sortOrder: 0,
     suggestedText: "",
+    promptTemplateId: "",
+    aiConfigId: "",
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +73,18 @@ export function CategoriesManager() {
             : null,
         })),
       );
+      try {
+        const [p, a] = await Promise.all([
+          adminFetch<PromptOption[]>("/api/admin/prompts"),
+          adminFetch<AiConfigOption[]>("/api/admin/ai-configs"),
+        ]);
+        setPrompts(p.map((x) => ({ id: x.id, code: x.code, name: x.name })));
+        setAiConfigs(
+          a.map((x) => ({ id: x.id, displayName: x.displayName, modelId: x.modelId })),
+        );
+      } catch {
+        /* AI CMS may be phase-gated — linking fields stay optional */
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
     }
@@ -87,6 +108,8 @@ export function CategoriesManager() {
       enabled: cat.enabled,
       sortOrder: cat.sortOrder,
       suggestedText: (cat.suggestedQuestions ?? []).join("\n"),
+      promptTemplateId: cat.promptTemplateId ?? "",
+      aiConfigId: cat.aiConfigId ?? "",
     });
   }
 
@@ -103,6 +126,8 @@ export function CategoriesManager() {
       enabled: true,
       sortOrder: categories.length,
       suggestedText: "",
+      promptTemplateId: "",
+      aiConfigId: "",
     });
   }
 
@@ -119,6 +144,8 @@ export function CategoriesManager() {
       enabled: form.enabled,
       sortOrder: Number(form.sortOrder),
       suggestedQuestions: linesToArray(form.suggestedText),
+      promptTemplateId: form.promptTemplateId || null,
+      aiConfigId: form.aiConfigId || null,
     };
     try {
       if (editingId) {
@@ -221,6 +248,42 @@ export function CategoriesManager() {
               onChange={(e) => setForm({ ...form, suggestedText: e.target.value })}
             />
           </Field>
+          {(prompts.length > 0 || aiConfigs.length > 0) && (
+            <div className="grid gap-3 md:grid-cols-2">
+              {prompts.length > 0 && (
+                <Field label="Prompt template">
+                  <Select
+                    value={form.promptTemplateId}
+                    onChange={(e) =>
+                      setForm({ ...form, promptTemplateId: e.target.value })
+                    }
+                  >
+                    <option value="">— ค่าเริ่มต้นระบบ —</option>
+                    {prompts.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.code})
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+              {aiConfigs.length > 0 && (
+                <Field label="AI model config">
+                  <Select
+                    value={form.aiConfigId}
+                    onChange={(e) => setForm({ ...form, aiConfigId: e.target.value })}
+                  >
+                    <option value="">— ค่าเริ่มต้นระบบ —</option>
+                    {aiConfigs.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.displayName} ({c.modelId})
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+            </div>
+          )}
           <div className="mt-3 flex items-center gap-3">
             <Toggle
               checked={form.enabled}

@@ -14,7 +14,13 @@ function parseTab(value: string | null): AuthTab {
   return value === "register" ? "register" : "login";
 }
 
-export function AuthCard({ googleEnabled = false }: { googleEnabled?: boolean }) {
+export function AuthCard({
+  googleEnabled = false,
+  consentRegisterLabel = "ยอมรับนโยบายความเป็นส่วนตัว",
+}: {
+  googleEnabled?: boolean;
+  consentRegisterLabel?: string;
+}) {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<AuthTab>(() => parseTab(searchParams.get("tab")));
 
@@ -259,9 +265,9 @@ export function AuthCard({ googleEnabled = false }: { googleEnabled?: boolean })
               className="mt-0.5 rounded border-[var(--border)]"
             />
             <span>
-              ยอมรับ{" "}
+              {consentRegisterLabel}{" "}
               <Link href="/privacy" className="text-[var(--primary)] underline underline-offset-2">
-                นโยบายความเป็นส่วนตัว
+                (อ่านฉบับเต็ม)
               </Link>
             </span>
           </label>

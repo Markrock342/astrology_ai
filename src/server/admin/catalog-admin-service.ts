@@ -22,8 +22,8 @@ export type CategoryCreateInput = {
   enabled: boolean;
   sortOrder: number;
   suggestedQuestions?: string[];
-  promptTemplateId?: string;
-  aiConfigId?: string;
+  promptTemplateId?: string | null;
+  aiConfigId?: string | null;
 };
 
 export type CategoryUpdateInput = Partial<CategoryCreateInput>;

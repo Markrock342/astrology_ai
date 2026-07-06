@@ -5,6 +5,7 @@ import {
   MAX_BIRTH_EDITS,
 } from "@/server/user/birth-profile-service";
 import { requireSessionUserId } from "@/server/auth/session-guard";
+import { getConsentTexts } from "@/server/settings/settings-service";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export default async function OnboardingPage() {
   // Also serves "เปลี่ยนวันเกิด" from settings — allowed while edits remain.
   const profile = await getBirthProfile(userId);
   if (profile && profile.editCount >= MAX_BIRTH_EDITS) redirect("/dashboard");
+
+  const { birthPrivacy, birthEditLimit } = await getConsentTexts();
 
   return (
     <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-10">
@@ -29,7 +32,11 @@ export default async function OnboardingPage() {
           ไม่ว่าดวงจะบอกอะไร เราก็ยังเป็นผู้เลือกทางเดินของตัวเองได้เสมอ
         </p>
       </div>
-      <BirthForm editCount={profile?.editCount ?? 0} />
+      <BirthForm
+        editCount={profile?.editCount ?? 0}
+        consentBirthPrivacy={birthPrivacy.text}
+        consentBirthEditLimit={birthEditLimit.text}
+      />
     </div>
   );
 }

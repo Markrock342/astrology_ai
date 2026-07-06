@@ -12,6 +12,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/ai-configs", label: "AI Models", aiOnly: true },
   { href: "/admin/knowledge", label: "คลังความรู้", aiOnly: true },
   { href: "/admin/packages", label: "แพ็กเกจ" },
+  { href: "/admin/settings", label: "เนื้อหา / นโยบาย" },
   { href: "/admin/payments", label: "การชำระเงิน" },
   { href: "/admin/usage", label: "Usage / AI Logs", aiOnly: true },
   { href: "/admin/audit-logs", label: "Audit Logs" },
