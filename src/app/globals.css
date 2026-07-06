@@ -43,6 +43,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-danger: var(--danger);
   --font-sans: var(--font-thai), "Noto Sans Thai", system-ui, sans-serif;
+  --font-wordmark: var(--font-wordmark), "Nunito", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 

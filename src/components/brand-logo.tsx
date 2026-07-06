@@ -1,5 +1,8 @@
 import Image from "next/image";
-import { APP_NAME_TH } from "@/config/constants";
+import { APP_NAME_TH, APP_TAGLINE_TH, APP_WORDMARK } from "@/config/constants";
+
+const wordmarkClass =
+  "font-[family-name:var(--font-wordmark)] font-bold lowercase tracking-wide text-[var(--primary)]";
 
 /** Brand mark — replace public/logo.svg when the client sends final artwork. */
 export function BrandMark({ size = 40 }: { size?: number }) {
@@ -10,12 +13,47 @@ export function BrandMark({ size = 40 }: { size?: number }) {
       width={size}
       height={size}
       priority
-      className="object-contain"
+      className="shrink-0 object-contain"
     />
   );
 }
 
-/** Full brand lockup: mark + Thai name + latin wordmark. */
+/** Latin wordmark from client PSD. */
+export function BrandWordmark({
+  className = "",
+  size = "md",
+}: {
+  className?: string;
+  size?: "sm" | "md" | "lg";
+}) {
+  const sizes = {
+    sm: "text-sm",
+    md: "text-base",
+    lg: "text-2xl",
+  };
+  return (
+    <span className={`${wordmarkClass} ${sizes[size]} ${className}`}>{APP_WORDMARK}</span>
+  );
+}
+
+/** Thai tagline from client PSD. */
+export function BrandTagline({
+  className = "",
+  size = "sm",
+}: {
+  className?: string;
+  size?: "xs" | "sm";
+}) {
+  const sizes = {
+    xs: "text-[10px] leading-snug",
+    sm: "text-xs leading-snug",
+  };
+  return (
+    <p className={`text-[var(--foreground)]/90 ${sizes[size]} ${className}`}>{APP_TAGLINE_TH}</p>
+  );
+}
+
+/** Full vertical lockup — login / auth pages (logo + wordmark + tagline). */
 export function BrandLogo({
   size = 40,
   className = "",
@@ -24,25 +62,31 @@ export function BrandLogo({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-col items-center gap-1 ${className}`}>
+    <div className={`flex flex-col items-center gap-2 text-center ${className}`}>
       <BrandMark size={size} />
-      <span className="text-lg font-semibold tracking-wide text-[var(--primary)]">
-        {APP_NAME_TH}
-      </span>
-      <span className="text-[10px] font-medium uppercase tracking-[0.4em] text-[var(--muted-2)]">
-        HORASARD
-      </span>
+      <BrandWordmark size="lg" />
+      <BrandTagline size="sm" className="max-w-[280px]" />
     </div>
   );
 }
 
-/** Sidebar wordmark matching client mock (horosard in gold). */
-export function BrandWordmark({ className = "" }: { className?: string }) {
+/** Horizontal lockup for sidebar / mobile header. */
+export function BrandLockup({
+  markSize = 28,
+  className = "",
+  showTagline = true,
+}: {
+  markSize?: number;
+  className?: string;
+  showTagline?: boolean;
+}) {
   return (
-    <span
-      className={`text-base font-semibold lowercase tracking-wide text-[var(--primary)] ${className}`}
-    >
-      horosard
-    </span>
+    <div className={`flex min-w-0 items-center gap-2.5 ${className}`}>
+      <BrandMark size={markSize} />
+      <div className="min-w-0 leading-tight">
+        <BrandWordmark size="sm" className="block" />
+        {showTagline && <BrandTagline size="xs" className="mt-0.5 line-clamp-2" />}
+      </div>
+    </div>
   );
 }

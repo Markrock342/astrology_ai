@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { BrandMark, BrandWordmark } from "@/components/brand-logo";
+import { BrandLockup } from "@/components/brand-logo";
 import { SettingsPopover, type SettingsModal } from "./settings-popover";
 import {
   CancelMembershipModal,
@@ -75,9 +75,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarContent = (
     <>
       <div className="flex items-center justify-between px-4 pt-4">
-        <Link href="/dashboard" className="flex items-center gap-2.5" onClick={closeMobile}>
-          <BrandMark size={28} />
-          <BrandWordmark />
+        <Link href="/dashboard" className="min-w-0" onClick={closeMobile}>
+          <BrandLockup markSize={28} />
         </Link>
         <button
           type="button"
@@ -284,9 +283,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <MenuIcon />
           </button>
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <BrandMark size={26} />
-            <BrandWordmark className="text-sm" />
+          <Link href="/dashboard" className="min-w-0">
+            <BrandLockup markSize={26} showTagline={false} />
           </Link>
         </header>
         <div className="flex min-h-0 flex-1 flex-col">
