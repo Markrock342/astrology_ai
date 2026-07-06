@@ -26,9 +26,15 @@ export default async function LoginPage() {
   const googleEnabled = Boolean(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET);
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
-      <BrandLogo size={44} className="mb-10" />
-      <AuthPanels googleEnabled={googleEnabled} />
+    <main className="relative flex flex-1 flex-col items-center justify-center px-6 py-12">
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(201,162,75,0.07),transparent_65%)]"
+        aria-hidden
+      />
+      <BrandLogo size={44} className="relative mb-8" />
+      <div className="relative w-full flex justify-center">
+        <AuthPanels googleEnabled={googleEnabled} />
+      </div>
     </main>
   );
 }
