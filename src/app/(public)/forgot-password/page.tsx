@@ -3,9 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
+import { TurnstileField, turnstileRequired } from "@/components/auth/turnstile-field";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(
+    turnstileRequired() ? null : "",
+  );
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,13 +22,17 @@ export default function ForgotPasswordPage() {
       setError("กรุณากรอกอีเมลให้ถูกต้อง");
       return;
     }
+    if (turnstileRequired() && !turnstileToken) {
+      setError("กรุณายืนยันว่าไม่ใช่บอท");
+      return;
+    }
 
     setLoading(true);
     try {
       const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, turnstileToken: turnstileToken ?? undefined }),
       });
       const json = (await res.json()) as { ok: boolean; error?: { message: string } };
       if (!json.ok) {
@@ -75,6 +83,11 @@ export default function ForgotPasswordPage() {
               onChange={(e) => setEmail(e.target.value)}
               autoFocus
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--ring)]"
+            />
+
+            <TurnstileField
+              onToken={setTurnstileToken}
+              onExpire={() => setTurnstileToken(null)}
             />
 
             {error && <p className="text-xs text-[var(--danger)]">{error}</p>}

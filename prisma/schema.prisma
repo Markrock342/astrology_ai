@@ -127,6 +127,7 @@ model User {
   passwordHash String?
   role         Role       @default(USER)
   status       UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -150,6 +151,7 @@ model User {
   sessions Session[]
 
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
 
   @@index([role])
   @@index([status])
@@ -171,6 +173,20 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
 }
 
 // Auth.js adapter tables (kept minimal; only needed for OAuth providers).

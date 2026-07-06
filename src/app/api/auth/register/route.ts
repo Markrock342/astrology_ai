@@ -6,6 +6,8 @@ import { handle, ok, fail } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { provisionUser } from "@/server/auth/provisioning";
 import { normalizeEmail } from "@/server/auth/account-lookup";
+import { sendVerificationEmail } from "@/server/auth/email-verification-service";
+import { verifyTurnstile, clientIp } from "@/server/auth/turnstile";
 
 /**
  * Register a new local user. Provisioning (user + wallet + Free subscription +
@@ -21,6 +23,8 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const data = registerSchema.parse(body);
+    await verifyTurnstile(data.turnstileToken, clientIp(req));
+
     const email = normalizeEmail(data.email);
     const password = data.password;
 
@@ -34,6 +38,8 @@ export async function POST(req: Request) {
       passwordHash,
     });
 
+    await sendVerificationEmail(user.id);
+
     const authResult = await signIn("credentials", {
       email,
       password,
@@ -42,11 +48,24 @@ export async function POST(req: Request) {
 
     if (authResult && "error" in authResult && authResult.error) {
       return ok(
-        { id: user.id, email: user.email, signedIn: false },
+        {
+          id: user.id,
+          email: user.email,
+          signedIn: false,
+          emailVerificationSent: true,
+        },
         { status: 201 },
       );
     }
 
-    return ok({ id: user.id, email: user.email, signedIn: true }, { status: 201 });
+    return ok(
+      {
+        id: user.id,
+        email: user.email,
+        signedIn: true,
+        emailVerificationSent: true,
+      },
+      { status: 201 },
+    );
   });
 }
