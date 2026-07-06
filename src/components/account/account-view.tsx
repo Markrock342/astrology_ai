@@ -1,4 +1,5 @@
-import Link from "next/link";
+import type { CmsPaymentInfo } from "@/lib/cms-keys";
+import { PaymentSubmitCard } from "./payment-submit-card";
 import { ProfileAvatarCard } from "./profile-avatar-card";
 
 export type PublicPackage = {
@@ -38,17 +39,12 @@ function displayFeatures(pkg: PublicPackage): string[] {
   ];
 }
 
-const DEFAULT_UPGRADE_STEPS = [
-  "โอนเงินตามยอดแพ็กเกจ Pro",
-  "แจ้งหลักฐานการโอนให้แอดมิน",
-  "แอดมินตรวจสอบและเปิดสิทธิ์ Pro ให้บัญชีของคุณ",
-];
 
 export function AccountView({
   profile,
   myPackage,
   packages,
-  upgradeSteps,
+  paymentInfo,
 }: {
   profile: {
     name: string;
@@ -58,11 +54,10 @@ export function AccountView({
   };
   myPackage: MyPackage;
   packages: PublicPackage[];
-  upgradeSteps: string[];
+  paymentInfo: CmsPaymentInfo;
 }) {
   const isPro = myPackage.plan === "PRO";
   const proPkg = packages.find((p) => p.type === "PRO");
-  const steps = upgradeSteps.length > 0 ? upgradeSteps : DEFAULT_UPGRADE_STEPS;
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-10 md:px-10">
@@ -116,27 +111,7 @@ export function AccountView({
         </div>
 
         {!isPro && proPkg && (
-          <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
-            <h2 className="text-sm font-semibold text-[var(--foreground)]">
-              วิธีอัปเกรดเป็น Pro (ชำระเงินแบบ manual)
-            </h2>
-            <ol className="mt-3 list-inside list-decimal space-y-1.5 text-sm text-[var(--muted)]">
-              {steps.map((step, i) => (
-                <li key={i}>
-                  {step.replace("199", String(proPkg.price))}
-                </li>
-              ))}
-            </ol>
-            <Link
-              href="/account#payment"
-              className="press-scale mt-4 inline-block rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
-            >
-              แจ้งชำระเงิน
-            </Link>
-            <p className="mt-3 text-xs text-[var(--muted-2)]" id="payment">
-              ฟีเจอร์แจ้งชำระเงินออนไลน์จะเปิดในเฟสถัดไป — ติดต่อแอดมินเพื่ออัปเกรด Pro
-            </p>
-          </div>
+          <PaymentSubmitCard proPrice={proPkg.price} paymentInfo={paymentInfo} />
         )}
       </div>
     </div>

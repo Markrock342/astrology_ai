@@ -1,18 +1,239 @@
 "use client";
 
-import { AdminPage, EmptyPanel, PageHeader } from "./ui";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  AdminPage,
+  Badge,
+  Button,
+  PageHeader,
+  Select,
+  TableShell,
+  Td,
+  TextInput,
+  Th,
+  adminFetch,
+} from "./ui";
+
+type Payment = {
+  id: string;
+  amount: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reference: string | null;
+  note: string | null;
+  proofUrl: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  user: { id: string; email: string; name: string | null };
+  reviewer: { email: string; name: string | null } | null;
+};
+
+type PaymentList = {
+  total: number;
+  page: number;
+  pageSize: number;
+  items: Payment[];
+};
+
+const PAGE_SIZE = 20;
 
 export function PaymentsPanel() {
+  const [data, setData] = useState<PaymentList | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState<"" | "PENDING" | "APPROVED" | "REJECTED">("PENDING");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
+
+  const load = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(PAGE_SIZE),
+      });
+      if (status) params.set("status", status);
+      setData(await adminFetch<PaymentList>(`/api/admin/payments?${params}`));
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
+    }
+  }, [page, status]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
+
+  async function review(paymentId: string, decision: "APPROVED" | "REJECTED") {
+    setBusyId(paymentId);
+    try {
+      await adminFetch(`/api/admin/payments/${paymentId}/review`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          status: decision,
+          note: reviewNote[paymentId] || undefined,
+          packageCode: decision === "APPROVED" ? "PRO" : undefined,
+        }),
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ดำเนินการไม่สำเร็จ");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+
   return (
     <AdminPage>
       <PageHeader
         title="การชำระเงิน (Manual)"
-        description="ตรวจสอบหลักฐานโอน · อนุมัติ/ปฏิเสธ · เปิดสิทธิ์ Pro — API จะมาใน M4"
+        description="ตรวจสอบหลักฐานโอน · อนุมัติเปิด Pro + เติมเครดิต · ปฏิเสธ"
       />
-      <EmptyPanel
-        title="ยังไม่มีรายการชำระเงิน"
-        description="โครงหน้านี้พร้อมแล้ว — เมื่อเปิด M4 จะแสดงตารางคำขอชำระเงิน พร้อมปุ่มอนุมัติ/ปฏิเสธ และลิงก์ไปรายละเอียดผู้ใช้"
-      />
+
+      {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
+
+      <div className="mb-4">
+        <Select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value as typeof status);
+            setPage(1);
+          }}
+          className="max-w-[200px]"
+        >
+          <option value="">ทุกสถานะ</option>
+          <option value="PENDING">รอตรวจสอบ</option>
+          <option value="APPROVED">อนุมัติแล้ว</option>
+          <option value="REJECTED">ปฏิเสธ</option>
+        </Select>
+      </div>
+
+      <TableShell>
+        <thead>
+          <tr>
+            <Th>วันที่</Th>
+            <Th>ผู้ใช้</Th>
+            <Th>จำนวน</Th>
+            <Th>อ้างอิง</Th>
+            <Th>สถานะ</Th>
+            <Th>ดำเนินการ</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {data && data.items.length === 0 && (
+            <tr>
+              <Td colSpan={6} className="text-center text-xs text-[var(--muted)]">
+                ไม่มีรายการ
+              </Td>
+            </tr>
+          )}
+          {data?.items.map((p) => (
+            <tr key={p.id}>
+              <Td className="whitespace-nowrap text-xs text-[var(--muted)]">
+                {new Date(p.createdAt).toLocaleString("th-TH", {
+                  timeZone: "Asia/Bangkok",
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+              </Td>
+              <Td>
+                <Link
+                  href={`/admin/users/${p.user.id}`}
+                  className="text-xs text-[var(--primary)] hover:underline"
+                >
+                  {p.user.name ?? p.user.email}
+                </Link>
+              </Td>
+              <Td className="text-sm font-medium">฿{p.amount}</Td>
+              <Td className="text-xs text-[var(--muted)]">
+                {p.reference ?? "—"}
+                {p.proofUrl && (
+                  <>
+                    <br />
+                    <a
+                      href={p.proofUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--primary)] underline"
+                    >
+                      ดูสลิป
+                    </a>
+                  </>
+                )}
+              </Td>
+              <Td>
+                <Badge
+                  tone={
+                    p.status === "APPROVED"
+                      ? "green"
+                      : p.status === "REJECTED"
+                        ? "red"
+                        : "gold"
+                  }
+                >
+                  {p.status}
+                </Badge>
+              </Td>
+              <Td>
+                {p.status === "PENDING" ? (
+                  <div className="flex min-w-[200px] flex-col gap-2">
+                    <TextInput
+                      placeholder="หมายเหตุ (ถ้ามี)"
+                      value={reviewNote[p.id] ?? ""}
+                      onChange={(e) =>
+                        setReviewNote({ ...reviewNote, [p.id]: e.target.value })
+                      }
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => review(p.id, "APPROVED")}
+                        disabled={busyId === p.id}
+                      >
+                        อนุมัติ
+                      </Button>
+                      <Button
+                        variant="danger"
+                        onClick={() => review(p.id, "REJECTED")}
+                        disabled={busyId === p.id}
+                      >
+                        ปฏิเสธ
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-[var(--muted-2)]">
+                    {p.reviewer?.email ?? "—"}
+                  </span>
+                )}
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </TableShell>
+
+      <div className="mt-4 flex items-center justify-between text-xs text-[var(--muted)]">
+        <span>
+          ทั้งหมด {data?.total ?? 0} · หน้า {page}/{totalPages}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+          >
+            ←
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+          >
+            →
+          </Button>
+        </div>
+      </div>
     </AdminPage>
   );
 }

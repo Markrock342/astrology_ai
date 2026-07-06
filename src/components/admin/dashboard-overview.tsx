@@ -75,6 +75,8 @@ export function DashboardOverview() {
             <QuickLink href="/admin/users" label="จัดการผู้ใช้" />
             <QuickLink href="/admin/categories" label="หมวดหมู่" />
             <QuickLink href="/admin/packages" label="แพ็กเกจ" />
+            <QuickLink href="/admin/settings" label="เนื้อหา / นโยบาย" />
+            <QuickLink href="/admin/payments" label="การชำระเงิน" />
             <QuickLink href="/admin/prompts" label="Prompt / Persona" />
             <QuickLink href="/admin/ai-configs" label="AI Models" />
             <QuickLink href="/admin/audit-logs" label="Audit Logs" />

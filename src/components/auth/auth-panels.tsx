@@ -10,10 +10,19 @@ function AuthCardFallback() {
 }
 
 /** Single-card auth with tab switcher (login-first, world-class pattern). */
-export function AuthPanels({ googleEnabled = false }: { googleEnabled?: boolean }) {
+export function AuthPanels({
+  googleEnabled = false,
+  consentRegisterLabel,
+}: {
+  googleEnabled?: boolean;
+  consentRegisterLabel?: string;
+}) {
   return (
     <Suspense fallback={<AuthCardFallback />}>
-      <AuthCard googleEnabled={googleEnabled} />
+      <AuthCard
+        googleEnabled={googleEnabled}
+        consentRegisterLabel={consentRegisterLabel}
+      />
     </Suspense>
   );
 }

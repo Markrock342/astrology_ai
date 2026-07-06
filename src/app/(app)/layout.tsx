@@ -1,8 +1,10 @@
 import { Suspense } from "react";
 import { AppShell } from "@/components/app/app-shell";
+import { MaintenanceView } from "@/components/app/maintenance-view";
 import { AppDataProvider } from "@/components/app/app-data-provider";
 import { BirthProfileGate } from "@/components/app/birth-profile-gate";
 import { requireSessionMe } from "@/server/auth/session-guard";
+import { getMaintenanceMode } from "@/server/settings/settings-service";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +17,12 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const me = await requireSessionMe();
+  const [me, maintenance] = await Promise.all([requireSessionMe(), getMaintenanceMode()]);
+  const isAdmin = me.role === "ADMIN" || me.role === "SUPER_ADMIN";
+
+  if (maintenance.enabled && !isAdmin) {
+    return <MaintenanceView message={maintenance.message} />;
+  }
 
   return (
     <AppDataProvider>

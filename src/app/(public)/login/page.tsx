@@ -5,6 +5,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { AuthPanels } from "@/components/auth/auth-panels";
 import { AppError } from "@/lib/errors";
 import { resolveAppEntryPath } from "@/server/auth/app-entry";
+import { getConsentTexts } from "@/server/settings/settings-service";
 import { getMe } from "@/server/user/account-service";
 
 // Reads the session (cookies) and redirects when already signed in, so it must
@@ -24,6 +25,7 @@ export default async function LoginPage() {
   }
 
   const googleEnabled = Boolean(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET);
+  const { register: consentRegister } = await getConsentTexts();
 
   return (
     <main className="relative flex flex-1 flex-col items-center justify-center px-6 py-12">
@@ -33,7 +35,10 @@ export default async function LoginPage() {
       />
       <BrandLogo size={44} className="relative mb-8" />
       <div className="relative w-full flex justify-center">
-        <AuthPanels googleEnabled={googleEnabled} />
+        <AuthPanels
+          googleEnabled={googleEnabled}
+          consentRegisterLabel={consentRegister.text}
+        />
       </div>
     </main>
   );
