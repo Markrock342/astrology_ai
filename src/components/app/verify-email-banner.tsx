@@ -7,6 +7,7 @@ import { TurnstileField, turnstileRequired } from "@/components/auth/turnstile-f
 /** Soft email verification reminder for email/password accounts. */
 export function VerifyEmailBanner() {
   const { user, refresh } = useAppData();
+  const [showCaptcha, setShowCaptcha] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(
     turnstileRequired() ? null : "",
   );
@@ -15,9 +16,10 @@ export function VerifyEmailBanner() {
 
   if (!user?.needsEmailVerification) return null;
 
-  async function resend() {
-    if (turnstileRequired() && !turnstileToken) {
-      setMessage("กรุณายืนยันว่าไม่ใช่บอท");
+  async function resend(token: string | null) {
+    if (turnstileRequired() && !token) {
+      setShowCaptcha(true);
+      setMessage("กรุณายืนยันว่าไม่ใช่บอทก่อนส่งอีเมล");
       return;
     }
     setLoading(true);
@@ -26,7 +28,7 @@ export function VerifyEmailBanner() {
       const res = await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ turnstileToken: turnstileToken ?? undefined }),
+        body: JSON.stringify({ turnstileToken: token ?? undefined }),
       });
       const json = (await res.json()) as {
         ok: boolean;
@@ -42,6 +44,7 @@ export function VerifyEmailBanner() {
           ? "ส่งลิงก์ยืนยันไปที่อีเมลของคุณแล้ว"
           : "อีเมลนี้ยืนยันแล้วหรือไม่ต้องยืนยัน",
       );
+      setShowCaptcha(false);
       refresh();
     } catch {
       setMessage("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
@@ -58,21 +61,26 @@ export function VerifyEmailBanner() {
           <span className="font-medium text-[var(--foreground)]">{user.email}</span>{" "}
           เพื่อความปลอดภัยของบัญชี
         </p>
-        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+        <button
+          type="button"
+          onClick={() => void resend(turnstileToken)}
+          disabled={loading}
+          className="press-scale shrink-0 rounded-lg border border-[var(--primary)]/40 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/10 disabled:opacity-60"
+        >
+          {loading ? "กำลังส่ง…" : "ส่งอีเมลอีกครั้ง"}
+        </button>
+      </div>
+      {showCaptcha && (
+        <div className="mx-auto mt-3 max-w-3xl">
           <TurnstileField
-            onToken={setTurnstileToken}
+            onToken={(token) => {
+              setTurnstileToken(token);
+              void resend(token);
+            }}
             onExpire={() => setTurnstileToken(null)}
           />
-          <button
-            type="button"
-            onClick={() => void resend()}
-            disabled={loading}
-            className="press-scale rounded-lg border border-[var(--primary)]/40 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/10 disabled:opacity-60"
-          >
-            {loading ? "กำลังส่ง…" : "ส่งอีเมลอีกครั้ง"}
-          </button>
         </div>
-      </div>
+      )}
       {message && (
         <p className="mx-auto mt-2 max-w-3xl text-xs text-[var(--muted-2)]">{message}</p>
       )}

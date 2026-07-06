@@ -5,11 +5,10 @@ import { loginSchema } from "@/lib/schemas";
 import { handle, ok, fail } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { normalizeEmail } from "@/server/auth/account-lookup";
-import { verifyTurnstile, clientIp } from "@/server/auth/turnstile";
 
 /**
- * Credentials login with Turnstile verification. Signs the user in on the
- * server in one request (same pattern as register).
+ * Credentials login — rate-limited, no Turnstile (world-class: captcha on
+ * register/forgot/resend only; login protected by rate limit + bcrypt).
  */
 export async function POST(req: Request) {
   return handle(async () => {
@@ -17,7 +16,6 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const data = loginSchema.parse(body);
-    await verifyTurnstile(data.turnstileToken, clientIp(req));
 
     const email = normalizeEmail(data.email);
     const user = await prisma.user.findUnique({ where: { email } });
@@ -26,7 +24,7 @@ export async function POST(req: Request) {
     if (!user.passwordHash) {
       return fail(
         "VALIDATION",
-        "บัญชีนี้สมัครด้วย Google — กรุณาใช้ปุ่ม Continue with Google",
+        "บัญชีนี้สมัครด้วย Google — กรุณาใช้ปุ่มเข้าสู่ระบบด้วย Google",
         422,
       );
     }
