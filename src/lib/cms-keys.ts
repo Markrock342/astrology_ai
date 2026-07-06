@@ -30,6 +30,15 @@ export type CmsPaymentInfo = {
   footer?: string;
 };
 
+/** SEO metadata for public pages (title, description, Open Graph). */
+export type CmsSeo = {
+  title: string;
+  description: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImageUrl?: string;
+};
+
 export const CMS_KEYS = {
   privacyPolicy: "privacy_policy",
   termsOfService: "terms_of_service",
@@ -40,6 +49,11 @@ export const CMS_KEYS = {
   contact: "contact",
   maintenanceMode: "maintenance_mode",
   paymentInfo: "payment_info",
+  seoHome: "seo_home",
+  seoPrivacy: "seo_privacy",
+  seoTerms: "seo_terms",
+  seoDisclaimer: "seo_disclaimer",
+  seoFaq: "seo_faq",
 } as const;
 
 export type CmsKey = (typeof CMS_KEYS)[keyof typeof CMS_KEYS];
@@ -174,6 +188,28 @@ export const CMS_DEFAULTS: Record<CmsKey, unknown> = {
     ],
     footer: "หากมีปัญหา ติดต่อทีมงานผ่านอีเมลในแอป",
   } satisfies CmsPaymentInfo,
+  [CMS_KEYS.seoHome]: {
+    title: "โหราศาสตร์ — ดูดวง AI ออนไลน์",
+    description: "ดูดวงและสนทนากับ AI ตามข้อมูลวันเกิดของคุณ",
+    ogTitle: "โหราศาสตร์ (HoraSard)",
+    ogDescription: "ดูดวง AI ออนไลน์ — สนทนาและทำนายตามดวงชะตา",
+  } satisfies CmsSeo,
+  [CMS_KEYS.seoPrivacy]: {
+    title: "นโยบายความเป็นส่วนตัว — โหราศาสตร์",
+    description: "นโยบายความเป็นส่วนตัวและการจัดการข้อมูลส่วนบุคคล",
+  } satisfies CmsSeo,
+  [CMS_KEYS.seoTerms]: {
+    title: "เงื่อนไขการใช้งาน — โหราศาสตร์",
+    description: "เงื่อนไขและข้อตกลงในการใช้บริการโหราศาสตร์",
+  } satisfies CmsSeo,
+  [CMS_KEYS.seoDisclaimer]: {
+    title: "ข้อจำกัดความรับผิด — โหราศาสตร์",
+    description: "คำทำนายมีไว้เพื่อความบันเทิงและการไตร่ตรองเท่านั้น",
+  } satisfies CmsSeo,
+  [CMS_KEYS.seoFaq]: {
+    title: "คำถามที่พบบ่อย — โหราศาสตร์",
+    description: "คำตอบเกี่ยวกับเครดิต แพ็กเกจ Pro การชำระเงิน และการใช้งาน",
+  } satisfies CmsSeo,
 };
 
 export const CMS_LABELS: Record<CmsKey, string> = {
@@ -186,16 +222,22 @@ export const CMS_LABELS: Record<CmsKey, string> = {
   [CMS_KEYS.contact]: "อีเมลติดต่อทีมงาน",
   [CMS_KEYS.maintenanceMode]: "ปิดระบบชั่วคราว",
   [CMS_KEYS.paymentInfo]: "วิธีโอนเงิน Pro",
+  [CMS_KEYS.seoHome]: "SEO — หน้าแรก",
+  [CMS_KEYS.seoPrivacy]: "SEO — นโยบาย",
+  [CMS_KEYS.seoTerms]: "SEO — เงื่อนไข",
+  [CMS_KEYS.seoDisclaimer]: "SEO — คำเตือน",
+  [CMS_KEYS.seoFaq]: "SEO — คำถามที่พบบ่อย",
 };
 
 /** Sidebar groups for /admin/settings — plain Thai, no jargon. */
-export type CmsGroupId = "legal" | "consent" | "payment" | "system";
+export type CmsGroupId = "legal" | "consent" | "payment" | "system" | "seo";
 
 export const CMS_GROUPS: { id: CmsGroupId; label: string; hint: string }[] = [
   { id: "legal", label: "หน้านโยบาย", hint: "เอกสารที่ผู้ใช้อ่านได้" },
   { id: "consent", label: "ข้อความยินยอม", hint: "ข้อความใน checkbox" },
   { id: "payment", label: "ชำระเงิน", hint: "ข้อมูลบัญชี & ขั้นตอน" },
   { id: "system", label: "ระบบ", hint: "ตั้งค่าระบบทั่วไป" },
+  { id: "seo", label: "SEO & แชร์", hint: "title, description, OG สำหรับ Google/Facebook" },
 ];
 
 export type CmsMeta = {
@@ -260,6 +302,36 @@ export const CMS_META: Record<CmsKey, CmsMeta> = {
     help: "บัญชีธนาคารและขั้นตอนโอนเงิน — ผู้ใช้เห็นในหน้าบัญชีก่อนแจ้งชำระ",
     where: "หน้าบัญชี /account",
     previewPath: "/account",
+  },
+  [CMS_KEYS.seoHome]: {
+    group: "seo",
+    help: "Title และ description สำหรับหน้าแรก / แชร์ลิงก์",
+    where: "หน้าแรก / · Open Graph",
+    previewPath: "/",
+  },
+  [CMS_KEYS.seoPrivacy]: {
+    group: "seo",
+    help: "SEO สำหรับหน้านโยบายความเป็นส่วนตัว",
+    where: "หน้า /privacy · meta tags",
+    previewPath: "/privacy",
+  },
+  [CMS_KEYS.seoTerms]: {
+    group: "seo",
+    help: "SEO สำหรับหน้าเงื่อนไขการใช้งาน",
+    where: "หน้า /terms · meta tags",
+    previewPath: "/terms",
+  },
+  [CMS_KEYS.seoDisclaimer]: {
+    group: "seo",
+    help: "SEO สำหรับหน้าคำเตือน",
+    where: "หน้า /disclaimer · meta tags",
+    previewPath: "/disclaimer",
+  },
+  [CMS_KEYS.seoFaq]: {
+    group: "seo",
+    help: "SEO สำหรับหน้าคำถามที่พบบ่อย",
+    where: "หน้า /help · meta tags",
+    previewPath: "/help",
   },
 };
 

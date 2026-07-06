@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { CmsDocumentView } from "@/components/cms/cms-document-view";
-import { getPrivacyDocument } from "@/server/settings/settings-service";
+import { CMS_KEYS, type CmsSeo } from "@/lib/cms-keys";
+import { metadataFromSeo } from "@/lib/seo";
+import { getPrivacyDocument, getPublishedSetting } from "@/server/settings/settings-service";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
-  const doc = await getPrivacyDocument();
-  return { title: `${doc.title} — โหราศาสตร์` };
+  const seo = (await getPublishedSetting(CMS_KEYS.seoPrivacy)) as CmsSeo;
+  return metadataFromSeo(seo);
 }
 
 export default async function PrivacyPage() {

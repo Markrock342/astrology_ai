@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { handle, ok } from "@/lib/http";
 import { AppError } from "@/lib/errors";
 import { CMS_KEYS } from "@/lib/cms-keys";
@@ -9,10 +8,11 @@ import {
   cmsPaymentInfoSchema,
   cmsSeoSchema,
   cmsTextSchema,
-  settingUpdateSchema,
+  contentDraftSchema,
 } from "@/lib/admin-schemas";
 import { requireAdmin } from "@/server/auth/rbac";
 import { publishSetting } from "@/server/admin/settings-admin-service";
+import type { z } from "zod";
 
 const SCHEMA_BY_KEY: Record<string, z.ZodType> = {
   [CMS_KEYS.privacyPolicy]: cmsDocumentSchema,
@@ -31,14 +31,14 @@ const SCHEMA_BY_KEY: Record<string, z.ZodType> = {
   [CMS_KEYS.seoFaq]: cmsSeoSchema,
 };
 
-/** PUT /api/admin/settings/:key — publish CMS content (audited). */
-export async function PUT(req: Request, ctx: { params: Promise<{ key: string }> }) {
+/** POST /api/admin/settings/:key/publish */
+export async function POST(req: Request, ctx: { params: Promise<{ key: string }> }) {
   return handle(async () => {
     const admin = await requireAdmin();
     const { key } = await ctx.params;
     const schema = SCHEMA_BY_KEY[key];
     if (!schema) throw new AppError("NOT_FOUND", "Unknown setting key");
-    const { value } = settingUpdateSchema.parse(await req.json());
+    const { value } = contentDraftSchema.parse(await req.json());
     const parsed = schema.parse(value);
     const ip = req.headers.get("x-forwarded-for") ?? undefined;
     return ok(await publishSetting(key, parsed, { id: admin.id, ip }));

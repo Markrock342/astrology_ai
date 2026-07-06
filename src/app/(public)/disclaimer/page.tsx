@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { CmsTextView } from "@/components/cms/cms-text-view";
-import { CMS_LABELS, CMS_KEYS } from "@/lib/cms-keys";
-import { getDisclaimerText } from "@/server/settings/settings-service";
+import { CMS_KEYS, CMS_LABELS, type CmsSeo } from "@/lib/cms-keys";
+import { metadataFromSeo } from "@/lib/seo";
+import { getDisclaimerText, getPublishedSetting } from "@/server/settings/settings-service";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
-  return { title: `${CMS_LABELS[CMS_KEYS.disclaimer]} — โหราศาสตร์` };
+  const seo = (await getPublishedSetting(CMS_KEYS.seoDisclaimer)) as CmsSeo;
+  return metadataFromSeo(seo);
 }
 
 export default async function DisclaimerPage() {

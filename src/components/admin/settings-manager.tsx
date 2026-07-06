@@ -9,6 +9,7 @@ import type {
   CmsMaintenance,
   CmsPaymentInfo,
   CmsSection,
+  CmsSeo,
   CmsText,
 } from "@/lib/cms-keys";
 import {
@@ -19,9 +20,12 @@ import {
   cmsKeysInGroup,
 } from "@/lib/cms-keys";
 import {
+  ContentEditorToolbar,
+  type ContentRevision,
+} from "./content-editor-toolbar";
+import {
   AdminPage,
   Badge,
-  Button,
   Card,
   Field,
   InfoBox,
@@ -35,8 +39,12 @@ import {
 
 type SettingRow = {
   key: CmsKey;
+  published: unknown;
+  draft: unknown | null;
+  hasDraft: boolean;
   value: unknown;
   updatedAt: string | null;
+  draftUpdatedAt: string | null;
   isDefault: boolean;
 };
 
@@ -54,14 +62,25 @@ export function SettingsManager() {
   const [draft, setDraft] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [revisions, setRevisions] = useState<ContentRevision[]>([]);
+
+  const loadRevisions = useCallback(async (key: CmsKey) => {
+    const rows = await adminFetch<ContentRevision[]>(
+      `/api/admin/revisions?entityType=APP_SETTING&entityId=${encodeURIComponent(key)}`,
+    );
+    setRevisions(rows);
+  }, []);
 
   const load = useCallback(async () => {
     const data = await adminFetch<SettingRow[]>("/api/admin/settings");
     setRows(data);
     const current = data.find((r) => r.key === activeKey);
-    if (current) setDraft(structuredClone(current.value));
-  }, [activeKey]);
+    if (current) {
+      setDraft(structuredClone(current.draft ?? current.published));
+    }
+    await loadRevisions(activeKey);
+  }, [activeKey, loadRevisions]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -72,25 +91,79 @@ export function SettingsManager() {
 
   function selectKey(key: CmsKey) {
     setActiveKey(key);
-    setSaved(false);
+    setSaved(null);
     const row = rows.find((r) => r.key === key);
-    setDraft(row ? structuredClone(row.value) : null);
+    setDraft(row ? structuredClone(row.draft ?? row.published) : null);
+    void loadRevisions(key);
   }
 
-  async function save() {
+  async function saveDraft() {
     if (draft == null) return;
     setBusy(true);
     setError(null);
-    setSaved(false);
+    setSaved(null);
     try {
-      await adminFetch(`/api/admin/settings/${activeKey}`, {
+      await adminFetch(`/api/admin/settings/${activeKey}/draft`, {
         method: "PUT",
         body: JSON.stringify({ value: draft }),
       });
-      setSaved(true);
+      setSaved("draft");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
+      setError(e instanceof Error ? e.message : "บันทึกแบบร่างไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publish() {
+    if (draft == null) return;
+    setBusy(true);
+    setError(null);
+    setSaved(null);
+    try {
+      await adminFetch(`/api/admin/settings/${activeKey}/publish`, {
+        method: "POST",
+        body: JSON.stringify({ value: draft }),
+      });
+      setSaved("published");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "เผยแพร่ไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function discardDraft() {
+    setBusy(true);
+    setError(null);
+    try {
+      const row = await adminFetch<SettingRow>(
+        `/api/admin/settings/${activeKey}/discard-draft`,
+        { method: "POST" },
+      );
+      setDraft(structuredClone(row.published));
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ยกเลิกแบบร่างไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function restoreRevision(revisionId: string, mode: "draft" | "publish") {
+    setBusy(true);
+    setError(null);
+    try {
+      const row = await adminFetch<SettingRow>(`/api/admin/revisions/${revisionId}/restore`, {
+        method: "POST",
+        body: JSON.stringify({ mode }),
+      });
+      setDraft(structuredClone(row.draft ?? row.published));
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "กู้คืนไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -108,15 +181,20 @@ export function SettingsManager() {
 
       <InfoBox>
         <strong className="text-[var(--foreground)]">วิธีใช้:</strong>{" "}
-        1) เลือกว่าจะแก้อะไรจากเมนูซ้าย · 2) แก้ข้อความในช่อง · 3) กด{" "}
-        <strong className="text-[var(--foreground)]">บันทึก</strong> — ถ้ายังไม่เคยบันทึก
-        ระบบใช้ค่าเริ่มต้น (มีป้าย “ค่าเริ่มต้น”)
+        แก้ข้อความ → <strong className="text-[var(--foreground)]">บันทึกแบบร่าง</strong> →{" "}
+        <strong className="text-[var(--foreground)]">ดูตัวอย่าง</strong> →{" "}
+        <strong className="text-[var(--foreground)]">เผยแพร่</strong> เมื่อพร้อม — ผู้ใช้เห็นเฉพาะเวอร์ชันที่เผยแพร่แล้ว
       </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
-      {saved && (
+      {saved === "draft" && (
+        <p className="mb-4 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-sm text-[var(--primary)]">
+          บันทึกแบบร่างแล้ว — ยังไม่แสดงต่อผู้ใช้
+        </p>
+      )}
+      {saved === "published" && (
         <p className="mb-4 rounded-lg border border-[var(--secondary-active)]/30 bg-[var(--secondary-active)]/10 px-3 py-2 text-sm text-[var(--secondary-active)]">
-          บันทึกแล้ว — ผู้ใช้จะเห็นข้อความใหม่ทันที
+          เผยแพร่แล้ว — ผู้ใช้เห็นข้อความใหม่ทันที
         </p>
       )}
 
@@ -146,6 +224,11 @@ export function SettingsManager() {
                             ค่าเริ่มต้น
                           </span>
                         )}
+                        {row?.hasDraft && (
+                          <span className="mt-0.5 block text-[10px] text-[var(--primary)]">
+                            มีแบบร่าง
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -170,10 +253,11 @@ export function SettingsManager() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {activeRow?.isDefault && <Badge tone="muted">ค่าเริ่มต้น</Badge>}
+                {activeRow?.isDefault && <Badge tone="muted">ค่าเริ่มต้น (เผยแพร่)</Badge>}
+                {activeRow?.hasDraft && <Badge tone="gold">มีแบบร่าง</Badge>}
                 {activeRow?.updatedAt && (
                   <span className="text-[10px] text-[var(--muted-2)]">
-                    แก้ล่าสุด{" "}
+                    เผยแพร่ล่าสุด{" "}
                     {new Date(activeRow.updatedAt).toLocaleString("th-TH", {
                       timeZone: "Asia/Bangkok",
                     })}
@@ -181,16 +265,27 @@ export function SettingsManager() {
                 )}
                 {meta.previewPath && (
                   <Link
-                    href={meta.previewPath}
+                    href={`/admin/preview?key=${activeKey}`}
                     target="_blank"
                     className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] text-[var(--primary)] hover:bg-[var(--surface-2)]"
                   >
-                    ดูหน้าเว็บ ↗
+                    ดูตัวอย่าง ↗
                   </Link>
                 )}
               </div>
             </div>
           </div>
+
+          <ContentEditorToolbar
+            hasDraft={activeRow?.hasDraft ?? false}
+            previewHref={`/admin/preview?key=${activeKey}`}
+            busy={busy}
+            onSaveDraft={() => void saveDraft()}
+            onPublish={() => void publish()}
+            onDiscardDraft={() => void discardDraft()}
+            revisions={revisions}
+            onRestore={(id, mode) => void restoreRevision(id, mode)}
+          />
 
           {draft != null && (
             <SettingEditor
@@ -200,14 +295,9 @@ export function SettingsManager() {
             />
           )}
 
-          <div className="mt-6 flex items-center justify-between border-t border-[var(--border)] pt-4">
-            <p className="text-[11px] text-[var(--muted-2)]">
-              กดบันทึกเมื่อแก้เสร็จ — ไม่ต้องรีเฟรชหน้าแอดมิน
-            </p>
-            <Button onClick={save} disabled={busy || draft == null}>
-              {busy ? "กำลังบันทึก…" : "บันทึก"}
-            </Button>
-          </div>
+          <p className="mt-6 text-[11px] text-[var(--muted-2)]">
+            ใช้ปุ่มด้านบนเพื่อบันทึกแบบร่าง / เผยแพร่ / กู้คืนเวอร์ชันเก่า
+          </p>
         </Card>
       </div>
     </AdminPage>
@@ -304,7 +394,64 @@ function SettingEditor({
       />
     );
   }
+  if (
+    settingKey === CMS_KEYS.seoHome ||
+    settingKey === CMS_KEYS.seoPrivacy ||
+    settingKey === CMS_KEYS.seoTerms ||
+    settingKey === CMS_KEYS.seoDisclaimer ||
+    settingKey === CMS_KEYS.seoFaq
+  ) {
+    return <SeoEditor seo={value as CmsSeo} onChange={onChange} />;
+  }
   return null;
+}
+
+function SeoEditor({
+  seo,
+  onChange,
+}: {
+  seo: CmsSeo;
+  onChange: (v: CmsSeo) => void;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Field label="Title (แท็บเบราว์เซอร์)" hint="แนะนำไม่เกิน ~60 ตัวอักษร">
+        <TextInput
+          value={seo.title}
+          onChange={(e) => onChange({ ...seo, title: e.target.value })}
+        />
+      </Field>
+      <Field label="Meta description" hint="แนะนำไม่เกิน ~160 ตัวอักษร">
+        <TextArea
+          rows={2}
+          value={seo.description}
+          onChange={(e) => onChange({ ...seo, description: e.target.value })}
+        />
+      </Field>
+      <Field label="OG title (Facebook/LINE)" hint="ว่าง = ใช้ title">
+        <TextInput
+          value={seo.ogTitle ?? ""}
+          onChange={(e) => onChange({ ...seo, ogTitle: e.target.value || undefined })}
+        />
+      </Field>
+      <Field label="OG description">
+        <TextArea
+          rows={2}
+          value={seo.ogDescription ?? ""}
+          onChange={(e) => onChange({ ...seo, ogDescription: e.target.value || undefined })}
+        />
+      </Field>
+      <div className="sm:col-span-2">
+        <Field label="OG image URL" hint="รูปเมื่อแชร์ลิงก์ — ว่างได้">
+          <TextInput
+            value={seo.ogImageUrl ?? ""}
+            onChange={(e) => onChange({ ...seo, ogImageUrl: e.target.value || undefined })}
+            placeholder="https://..."
+          />
+        </Field>
+      </div>
+    </div>
+  );
 }
 
 function DocumentEditor({

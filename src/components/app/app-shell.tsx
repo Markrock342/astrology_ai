@@ -23,6 +23,7 @@ import {
 } from "./sidebar-icons";
 import { useAppData, isCategoryLocked } from "./app-data-provider";
 import { VerifyEmailBanner } from "./verify-email-banner";
+import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banner";
 import { UserAvatar } from "./user-avatar";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -307,6 +308,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
         </header>
         <div className="flex min-h-0 flex-1 flex-col">
+          <SiteAnnouncementBanner />
           <VerifyEmailBanner />
           {children}
         </div>

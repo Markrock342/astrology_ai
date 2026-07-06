@@ -13,6 +13,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/knowledge", label: "คลังความรู้", aiOnly: true },
   { href: "/admin/packages", label: "แพ็กเกจ & โควตา" },
   { href: "/admin/settings", label: "ข้อความเว็บ" },
+  { href: "/admin/announcements", label: "ประกาศ / Banner" },
+  { href: "/admin/faq", label: "คำถามที่พบบ่อย" },
   { href: "/admin/payments", label: "ตรวจการโอนเงิน" },
   { href: "/admin/usage", label: "บันทึก AI", aiOnly: true },
   { href: "/admin/audit-logs", label: "ประวัติแอดมิน" },
