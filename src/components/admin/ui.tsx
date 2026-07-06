@@ -235,6 +235,29 @@ export function EmptyPanel({
   );
 }
 
+export function InfoBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-4 rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-4 py-3 text-xs leading-relaxed text-[var(--muted)]">
+      {children}
+    </div>
+  );
+}
+
+export function NavGroupLabel({
+  children,
+  hint,
+}: {
+  children: React.ReactNode;
+  hint?: string;
+}) {
+  return (
+    <div className="px-3 pb-1 pt-3 first:pt-0">
+      <p className="text-[11px] font-medium text-[var(--foreground)]">{children}</p>
+      {hint && <p className="text-[10px] text-[var(--muted-2)]">{hint}</p>}
+    </div>
+  );
+}
+
 export function AdminPage({ children }: { children: React.ReactNode }) {
   return <section className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">{children}</section>;
 }

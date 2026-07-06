@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   Field,
+  InfoBox,
   PageHeader,
   Select,
   TextArea,
@@ -166,10 +167,17 @@ export function PackagesManager() {
   return (
     <AdminPage>
       <PageHeader
-        title="แพ็กเกจ Free / Pro"
-        description="สร้าง แก้ไข และกำหนดโควตา — บันทึกแล้วมีผลทันที"
+        title="แพ็กเกจ & โควตา"
+        description="กำหนดราคา เครดิต และจำกัดการใช้งานต่อวัน/เดือน — บันทึกแล้วมีผลทันที"
         action={<Button onClick={startCreate}>+ สร้างแพ็กเกจ</Button>}
       />
+
+      <InfoBox>
+        <strong className="text-[var(--foreground)]">Free</strong> = ผู้ใช้ทั่วไป ·{" "}
+        <strong className="text-[var(--foreground)]">Pro</strong> = ใช้ AI ได้ ·{" "}
+        <strong className="text-[var(--foreground)]">โควตาเครดิต</strong> = จำนวนครั้งที่ใช้ถาม
+        · จำกัดต่อวัน/เดือน = กันถามเกิน (เว้นว่าง = ไม่จำกัด)
+      </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 
@@ -178,21 +186,21 @@ export function PackagesManager() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {editingId === "new" && (
               <>
-                <Field label="รหัสแพ็กเกจ (code)" hint="เช่น PRO_YEARLY — ห้ามซ้ำ">
+                <Field label="รหัสภายใน (ภาษาอังกฤษ)" hint="เช่น PRO_YEARLY — ใช้ในระบบ ห้ามซ้ำ">
                   <TextInput
                     value={form.code}
                     onChange={(e) => setForm({ ...form, code: e.target.value })}
                   />
                 </Field>
-                <Field label="ประเภท">
+                <Field label="ประเภทแพ็กเกจ">
                   <Select
                     value={form.type}
                     onChange={(e) =>
                       setForm({ ...form, type: e.target.value as "FREE" | "PRO" })
                     }
                   >
-                    <option value="FREE">FREE</option>
-                    <option value="PRO">PRO</option>
+                    <option value="FREE">ฟรี (Free)</option>
+                    <option value="PRO">Pro — ใช้ AI ได้</option>
                   </Select>
                 </Field>
               </>
@@ -217,7 +225,7 @@ export function PackagesManager() {
                 onChange={(e) => setForm({ ...form, billingLabel: e.target.value })}
               />
             </Field>
-            <Field label="โควตาเครดิต">
+            <Field label="เครดิตที่ให้" hint="จำนวนครั้งที่ถาม AI ได้">
               <TextInput
                 type="number"
                 min={0}
@@ -302,7 +310,7 @@ export function PackagesManager() {
               <span className="text-sm font-medium text-[var(--foreground)]">
                 {pkg.name}
               </span>
-              <Badge tone="gold">{pkg.type}</Badge>
+              <Badge tone="gold">{pkg.type === "PRO" ? "Pro" : "ฟรี"}</Badge>
               <Badge>฿{pkg.price}</Badge>
               <Badge>{pkg.creditQuota} เครดิต</Badge>
               {pkg.dailyLimit != null && <Badge>{pkg.dailyLimit}/วัน</Badge>}

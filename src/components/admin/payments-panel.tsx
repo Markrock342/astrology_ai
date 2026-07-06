@@ -6,6 +6,7 @@ import {
   AdminPage,
   Badge,
   Button,
+  InfoBox,
   PageHeader,
   Select,
   TableShell,
@@ -36,6 +37,12 @@ type PaymentList = {
 };
 
 const PAGE_SIZE = 20;
+
+const STATUS_LABELS: Record<Payment["status"], string> = {
+  PENDING: "รอตรวจ",
+  APPROVED: "อนุมัติแล้ว",
+  REJECTED: "ไม่อนุมัติ",
+};
 
 export function PaymentsPanel() {
   const [data, setData] = useState<PaymentList | null>(null);
@@ -88,26 +95,39 @@ export function PaymentsPanel() {
   return (
     <AdminPage>
       <PageHeader
-        title="การชำระเงิน (Manual)"
-        description="ตรวจสอบหลักฐานโอน · อนุมัติเปิด Pro + เติมเครดิต · ปฏิเสธ"
+        title="ตรวจการโอนเงิน"
+        description="ผู้ใช้แจ้งชำระจากหน้าบัญชี — อนุมัติแล้วระบบเปิด Pro และเติมเครดิตให้อัตโนมัติ"
       />
+
+      <InfoBox>
+        <strong className="text-[var(--foreground)]">ขั้นตอน:</strong> ตรวจสลิป →
+        กด <strong className="text-[var(--foreground)]">อนุมัติ</strong> (เปิด Pro) หรือ{" "}
+        <strong className="text-[var(--foreground)]">ปฏิเสธ</strong> (แจ้งเหตุผลในหมายเหตุได้)
+        · ข้อมูลบัญชีธนาคารแก้ได้ที่{" "}
+        <Link href="/admin/settings" className="text-[var(--primary)] underline">
+          ข้อความเว็บ → วิธีโอนเงิน Pro
+        </Link>
+      </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 
-      <div className="mb-4">
-        <Select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as typeof status);
-            setPage(1);
-          }}
-          className="max-w-[200px]"
-        >
-          <option value="">ทุกสถานะ</option>
-          <option value="PENDING">รอตรวจสอบ</option>
-          <option value="APPROVED">อนุมัติแล้ว</option>
-          <option value="REJECTED">ปฏิเสธ</option>
-        </Select>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
+          <span>แสดง:</span>
+          <Select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value as typeof status);
+              setPage(1);
+            }}
+            className="max-w-[200px]"
+          >
+            <option value="">ทุกสถานะ</option>
+            <option value="PENDING">รอตรวจ</option>
+            <option value="APPROVED">อนุมัติแล้ว</option>
+            <option value="REJECTED">ไม่อนุมัติ</option>
+          </Select>
+        </label>
       </div>
 
       <TableShell>
@@ -173,7 +193,7 @@ export function PaymentsPanel() {
                         : "gold"
                   }
                 >
-                  {p.status}
+                  {STATUS_LABELS[p.status]}
                 </Badge>
               </Td>
               <Td>

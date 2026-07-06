@@ -149,16 +149,19 @@ async function main() {
   });
 
   // ---- Gemini AI configs (key referenced by env NAME only) ----
-  // Free/Pro use different models: Free gets the cheaper flash-lite, Pro gets
-  // the fuller flash. Both editable from Admin CMS (/admin/ai-configs).
+  // Free/Pro use different models: Free gets flash-lite, Pro gets 3.5 flash.
+  // Both editable from Admin CMS (/admin/ai-configs).
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-default" },
-    update: {},
+    update: {
+      modelId: "gemini-3.1-flash-lite",
+      displayName: "Gemini 3.1 Flash Lite (fallback ทุกแพลน)",
+    },
     create: {
       id: "seed-gemini-default",
       provider: "GEMINI",
-      modelId: "gemini-2.5-flash",
-      displayName: "Gemini 2.5 Flash (fallback ทุกแพลน)",
+      modelId: "gemini-3.1-flash-lite",
+      displayName: "Gemini 3.1 Flash Lite (fallback ทุกแพลน)",
       secretReference: "GEMINI_API_KEY",
       planScope: "ALL",
       promptTemplateId: persona.id,
@@ -169,12 +172,15 @@ async function main() {
 
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-free" },
-    update: {},
+    update: {
+      modelId: "gemini-3.1-flash-lite",
+      displayName: "Free — Gemini 3.1 Flash Lite (ประหยัด)",
+    },
     create: {
       id: "seed-gemini-free",
       provider: "GEMINI",
-      modelId: "gemini-2.5-flash-lite",
-      displayName: "Free — Gemini 2.5 Flash Lite (ประหยัด)",
+      modelId: "gemini-3.1-flash-lite",
+      displayName: "Free — Gemini 3.1 Flash Lite (ประหยัด)",
       secretReference: "GEMINI_API_KEY",
       planScope: "FREE",
       maxOutputTokens: 1024,
@@ -187,12 +193,15 @@ async function main() {
 
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-pro" },
-    update: {},
+    update: {
+      modelId: "gemini-3.5-flash",
+      displayName: "Pro — Gemini 3.5 Flash (ละเอียด)",
+    },
     create: {
       id: "seed-gemini-pro",
       provider: "GEMINI",
-      modelId: "gemini-2.5-flash",
-      displayName: "Pro — Gemini 2.5 Flash (ละเอียด)",
+      modelId: "gemini-3.5-flash",
+      displayName: "Pro — Gemini 3.5 Flash (ละเอียด)",
       secretReference: "GEMINI_API_KEY",
       planScope: "PRO",
       maxOutputTokens: 4096,
