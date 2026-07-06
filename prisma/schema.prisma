@@ -123,6 +123,8 @@ model User {
   id           String     @id @default(cuid())
   name         String?
   email        String     @unique
+  // Profile photo URL (Google OAuth) or data URL (email upload).
+  image        String?
   // Null when the user signs in only via an OAuth provider (e.g. Google).
   passwordHash String?
   role         Role       @default(USER)

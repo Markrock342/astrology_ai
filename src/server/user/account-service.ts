@@ -24,6 +24,7 @@ export async function getMe(userId: string) {
       id: true,
       name: true,
       email: true,
+      image: true,
       role: true,
       status: true,
       emailVerifiedAt: true,
@@ -47,6 +48,7 @@ export async function getMe(userId: string) {
 
   return {
     ...profile,
+    hasPassword: Boolean(passwordHash),
     hasBirthProfile: Boolean(user.birthProfile),
     birthEditsRemaining: editsRemaining,
     plan,

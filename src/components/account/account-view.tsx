@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProfileAvatarCard } from "./profile-avatar-card";
 
 export type PublicPackage = {
   id: string;
@@ -44,10 +45,17 @@ const DEFAULT_UPGRADE_STEPS = [
 ];
 
 export function AccountView({
+  profile,
   myPackage,
   packages,
   upgradeSteps,
 }: {
+  profile: {
+    name: string;
+    email: string;
+    image: string | null;
+    canUploadAvatar: boolean;
+  };
   myPackage: MyPackage;
   packages: PublicPackage[];
   upgradeSteps: string[];
@@ -65,6 +73,14 @@ export function AccountView({
         <p className="mt-1 text-sm text-[var(--muted)]">
           จัดการแพ็กเกจและดูสิทธิ์การใช้งานของคุณ
         </p>
+
+        <ProfileAvatarCard
+          name={profile.name}
+          email={profile.email}
+          image={profile.image}
+          canUpload={profile.canUploadAvatar}
+          onUpdated={() => {}}
+        />
 
         <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
           <div className="flex items-center justify-between">
