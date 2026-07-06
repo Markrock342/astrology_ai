@@ -250,17 +250,15 @@ export function UserDetailManager({
                 />
               </Field>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <Toggle
                 checked={grantCredits}
                 onChange={setGrantCredits}
                 label="เติมเครดิตตามโควตาแพ็กเกจทันที"
               />
-              <div className="ml-auto">
-                <Button onClick={setSubscription} disabled={busy}>
-                  บันทึกแพ็กเกจ
-                </Button>
-              </div>
+              <Button onClick={setSubscription} disabled={busy}>
+                บันทึกแพ็กเกจ
+              </Button>
             </div>
           </Card>
 
