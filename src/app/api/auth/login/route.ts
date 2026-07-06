@@ -1,10 +1,10 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
-import { signIn } from "@/auth";
 import { loginSchema } from "@/lib/schemas";
 import { handle, ok, fail } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { normalizeEmail } from "@/server/auth/account-lookup";
+import { signInCredentials } from "@/server/auth/server-sign-in";
 
 /**
  * Credentials login — rate-limited, no Turnstile (world-class: captcha on
@@ -35,13 +35,8 @@ export async function POST(req: Request) {
     const valid = await bcrypt.compare(data.password, user.passwordHash);
     if (!valid) return fail("VALIDATION", "อีเมลหรือรหัสผ่านไม่ถูกต้อง", 422);
 
-    const authResult = await signIn("credentials", {
-      email,
-      password: data.password,
-      redirect: false,
-    });
-
-    if (authResult && "error" in authResult && authResult.error) {
+    const signedIn = await signInCredentials(email, data.password);
+    if (signedIn === "invalid") {
       return fail("VALIDATION", "อีเมลหรือรหัสผ่านไม่ถูกต้อง", 422);
     }
 

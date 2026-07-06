@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
-import { signIn } from "@/auth";
 import { registerSchema } from "@/lib/schemas";
 import { handle, ok, fail } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
@@ -8,6 +7,7 @@ import { provisionUser } from "@/server/auth/provisioning";
 import { normalizeEmail } from "@/server/auth/account-lookup";
 import { sendVerificationEmail } from "@/server/auth/email-verification-service";
 import { verifyTurnstile, clientIp } from "@/server/auth/turnstile";
+import { signInCredentials } from "@/server/auth/server-sign-in";
 
 /**
  * Register a new local user. Provisioning (user + wallet + Free subscription +
@@ -40,13 +40,9 @@ export async function POST(req: Request) {
 
     await sendVerificationEmail(user.id);
 
-    const authResult = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    const signedIn = await signInCredentials(email, password);
 
-    if (authResult && "error" in authResult && authResult.error) {
+    if (signedIn === "invalid") {
       return ok(
         {
           id: user.id,
