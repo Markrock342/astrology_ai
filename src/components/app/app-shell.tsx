@@ -13,6 +13,7 @@ import {
 } from "./settings-modals";
 import { CategoryIcon } from "./category-icon";
 import { useAppData, isCategoryLocked } from "./app-data-provider";
+import { VerifyEmailBanner } from "./verify-email-banner";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -294,7 +295,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
         </header>
-        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <VerifyEmailBanner />
+          {children}
+        </div>
       </div>
 
       {/* Settings modals — rendered once here so they survive the popover

@@ -12,11 +12,13 @@ export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
   acceptTerms: z.literal(true),
+  turnstileToken: z.string().optional(),
 });
 
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+  turnstileToken: z.string().optional(),
 });
 
 export const checkEmailSchema = z.object({
@@ -25,6 +27,7 @@ export const checkEmailSchema = z.object({
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email(),
+  turnstileToken: z.string().optional(),
 });
 
 export const resetPasswordSchema = z.object({
@@ -84,4 +87,12 @@ export const manualPaymentSchema = z.object({
   amount: z.number().int().positive(),
   reference: z.string().max(120).optional(),
   note: z.string().max(300).optional(),
+});
+
+export const resendVerificationSchema = z.object({
+  turnstileToken: z.string().optional(),
+});
+
+export const verifyEmailSchema = z.object({
+  token: z.string().min(16),
 });
