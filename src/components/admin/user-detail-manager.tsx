@@ -11,6 +11,7 @@ import {
   PageHeader,
   Select,
   TextInput,
+  Toggle,
   adminFetch,
 } from "./ui";
 
@@ -41,13 +42,25 @@ type UserDetail = {
   }>;
 };
 
-export function UserDetailManager({ userId }: { userId: string }) {
+export function UserDetailManager({
+  userId,
+  isSuperAdmin = false,
+}: {
+  userId: string;
+  isSuperAdmin?: boolean;
+}) {
   const [user, setUser] = useState<UserDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [creditAmount, setCreditAmount] = useState(10);
   const [creditNote, setCreditNote] = useState("");
+  const [creditType, setCreditType] = useState<
+    "ADMIN_ADD" | "ADMIN_DEDUCT" | "PROMOTION" | "REFUND"
+  >("ADMIN_ADD");
   const [packageCode, setPackageCode] = useState("PRO");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [grantCredits, setGrantCredits] = useState(true);
+  const [role, setRole] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -81,7 +94,7 @@ export function UserDetailManager({ userId }: { userId: string }) {
     }
   }
 
-  async function adjustCredits(type: "ADMIN_ADD" | "ADMIN_DEDUCT") {
+  async function adjustCredits(type: typeof creditType) {
     setBusy(true);
     try {
       await adminFetch(`/api/admin/users/${userId}/credits`, {
@@ -106,11 +119,31 @@ export function UserDetailManager({ userId }: { userId: string }) {
     try {
       await adminFetch(`/api/admin/users/${userId}/subscription`, {
         method: "PATCH",
-        body: JSON.stringify({ packageCode }),
+        body: JSON.stringify({
+          packageCode,
+          expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+          grantCredits,
+        }),
       });
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "ตั้งแพ็กเกจไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeRole() {
+    if (!role || role === user?.role) return;
+    setBusy(true);
+    try {
+      await adminFetch(`/api/admin/users/${userId}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ role }),
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "เปลี่ยนบทบาทไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -171,33 +204,82 @@ export function UserDetailManager({ userId }: { userId: string }) {
                 }
               />
             </dl>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <Button variant="ghost" onClick={toggleStatus} disabled={busy}>
                 {user.status === "ACTIVE" ? "ระงับบัญชี" : "เปิดใช้งาน"}
               </Button>
+              {isSuperAdmin && (
+                <>
+                  <Select
+                    value={role || user.role}
+                    onChange={(e) => setRole(e.target.value)}
+                  >
+                    <option value="USER">USER</option>
+                    <option value="ADMIN">ADMIN</option>
+                    <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    onClick={changeRole}
+                    disabled={busy || !role || role === user.role}
+                  >
+                    เปลี่ยนบทบาท
+                  </Button>
+                </>
+              )}
             </div>
           </Card>
 
           <Card>
             <h2 className="text-sm font-semibold">ตั้งแพ็กเกจ</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Select
-                value={packageCode}
-                onChange={(e) => setPackageCode(e.target.value)}
-                className="max-w-[160px]"
-              >
-                <option value="FREE">Free</option>
-                <option value="PRO">Pro</option>
-              </Select>
-              <Button onClick={setSubscription} disabled={busy}>
-                บันทึกแพ็กเกจ
-              </Button>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field label="แพ็กเกจ">
+                <Select
+                  value={packageCode}
+                  onChange={(e) => setPackageCode(e.target.value)}
+                >
+                  <option value="FREE">Free</option>
+                  <option value="PRO">Pro</option>
+                </Select>
+              </Field>
+              <Field label="วันหมดอายุ" hint="เว้นว่าง = ไม่มีกำหนด">
+                <TextInput
+                  type="date"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                />
+              </Field>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <Toggle
+                checked={grantCredits}
+                onChange={setGrantCredits}
+                label="เติมเครดิตตามโควตาแพ็กเกจทันที"
+              />
+              <div className="ml-auto">
+                <Button onClick={setSubscription} disabled={busy}>
+                  บันทึกแพ็กเกจ
+                </Button>
+              </div>
             </div>
           </Card>
 
           <Card className="lg:col-span-2">
             <h2 className="text-sm font-semibold">ปรับเครดิต</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="mt-3 grid gap-3 sm:grid-cols-4">
+              <Field label="ประเภท">
+                <Select
+                  value={creditType}
+                  onChange={(e) =>
+                    setCreditType(e.target.value as typeof creditType)
+                  }
+                >
+                  <option value="ADMIN_ADD">เพิ่ม (Admin)</option>
+                  <option value="PROMOTION">โปรโมชัน</option>
+                  <option value="REFUND">คืนเครดิต</option>
+                  <option value="ADMIN_DEDUCT">หัก (Admin)</option>
+                </Select>
+              </Field>
               <Field label="จำนวน">
                 <TextInput
                   type="number"
@@ -213,16 +295,13 @@ export function UserDetailManager({ userId }: { userId: string }) {
                   placeholder="เหตุผล (ถ้ามี)"
                 />
               </Field>
-              <div className="flex items-end gap-2">
-                <Button onClick={() => adjustCredits("ADMIN_ADD")} disabled={busy}>
-                  เพิ่ม
-                </Button>
+              <div className="flex items-end">
                 <Button
-                  variant="danger"
-                  onClick={() => adjustCredits("ADMIN_DEDUCT")}
+                  variant={creditType === "ADMIN_DEDUCT" ? "danger" : "primary"}
+                  onClick={() => adjustCredits(creditType)}
                   disabled={busy}
                 >
-                  หัก
+                  {creditType === "ADMIN_DEDUCT" ? "หักเครดิต" : "เพิ่มเครดิต"}
                 </Button>
               </div>
             </div>

@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import { UserDetailManager } from "@/components/admin/user-detail-manager";
 
 export default async function AdminUserDetailPage({
@@ -6,5 +7,7 @@ export default async function AdminUserDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <UserDetailManager userId={id} />;
+  const session = await auth();
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
+  return <UserDetailManager userId={id} isSuperAdmin={isSuperAdmin} />;
 }

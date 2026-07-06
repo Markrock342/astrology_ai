@@ -2,6 +2,7 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getEffectivePlan } from "@/server/user/account-service";
 import { deductCredits } from "@/server/credit/credit-service";
+import { assertWithinUsageLimits } from "@/server/credit/quota-service";
 import { generateWithFallback, resolveConfig } from "@/server/ai/router";
 import { buildSystemPrompt, buildUserPrompt } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
@@ -65,6 +66,9 @@ export async function createReading(input: CreateReadingInput) {
   if ((wallet?.balance ?? 0) < category.creditCost) {
     throw new AppError("NO_QUOTA", "Not enough credit");
   }
+
+  // 4b. Package daily/monthly usage limits (throws RATE_LIMITED when hit).
+  await assertWithinUsageLimits(userId);
 
   // 5. Load birth profile and freeze a snapshot (rule 14).
   const profile = await prisma.birthProfile.findUnique({ where: { userId } });
