@@ -86,8 +86,44 @@ export const cmsPaymentInfoSchema = z.object({
   footer: z.string().max(500).optional(),
 });
 
+export const cmsSeoSchema = z.object({
+  title: z.string().min(1).max(120),
+  description: z.string().min(1).max(300),
+  ogTitle: z.string().max(120).optional(),
+  ogDescription: z.string().max(300).optional(),
+  ogImageUrl: z.string().url().max(2000).optional().or(z.literal("")),
+});
+
 export const settingUpdateSchema = z.object({
   value: z.unknown(),
+});
+
+export const contentDraftSchema = z.object({
+  value: z.unknown(),
+});
+
+export const revisionRestoreSchema = z.object({
+  mode: z.enum(["draft", "publish"]).default("draft"),
+});
+
+export const announcementSchema = z.object({
+  title: z.string().min(1).max(120),
+  message: z.string().min(1).max(500),
+  tone: z.enum(["INFO", "WARNING", "PROMO", "DANGER"]).default("INFO"),
+  enabled: z.boolean().default(false),
+  linkUrl: z.string().url().max(2000).optional().or(z.literal("")).nullable(),
+  linkLabel: z.string().max(80).optional().nullable(),
+  startsAt: z.coerce.date().nullish(),
+  endsAt: z.coerce.date().nullish(),
+  sortOrder: z.number().int().default(0),
+});
+
+export const faqItemSchema = z.object({
+  question: z.string().min(1).max(300),
+  answer: z.string().min(1).max(5000),
+  category: z.string().max(40).default("general"),
+  enabled: z.boolean().default(true),
+  sortOrder: z.number().int().default(0),
 });
 
 export const submitPaymentSchema = z.object({

@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  ContentEditorToolbar,
+  type ContentRevision,
+} from "./content-editor-toolbar";
+import {
   adminFetch,
   AdminPage,
   Badge,
@@ -20,6 +24,8 @@ type KnowledgeDoc = {
   id: string;
   title: string;
   content: string;
+  draftTitle: string | null;
+  draftContent: string | null;
   categoryId: string | null;
   enabled: boolean;
   sortOrder: number;
@@ -42,6 +48,15 @@ export function KnowledgeManager() {
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [revisions, setRevisions] = useState<ContentRevision[]>([]);
+
+  const loadRevisions = useCallback(async (id: string) => {
+    setRevisions(
+      await adminFetch<ContentRevision[]>(
+        `/api/admin/revisions?entityType=KNOWLEDGE_DOC&entityId=${encodeURIComponent(id)}`,
+      ),
+    );
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -65,16 +80,34 @@ export function KnowledgeManager() {
   function startEdit(d: KnowledgeDoc) {
     setEditingId(d.id);
     setForm({
-      title: d.title,
-      content: d.content,
+      title: d.draftTitle ?? d.title,
+      content: d.draftContent ?? d.content,
       categoryId: d.categoryId ?? "",
       enabled: d.enabled,
       sortOrder: d.sortOrder,
     });
     setShowForm(true);
+    void loadRevisions(d.id);
   }
 
-  async function save() {
+  async function saveDraft() {
+    if (!editingId) return;
+    setBusy(true);
+    try {
+      await adminFetch(`/api/admin/knowledge/${editingId}/draft`, {
+        method: "PUT",
+        body: JSON.stringify({ title: form.title, content: form.content }),
+      });
+      await load();
+      await loadRevisions(editingId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "บันทึกแบบร่างไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publish() {
     setBusy(true);
     setError(null);
     try {
@@ -84,8 +117,8 @@ export function KnowledgeManager() {
         sortOrder: Number(form.sortOrder),
       };
       if (editingId) {
-        await adminFetch(`/api/admin/knowledge/${editingId}`, {
-          method: "PATCH",
+        await adminFetch(`/api/admin/knowledge/${editingId}/publish`, {
+          method: "POST",
           body: JSON.stringify(payload),
         });
       } else {
@@ -93,16 +126,41 @@ export function KnowledgeManager() {
           method: "POST",
           body: JSON.stringify(payload),
         });
+        setShowForm(false);
+        setEditingId(null);
+        setForm(EMPTY_FORM);
       }
-      setShowForm(false);
-      setEditingId(null);
-      setForm(EMPTY_FORM);
       await load();
+      if (editingId) await loadRevisions(editingId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
+      setError(e instanceof Error ? e.message : "เผยแพร่ไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function restoreRevision(revisionId: string, mode: "draft" | "publish") {
+    if (!editingId) return;
+    setBusy(true);
+    try {
+      await adminFetch(`/api/admin/revisions/${revisionId}/restore`, {
+        method: "POST",
+        body: JSON.stringify({ mode }),
+      });
+      await load();
+      const d = (await adminFetch<KnowledgeDoc[]>("/api/admin/knowledge")).find(
+        (x) => x.id === editingId,
+      );
+      if (d) startEdit(d);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "กู้คืนไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save() {
+    await publish();
   }
 
   async function remove(id: string) {
@@ -161,6 +219,19 @@ export function KnowledgeManager() {
 
       {showForm && (
         <Card>
+          {editingId && (
+            <ContentEditorToolbar
+              hasDraft={
+                !!docs.find((d) => d.id === editingId)?.draftContent ||
+                !!docs.find((d) => d.id === editingId)?.draftTitle
+              }
+              busy={busy}
+              onSaveDraft={() => void saveDraft()}
+              onPublish={() => void publish()}
+              revisions={revisions}
+              onRestore={(id, mode) => void restoreRevision(id, mode)}
+            />
+          )}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <Field label="ชื่อเอกสาร">
               <TextInput
@@ -209,8 +280,11 @@ export function KnowledgeManager() {
               <Button variant="ghost" onClick={() => setShowForm(false)}>
                 ยกเลิก
               </Button>
-              <Button onClick={save} disabled={busy || !form.title || !form.content}>
-                {busy ? "กำลังบันทึก…" : editingId ? "บันทึกการแก้ไข" : "เพิ่มเอกสาร"}
+              <Button
+                onClick={() => void (editingId ? publish() : save())}
+                disabled={busy || !form.title || !form.content}
+              >
+                {busy ? "กำลังบันทึก…" : editingId ? "เผยแพร่" : "เพิ่มเอกสาร"}
               </Button>
             </div>
           </div>

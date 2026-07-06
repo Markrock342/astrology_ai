@@ -7,11 +7,12 @@ import {
   cmsDocumentSchema,
   cmsMaintenanceSchema,
   cmsPaymentInfoSchema,
+  cmsSeoSchema,
   cmsTextSchema,
   settingUpdateSchema,
 } from "@/lib/admin-schemas";
 import { requireAdmin } from "@/server/auth/rbac";
-import { updateSetting } from "@/server/admin/settings-admin-service";
+import { publishSetting } from "@/server/admin/settings-admin-service";
 
 const SCHEMA_BY_KEY: Record<string, z.ZodType> = {
   [CMS_KEYS.privacyPolicy]: cmsDocumentSchema,
@@ -23,9 +24,14 @@ const SCHEMA_BY_KEY: Record<string, z.ZodType> = {
   [CMS_KEYS.contact]: cmsContactSchema,
   [CMS_KEYS.maintenanceMode]: cmsMaintenanceSchema,
   [CMS_KEYS.paymentInfo]: cmsPaymentInfoSchema,
+  [CMS_KEYS.seoHome]: cmsSeoSchema,
+  [CMS_KEYS.seoPrivacy]: cmsSeoSchema,
+  [CMS_KEYS.seoTerms]: cmsSeoSchema,
+  [CMS_KEYS.seoDisclaimer]: cmsSeoSchema,
+  [CMS_KEYS.seoFaq]: cmsSeoSchema,
 };
 
-/** PUT /api/admin/settings/:key — update CMS content (audited). */
+/** PUT /api/admin/settings/:key — publish CMS content (audited). */
 export async function PUT(req: Request, ctx: { params: Promise<{ key: string }> }) {
   return handle(async () => {
     const admin = await requireAdmin();
@@ -35,6 +41,6 @@ export async function PUT(req: Request, ctx: { params: Promise<{ key: string }> 
     const { value } = settingUpdateSchema.parse(await req.json());
     const parsed = schema.parse(value);
     const ip = req.headers.get("x-forwarded-for") ?? undefined;
-    return ok(await updateSetting(key, parsed, { id: admin.id, ip }));
+    return ok(await publishSetting(key, parsed, { id: admin.id, ip }));
   });
 }
