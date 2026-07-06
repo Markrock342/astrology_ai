@@ -196,9 +196,20 @@ export function Th({ children, className = "" }: { children: React.ReactNode; cl
   );
 }
 
-export function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+export function Td({
+  children,
+  className = "",
+  colSpan,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  colSpan?: number;
+}) {
   return (
-    <td className={`border-b border-[var(--border)]/60 px-4 py-3 text-[var(--foreground)] ${className}`}>
+    <td
+      colSpan={colSpan}
+      className={`border-b border-[var(--border)]/60 px-4 py-3 text-[var(--foreground)] ${className}`}
+    >
       {children}
     </td>
   );

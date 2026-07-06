@@ -2,42 +2,35 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  AdminPage,
-  Badge,
-  Card,
-  PageHeader,
-  StatCard,
-  adminFetch,
-} from "./ui";
+import { AdminPage, Badge, Card, PageHeader, StatCard, adminFetch } from "./ui";
 
-type UsersList = {
-  total: number;
-  items: Array<{
-    subscriptions: Array<{ package: { type: string } }>;
+type DashboardStats = {
+  users: { total: number; active: number; pro: number; newThisWeek: number };
+  ai: { requestsToday: number; errorsToday: number; requestsThisMonth: number };
+  credits: { usedThisMonth: number; totalBalance: number };
+  payments: { pending: number };
+  recentAudit: Array<{
+    id: string;
+    action: string;
+    entityType: string;
+    entityId: string | null;
+    createdAt: string;
+    admin: { email: string; name: string | null };
   }>;
 };
 
 export function DashboardOverview() {
-  const [totalUsers, setTotalUsers] = useState<number | null>(null);
-  const [proCount, setProCount] = useState<number | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    adminFetch<UsersList>("/api/admin/users?page=1&pageSize=100")
+    adminFetch<DashboardStats>("/api/admin/dashboard")
       .then((data) => {
-        if (!alive) return;
-        setTotalUsers(data.total);
-        const pro = data.items.filter(
-          (u) => u.subscriptions[0]?.package.type === "PRO",
-        ).length;
-        setProCount(pro);
+        if (alive) setStats(data);
       })
-      .catch(() => {
-        if (alive) {
-          setTotalUsers(0);
-          setProCount(0);
-        }
+      .catch((e) => {
+        if (alive) setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
       });
     return () => {
       alive = false;
@@ -46,21 +39,33 @@ export function DashboardOverview() {
 
   return (
     <AdminPage>
-      <PageHeader
-        title="ภาพรวม"
-        description="สรุปสถานะระบบ — ตัวเลข AI และการชำระเงินจะเติมเมื่อเปิด M3"
-      />
+      <PageHeader title="ภาพรวม" description="สรุปสถานะระบบแบบเรียลไทม์" />
+
+      {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="ผู้ใช้ทั้งหมด" value={totalUsers ?? "—"} tone="gold" />
+        <StatCard label="ผู้ใช้ทั้งหมด" value={stats?.users.total ?? "—"} tone="gold" />
         <StatCard
-          label="Pro (หน้าแรก)"
-          value={proCount ?? "—"}
-          hint="นับจาก 100 รายการล่าสุด"
+          label="สมาชิก Pro"
+          value={stats?.users.pro ?? "—"}
+          hint={`ใหม่สัปดาห์นี้ ${stats?.users.newThisWeek ?? "—"} คน`}
           tone="green"
         />
-        <StatCard label="คำขอ AI วันนี้" value="—" hint="รอ M3" />
-        <StatCard label="เครดิตที่ใช้ (เดือนนี้)" value="—" hint="รอ M3" />
+        <StatCard
+          label="คำขอ AI วันนี้"
+          value={stats?.ai.requestsToday ?? "—"}
+          hint={
+            stats && stats.ai.errorsToday > 0
+              ? `ล้มเหลว ${stats.ai.errorsToday} ครั้ง`
+              : "เดือนนี้ " + (stats?.ai.requestsThisMonth ?? "—") + " ครั้ง"
+          }
+          tone={stats && stats.ai.errorsToday > 0 ? "danger" : "default"}
+        />
+        <StatCard
+          label="เครดิตที่ใช้ (เดือนนี้)"
+          value={stats?.credits.usedThisMonth ?? "—"}
+          hint={`คงเหลือรวมทั้งระบบ ${stats?.credits.totalBalance ?? "—"}`}
+        />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -70,41 +75,86 @@ export function DashboardOverview() {
             <QuickLink href="/admin/users" label="จัดการผู้ใช้" />
             <QuickLink href="/admin/categories" label="หมวดหมู่" />
             <QuickLink href="/admin/packages" label="แพ็กเกจ" />
-            <QuickLink href="/admin/payments" label="การชำระเงิน" />
+            <QuickLink href="/admin/prompts" label="Prompt / Persona" />
+            <QuickLink href="/admin/ai-configs" label="AI Models" />
+            <QuickLink href="/admin/audit-logs" label="Audit Logs" />
           </div>
+          {stats && stats.payments.pending > 0 && (
+            <p className="mt-4 text-xs text-[var(--primary)]">
+              มีคำขอชำระเงินรออนุมัติ {stats.payments.pending} รายการ —{" "}
+              <Link href="/admin/payments" className="underline">
+                ไปตรวจสอบ
+              </Link>
+            </p>
+          )}
         </Card>
 
         <Card>
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--foreground)]">สถานะระบบ</h2>
-            <Badge tone="green">M2 พร้อมใช้</Badge>
-          </div>
+          <h2 className="text-sm font-semibold text-[var(--foreground)]">
+            สถานะผู้ใช้
+          </h2>
           <ul className="mt-3 space-y-2 text-xs text-[var(--muted)]">
             <li className="flex justify-between">
-              <span>Auth + Birth profile</span>
-              <span className="text-[var(--secondary-active)]">พร้อม</span>
+              <span>บัญชีที่ใช้งานได้ (Active)</span>
+              <span className="text-[var(--secondary-active)]">
+                {stats?.users.active ?? "—"}
+              </span>
             </li>
             <li className="flex justify-between">
-              <span>Admin users / categories / packages</span>
-              <span className="text-[var(--secondary-active)]">พร้อม</span>
+              <span>ถูกระงับ</span>
+              <span className="text-[var(--danger)]">
+                {stats ? stats.users.total - stats.users.active : "—"}
+              </span>
             </li>
             <li className="flex justify-between">
-              <span>AI chat + Usage logs</span>
-              <span className="text-[var(--muted-2)]">M3</span>
+              <span>Free</span>
+              <span>{stats ? stats.users.total - stats.users.pro : "—"}</span>
             </li>
             <li className="flex justify-between">
-              <span>Manual payment review</span>
-              <span className="text-[var(--muted-2)]">M4</span>
+              <span>Pro</span>
+              <span className="text-[var(--primary)]">{stats?.users.pro ?? "—"}</span>
             </li>
           </ul>
         </Card>
       </div>
 
       <Card className="mt-4">
-        <h2 className="text-sm font-semibold text-[var(--foreground)]">กิจกรรมล่าสุด</h2>
-        <p className="mt-2 text-xs text-[var(--muted)]">
-          รายการ error / การชำระเงิน / usage จะแสดงที่นี่เมื่อ API พร้อม (M3–M4)
-        </p>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-[var(--foreground)]">
+            กิจกรรมแอดมินล่าสุด
+          </h2>
+          <Link
+            href="/admin/audit-logs"
+            className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+          >
+            ดูทั้งหมด →
+          </Link>
+        </div>
+        <ul className="mt-3 space-y-2">
+          {stats && stats.recentAudit.length === 0 && (
+            <li className="text-xs text-[var(--muted)]">ยังไม่มีกิจกรรม</li>
+          )}
+          {stats?.recentAudit.map((log) => (
+            <li
+              key={log.id}
+              className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)]/50 py-2 text-xs"
+            >
+              <span className="flex items-center gap-2">
+                <Badge tone="gold">{log.action}</Badge>
+                <span className="text-[var(--muted)]">
+                  {log.admin.name ?? log.admin.email}
+                </span>
+              </span>
+              <span className="text-[var(--muted-2)]">
+                {new Date(log.createdAt).toLocaleString("th-TH", {
+                  timeZone: "Asia/Bangkok",
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+              </span>
+            </li>
+          ))}
+        </ul>
       </Card>
     </AdminPage>
   );

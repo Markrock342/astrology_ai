@@ -30,6 +30,20 @@ export const userSubscriptionSchema = z.object({
   packageCode: z.string().min(1),
   // ISO date string; null / omitted = indefinite (manual Pro without expiry).
   expiresAt: z.coerce.date().nullish(),
+  // Grant the package's creditQuota to the wallet on activation.
+  grantCredits: z.boolean().default(false),
+});
+
+export const userRoleSchema = z.object({
+  role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"]),
+});
+
+export const auditLogQuerySchema = listQuerySchema.extend({
+  entityType: z.string().trim().max(60).optional(),
+});
+
+export const aiUsageQuerySchema = listQuerySchema.extend({
+  status: z.enum(["SUCCESS", "FAILED", "TIMEOUT"]).optional(),
 });
 
 export const categoryCreateSchema = z.object({
