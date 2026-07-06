@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedAiContent } from "./seed-ai-content";
 
 const prisma = new PrismaClient();
 
@@ -71,20 +72,7 @@ const CATEGORIES = [
 ] as const;
 
 async function main() {
-  // ---- Prompt templates ----
-  const persona = await prisma.promptTemplate.upsert({
-    where: { code: "persona.default" },
-    update: {},
-    create: {
-      code: "persona.default",
-      name: "แม่หมอ (Default Persona)",
-      type: "PERSONA",
-      content:
-        "คุณคือแม่หมอผู้ให้คำปรึกษาด้านโหราศาสตร์ พูดจาอบอุ่น สุภาพ น่าเชื่อถือ " +
-        "ไม่ทำนายแบบฟันธง ไม่สร้างความกลัว และไม่พูดว่าตนเองเป็น AI",
-      version: 1,
-    },
-  });
+  // Prompts + knowledge seeded after categories (see seedAiContent).
 
   // ---- Packages ----
   const freePkg = await prisma.package.upsert({
@@ -164,7 +152,7 @@ async function main() {
       displayName: "Gemini 3.1 Flash Lite (fallback ทุกแพลน)",
       secretReference: "GEMINI_API_KEY",
       planScope: "ALL",
-      promptTemplateId: persona.id,
+      promptTemplateId: undefined,
       versionLabel: "v1",
       notes: "Seed default. Model id is editable from Admin CMS.",
     },
@@ -185,7 +173,7 @@ async function main() {
       planScope: "FREE",
       maxOutputTokens: 1024,
       fallbackConfigId: "seed-gemini-default",
-      promptTemplateId: persona.id,
+      promptTemplateId: undefined,
       versionLabel: "v1",
       notes: "Free users: cheaper model, shorter answers.",
     },
@@ -206,7 +194,7 @@ async function main() {
       planScope: "PRO",
       maxOutputTokens: 4096,
       fallbackConfigId: "seed-gemini-default",
-      promptTemplateId: persona.id,
+      promptTemplateId: undefined,
       versionLabel: "v1",
       notes: "Pro users: fuller model, longer answers.",
     },
@@ -225,10 +213,15 @@ async function main() {
         creditCost: 1,
         sortOrder: c.sortOrder,
         suggestedQuestions: [...c.suggestedQuestions],
-        promptTemplateId: persona.id,
+        promptTemplateId: undefined,
       },
     });
   }
+
+  const { persona } = await seedAiContent(prisma);
+  await prisma.aIProviderConfig.updateMany({
+    data: { promptTemplateId: persona.id },
+  });
 
   // ---- Admin user + wallet + default Free subscription ----
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@horasard.local";
