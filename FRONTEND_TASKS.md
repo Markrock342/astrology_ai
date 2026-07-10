@@ -73,9 +73,13 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 ---
 
-## 2. Checklist ราย Milestone (อัปเดตตามดีไซน์จริง)
+## 2. Checklist ราย Milestone (สถานะจริง — ตรวจกับโค้ด ณ commit `3796e65`)
 
-### 🎯 Milestone 2 — Sign-in, Birth form, Layout, Settings
+> **อ่านก่อน:** checklist นี้ตรวจกับโค้ดจริงแล้ว ไม่ใช่แผนเดิม
+> `[x]` = มีในโค้ดและใช้งานได้ · `[ ]` = ยังค้างจริง (งานที่เหลือเพื่อ production)
+> รายละเอียดงานที่เหลือ + ผังลำดับงานดู [`M4_HANDOFF.md`](./M4_HANDOFF.md)
+
+### 🎯 Milestone 2 — Sign-in, Birth form, Layout, Settings ✅ ปิดแล้ว
 
 - [x] **ตั้งธีมจริง** ใน `globals.css`: พื้นดำ + ทอง + เขียวเทอร์ควอยซ์ (แทนค่า placeholder เดิม) + วางโลโก้ HORASARD
 - [x] **หน้า Sign-in** (`01`): ปุ่ม Continue with Google + ตัวคั่น "หรือ" + ช่องอีเมล + ปุ่ม "ลงชื่อเข้าใช้ด้วยอีเมล" + ข้อความนโยบายความเป็นส่วนตัว — **อีเมล+รหัสผ่าน** (ไม่ใช่ magic-link)
@@ -87,21 +91,25 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 **Acceptance M2 (ปิดแล้ว):** sign-in ได้ · กรอก/แก้วันเกิด (จำกัด 1 ครั้ง) ได้ · shell + settings ครบ · `/register` redirect ไป `/login`
 
-### 🎯 Milestone 3 — Chat, History, Package, Admin UI
+### 🎯 Milestone 3 — Chat, History, Package, Admin UI 🟢 UI เสร็จ
 
-- [ ] **หน้าแชท** (`04`/`05`): เลือกหัวข้อจาก sidebar → ห้องแชท, ข้อความ user (ขวา) / AI (ซ้าย, ข้อความยาวอ่านง่าย), ช่องพิมพ์ "สอบถามเราได้เลย" + ปุ่มส่ง
-  - ส่งข้อความไปที่ API แชท พร้อม header `Idempotency-Key` (กันกดซ้ำ/หักเครดิตซ้ำ); ปุ่มลองใหม่ใช้ key เดิม
-  - state: loading · AI processing · success · **no-quota** · **locked (Pro)** · timeout · error · retry
-  - **ไอคอนโทรศัพท์/Voice = Phase 2 → แสดงเป็น disabled หรือไม่ต้องใส่**
-- [ ] **คำถามแนะนำ** ต่อหมวด (ปุ่ม/ชิปให้กดเลือก) — ดึงจาก API หมวด
-- [ ] **ประวัติแชท** ใน sidebar: รายการเธรด + ค้นหา + เปิดอ่านย้อนหลัง (ของผู้ใช้เท่านั้น)
-- [ ] **หน้า/โมดัลจัดการแพ็กเกจ** + วิธีอัปเกรดเป็น Pro (Phase 1 เป็น manual)
-- [ ] **ล็อกหมวด Pro / โหมดดวงจร**: กดแล้วโชว์ CTA อัปเกรด ไม่ยิง AI
-- [ ] Admin UI: หน้าจัดการ prompt/persona, AI models (+ ปุ่ม Test), ตาราง Usage logs, users, categories, packages, payments
+**เสร็จแล้ว:**
+- [x] **หน้าแชท** (`chat-view.tsx`): ห้องแชท user (ขวา) / AI (ซ้าย) + composer "สอบถามเราได้เลย" + ปุ่มส่ง + header `Idempotency-Key` + ปุ่มลองใหม่
+- [x] **คำถามแนะนำ** ต่อหมวด (chip) — ดึงจาก API หมวด
+- [x] **ประวัติแชท** ใน sidebar + หน้า `(app)/history` + `history/[id]` (เปิดอ่านย้อนหลัง)
+- [x] **จัดการแพ็กเกจ / อัปเกรด Pro** (`account-view.tsx` + `payment-submit-card.tsx` — ส่งสลิป manual)
+- [x] **ล็อกหมวด Pro / โหมดดวงจร** — โชว์ CTA อัปเกรด (`UpgradeProState`) ไม่ยิง AI
+- [x] Admin UI ครบ: prompts/persona, ai-configs (+ ปุ่ม Test), usage logs, users, categories, packages, payments, knowledge, faq, announcements, settings, audit-logs
+
+**ค้างจริง (→ production):**
+- [ ] **F1 — QA error-state บนแชท**: เช็ค `chat-view.tsx` map error code ครบทุกตัวเป็น UI state ที่ถูก (ดูรายการเต็ม §4) + ปุ่มลองใหม่ **ใช้ Idempotency-Key เดิม** · ไม่มี state ค้าง/จอขาว
+  - ⚠️ contract เดิม (§4) **ลืม** `CHAT_REQUIRES_PRO` และ `TRANSIT_REQUIRES_PRO` — backend คืน 2 โค้ดนี้จริง ต้อง map ด้วย
+- [ ] **F2 — render ประวัติเธรดเต็ม** ในห้องแชท (โหลดจาก `GET /api/conversations/:id`, scroll/anchor ถูก) — **ขึ้นกับ B1** (backend multi-turn) เริ่มหลัง B1 merge
 
 ### 🎯 Milestone 4 — Polish
-- [ ] ขัด UX/UI ให้ตรงดีไซน์ · responsive ทุกหน้า · empty/error/skeleton เนียน
-- [ ] หน้า/เอกสาร นโยบายความเป็นส่วนตัว + เงื่อนไข + disclaimer (จำเป็นตามกฎหมาย)
+
+- [ ] **F3 — polish**: responsive ทุกหน้า (โดยเฉพาะ admin tables) · empty/error/skeleton เนียนทั่วทุกหน้า (ใช้ `content-skeleton.tsx` ให้ทั่ว) · ไม่มี flash of empty content
+- [ ] **F4 — legal content จริง**: ตรวจหน้า `(public)/{privacy,terms,disclaimer}` เป็นข้อความจริง (ขอจากลูกค้า/ที่ปรึกษากฎหมาย) ไม่ใช่ placeholder + disclaimer "เพื่อความบันเทิง" ตามกฎหมายดูดวง
 
 ---
 
@@ -121,8 +129,8 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 { "ok": true, "data": { /* ... */ } }
 { "ok": false, "error": { "code": "NO_QUOTA", "message": "..." } }
 ```
-โค้ด error ที่ต้องแมปเป็น state บนแชท:
-`NO_QUOTA` · `CATEGORY_LOCKED` · `AI_TIMEOUT` · `AI_PROVIDER_ERROR` · `USER_DISABLED` · `RATE_LIMITED` · `VALIDATION`
+โค้ด error ที่ต้องแมปเป็น state บนแชท (backend คืนจริงครบชุดนี้):
+`NO_QUOTA` · `CHAT_REQUIRES_PRO` · `CATEGORY_LOCKED` · `TRANSIT_REQUIRES_PRO` · `AI_TIMEOUT` · `AI_PROVIDER_ERROR` · `USER_DISABLED` · `RATE_LIMITED` · `VALIDATION`
 
 **ไฟล์กลางที่ต้องคุยกับ Backend ก่อนแก้:**
 `src/types/index.ts` · `src/lib/schemas.ts` · `src/config/constants.ts` · `package.json`

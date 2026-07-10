@@ -70,9 +70,13 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 ---
 
-## 2. Checklist ราย Milestone (อัปเดตตามดีไซน์จริง)
+## 2. Checklist ราย Milestone (สถานะจริง — ตรวจกับโค้ด ณ commit `3796e65`)
 
-### 🎯 Milestone 2 — Schema chat, Auth, Birth profile, Admin API
+> **อ่านก่อน:** checklist นี้ผ่านการตรวจกับโค้ดจริง + git history แล้ว ไม่ใช่แผนเดิม (แผนเดิมล้าสมัยหนัก)
+> `[x]` = มีในโค้ดและใช้งานได้ · `[ ]` = ยังค้างจริง (งานที่เหลือเพื่อ production)
+> รายละเอียดเชิงลึก + ผังลำดับงาน + env checklist ดู [`M4_HANDOFF.md`](./M4_HANDOFF.md)
+
+### 🎯 Milestone 2 — Schema chat, Auth, Birth profile, Admin API ✅ ปิดแล้ว
 
 - [x] **ปรับ schema**: เพิ่ม `Conversation` + `Message`, ปรับ `BirthProfile` (country/province/district + `editCount`), เพิ่ม `suggestedQuestions` ที่ category → เขียน migration
 - [x] เตรียม dataset **จังหวัด/อำเภอไทย** (เสิร์ฟผ่าน `GET /api/geo/thailand` + `src/data/thailand-geo.ts`; อำเภอยังชุดย่อ)
@@ -87,26 +91,58 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 > **M2 ปิดแล้ว** (`be/m2-close` + `fe/milestone2-3-ui` + flowchart rules). DB migrate+seed บน Supabase แล้ว.
 
-### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History
+### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History 🟢 ~85%
 
-- [x] API แชท (บางส่วน): `GET /api/conversations`, `GET /api/conversations/:id`, `POST /api/conversations`, `POST /api/conversations/:id/messages` (ยัง delegate ผ่าน `reading-service` + sync Message)
+**เสร็จแล้ว:**
+- [x] API แชท: `GET|POST /api/conversations`, `GET /api/conversations/:id`, `POST /api/conversations/:id/messages` (รับ header `Idempotency-Key`) — `e06f129`
 - [x] กฎ Free ห้ามแชท: `CHAT_REQUIRES_PRO` + `canChat` ใน `/api/me`
-- [x] `NatalChart` stub + `GET /api/me/natal-chart` หลัง save birth
-- [ ] ปรับ `reading-service.ts` → **message-service** เต็มรูป: context เธรด + ไม่พึ่ง HoroscopeReading
-- [ ] `providers/gemini.ts` — เรียก Gemini จริง + `AbortController(timeoutMs)`, ใช้ `resolveSecret()`; **ห้าม throw** เมื่อ error (คืน `ok:false` เพื่อ fallback และไม่หักเครดิต)
-- [ ] Prompt builder: รองรับประวัติสนทนา (ส่ง context ของเธรด) + persona แม่หมอ + โหมด natal/transit
-- [ ] คำถามแนะนำต่อหมวด (ตอบใน `GET /api/horoscope/categories`)
-- [ ] Admin: CRUD prompts, ai-configs + `POST /api/admin/ai-configs/:id/test`, `GET /api/admin/ai-usage`
-- [ ] Tests: หักเครดิต · refund เมื่อ AI error · Free/Pro + ดวงจร lock · model routing · admin auth · idempotency
+- [x] `NatalChart` + **newhora engine เต็ม** (`engine/newhora/*` + `compute-chart.ts`) + `GET /api/me/natal-chart` — `6944412`
+- [x] **`providers/gemini.ts` เรียก Gemini จริง** — REST + `AbortController(timeoutMs)` + `resolveSecret()` + **ไม่ throw** (คืน `ok:false` เพื่อ fallback/ไม่หักเครดิต) — `45f37d9`
+- [x] Prompt builder: persona แม่หมอ + โหมด natal/transit + knowledge docs (`prompt-builder.ts`, `prompt-resolver.ts`)
+- [x] คำถามแนะนำต่อหมวด (`suggestedQuestions` ตอบใน `GET /api/horoscope/categories`)
+- [x] Admin AI: CRUD `prompts`, `ai-configs` + `POST /api/admin/ai-configs/:id/test`, `GET /api/admin/ai-usage`, knowledge — `3796e65`
+- [x] `reading-service.ts` บังคับ 4 กฎครบ (permission/quota ก่อนยิง · AI fail = ไม่หักเครดิต · idempotency · charge+persist ใน transaction เดียว)
 
-**Acceptance:** แชทได้ · AI ตอบ+บันทึก · หักเครดิตถูก · error ไม่หักซ้ำ · retry ไม่สร้างข้อความซ้ำ · ประวัติเธรดครบ
+**ค้างจริง (→ production):**
+- [ ] **B1 — Multi-turn context จริง**: `message-service.ts` ยัง `delegate → createReading()` ยิงทีละคำถาม ไม่ส่งประวัติเธรดเข้า prompt (ดู `message-service.ts:19` คอมเมนต์ "Phase 1: delegates ... Wave C+") → โหลด `Message[]` ก่อนหน้าของเธรด ส่งเป็น conversation history เข้า adapter (Gemini รองรับ `contents[]` หลาย turn อยู่แล้ว), เลิกพึ่ง single-shot · **ต้องคงกฎ 4 ข้อเดิม** · จำกัด context (turn ล่าสุด/token budget)
+- [ ] **B2 — Tests** (acceptance M3 ที่ยังไม่มี): หักเครดิต · **refund/ไม่หักเมื่อ AI error/timeout** · `CHAT_REQUIRES_PRO`/`CATEGORY_LOCKED`/`TRANSIT_REQUIRES_PRO` · `NO_QUOTA`/`RATE_LIMITED` · idempotency (retry key เดิมไม่สร้างซ้ำ) · model routing/fallback · admin auth block
 
-### 🎯 Milestone 4 — Payment, Package, Dashboard, Deploy
-- [ ] Manual payment: `POST /api/payments/manual` + admin review + เปิดแพ็กเกจ (+ audit)
-- [ ] จัดการแพ็กเกจ + **ยกเลิกการเป็นสมาชิก** (endpoint + ปรับ subscription)
-- [ ] `GET /api/admin/dashboard` (ตัวเลข + ต้นทุน AI โดยประมาณ)
-- [ ] Rate-limit production-grade (Redis/Upstash), production DB + secrets + backup
-- [ ] เก็บ/เสิร์ฟ นโยบายความเป็นส่วนตัว/เงื่อนไข
+**Acceptance:** สนทนาต่อเนื่องหลาย turn AI อ้างอิงบทก่อนหน้าได้ · หักเครดิตต่อ **ข้อความตอบ** ถูก · error ไม่หักซ้ำ · retry ไม่สร้างข้อความซ้ำ · `npm run test` ครอบเคสข้างบนครบ
+
+### 🎯 Milestone 4 — Payment, Package, Dashboard, Deploy 🟢 ~80%
+
+**เสร็จแล้ว:**
+- [x] Manual payment: `POST /api/payments/manual` + `GET /api/payments/me` + admin review (`/api/admin/payments/:id/review`) + เปิดแพ็กเกจ + audit — `56cb57d`
+- [x] จัดการแพ็กเกจ + **ยกเลิกการเป็นสมาชิก** (`POST /api/me/subscription/cancel`)
+- [x] `GET /api/admin/dashboard` — KPIs + ต้นทุน AI โดยประมาณ (`dashboard-admin-service.ts`) — `31412b9`
+- [x] เก็บ/เสิร์ฟ นโยบาย/เงื่อนไข (CMS settings + หน้า `(public)/{privacy,terms,disclaimer}` + `GET /api/settings/public`)
+- [x] **อีเมลจริง** (password reset ฯลฯ) — Resend wired ใน `mailer.ts` (ตั้ง `RESEND_API_KEY` = ส่งจริง / ไม่ตั้ง = log console)
+
+**ค้างจริง (→ production):**
+- [ ] **B3 — Rate-limit production-grade**: `src/lib/rate-limit.ts` ยัง in-memory `Map` (คอมเมนต์เขียนเองว่าต้อง Redis/Upstash สำหรับ multi-instance) → Upstash Redis sliding-window, **คง interface `rateLimit(key, limit, windowMs)` เดิม** + env `UPSTASH_REDIS_REST_URL`/`_TOKEN` · **⏸️ รอ PM เคาะก่อน** (Redis vs คง in-memory — ถ้าคง in-memory = แค่เขียน note ปิด)
+- [ ] **B4 — Go-live config** (ตั้งค่า ไม่ใช่เขียนโค้ด): ตั้ง env จริงบน Vercel (ดู §7) · `db:migrate` + `db:seed` บน Supabase production (ต้องมี `DIRECT_URL`) · ตั้ง `NEXT_PUBLIC_APP_PHASE` ตามที่ลูกค้าจ่าย · ยืนยัน backup policy · smoke test flow เต็มบน production URL
+
+---
+
+## 2b. 🚀 Production go-live checklist (B4)
+
+**Env ที่ต้องตั้งจริง** (จาก `src/config/env.ts`):
+
+| ตัวแปร | จำเป็น | หมายเหตุ |
+|--------|--------|----------|
+| `DATABASE_URL` | ✅ | Supabase pooler |
+| `DIRECT_URL` | ✅ | สำหรับ `db:migrate` (Prisma direct connection) |
+| `AUTH_SECRET` | ✅ | `npx auth secret` |
+| `AUTH_URL` / `APP_BASE_URL` | ✅ | domain จริง (ใช้สร้างลิงก์ในอีเมล) |
+| `AUTH_GOOGLE_ID` / `_SECRET` | ✅ | Google login |
+| `GEMINI_API_KEY` | ✅ | **AI chat ใช้ไม่ได้ถ้าไม่ตั้ง** (คืน `MISSING_API_KEY`) |
+| `RESEND_API_KEY` / `EMAIL_FROM` | ✅ | อีเมลจริง (ไม่ตั้ง = log console เท่านั้น) |
+| `TURNSTILE_SECRET_KEY` | ⬜ | bot protection บนฟอร์ม auth |
+| `OPENAI_API_KEY` | ⬜ | fallback provider |
+| `SEED_ADMIN_EMAIL` / `_PASSWORD` | ✅ | สร้าง admin คนแรกตอน seed |
+| `NEXT_PUBLIC_APP_PHASE` | ⬜ | feature gating (unset=เปิดหมด · `2`=ซ่อน AI · `3`=เปิด AI) |
+
+**ขั้นตอน deploy:** ตั้ง env → `npm run db:migrate` → `npm run db:seed` → verify admin login → smoke test: sign-in → กรอกวันเกิด → อัปเกรด Pro (manual) → แชท → ได้คำตอบจาก Gemini จริง
 
 ---
 
