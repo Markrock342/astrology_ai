@@ -67,6 +67,7 @@ const baseCategory = {
   id: "cat-1",
   slug: "career",
   enabled: true,
+  accessLevel: "FREE",
   creditCost: 1,
   promptTemplateId: null,
   nameTh: "การงาน",
@@ -189,7 +190,27 @@ describe("createReading (M3 B2)", () => {
     mocks.getEffectivePlan.mockResolvedValue("FREE");
 
     await expect(
-      createReading({ userId: "user-1", categorySlug: "career", question: "q" }),
+      createReading({
+        userId: "user-1",
+        categorySlug: "career",
+        question: "q",
+      }),
+    ).rejects.toMatchObject({ code: "CHAT_REQUIRES_PRO" } satisfies Partial<AppError>);
+
+    expect(mocks.generateWithFallback).not.toHaveBeenCalled();
+  });
+
+  it("throws CATEGORY_LOCKED when Free would use Pro category after Pro gate", async () => {
+    // Unreachable for Free in practice (CHAT_REQUIRES_PRO first); keep lock for safety.
+    mocks.getEffectivePlan.mockResolvedValue("FREE");
+    mocks.findCategory.mockResolvedValue({
+      ...baseCategory,
+      slug: "love",
+      accessLevel: "PRO",
+    });
+
+    await expect(
+      createReading({ userId: "user-1", categorySlug: "love", question: "q" }),
     ).rejects.toMatchObject({ code: "CHAT_REQUIRES_PRO" } satisfies Partial<AppError>);
 
     expect(mocks.generateWithFallback).not.toHaveBeenCalled();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
 import { ChatThreadSkeleton } from "@/components/app/content-skeleton";
@@ -79,14 +79,55 @@ type PendingRetry = {
   idempotencyKey: string;
 };
 
+type ApiReading = {
+  responseText: string;
+  modelId: string | null;
+};
+
+async function parseApiJson(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function applyApiError(
+  code: string,
+  message: string | undefined,
+  setters: {
+    setErrorCode: (code: string | null) => void;
+    setErrorText: (text: string | null) => void;
+    setState: (state: ChatState) => void;
+    setPendingRetry: (retry: PendingRetry | null) => void;
+  },
+  retry: PendingRetry | null,
+) {
+  setters.setErrorCode(code);
+  if (code === "CATEGORY_LOCKED") {
+    setters.setState("locked");
+    setters.setPendingRetry(null);
+    return;
+  }
+  setters.setErrorText(
+    ERROR_MESSAGES[code] ?? message ?? "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
+  );
+  setters.setState(code === "NO_QUOTA" ? "no-quota" : "error");
+  if (!RETRYABLE_ERRORS.has(code)) {
+    setters.setPendingRetry(null);
+  } else if (retry) {
+    setters.setPendingRetry(retry);
+  }
+}
+
 export function ChatView() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
   const { user, refresh } = useAppData();
   const category = useCategory(catSlug);
   const locked = isCategoryLocked(category, user?.plan ?? "FREE");
-  const chatBlocked = FEATURES.aiChat && Boolean(user && !user.canChat);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -95,8 +136,17 @@ export function ChatView() {
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [pendingRetry, setPendingRetry] = useState<PendingRetry | null>(null);
   const [loadingThread, setLoadingThread] = useState(false);
+  const [threadLoadError, setThreadLoadError] = useState<string | null>(null);
+  const [threadCategorySlug, setThreadCategorySlug] = useState<string | null>(
+    null,
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamTimer = useRef<number | null>(null);
+  const conversationIdRef = useRef<string | null>(threadId);
+
+  useEffect(() => {
+    conversationIdRef.current = threadId;
+  }, [threadId]);
 
   // Load past thread when ?thread= is set.
   useEffect(() => {
@@ -104,17 +154,31 @@ export function ChatView() {
     let alive = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingThread(true);
+    setThreadLoadError(null);
     fetch(`/api/conversations/${threadId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        if (!alive || !json?.ok) return;
+      .then((r) => parseApiJson(r).then((json) => ({ res: r, json })))
+      .then(({ res, json }) => {
+        if (!alive) return;
+        if (!res.ok || !json?.ok) {
+          setThreadLoadError(
+            json?.error?.message ?? "โหลดประวัติการสนทนาไม่สำเร็จ",
+          );
+          setMessages([]);
+          setState("error");
+          return;
+        }
         setMessages(json.data.messages);
+        setThreadCategorySlug(json.data.categorySlug ?? null);
         setState("idle");
         setErrorText(null);
         setErrorCode(null);
         setPendingRetry(null);
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!alive) return;
+        setThreadLoadError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+        setState("error");
+      })
       .finally(() => {
         if (alive) setLoadingThread(false);
       });
@@ -127,13 +191,16 @@ export function ChatView() {
   useEffect(() => {
     if (threadId) return;
     if (streamTimer.current) window.clearInterval(streamTimer.current);
+    conversationIdRef.current = null;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages([]);
+    setThreadCategorySlug(null);
     setState(locked ? "locked" : "idle");
     setInput("");
     setErrorText(null);
     setErrorCode(null);
     setPendingRetry(null);
+    setThreadLoadError(null);
   }, [catSlug, locked, threadId]);
 
   useEffect(() => {
@@ -153,6 +220,7 @@ export function ChatView() {
     full: string,
     modelId: string,
     charts?: { natal?: ChartJson | null; transit?: ChartJson | null },
+    onDone?: () => void,
   ) {
     const id = crypto.randomUUID();
     setMessages((m) => [
@@ -180,8 +248,39 @@ export function ChatView() {
         streamTimer.current = null;
         setState("idle");
         refresh();
+        onDone?.();
       }
     }, 24);
+  }
+
+  async function ensureConversation(
+    categorySlug: string,
+    content: string,
+    idempotencyKey: string,
+  ): Promise<string | null> {
+    const existing = threadId ?? conversationIdRef.current;
+    if (existing) return existing;
+
+    const res = await fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categorySlug, mode: "NATAL" }),
+    });
+    const json = await parseApiJson(res);
+    if (!res.ok || !json?.ok) {
+      const code: string = json?.error?.code ?? "INTERNAL";
+      applyApiError(
+        code,
+        json?.error?.message,
+        { setErrorCode, setErrorText, setState, setPendingRetry },
+        { question: content, idempotencyKey },
+      );
+      return null;
+    }
+
+    const id = json.data.id as string;
+    conversationIdRef.current = id;
+    return id;
   }
 
   async function send(text: string, retryKey?: string) {
@@ -201,14 +300,8 @@ export function ChatView() {
       setPendingRetry(null);
       return;
     }
-    if (chatBlocked) {
-      setErrorCode("CHAT_REQUIRES_PRO");
-      setErrorText(ERROR_MESSAGES.CHAT_REQUIRES_PRO);
-      setState("error");
-      setPendingRetry(null);
-      return;
-    }
-    if (!catSlug) {
+    const categorySlug = catSlug ?? threadCategorySlug;
+    if (!categorySlug && !threadId && !conversationIdRef.current) {
       setErrorCode("VALIDATION");
       setErrorText("เลือกหมวดจากแถบข้างก่อนเริ่มดูดวง");
       setState("error");
@@ -233,33 +326,32 @@ export function ChatView() {
     }
 
     try {
-      const res = await fetch("/api/horoscope/readings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify({ categorySlug: catSlug, question: content }),
-      });
-      const json = await res.json();
+      const conversationId = categorySlug
+        ? await ensureConversation(categorySlug, content, idempotencyKey)
+        : (threadId ?? conversationIdRef.current);
+      if (!conversationId) return;
 
-      if (!res.ok || !json.ok) {
+      const res = await fetch(
+        `/api/conversations/${conversationId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify({ content }),
+        },
+      );
+      const json = await parseApiJson(res);
+
+      if (!res.ok || !json?.ok) {
         const code: string = json?.error?.code ?? "INTERNAL";
-        setErrorCode(code);
-        if (code === "CATEGORY_LOCKED") {
-          setState("locked");
-          setPendingRetry(null);
-          return;
-        }
-        setErrorText(
-          ERROR_MESSAGES[code] ??
-            json?.error?.message ??
-            "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
+        applyApiError(
+          code,
+          json?.error?.message,
+          { setErrorCode, setErrorText, setState, setPendingRetry },
+          { question: content, idempotencyKey },
         );
-        setState(code === "NO_QUOTA" ? "no-quota" : "error");
-        if (!RETRYABLE_ERRORS.has(code)) {
-          setPendingRetry(null);
-        }
         return;
       }
 
@@ -271,10 +363,24 @@ export function ChatView() {
         chartSnapshot?: ChartJson | null;
         transitSnapshot?: ChartJson | null;
       };
-      streamReply(reading.responseText, reading.modelId ?? DEFAULTS.defaultGeminiModelId, {
-        natal: reading.chartSnapshot,
-        transit: reading.transitSnapshot,
-      });
+      const syncCat = categorySlug ?? catSlug;
+      const shouldSyncUrl = !threadId;
+      streamReply(
+        reading.responseText,
+        reading.modelId ?? DEFAULTS.defaultGeminiModelId,
+        {
+          natal: reading.chartSnapshot,
+          transit: reading.transitSnapshot,
+        },
+        () => {
+          if (shouldSyncUrl && syncCat) {
+            router.replace(
+              `/dashboard?thread=${conversationId}&cat=${syncCat}`,
+              { scroll: false },
+            );
+          }
+        },
+      );
     } catch {
       setErrorCode("NETWORK");
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
@@ -287,8 +393,7 @@ export function ChatView() {
     !locked &&
     state !== "locked" &&
     !loadingThread &&
-    !threadId &&
-    !chatBlocked;
+    !threadId;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -300,14 +405,44 @@ export function ChatView() {
         )}
         {loadingThread ? (
           <ChatThreadSkeleton />
-        ) : chatBlocked && messages.length === 0 && !threadId ? (
-          <UpgradeProState />
+        ) : threadLoadError && messages.length === 0 ? (
+          <div className="mx-auto flex max-w-md flex-col items-center pt-20 text-center">
+            <p className="text-sm text-[var(--danger)]">{threadLoadError}</p>
+            <a
+              href="/dashboard"
+              className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2 text-xs font-semibold text-[var(--foreground)]"
+            >
+              เริ่มสนทนาใหม่
+            </a>
+          </div>
         ) : showEmpty ? (
-          <EmptyState
-            category={category?.label}
-            suggestions={category?.suggestedQuestions ?? []}
-            onPick={send}
-          />
+          <div className="mx-auto flex w-full max-w-2xl flex-col items-center">
+            <EmptyState
+              category={category?.label}
+              suggestions={category?.suggestedQuestions ?? []}
+              onPick={send}
+            />
+            {(state === "error" || state === "no-quota") && (
+              <div className="mt-4 w-full max-w-md">
+                <ErrorBanner
+                  state={state}
+                  errorCode={errorCode}
+                  errorText={errorText}
+                  onRetry={
+                    pendingRetry &&
+                    errorCode &&
+                    RETRYABLE_ERRORS.has(errorCode)
+                      ? () =>
+                          send(
+                            pendingRetry.question,
+                            pendingRetry.idempotencyKey,
+                          )
+                      : undefined
+                  }
+                />
+              </div>
+            )}
+          </div>
         ) : state === "locked" && messages.length === 0 ? (
           <LockedState category={category?.label} />
         ) : (
@@ -381,10 +516,8 @@ export function ChatView() {
         value={input}
         onChange={setInput}
         onSend={() => send(input)}
-        disabled={
-          state === "processing" || state === "streaming" || locked || chatBlocked
-        }
-        aiEnabled={FEATURES.aiChat && !locked && !chatBlocked}
+        disabled={state === "processing" || state === "streaming" || locked}
+        aiEnabled={FEATURES.aiChat && !locked}
       />
     </div>
   );
@@ -439,36 +572,6 @@ function ErrorBanner({
           </a>
         )}
       </div>
-    </div>
-  );
-}
-
-function UpgradeProState() {
-  return (
-    <div className="mx-auto flex max-w-md flex-col items-center pt-20 text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[var(--primary)]/40 text-[var(--primary)]">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M12 2l2.4 7.4H22l-6 4.6 2.3 7-6.3-4.6L5.7 21 8 14 2 9.4h7.6L12 2z"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
-      <h2 className="text-lg font-semibold text-[var(--foreground)]">
-        สนทนากับ AI สำหรับสมาชิก Pro
-      </h2>
-      <p className="mt-2 text-sm text-[var(--muted)]">
-        แพ็กเกจ Free ดูหมวดตัวตนและการงานได้ แต่ต้องอัปเกรดเป็น Pro
-        เพื่อสนทนากับ AI และใช้โหมดดวงจร
-      </p>
-      <a
-        href="/account"
-        className="mt-5 rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
-      >
-        อัปเกรดเป็น Pro
-      </a>
     </div>
   );
 }

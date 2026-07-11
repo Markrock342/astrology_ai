@@ -12,6 +12,7 @@ import {
   Badge,
   Button,
   Card,
+  CardSkeleton,
   Field,
   InfoBox,
   PageHeader,
@@ -127,6 +128,7 @@ export function AiConfigsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, TestResult | "loading">>({});
   const [status, setStatus] = useState<AiStatusSnapshot | null>(null);
@@ -146,6 +148,7 @@ export function AiConfigsManager() {
 
   const load = useCallback(async () => {
     try {
+      setLoading(true);
       const [cfgs, cats, ps] = await Promise.all([
         adminFetch<AIConfig[]>("/api/admin/ai-configs"),
         adminFetch<Category[]>("/api/admin/categories"),
@@ -156,6 +159,8 @@ export function AiConfigsManager() {
       setPrompts(ps);
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -596,6 +601,12 @@ export function AiConfigsManager() {
         </Card>
       )}
 
+      {loading && !showForm ? (
+        <div className="mt-4 flex flex-col gap-3">
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      ) : (
       <div className="mt-4 flex flex-col gap-3">
         {configs.map((cfg) => {
           const result = testResults[cfg.id];
@@ -674,6 +685,7 @@ export function AiConfigsManager() {
           <p className="text-sm text-[var(--muted-2)]">ยังไม่มี config</p>
         )}
       </div>
+      )}
     </AdminPage>
   );
 }

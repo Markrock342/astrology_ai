@@ -10,6 +10,7 @@ import {
   Badge,
   Button,
   Card,
+  CardSkeleton,
   Field,
   PageHeader,
   Select,
@@ -46,11 +47,17 @@ export function FaqManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
 
   const load = useCallback(async () => {
-    setItems(await adminFetch<FaqItem[]>("/api/admin/faq"));
+    try {
+      setLoading(true);
+      setItems(await adminFetch<FaqItem[]>("/api/admin/faq"));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const loadRevisions = useCallback(async (id: string) => {
@@ -61,7 +68,6 @@ export function FaqManager() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load().catch((e) => setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ"));
   }, [load]);
 
@@ -229,6 +235,13 @@ export function FaqManager() {
         </Card>
       )}
 
+      {loading && !showForm ? (
+        <div className="flex flex-col gap-2">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      ) : (
       <div className="flex flex-col gap-2">
         {items.map((item) => (
           <Card key={item.id}>
@@ -248,6 +261,7 @@ export function FaqManager() {
           </Card>
         ))}
       </div>
+      )}
     </AdminPage>
   );
 }

@@ -6,6 +6,7 @@ import {
   Badge,
   Button,
   Card,
+  CardSkeleton,
   Field,
   PageHeader,
   Select,
@@ -53,15 +54,23 @@ export function AnnouncementsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setItems(await adminFetch<Announcement[]>("/api/admin/announcements"));
+    try {
+      setLoading(true);
+      setItems(await adminFetch<Announcement[]>("/api/admin/announcements"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load().catch((e) => setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ"));
+    void load();
   }, [load]);
 
   function startEdit(item: Announcement) {
@@ -215,6 +224,12 @@ export function AnnouncementsManager() {
         </Card>
       )}
 
+      {loading && !showForm ? (
+        <div className="flex flex-col gap-3">
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      ) : (
       <div className="flex flex-col gap-3">
         {items.map((item) => (
           <Card key={item.id}>
@@ -240,6 +255,7 @@ export function AnnouncementsManager() {
           <p className="text-sm text-[var(--muted-2)]">ยังไม่มีประกาศ</p>
         )}
       </div>
+      )}
     </AdminPage>
   );
 }
