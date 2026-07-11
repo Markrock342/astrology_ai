@@ -10,6 +10,7 @@ import {
   PageHeader,
   Select,
   TableShell,
+  TableSkeleton,
   Td,
   TextInput,
   Th,
@@ -47,12 +48,14 @@ const STATUS_LABELS: Record<Payment["status"], string> = {
 export function PaymentsPanel() {
   const [data, setData] = useState<PaymentList | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<"" | "PENDING" | "APPROVED" | "REJECTED">("PENDING");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -63,6 +66,8 @@ export function PaymentsPanel() {
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   }, [page, status]);
 
@@ -130,6 +135,9 @@ export function PaymentsPanel() {
         </label>
       </div>
 
+      {loading && !data ? (
+        <TableSkeleton rows={8} />
+      ) : (
       <TableShell>
         <thead>
           <tr>
@@ -232,6 +240,7 @@ export function PaymentsPanel() {
           ))}
         </tbody>
       </TableShell>
+      )}
 
       <div className="mt-4 flex items-center justify-between text-xs text-[var(--muted)]">
         <span>

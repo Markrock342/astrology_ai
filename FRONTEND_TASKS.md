@@ -73,9 +73,13 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 ---
 
-## 2. Checklist ราย Milestone (อัปเดตตามดีไซน์จริง)
+## 2. Checklist ราย Milestone (สถานะจริง — ตรวจกับโค้ด ณ branch `fe/m4-polish`)
 
-### 🎯 Milestone 2 — Sign-in, Birth form, Layout, Settings
+> **อ่านก่อน:** checklist นี้ตรวจกับโค้ดจริงแล้ว ไม่ใช่แผนเดิม
+> `[x]` = มีในโค้ดและใช้งานได้ · `[ ]` = ยังค้างจริง (งานที่เหลือเพื่อ production)
+> รายละเอียดงานที่เหลือ + ผังลำดับงานดู [`M4_HANDOFF.md`](./M4_HANDOFF.md)
+
+### 🎯 Milestone 2 — Sign-in, Birth form, Layout, Settings ✅ ปิดแล้ว
 
 - [x] **ตั้งธีมจริง** ใน `globals.css`: พื้นดำ + ทอง + เขียวเทอร์ควอยซ์ (แทนค่า placeholder เดิม) + วางโลโก้ HORASARD
 - [x] **หน้า Sign-in** (`01`): ปุ่ม Continue with Google + ตัวคั่น "หรือ" + ช่องอีเมล + ปุ่ม "ลงชื่อเข้าใช้ด้วยอีเมล" + ข้อความนโยบายความเป็นส่วนตัว — **อีเมล+รหัสผ่าน** (ไม่ใช่ magic-link)
@@ -87,21 +91,24 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 **Acceptance M2 (ปิดแล้ว):** sign-in ได้ · กรอก/แก้วันเกิด (จำกัด 1 ครั้ง) ได้ · shell + settings ครบ · `/register` redirect ไป `/login`
 
-### 🎯 Milestone 3 — Chat, History, Package, Admin UI
+### 🎯 Milestone 3 — Chat, History, Package, Admin UI 🟢 UI เสร็จ
 
-- [ ] **หน้าแชท** (`04`/`05`): เลือกหัวข้อจาก sidebar → ห้องแชท, ข้อความ user (ขวา) / AI (ซ้าย, ข้อความยาวอ่านง่าย), ช่องพิมพ์ "สอบถามเราได้เลย" + ปุ่มส่ง
-  - ส่งข้อความไปที่ API แชท พร้อม header `Idempotency-Key` (กันกดซ้ำ/หักเครดิตซ้ำ); ปุ่มลองใหม่ใช้ key เดิม
-  - state: loading · AI processing · success · **no-quota** · **locked (Pro)** · timeout · error · retry
-  - **ไอคอนโทรศัพท์/Voice = Phase 2 → แสดงเป็น disabled หรือไม่ต้องใส่**
-- [ ] **คำถามแนะนำ** ต่อหมวด (ปุ่ม/ชิปให้กดเลือก) — ดึงจาก API หมวด
-- [ ] **ประวัติแชท** ใน sidebar: รายการเธรด + ค้นหา + เปิดอ่านย้อนหลัง (ของผู้ใช้เท่านั้น)
-- [ ] **หน้า/โมดัลจัดการแพ็กเกจ** + วิธีอัปเกรดเป็น Pro (Phase 1 เป็น manual)
-- [ ] **ล็อกหมวด Pro / โหมดดวงจร**: กดแล้วโชว์ CTA อัปเกรด ไม่ยิง AI
-- [ ] Admin UI: หน้าจัดการ prompt/persona, AI models (+ ปุ่ม Test), ตาราง Usage logs, users, categories, packages, payments
+**เสร็จแล้ว:**
+- [x] **หน้าแชท** (`chat-view.tsx`): ห้องแชท user (ขวา) / AI (ซ้าย) + composer "สอบถามเราได้เลย" + ปุ่มส่ง + header `Idempotency-Key` + ปุ่มลองใหม่
+- [x] **คำถามแนะนำ** ต่อหมวด (chip) — ดึงจาก API หมวด
+- [x] **ประวัติแชท** ใน sidebar + หน้า `(app)/history` + `history/[id]` (เปิดอ่านย้อนหลัง)
+- [x] **จัดการแพ็กเกจ / อัปเกรด Pro** (`account-view.tsx` + `payment-submit-card.tsx` — ส่งสลิป manual)
+- [x] **ล็อกหมวด Pro / โหมดดวงจร** — โชว์ CTA อัปเกรด (`UpgradeProState`) ไม่ยิง AI
+- [x] Admin UI ครบ: prompts/persona, ai-configs (+ ปุ่ม Test), usage logs, users, categories, packages, payments, knowledge, faq, announcements, settings, audit-logs
+- [x] **F1 — QA error-state บนแชท** (`chat-view.tsx`): map ครบทุก error code · retry ใช้ `Idempotency-Key` เดิม (เฉพาะ AI timeout/provider/rate-limit/network) · `UpgradeProState` สำหรับ Free · CTA อัปเกรดใน error banner
+
+**ค้างจริง (→ production):**
+- [ ] **F2 — render ประวัติเธรดเต็ม + multi-turn** — **รอ B1** (backend ส่งประวัติเข้า AI) · โครงโหลดเธรด (`?thread=` + skeleton) มีแล้ว
 
 ### 🎯 Milestone 4 — Polish
-- [ ] ขัด UX/UI ให้ตรงดีไซน์ · responsive ทุกหน้า · empty/error/skeleton เนียน
-- [ ] หน้า/เอกสาร นโยบายความเป็นส่วนตัว + เงื่อนไข + disclaimer (จำเป็นตามกฎหมาย)
+
+- [x] **F3 — polish**: skeleton หน้าหลัก (chat thread, history, admin loading, dashboard, payments) · admin tables responsive
+- [x] **F4 — legal content**: privacy/terms/disclaimer จาก CMS · disclaimer ครบ 7 หัวข้อ + "เพื่อความบันเทิง" (รอ PM รีวิวกฎหมายก่อน go-live)
 
 ---
 
@@ -121,8 +128,8 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 { "ok": true, "data": { /* ... */ } }
 { "ok": false, "error": { "code": "NO_QUOTA", "message": "..." } }
 ```
-โค้ด error ที่ต้องแมปเป็น state บนแชท:
-`NO_QUOTA` · `CATEGORY_LOCKED` · `AI_TIMEOUT` · `AI_PROVIDER_ERROR` · `USER_DISABLED` · `RATE_LIMITED` · `VALIDATION`
+โค้ด error ที่ต้องแมปเป็น state บนแชท (backend คืนจริงครบชุดนี้):
+`NO_QUOTA` · `CHAT_REQUIRES_PRO` · `CATEGORY_LOCKED` · `TRANSIT_REQUIRES_PRO` · `AI_TIMEOUT` · `AI_PROVIDER_ERROR` · `USER_DISABLED` · `RATE_LIMITED` · `VALIDATION`
 
 **ไฟล์กลางที่ต้องคุยกับ Backend ก่อนแก้:**
 `src/types/index.ts` · `src/lib/schemas.ts` · `src/config/constants.ts` · `package.json`
