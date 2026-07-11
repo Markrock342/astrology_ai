@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  ContentEditorToolbar,
+  type ContentRevision,
+} from "./content-editor-toolbar";
+import {
   adminFetch,
   AdminPage,
   Badge,
@@ -21,6 +25,7 @@ type Prompt = {
   name: string;
   type: "SYSTEM" | "PERSONA" | "CATEGORY" | "FORMAT";
   content: string;
+  draftContent: string | null;
   version: number;
   enabled: boolean;
 };
@@ -47,6 +52,15 @@ export function PromptsManager() {
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [revisions, setRevisions] = useState<ContentRevision[]>([]);
+
+  const loadRevisions = useCallback(async (id: string) => {
+    setRevisions(
+      await adminFetch<ContentRevision[]>(
+        `/api/admin/revisions?entityType=PROMPT_TEMPLATE&entityId=${encodeURIComponent(id)}`,
+      ),
+    );
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -64,41 +78,92 @@ export function PromptsManager() {
 
   function startEdit(p: Prompt) {
     setEditingId(p.id);
-    setForm({ code: p.code, name: p.name, type: p.type, content: p.content, enabled: p.enabled });
+    setForm({
+      code: p.code,
+      name: p.name,
+      type: p.type,
+      content: p.draftContent ?? p.content,
+      enabled: p.enabled,
+    });
     setShowForm(true);
+    void loadRevisions(p.id);
   }
 
-  async function save() {
+  async function saveDraft() {
+    if (!editingId) return;
     setBusy(true);
     setError(null);
     try {
-      if (editingId) {
-        // code is immutable after creation
-        const payload = {
+      await adminFetch(`/api/admin/prompts/${editingId}/draft`, {
+        method: "PUT",
+        body: JSON.stringify({
           name: form.name,
           type: form.type,
           content: form.content,
           enabled: form.enabled,
-        };
-        await adminFetch(`/api/admin/prompts/${editingId}`, {
-          method: "PATCH",
-          body: JSON.stringify(payload),
+        }),
+      });
+      await load();
+      await loadRevisions(editingId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "บันทึกแบบร่างไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publish() {
+    setBusy(true);
+    setError(null);
+    try {
+      if (editingId) {
+        await adminFetch(`/api/admin/prompts/${editingId}/publish`, {
+          method: "POST",
+          body: JSON.stringify({
+            name: form.name,
+            type: form.type,
+            content: form.content,
+            enabled: form.enabled,
+          }),
         });
       } else {
         await adminFetch("/api/admin/prompts", {
           method: "POST",
           body: JSON.stringify(form),
         });
+        setShowForm(false);
+        setEditingId(null);
+        setForm(EMPTY_FORM);
       }
-      setShowForm(false);
-      setEditingId(null);
-      setForm(EMPTY_FORM);
       await load();
+      if (editingId) await loadRevisions(editingId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
+      setError(e instanceof Error ? e.message : "เผยแพร่ไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function restoreRevision(revisionId: string, mode: "draft" | "publish") {
+    if (!editingId) return;
+    setBusy(true);
+    try {
+      await adminFetch(`/api/admin/revisions/${revisionId}/restore`, {
+        method: "POST",
+        body: JSON.stringify({ mode }),
+      });
+      await load();
+      const p = (await adminFetch<Prompt[]>("/api/admin/prompts")).find((x) => x.id === editingId);
+      if (p) startEdit(p);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "กู้คืนไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save() {
+    await publish();
   }
 
   async function remove(id: string) {
@@ -145,6 +210,16 @@ export function PromptsManager() {
 
       {showForm && (
         <Card>
+          {editingId && (
+            <ContentEditorToolbar
+              hasDraft={!!prompts.find((p) => p.id === editingId)?.draftContent}
+              busy={busy}
+              onSaveDraft={() => void saveDraft()}
+              onPublish={() => void publish()}
+              revisions={revisions}
+              onRestore={(id, mode) => void restoreRevision(id, mode)}
+            />
+          )}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <Field label="Code (ตั้งครั้งเดียว แก้ไม่ได้)" hint="เช่น persona-main">
               <TextInput
@@ -196,10 +271,10 @@ export function PromptsManager() {
                 ยกเลิก
               </Button>
               <Button
-                onClick={save}
+                onClick={() => void (editingId ? publish() : save())}
                 disabled={busy || !form.name || !form.content || (!editingId && !form.code)}
               >
-                {busy ? "กำลังบันทึก…" : editingId ? "บันทึก (version +1)" : "สร้าง prompt"}
+                {busy ? "กำลังบันทึก…" : editingId ? "เผยแพร่" : "สร้าง prompt"}
               </Button>
             </div>
           </div>

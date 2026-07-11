@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
-import { APP_NAME_TH } from "@/config/constants";
+import { APP_NAME_TH, APP_TAGLINE_TH } from "@/config/constants";
 
 const notoThai = Noto_Sans_Thai({
   variable: "--font-thai",
@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: `${APP_NAME_TH} — ดูดวงด้วย AI`,
-  description: "แอปดูดวงด้วย AI สไตล์แม่หมอ อ่านดวงจากข้อมูลวันเกิดของคุณ",
+  title: `${APP_NAME_TH} — ${APP_TAGLINE_TH}`,
+  description: APP_TAGLINE_TH,
 };
 
 export default function RootLayout({

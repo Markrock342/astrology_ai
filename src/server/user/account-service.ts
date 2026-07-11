@@ -24,8 +24,11 @@ export async function getMe(userId: string) {
       id: true,
       name: true,
       email: true,
+      image: true,
       role: true,
       status: true,
+      emailVerifiedAt: true,
+      passwordHash: true,
       createdAt: true,
       birthProfile: { select: { id: true, nickname: true, editCount: true } },
     },
@@ -41,14 +44,19 @@ export async function getMe(userId: string) {
     ? Math.max(0, MAX_BIRTH_EDITS - user.birthProfile.editCount)
     : MAX_BIRTH_EDITS;
 
+  const { passwordHash, ...profile } = user;
+
   return {
-    ...user,
+    ...profile,
+    hasPassword: Boolean(passwordHash),
     hasBirthProfile: Boolean(user.birthProfile),
     birthEditsRemaining: editsRemaining,
     plan,
     creditBalance: balance,
     /** Flowchart: only Pro may use AI chat. */
     canChat: plan === "PRO",
+    emailVerified: Boolean(user.emailVerifiedAt),
+    needsEmailVerification: Boolean(passwordHash && !user.emailVerifiedAt),
   };
 }
 

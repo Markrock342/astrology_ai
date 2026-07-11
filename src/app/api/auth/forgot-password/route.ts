@@ -2,6 +2,7 @@ import { handle, ok } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { forgotPasswordSchema } from "@/lib/schemas";
 import { requestPasswordReset } from "@/server/auth/password-reset-service";
+import { verifyTurnstile, clientIp } from "@/server/auth/turnstile";
 
 /**
  * POST /api/auth/forgot-password — send a reset link if the account exists.
@@ -11,8 +12,9 @@ import { requestPasswordReset } from "@/server/auth/password-reset-service";
 export async function POST(req: Request) {
   return handle(async () => {
     rateLimit(`forgot-password:${req.headers.get("x-forwarded-for") ?? "local"}`, 10, 60_000);
-    const { email } = forgotPasswordSchema.parse(await req.json());
-    await requestPasswordReset(email);
+    const body = forgotPasswordSchema.parse(await req.json());
+    await verifyTurnstile(body.turnstileToken, clientIp(req));
+    await requestPasswordReset(body.email);
     return ok({ sent: true });
   });
 }

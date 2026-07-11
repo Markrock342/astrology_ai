@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/server/audit/audit-service";
+import { recordRevision } from "@/server/admin/content-revision-service";
 import { FEATURES } from "@/config/features";
 
 /**
@@ -59,17 +60,21 @@ export async function createPrompt(input: PromptCreateInput, actor: Actor) {
 }
 
 export async function updatePrompt(id: string, input: PromptUpdateInput, actor: Actor) {
+  // Direct update = publish (backward compatible with existing admin UI calls).
+  if (input.content !== undefined) {
+    return publishPrompt(id, { ...input, content: input.content }, actor);
+  }
+  return updatePromptMeta(id, input, actor);
+}
+
+async function updatePromptMeta(id: string, input: PromptUpdateInput, actor: Actor) {
   const before = await prisma.promptTemplate.findUnique({ where: { id } });
   if (!before) throw new AppError("NOT_FOUND", "Prompt template not found");
-
-  // Editing the content bumps the version so readings can pin what they used.
-  const contentChanged =
-    input.content !== undefined && input.content !== before.content;
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.promptTemplate.update({
       where: { id },
-      data: { ...input, ...(contentChanged ? { version: { increment: 1 } } : {}) },
+      data: input,
     });
     await writeAudit(
       {
@@ -85,6 +90,133 @@ export async function updatePrompt(id: string, input: PromptUpdateInput, actor: 
     );
     return updated;
   });
+}
+
+export async function savePromptDraft(
+  id: string,
+  input: { content: string; name?: string; type?: PromptCreateInput["type"]; enabled?: boolean },
+  actor: Actor,
+) {
+  const before = await prisma.promptTemplate.findUnique({ where: { id } });
+  if (!before) throw new AppError("NOT_FOUND", "Prompt template not found");
+
+  const updated = await prisma.promptTemplate.update({
+    where: { id },
+    data: {
+      draftContent: input.content,
+      draftUpdatedAt: new Date(),
+      draftUpdatedById: actor.id,
+    },
+  });
+
+  await recordRevision({
+    entityType: "PROMPT_TEMPLATE",
+    entityId: id,
+    snapshotJson: {
+      content: input.content,
+      name: input.name ?? before.name,
+      type: input.type ?? before.type,
+      enabled: input.enabled ?? before.enabled,
+    },
+    action: "DRAFT_SAVE",
+    actor,
+  });
+
+  return updated;
+}
+
+export async function publishPrompt(
+  id: string,
+  input: PromptUpdateInput & { content: string },
+  actor: Actor,
+) {
+  const before = await prisma.promptTemplate.findUnique({ where: { id } });
+  if (!before) throw new AppError("NOT_FOUND", "Prompt template not found");
+
+  const contentChanged = input.content !== before.content;
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.promptTemplate.update({
+      where: { id },
+      data: {
+        ...input,
+        ...(contentChanged ? { version: { increment: 1 } } : {}),
+        draftContent: null,
+        draftUpdatedAt: null,
+        draftUpdatedById: null,
+      },
+    });
+    await recordRevision({
+      entityType: "PROMPT_TEMPLATE",
+      entityId: id,
+      snapshotJson: {
+        content: updated.content,
+        name: updated.name,
+        type: updated.type,
+        enabled: updated.enabled,
+        version: updated.version,
+      },
+      action: "PUBLISH",
+      actor,
+    });
+    await writeAudit(
+      {
+        adminUserId: actor.id,
+        action: "prompt.publish",
+        entityType: "prompt_template",
+        entityId: id,
+        before,
+        after: updated,
+        ipAddress: actor.ip,
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
+export async function restorePromptRevision(
+  id: string,
+  revisionId: string,
+  actor: Actor,
+  mode: "draft" | "publish" = "draft",
+) {
+  const { getRevision } = await import("@/server/admin/content-revision-service");
+  const revision = await getRevision(revisionId);
+  if (!revision || revision.entityType !== "PROMPT_TEMPLATE" || revision.entityId !== id) {
+    throw new AppError("NOT_FOUND", "Revision not found");
+  }
+  const snap = revision.snapshotJson as { content: string; name?: string; type?: PromptCreateInput["type"]; enabled?: boolean };
+  await recordRevision({
+    entityType: "PROMPT_TEMPLATE",
+    entityId: id,
+    snapshotJson: snap,
+    action: "RESTORE",
+    actor,
+    note: `from v${revision.version}`,
+  });
+  if (mode === "publish") {
+    return publishPrompt(
+      id,
+      {
+        name: snap.name,
+        type: snap.type,
+        enabled: snap.enabled,
+        content: snap.content,
+      },
+      actor,
+    );
+  }
+  return savePromptDraft(
+    id,
+    {
+      content: snap.content,
+      name: snap.name,
+      type: snap.type,
+      enabled: snap.enabled,
+    },
+    actor,
+  );
 }
 
 export async function deletePrompt(id: string, actor: Actor) {
@@ -273,6 +405,26 @@ export async function updateKnowledgeDoc(id: string, input: KnowledgeUpdateInput
   const before = await prisma.knowledgeDoc.findUnique({ where: { id } });
   if (!before) throw new AppError("NOT_FOUND", "Knowledge doc not found");
 
+  if (input.content !== undefined || input.title !== undefined) {
+    return publishKnowledgeDoc(
+      id,
+      {
+        title: input.title ?? before.title,
+        content: input.content ?? before.content,
+        categoryId: input.categoryId ?? before.categoryId,
+        enabled: input.enabled ?? before.enabled,
+        sortOrder: input.sortOrder ?? before.sortOrder,
+      },
+      actor,
+    );
+  }
+  return updateKnowledgeMeta(id, input, actor);
+}
+
+async function updateKnowledgeMeta(id: string, input: KnowledgeUpdateInput, actor: Actor) {
+  const before = await prisma.knowledgeDoc.findUnique({ where: { id } });
+  if (!before) throw new AppError("NOT_FOUND", "Knowledge doc not found");
+
   return prisma.$transaction(async (tx) => {
     const updated = await tx.knowledgeDoc.update({
       where: { id },
@@ -292,6 +444,97 @@ export async function updateKnowledgeDoc(id: string, input: KnowledgeUpdateInput
     );
     return updated;
   });
+}
+
+export async function saveKnowledgeDraft(
+  id: string,
+  input: { title: string; content: string },
+  actor: Actor,
+) {
+  const before = await prisma.knowledgeDoc.findUnique({ where: { id } });
+  if (!before) throw new AppError("NOT_FOUND", "Knowledge doc not found");
+
+  const updated = await prisma.knowledgeDoc.update({
+    where: { id },
+    data: {
+      draftTitle: input.title,
+      draftContent: input.content,
+      draftUpdatedAt: new Date(),
+      draftUpdatedById: actor.id,
+    },
+  });
+
+  await recordRevision({
+    entityType: "KNOWLEDGE_DOC",
+    entityId: id,
+    snapshotJson: input,
+    action: "DRAFT_SAVE",
+    actor,
+  });
+
+  return updated;
+}
+
+export async function publishKnowledgeDoc(id: string, input: KnowledgeCreateInput, actor: Actor) {
+  const before = await prisma.knowledgeDoc.findUnique({ where: { id } });
+  if (!before) throw new AppError("NOT_FOUND", "Knowledge doc not found");
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.knowledgeDoc.update({
+      where: { id },
+      data: {
+        ...input,
+        draftTitle: null,
+        draftContent: null,
+        draftUpdatedAt: null,
+        draftUpdatedById: null,
+      } as Prisma.KnowledgeDocUncheckedUpdateInput,
+    });
+    await recordRevision({
+      entityType: "KNOWLEDGE_DOC",
+      entityId: id,
+      snapshotJson: { title: updated.title, content: updated.content.slice(0, 2000) },
+      action: "PUBLISH",
+      actor,
+    });
+    await writeAudit(
+      {
+        adminUserId: actor.id,
+        action: "knowledge.publish",
+        entityType: "knowledge_doc",
+        entityId: id,
+        before: { ...before, content: before.content.slice(0, 500) },
+        after: { ...updated, content: updated.content.slice(0, 500) },
+        ipAddress: actor.ip,
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
+export async function restoreKnowledgeRevision(
+  id: string,
+  revisionId: string,
+  actor: Actor,
+  mode: "draft" | "publish" = "draft",
+) {
+  const { getRevision } = await import("@/server/admin/content-revision-service");
+  const revision = await getRevision(revisionId);
+  if (!revision || revision.entityType !== "KNOWLEDGE_DOC" || revision.entityId !== id) {
+    throw new AppError("NOT_FOUND", "Revision not found");
+  }
+  const snap = revision.snapshotJson as { title: string; content: string };
+  await recordRevision({
+    entityType: "KNOWLEDGE_DOC",
+    entityId: id,
+    snapshotJson: snap,
+    action: "RESTORE",
+    actor,
+    note: `from v${revision.version}`,
+  });
+  if (mode === "publish") return publishKnowledgeDoc(id, snap, actor);
+  return saveKnowledgeDraft(id, snap, actor);
 }
 
 export async function deleteKnowledgeDoc(id: string, actor: Actor) {

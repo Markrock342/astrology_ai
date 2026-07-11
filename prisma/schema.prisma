@@ -115,6 +115,26 @@ enum PaymentStatus {
   REJECTED
 }
 
+enum ContentEntityType {
+  APP_SETTING
+  PROMPT_TEMPLATE
+  KNOWLEDGE_DOC
+  FAQ_ITEM
+}
+
+enum RevisionAction {
+  DRAFT_SAVE
+  PUBLISH
+  RESTORE
+}
+
+enum AnnouncementTone {
+  INFO
+  WARNING
+  PROMO
+  DANGER
+}
+
 // ---------------------------------------------------------------------------
 // Auth / Users
 // ---------------------------------------------------------------------------
@@ -123,10 +143,13 @@ model User {
   id           String     @id @default(cuid())
   name         String?
   email        String     @unique
+  // Profile photo URL (Google OAuth) or data URL (email upload).
+  image        String?
   // Null when the user signs in only via an OAuth provider (e.g. Google).
   passwordHash String?
   role         Role       @default(USER)
   status       UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -144,12 +167,18 @@ model User {
   adminCreditTxns  CreditTransaction[] @relation("CreditTxnAdmin")
   reviewedPayments Payment[]           @relation("PaymentReviewer")
   auditLogs        AdminAuditLog[]     @relation("AuditActor")
+  contentRevisions ContentRevision[]   @relation("ContentRevisionAuthor")
+  appSettingDrafts AppSetting[]        @relation("AppSettingDraftEditor")
+  promptDrafts     PromptTemplate[]    @relation("PromptDraftEditor")
+  knowledgeDrafts  KnowledgeDoc[]      @relation("KnowledgeDraftEditor")
+  faqDrafts        FaqItem[]           @relation("FaqDraftEditor")
 
   // Auth.js OAuth support (optional — used only if Google login is enabled).
   accounts Account[]
   sessions Session[]
 
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
 
   @@index([role])
   @@index([status])
@@ -171,6 +200,20 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
 }
 
 // Auth.js adapter tables (kept minimal; only needed for OAuth providers).
@@ -370,11 +413,15 @@ model PromptTemplate {
   name      String
   type      PromptType
   content   String
+  draftContent     String?
+  draftUpdatedAt   DateTime?
+  draftUpdatedById String?
   version   Int        @default(1)
   enabled   Boolean    @default(true)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
+  draftUpdatedBy User? @relation("PromptDraftEditor", fields: [draftUpdatedById], references: [id])
   categories HoroscopeCategory[]
   aiConfigs  AIProviderConfig[]
 
@@ -418,12 +465,17 @@ model KnowledgeDoc {
   id         String   @id @default(cuid())
   title      String
   content    String
+  draftTitle   String?
+  draftContent String?
+  draftUpdatedAt   DateTime?
+  draftUpdatedById String?
   categoryId String?
   enabled    Boolean  @default(true)
   sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  draftUpdatedBy User? @relation("KnowledgeDraftEditor", fields: [draftUpdatedById], references: [id])
   category HoroscopeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([enabled, categoryId])
@@ -588,9 +640,69 @@ model AdminAuditLog {
 }
 
 model AppSetting {
-  key       String   @id
-  valueJson Json
-  updatedAt DateTime @updatedAt
+  key              String    @id
+  valueJson        Json
+  draftValueJson   Json?
+  draftUpdatedAt   DateTime?
+  draftUpdatedById String?
+  updatedAt        DateTime  @updatedAt
+
+  draftUpdatedBy User? @relation("AppSettingDraftEditor", fields: [draftUpdatedById], references: [id])
 
   @@map("app_settings")
+}
+
+model ContentRevision {
+  id           String             @id @default(cuid())
+  entityType   ContentEntityType
+  entityId     String
+  version      Int
+  snapshotJson Json
+  adminUserId  String
+  action       RevisionAction
+  note         String?
+  createdAt    DateTime           @default(now())
+
+  admin User @relation("ContentRevisionAuthor", fields: [adminUserId], references: [id])
+
+  @@index([entityType, entityId, createdAt])
+  @@map("content_revisions")
+}
+
+model SiteAnnouncement {
+  id        String           @id @default(cuid())
+  title     String
+  message   String
+  tone      AnnouncementTone @default(INFO)
+  enabled   Boolean          @default(false)
+  linkUrl   String?
+  linkLabel String?
+  startsAt  DateTime?
+  endsAt    DateTime?
+  sortOrder Int              @default(0)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([enabled, sortOrder])
+  @@map("site_announcements")
+}
+
+model FaqItem {
+  id               String   @id @default(cuid())
+  question         String
+  answer           String
+  category         String   @default("general")
+  enabled          Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  draftQuestion    String?
+  draftAnswer      String?
+  draftUpdatedAt   DateTime?
+  draftUpdatedById String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  draftUpdatedBy User? @relation("FaqDraftEditor", fields: [draftUpdatedById], references: [id])
+
+  @@index([enabled, sortOrder])
+  @@map("faq_items")
 }

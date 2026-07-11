@@ -23,6 +23,13 @@ export function SettingsPopover({
   const [editsRemaining, setEditsRemaining] = useState<number | null>(null);
   const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
 
+  // Warm the routes this popover navigates to so the click feels instant
+  // instead of waiting on a cold dynamic (auth + DB) render.
+  useEffect(() => {
+    router.prefetch("/account");
+    router.prefetch("/onboarding");
+  }, [router]);
+
   useEffect(() => {
     let alive = true;
     fetch("/api/me/birth-profile")

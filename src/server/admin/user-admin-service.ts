@@ -1,4 +1,4 @@
-import type { Prisma, UserStatus, CreditTxnType } from "@prisma/client";
+import type { Prisma, Role, UserStatus, CreditTxnType } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { addCredits, deductCredits } from "@/server/credit/credit-service";
@@ -126,6 +126,42 @@ export async function setUserStatus(userId: string, status: UserStatus, actor: A
   });
 }
 
+/**
+ * Change a user's role. Route must guard with requireSuperAdmin(). A super
+ * admin cannot demote themselves — prevents locking everyone out.
+ */
+export async function setUserRole(userId: string, role: Role, actor: Actor) {
+  if (userId === actor.id && role !== "SUPER_ADMIN") {
+    throw new AppError("VALIDATION", "ไม่สามารถลดสิทธิ์ของตัวเองได้");
+  }
+  const before = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true },
+  });
+  if (!before) throw new AppError("NOT_FOUND", "User not found");
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { id: userId },
+      data: { role },
+      select: { id: true, role: true },
+    });
+    await writeAudit(
+      {
+        adminUserId: actor.id,
+        action: "user.role.update",
+        entityType: "user",
+        entityId: userId,
+        before,
+        after: updated,
+        ipAddress: actor.ip,
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
 export async function adjustUserCredits(
   userId: string,
   input: { amount: number; type: CreditTxnType; note?: string },
@@ -164,7 +200,7 @@ export async function adjustUserCredits(
 
 export async function setUserSubscription(
   userId: string,
-  input: { packageCode: string; expiresAt?: Date | null },
+  input: { packageCode: string; expiresAt?: Date | null; grantCredits?: boolean },
   actor: Actor,
 ) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
@@ -201,6 +237,25 @@ export async function setUserSubscription(
       },
     });
 
+    // Optionally grant the package's credit quota in the same transaction so
+    // activating Pro immediately gives the user usable credits.
+    let grantedCredits = 0;
+    if (input.grantCredits && pkg.creditQuota > 0) {
+      await addCredits(
+        userId,
+        pkg.creditQuota,
+        {
+          type: "PACKAGE_RENEWAL",
+          referenceType: "user_subscription",
+          referenceId: created.id,
+          note: `เปิดแพ็กเกจ ${pkg.code} โดยแอดมิน`,
+          createdByAdminId: actor.id,
+        },
+        tx,
+      );
+      grantedCredits = pkg.creditQuota;
+    }
+
     await writeAudit(
       {
         adminUserId: actor.id,
@@ -208,11 +263,11 @@ export async function setUserSubscription(
         entityType: "user_subscription",
         entityId: userId,
         before,
-        after: created,
+        after: { ...created, grantedCredits },
         ipAddress: actor.ip,
       },
       tx,
     );
-    return created;
+    return { ...created, grantedCredits };
   });
 }

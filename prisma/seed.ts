@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedAiContent } from "./seed-ai-content";
 
 const prisma = new PrismaClient();
 
@@ -71,20 +72,7 @@ const CATEGORIES = [
 ] as const;
 
 async function main() {
-  // ---- Prompt templates ----
-  const persona = await prisma.promptTemplate.upsert({
-    where: { code: "persona.default" },
-    update: {},
-    create: {
-      code: "persona.default",
-      name: "แม่หมอ (Default Persona)",
-      type: "PERSONA",
-      content:
-        "คุณคือแม่หมอผู้ให้คำปรึกษาด้านโหราศาสตร์ พูดจาอบอุ่น สุภาพ น่าเชื่อถือ " +
-        "ไม่ทำนายแบบฟันธง ไม่สร้างความกลัว และไม่พูดว่าตนเองเป็น AI",
-      version: 1,
-    },
-  });
+  // Prompts + knowledge seeded after categories (see seedAiContent).
 
   // ---- Packages ----
   const freePkg = await prisma.package.upsert({
@@ -149,19 +137,22 @@ async function main() {
   });
 
   // ---- Gemini AI configs (key referenced by env NAME only) ----
-  // Free/Pro use different models: Free gets the cheaper flash-lite, Pro gets
-  // the fuller flash. Both editable from Admin CMS (/admin/ai-configs).
+  // Free/Pro use different models: Free gets flash-lite, Pro gets 3.5 flash.
+  // Both editable from Admin CMS (/admin/ai-configs).
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-default" },
-    update: {},
+    update: {
+      modelId: "gemini-3.1-flash-lite",
+      displayName: "Gemini 3.1 Flash Lite (fallback ทุกแพลน)",
+    },
     create: {
       id: "seed-gemini-default",
       provider: "GEMINI",
-      modelId: "gemini-2.5-flash",
-      displayName: "Gemini 2.5 Flash (fallback ทุกแพลน)",
+      modelId: "gemini-3.1-flash-lite",
+      displayName: "Gemini 3.1 Flash Lite (fallback ทุกแพลน)",
       secretReference: "GEMINI_API_KEY",
       planScope: "ALL",
-      promptTemplateId: persona.id,
+      promptTemplateId: undefined,
       versionLabel: "v1",
       notes: "Seed default. Model id is editable from Admin CMS.",
     },
@@ -169,17 +160,20 @@ async function main() {
 
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-free" },
-    update: {},
+    update: {
+      modelId: "gemini-3.1-flash-lite",
+      displayName: "Free — Gemini 3.1 Flash Lite (ประหยัด)",
+    },
     create: {
       id: "seed-gemini-free",
       provider: "GEMINI",
-      modelId: "gemini-2.5-flash-lite",
-      displayName: "Free — Gemini 2.5 Flash Lite (ประหยัด)",
+      modelId: "gemini-3.1-flash-lite",
+      displayName: "Free — Gemini 3.1 Flash Lite (ประหยัด)",
       secretReference: "GEMINI_API_KEY",
       planScope: "FREE",
       maxOutputTokens: 1024,
       fallbackConfigId: "seed-gemini-default",
-      promptTemplateId: persona.id,
+      promptTemplateId: undefined,
       versionLabel: "v1",
       notes: "Free users: cheaper model, shorter answers.",
     },
@@ -187,17 +181,20 @@ async function main() {
 
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-pro" },
-    update: {},
+    update: {
+      modelId: "gemini-3.5-flash",
+      displayName: "Pro — Gemini 3.5 Flash (ละเอียด)",
+    },
     create: {
       id: "seed-gemini-pro",
       provider: "GEMINI",
-      modelId: "gemini-2.5-flash",
-      displayName: "Pro — Gemini 2.5 Flash (ละเอียด)",
+      modelId: "gemini-3.5-flash",
+      displayName: "Pro — Gemini 3.5 Flash (ละเอียด)",
       secretReference: "GEMINI_API_KEY",
       planScope: "PRO",
       maxOutputTokens: 4096,
       fallbackConfigId: "seed-gemini-default",
-      promptTemplateId: persona.id,
+      promptTemplateId: undefined,
       versionLabel: "v1",
       notes: "Pro users: fuller model, longer answers.",
     },
@@ -216,10 +213,15 @@ async function main() {
         creditCost: 1,
         sortOrder: c.sortOrder,
         suggestedQuestions: [...c.suggestedQuestions],
-        promptTemplateId: persona.id,
+        promptTemplateId: undefined,
       },
     });
   }
+
+  const { persona } = await seedAiContent(prisma);
+  await prisma.aIProviderConfig.updateMany({
+    data: { promptTemplateId: persona.id },
+  });
 
   // ---- Admin user + wallet + default Free subscription ----
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@horasard.local";

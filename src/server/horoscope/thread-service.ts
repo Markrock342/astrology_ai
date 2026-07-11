@@ -1,6 +1,29 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 
+/** List transit (ดวงจร) conversation threads for the sidebar. */
+export async function listTransitThreads(userId: string, limit = 50) {
+  const rows = await prisma.conversation.findMany({
+    where: { userId, mode: "TRANSIT" },
+    orderBy: { updatedAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      title: true,
+      updatedAt: true,
+      category: { select: { slug: true, nameTh: true } },
+    },
+  });
+
+  return rows.map((c) => ({
+    id: c.id,
+    title: c.title?.trim() || c.category.nameTh,
+    categorySlug: c.category.slug,
+    categoryLabel: c.category.nameTh,
+    createdAt: c.updatedAt.toISOString(),
+  }));
+}
+
 /** List past readings as chat threads for sidebar/history. */
 export async function listUserThreads(userId: string, limit = 50) {
   const readings = await prisma.horoscopeReading.findMany({

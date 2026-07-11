@@ -30,6 +30,117 @@ export const userSubscriptionSchema = z.object({
   packageCode: z.string().min(1),
   // ISO date string; null / omitted = indefinite (manual Pro without expiry).
   expiresAt: z.coerce.date().nullish(),
+  // Grant the package's creditQuota to the wallet on activation.
+  grantCredits: z.boolean().default(false),
+});
+
+export const userRoleSchema = z.object({
+  role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"]),
+});
+
+export const auditLogQuerySchema = listQuerySchema.extend({
+  entityType: z.string().trim().max(60).optional(),
+});
+
+export const aiUsageQuerySchema = listQuerySchema.extend({
+  status: z.enum(["SUCCESS", "FAILED", "TIMEOUT"]).optional(),
+});
+
+/** CMS document page (privacy, terms). */
+export const cmsDocumentSchema = z.object({
+  title: z.string().min(1).max(200),
+  lastUpdated: z.string().max(80),
+  intro: z.string().max(2000),
+  sections: z
+    .array(
+      z.object({
+        heading: z.string().min(1).max(200),
+        body: z.array(z.string().min(1).max(1000)).min(1),
+      }),
+    )
+    .min(1),
+  footer: z.string().max(1000).optional(),
+});
+
+export const cmsTextSchema = z.object({
+  text: z.string().min(1).max(500),
+});
+
+export const cmsContactSchema = z.object({
+  email: z.string().email().max(120),
+  label: z.string().max(120).optional(),
+});
+
+export const cmsMaintenanceSchema = z.object({
+  enabled: z.boolean(),
+  message: z.string().max(500),
+});
+
+export const cmsPaymentInfoSchema = z.object({
+  title: z.string().min(1).max(200),
+  bankName: z.string().min(1).max(120),
+  accountName: z.string().min(1).max(120),
+  accountNumber: z.string().min(1).max(60),
+  amountNote: z.string().max(300),
+  steps: z.array(z.string().min(1).max(300)).min(1),
+  footer: z.string().max(500).optional(),
+});
+
+export const cmsSeoSchema = z.object({
+  title: z.string().min(1).max(120),
+  description: z.string().min(1).max(300),
+  ogTitle: z.string().max(120).optional(),
+  ogDescription: z.string().max(300).optional(),
+  ogImageUrl: z.string().url().max(2000).optional().or(z.literal("")),
+});
+
+export const settingUpdateSchema = z.object({
+  value: z.unknown(),
+});
+
+export const contentDraftSchema = z.object({
+  value: z.unknown(),
+});
+
+export const revisionRestoreSchema = z.object({
+  mode: z.enum(["draft", "publish"]).default("draft"),
+});
+
+export const announcementSchema = z.object({
+  title: z.string().min(1).max(120),
+  message: z.string().min(1).max(500),
+  tone: z.enum(["INFO", "WARNING", "PROMO", "DANGER"]).default("INFO"),
+  enabled: z.boolean().default(false),
+  linkUrl: z.string().url().max(2000).optional().or(z.literal("")).nullable(),
+  linkLabel: z.string().max(80).optional().nullable(),
+  startsAt: z.coerce.date().nullish(),
+  endsAt: z.coerce.date().nullish(),
+  sortOrder: z.number().int().default(0),
+});
+
+export const faqItemSchema = z.object({
+  question: z.string().min(1).max(300),
+  answer: z.string().min(1).max(5000),
+  category: z.string().max(40).default("general"),
+  enabled: z.boolean().default(true),
+  sortOrder: z.number().int().default(0),
+});
+
+export const submitPaymentSchema = z.object({
+  amount: z.number().int().positive(),
+  reference: z.string().max(120).optional(),
+  note: z.string().max(300).optional(),
+  proofUrl: z.string().url().max(2000).optional().or(z.literal("")),
+});
+
+export const paymentListQuerySchema = listQuerySchema.extend({
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+});
+
+export const paymentReviewSchema = z.object({
+  status: z.enum(["APPROVED", "REJECTED"]),
+  note: z.string().max(300).optional(),
+  packageCode: z.string().min(1).optional(),
 });
 
 export const categoryCreateSchema = z.object({
@@ -47,8 +158,8 @@ export const categoryCreateSchema = z.object({
   enabled: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
   suggestedQuestions: z.array(z.string().min(1).max(200)).max(10).optional(),
-  promptTemplateId: z.string().optional(),
-  aiConfigId: z.string().optional(),
+  promptTemplateId: z.string().nullish(),
+  aiConfigId: z.string().nullish(),
 });
 
 export const categoryUpdateSchema = categoryCreateSchema.partial();

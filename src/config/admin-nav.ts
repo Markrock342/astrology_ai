@@ -7,14 +7,17 @@ export type AdminNavItem = {
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/dashboard", label: "ภาพรวม" },
   { href: "/admin/users", label: "ผู้ใช้" },
-  { href: "/admin/categories", label: "หมวดหมู่" },
-  { href: "/admin/prompts", label: "Prompt / Persona", aiOnly: true },
-  { href: "/admin/ai-configs", label: "AI Models", aiOnly: true },
+  { href: "/admin/categories", label: "หมวดดูดวง" },
+  { href: "/admin/prompts", label: "บุคลิก AI", aiOnly: true },
+  { href: "/admin/ai-configs", label: "โมเดล AI", aiOnly: true },
   { href: "/admin/knowledge", label: "คลังความรู้", aiOnly: true },
-  { href: "/admin/packages", label: "แพ็กเกจ" },
-  { href: "/admin/payments", label: "การชำระเงิน" },
-  { href: "/admin/usage", label: "Usage / AI Logs", aiOnly: true },
-  { href: "/admin/audit-logs", label: "Audit Logs" },
+  { href: "/admin/packages", label: "แพ็กเกจ & โควตา" },
+  { href: "/admin/settings", label: "ข้อความเว็บ" },
+  { href: "/admin/announcements", label: "ประกาศ / Banner" },
+  { href: "/admin/faq", label: "คำถามที่พบบ่อย" },
+  { href: "/admin/payments", label: "ตรวจการโอนเงิน" },
+  { href: "/admin/usage", label: "บันทึก AI", aiOnly: true },
+  { href: "/admin/audit-logs", label: "ประวัติแอดมิน" },
 ];
 
 export function filterAdminNav(aiAdmin: boolean) {

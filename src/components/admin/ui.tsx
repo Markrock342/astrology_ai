@@ -92,31 +92,44 @@ export function Toggle({
   checked,
   onChange,
   label,
+  disabled,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label?: string;
+  disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className="flex items-center gap-2 text-xs text-[var(--muted)]"
-      aria-pressed={checked}
-    >
-      <span
-        className={`relative h-5 w-9 rounded-full transition ${
+    <div className="flex items-start gap-3">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
           checked ? "bg-[var(--secondary-active)]" : "bg-[var(--surface-3)]"
         }`}
       >
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
-            checked ? "translate-x-4" : "translate-x-0.5"
+          aria-hidden
+          className={`pointer-events-none absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+            checked ? "translate-x-5" : "translate-x-0"
           }`}
         />
-      </span>
-      {label}
-    </button>
+      </button>
+      {label && (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(!checked)}
+          className="min-w-0 flex-1 pt-0.5 text-left text-xs leading-relaxed text-[var(--muted)] disabled:opacity-50"
+        >
+          {label}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -196,9 +209,20 @@ export function Th({ children, className = "" }: { children: React.ReactNode; cl
   );
 }
 
-export function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+export function Td({
+  children,
+  className = "",
+  colSpan,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  colSpan?: number;
+}) {
   return (
-    <td className={`border-b border-[var(--border)]/60 px-4 py-3 text-[var(--foreground)] ${className}`}>
+    <td
+      colSpan={colSpan}
+      className={`border-b border-[var(--border)]/60 px-4 py-3 text-[var(--foreground)] ${className}`}
+    >
       {children}
     </td>
   );
@@ -221,6 +245,29 @@ export function EmptyPanel({
       )}
       {action && <div className="mt-4">{action}</div>}
     </Card>
+  );
+}
+
+export function InfoBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-4 rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-4 py-3 text-xs leading-relaxed text-[var(--muted)]">
+      {children}
+    </div>
+  );
+}
+
+export function NavGroupLabel({
+  children,
+  hint,
+}: {
+  children: React.ReactNode;
+  hint?: string;
+}) {
+  return (
+    <div className="px-3 pb-1 pt-3 first:pt-0">
+      <p className="text-[11px] font-medium text-[var(--foreground)]">{children}</p>
+      {hint && <p className="text-[10px] text-[var(--muted-2)]">{hint}</p>}
+    </div>
   );
 }
 
