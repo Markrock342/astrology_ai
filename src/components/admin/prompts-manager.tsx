@@ -11,6 +11,7 @@ import {
   Badge,
   Button,
   Card,
+  CardSkeleton,
   Field,
   PageHeader,
   Select,
@@ -51,6 +52,7 @@ export function PromptsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
 
@@ -64,9 +66,12 @@ export function PromptsManager() {
 
   const load = useCallback(async () => {
     try {
+      setLoading(true);
       setPrompts(await adminFetch<Prompt[]>("/api/admin/prompts"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -281,6 +286,13 @@ export function PromptsManager() {
         </Card>
       )}
 
+      {loading && !showForm ? (
+        <div className="mt-4 flex flex-col gap-3">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      ) : (
       <div className="mt-4 flex flex-col gap-3">
         {prompts.map((p) => (
           <Card key={p.id}>
@@ -311,6 +323,7 @@ export function PromptsManager() {
           <p className="text-sm text-[var(--muted-2)]">ยังไม่มี prompt</p>
         )}
       </div>
+      )}
     </AdminPage>
   );
 }

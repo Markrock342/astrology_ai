@@ -11,6 +11,7 @@ import {
   Badge,
   Button,
   Card,
+  CardSkeleton,
   Field,
   PageHeader,
   Select,
@@ -47,6 +48,7 @@ export function KnowledgeManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
 
@@ -60,6 +62,7 @@ export function KnowledgeManager() {
 
   const load = useCallback(async () => {
     try {
+      setLoading(true);
       const [ds, cats] = await Promise.all([
         adminFetch<KnowledgeDoc[]>("/api/admin/knowledge"),
         adminFetch<Category[]>("/api/admin/categories"),
@@ -68,6 +71,8 @@ export function KnowledgeManager() {
       setCategories(cats);
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -291,6 +296,13 @@ export function KnowledgeManager() {
         </Card>
       )}
 
+      {loading && !showForm ? (
+        <div className="mt-4 flex flex-col gap-3">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      ) : (
       <div className="mt-4 flex flex-col gap-3">
         {docs.map((d) => (
           <Card key={d.id}>
@@ -322,6 +334,7 @@ export function KnowledgeManager() {
           </p>
         )}
       </div>
+      )}
     </AdminPage>
   );
 }
