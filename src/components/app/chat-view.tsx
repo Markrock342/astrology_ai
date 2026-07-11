@@ -29,6 +29,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_QUOTA: "เครดิตหมดแล้ว เติมเครดิตหรืออัปเกรดเป็น Pro เพื่อถามต่อ",
   CATEGORY_LOCKED: "หมวดนี้สำหรับสมาชิก Pro",
   CHAT_REQUIRES_PRO: "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
+  TRANSIT_REQUIRES_PRO: "โหมดดวงจรสำหรับสมาชิก Pro เท่านั้น อัปเกรดเพื่อใช้งาน",
   AI_TIMEOUT: "หมอดูใช้เวลานานเกินไป ลองถามใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
   AI_PROVIDER_ERROR: "ระบบทำนายขัดข้องชั่วคราว ลองใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
   VALIDATION: "กรุณากรอกข้อมูลวันเกิดก่อนเริ่มดูดวง",
@@ -201,6 +202,11 @@ export function ChatView() {
         }
         if (code === "CHAT_REQUIRES_PRO") {
           setErrorText(ERROR_MESSAGES.CHAT_REQUIRES_PRO);
+          setState("error");
+          return;
+        }
+        if (code === "TRANSIT_REQUIRES_PRO") {
+          setErrorText(ERROR_MESSAGES.TRANSIT_REQUIRES_PRO);
           setState("error");
           return;
         }

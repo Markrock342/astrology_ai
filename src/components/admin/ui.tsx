@@ -228,6 +228,72 @@ export function AdminPage({ children }: { children: React.ReactNode }) {
   return <section className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">{children}</section>;
 }
 
+export function TableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <TableShell>
+      <thead>
+        <tr>
+          <Th>
+            <div className="h-3 w-20 animate-pulse rounded bg-[var(--surface-3)]" />
+          </Th>
+          <Th>
+            <div className="h-3 w-16 animate-pulse rounded bg-[var(--surface-3)]" />
+          </Th>
+          <Th>
+            <div className="h-3 w-12 animate-pulse rounded bg-[var(--surface-3)]" />
+          </Th>
+          <Th>
+            <div className="h-3 w-14 animate-pulse rounded bg-[var(--surface-3)]" />
+          </Th>
+          <Th>
+            <div className="h-3 w-16 animate-pulse rounded bg-[var(--surface-3)]" />
+          </Th>
+          <Th className="text-right">
+            <div className="ml-auto h-3 w-12 animate-pulse rounded bg-[var(--surface-3)]" />
+          </Th>
+        </tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: rows }).map((_, i) => (
+          <tr key={i}>
+            <Td>
+              <div className="h-4 w-32 animate-pulse rounded bg-[var(--surface-2)]" />
+            </Td>
+            <Td>
+              <div className="h-4 w-16 animate-pulse rounded bg-[var(--surface-2)]" />
+            </Td>
+            <Td>
+              <div className="h-4 w-12 animate-pulse rounded bg-[var(--surface-2)]" />
+            </Td>
+            <Td>
+              <div className="h-4 w-14 animate-pulse rounded bg-[var(--surface-2)]" />
+            </Td>
+            <Td>
+              <div className="h-4 w-16 animate-pulse rounded bg-[var(--surface-2)]" />
+            </Td>
+            <Td className="text-right">
+              <div className="ml-auto h-4 w-12 animate-pulse rounded bg-[var(--surface-2)]" />
+            </Td>
+          </tr>
+        ))}
+      </tbody>
+    </TableShell>
+  );
+}
+
+export function CardSkeleton() {
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="h-5 w-32 animate-pulse rounded bg-[var(--surface-2)]" />
+        <div className="h-4 w-12 animate-pulse rounded bg-[var(--surface-2)]" />
+        <div className="h-4 w-16 animate-pulse rounded bg-[var(--surface-2)]" />
+      </div>
+      <div className="mt-2 h-3 w-48 animate-pulse rounded bg-[var(--surface-2)]" />
+    </Card>
+  );
+}
+
 /** Uniform fetch helper for admin API routes. Throws on { ok: false }. */
 export async function adminFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
