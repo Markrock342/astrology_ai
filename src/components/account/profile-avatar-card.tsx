@@ -15,7 +15,7 @@ export function ProfileAvatarCard({
   email: string;
   image: string | null;
   canUpload: boolean;
-  onUpdated: () => void;
+  onUpdated?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -43,7 +43,7 @@ export function ProfileAvatarCard({
       }
       setPreview(json.data?.image ?? null);
       setMessage("อัปเดตรูปโปรไฟล์แล้ว");
-      onUpdated();
+      onUpdated?.();
       router.refresh();
     } catch {
       setMessage("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
