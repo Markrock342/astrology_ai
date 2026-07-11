@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useId, useState } from "react";
+
 /** Small shared primitives for Admin CMS pages (dark HORASARD theme). */
 
 export function PageHeader({
@@ -76,8 +78,11 @@ export function Field({
 const inputClass =
   "w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--ring)]";
 
-export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={inputClass} />;
+export function TextInput({
+  className = "",
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={`${inputClass} ${className}`} />;
 }
 
 export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -352,4 +357,300 @@ export async function adminFetch<T>(url: string, init?: RequestInit): Promise<T>
     throw new Error(json?.error?.message ?? `Request failed (${res.status})`);
   }
   return json.data as T;
+}
+
+export function Modal({
+  open,
+  title,
+  children,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/60"
+        aria-label="ปิด"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal
+        aria-labelledby="admin-modal-title"
+        className="relative z-10 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl"
+      >
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <h2 id="admin-modal-title" className="text-sm font-semibold text-[var(--foreground)]">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-1.5 text-[var(--muted)] hover:bg-[var(--surface-2)]"
+            aria-label="ปิด"
+          >
+            ✕
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel = "ยืนยัน",
+  cancelLabel = "ยกเลิก",
+  danger,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  title: string;
+  description?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+  busy?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Modal open={open} title={title} onClose={onCancel}>
+      {description && (
+        <p className="mb-4 text-xs leading-relaxed text-[var(--muted)]">{description}</p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={onCancel} disabled={busy}>
+          {cancelLabel}
+        </Button>
+        <Button
+          variant={danger ? "danger" : "primary"}
+          onClick={onConfirm}
+          disabled={busy}
+        >
+          {busy ? "กำลังดำเนินการ…" : confirmLabel}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+type ToastTone = "ok" | "error" | "info";
+
+export function useToast() {
+  const [toast, setToast] = useState<{
+    message: string;
+    tone: ToastTone;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 3200);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
+  return {
+    toast,
+    showToast: (message: string, tone: ToastTone = "ok") => setToast({ message, tone }),
+    clearToast: () => setToast(null),
+  };
+}
+
+export function ToastHost({
+  toast,
+}: {
+  toast: { message: string; tone: ToastTone } | null;
+}) {
+  if (!toast) return null;
+  const toneClass =
+    toast.tone === "error"
+      ? "border-[var(--danger)]/40 bg-[var(--danger)]/10 text-[var(--danger)]"
+      : toast.tone === "info"
+        ? "border-[var(--border)] bg-[var(--surface-2)] text-[var(--foreground)]"
+        : "border-[var(--secondary-active)]/40 bg-[var(--secondary-active)]/10 text-[var(--secondary-active)]";
+  return (
+    <div
+      role="status"
+      className={`fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border px-4 py-3 text-xs shadow-lg ${toneClass}`}
+    >
+      {toast.message}
+    </div>
+  );
+}
+
+export function Tabs({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: Array<{ id: string; label: string }>;
+  active: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap gap-1 border-b border-[var(--border)] pb-2">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={`rounded-lg px-3 py-1.5 text-xs transition ${
+            active === tab.id
+              ? "bg-[var(--surface-3)] font-medium text-[var(--primary)]"
+              : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function SearchInput({
+  value,
+  onChange,
+  placeholder = "ค้นหา…",
+  debounceMs = 300,
+  className = "max-w-xs",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  debounceMs?: number;
+  className?: string;
+}) {
+  const [local, setLocal] = useState(value);
+  useEffect(() => setLocal(value), [value]);
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (local !== value) onChange(local);
+    }, debounceMs);
+    return () => window.clearTimeout(t);
+  }, [local, debounceMs, onChange, value]);
+
+  return (
+    <TextInput
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+}
+
+export function CharCounter({
+  value,
+  max,
+  warnAt,
+}: {
+  value: string;
+  max: number;
+  warnAt?: number;
+}) {
+  const len = value.length;
+  const warn = warnAt ?? Math.floor(max * 0.85);
+  const over = len > max;
+  return (
+    <span
+      className={`text-[10px] tabular-nums ${
+        over ? "text-[var(--danger)]" : len >= warn ? "text-[var(--primary)]" : "text-[var(--muted-2)]"
+      }`}
+    >
+      {len}/{max}
+    </span>
+  );
+}
+
+export function ImageUploadField({
+  label,
+  value,
+  onChange,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  hint?: string;
+}) {
+  const id = useId();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onFile(file: File | null) {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error?.message ?? "อัปโหลดไม่สำเร็จ");
+      }
+      onChange(String(json.data.url));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "อัปโหลดไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Field label={label} hint={hint}>
+      <div className="flex flex-col gap-2">
+        <TextInput
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="https://… หรืออัปโหลดด้านล่าง"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <label
+            htmlFor={id}
+            className="cursor-pointer rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted)] hover:bg-[var(--surface-2)]"
+          >
+            {busy ? "กำลังอัปโหลด…" : "เลือกไฟล์รูป"}
+          </label>
+          <input
+            id={id}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            disabled={busy}
+            onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
+          />
+          {value && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={value}
+              alt=""
+              className="h-12 max-w-[120px] rounded border border-[var(--border)] object-cover"
+            />
+          )}
+        </div>
+        {error && <p className="text-[11px] text-[var(--danger)]">{error}</p>}
+      </div>
+    </Field>
+  );
 }

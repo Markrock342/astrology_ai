@@ -1,3 +1,5 @@
+import { SimpleMarkdown } from "@/components/cms/simple-markdown";
+
 type FaqViewItem = {
   id: string;
   question: string;
@@ -37,8 +39,8 @@ export function FaqView({ items }: { items: FaqViewItem[] }) {
                 <summary className="cursor-pointer text-sm font-medium text-[var(--foreground)]">
                   {item.question}
                 </summary>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--muted)]">
-                  {item.answer}
+                <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
+                  <SimpleMarkdown text={item.answer} />
                 </p>
               </details>
             ))}

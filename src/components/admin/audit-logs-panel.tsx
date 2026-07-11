@@ -20,8 +20,8 @@ type AuditLog = {
   action: string;
   entityType: string;
   entityId: string | null;
-  beforeJson: unknown;
-  afterJson: unknown;
+  beforeJson?: unknown;
+  afterJson?: unknown;
   ipAddress: string | null;
   createdAt: string;
   admin: { email: string; name: string | null };
@@ -45,6 +45,9 @@ export function AuditLogsPanel() {
   const [search, setSearch] = useState("");
   const [entityType, setEntityType] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailById, setDetailById] = useState<
+    Record<string, { beforeJson: unknown; afterJson: unknown }>
+  >({});
 
   const load = useCallback(async () => {
     try {
@@ -69,12 +72,32 @@ export function AuditLogsPanel() {
     void load();
   }, [load]);
 
+  async function toggleExpand(id: string) {
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(id);
+    if (!detailById[id]) {
+      try {
+        const detail = await adminFetch<{
+          id: string;
+          beforeJson: unknown;
+          afterJson: unknown;
+        }>(`/api/admin/audit-logs/${id}`);
+        setDetailById((prev) => ({ ...prev, [id]: detail }));
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
   return (
     <AdminPage>
       <PageHeader
-        title="Audit Logs"
+        title="ประวัติแอดมิน"
         description="บันทึกการกระทำของแอดมินทั้งหมด — ใครทำอะไร เมื่อไหร่ พร้อมข้อมูลก่อน/หลัง"
       />
 
@@ -148,9 +171,7 @@ export function AuditLogsPanel() {
                   <button
                     type="button"
                     className="text-xs text-[var(--muted)] underline hover:text-[var(--foreground)]"
-                    onClick={() =>
-                      setExpandedId(expandedId === log.id ? null : log.id)
-                    }
+                    onClick={() => void toggleExpand(log.id)}
                   >
                     {expandedId === log.id ? "ซ่อน" : "ดู before/after"}
                   </button>
@@ -163,13 +184,13 @@ export function AuditLogsPanel() {
                       <div>
                         <p className="mb-1 font-medium text-[var(--muted)]">ก่อน</p>
                         <pre className="max-h-48 overflow-auto rounded-lg bg-[var(--surface)] p-2 font-mono">
-                          {JSON.stringify(log.beforeJson ?? null, null, 2)}
+                          {JSON.stringify(detailById[log.id]?.beforeJson ?? null, null, 2)}
                         </pre>
                       </div>
                       <div>
                         <p className="mb-1 font-medium text-[var(--muted)]">หลัง</p>
                         <pre className="max-h-48 overflow-auto rounded-lg bg-[var(--surface)] p-2 font-mono">
-                          {JSON.stringify(log.afterJson ?? null, null, 2)}
+                          {JSON.stringify(detailById[log.id]?.afterJson ?? null, null, 2)}
                         </pre>
                       </div>
                     </div>

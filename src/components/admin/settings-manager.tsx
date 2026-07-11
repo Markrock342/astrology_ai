@@ -17,18 +17,23 @@ import {
   CMS_KEYS,
   CMS_LABELS,
   CMS_META,
+  LANDING_CMS_KEYS,
   cmsKeysInGroup,
 } from "@/lib/cms-keys";
 import {
   ContentEditorToolbar,
   type ContentRevision,
 } from "./content-editor-toolbar";
+import { arrayToLines, confirmLeave, linesToArray } from "./form-utils";
 import {
   AdminPage,
   Badge,
+  Button,
   Card,
   CardSkeleton,
+  CharCounter,
   Field,
+  ImageUploadField,
   InfoBox,
   NavGroupLabel,
   PageHeader,
@@ -48,14 +53,6 @@ type SettingRow = {
   draftUpdatedAt: string | null;
   isDefault: boolean;
 };
-
-function linesToArray(text: string): string[] {
-  return text.split("\n").map((s) => s.trim()).filter(Boolean);
-}
-
-function arrayToLines(arr: string[]): string {
-  return arr.join("\n");
-}
 
 export function SettingsManager({
   initialRows,
@@ -110,6 +107,11 @@ export function SettingsManager({
   }, [activeKey, rows, loadRevisions]);
 
   function selectKey(key: CmsKey) {
+    if (key === activeKey) return;
+    const current = rows.find((r) => r.key === activeKey);
+    const baseline = current?.draft ?? current?.published;
+    const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
+    if (dirty && !confirmLeave()) return;
     setActiveKey(key);
     setSaved(null);
     const row = rows.find((r) => r.key === key);
@@ -226,12 +228,20 @@ export function SettingsManager({
       ) : (
       <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
         <Card className="!p-2">
+          <InfoBox>
+            เนื้อหาหน้าแรกแก้ไขที่{" "}
+            <Link href="/admin/landing" className="text-[var(--primary)] underline">
+              หน้าแรกและการตลาด
+            </Link>
+          </InfoBox>
           <nav className="flex flex-col">
-            {CMS_GROUPS.map((group) => (
+            {CMS_GROUPS.filter((g) => g.id !== "landing").map((group) => (
               <div key={group.id}>
                 <NavGroupLabel hint={group.hint}>{group.label}</NavGroupLabel>
                 <div className="flex flex-col gap-0.5 pb-2">
-                  {cmsKeysInGroup(group.id).map((key) => {
+                  {cmsKeysInGroup(group.id)
+                    .filter((key) => !LANDING_CMS_KEYS.includes(key))
+                    .map((key) => {
                     const row = rows.find((r) => r.key === key);
                     return (
                       <button
@@ -290,13 +300,21 @@ export function SettingsManager({
                   </span>
                 )}
                 {meta.previewPath && (
-                  <Link
-                    href={`/admin/preview?key=${activeKey}`}
-                    target="_blank"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void fetch("/api/admin/preview/enable", { method: "POST" })
+                        .then(() =>
+                          window.open(meta.previewPath, "_blank", "noopener,noreferrer"),
+                        )
+                        .catch(() =>
+                          window.open(meta.previewPath, "_blank", "noopener,noreferrer"),
+                        );
+                    }}
                     className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] text-[var(--primary)] hover:bg-[var(--surface-2)]"
                   >
                     ดูตัวอย่าง ↗
-                  </Link>
+                  </button>
                 )}
               </div>
             </div>
@@ -304,13 +322,14 @@ export function SettingsManager({
 
           <ContentEditorToolbar
             hasDraft={activeRow?.hasDraft ?? false}
-            previewHref={`/admin/preview?key=${activeKey}`}
+            previewHref={meta.previewPath}
             busy={busy}
             onSaveDraft={() => void saveDraft()}
             onPublish={() => void publish()}
             onDiscardDraft={() => void discardDraft()}
             revisions={revisions}
             onRestore={(id, mode) => void restoreRevision(id, mode)}
+            currentSnapshot={(draft as Record<string, unknown>) ?? null}
           />
 
           {draft != null && (
@@ -426,7 +445,9 @@ function SettingEditor({
     settingKey === CMS_KEYS.seoPrivacy ||
     settingKey === CMS_KEYS.seoTerms ||
     settingKey === CMS_KEYS.seoDisclaimer ||
-    settingKey === CMS_KEYS.seoFaq
+    settingKey === CMS_KEYS.seoFaq ||
+    settingKey === CMS_KEYS.seoPricing ||
+    settingKey === CMS_KEYS.seoContact
   ) {
     return <SeoEditor seo={value as CmsSeo} onChange={onChange} />;
   }
@@ -442,40 +463,51 @@ function SeoEditor({
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field label="Title (แท็บเบราว์เซอร์)" hint="แนะนำไม่เกิน ~60 ตัวอักษร">
-        <TextInput
-          value={seo.title}
-          onChange={(e) => onChange({ ...seo, title: e.target.value })}
-        />
+      <Field label="Title (แท็บเบราว์เซอร์)" hint="แนะนำไม่เกิน 60 ตัวอักษร">
+        <div className="flex items-center gap-2">
+          <TextInput
+            value={seo.title}
+            onChange={(e) => onChange({ ...seo, title: e.target.value })}
+          />
+          <CharCounter value={seo.title} max={60} />
+        </div>
       </Field>
-      <Field label="Meta description" hint="แนะนำไม่เกิน ~160 ตัวอักษร">
-        <TextArea
-          rows={2}
-          value={seo.description}
-          onChange={(e) => onChange({ ...seo, description: e.target.value })}
-        />
+      <Field label="Meta description" hint="แนะนำไม่เกิน 160 ตัวอักษร">
+        <div className="space-y-1">
+          <TextArea
+            rows={2}
+            value={seo.description}
+            onChange={(e) => onChange({ ...seo, description: e.target.value })}
+          />
+          <CharCounter value={seo.description} max={160} />
+        </div>
       </Field>
       <Field label="OG title (Facebook/LINE)" hint="ว่าง = ใช้ title">
-        <TextInput
-          value={seo.ogTitle ?? ""}
-          onChange={(e) => onChange({ ...seo, ogTitle: e.target.value || undefined })}
-        />
+        <div className="flex items-center gap-2">
+          <TextInput
+            value={seo.ogTitle ?? ""}
+            onChange={(e) => onChange({ ...seo, ogTitle: e.target.value || undefined })}
+          />
+          <CharCounter value={seo.ogTitle ?? ""} max={60} />
+        </div>
       </Field>
       <Field label="OG description">
-        <TextArea
-          rows={2}
-          value={seo.ogDescription ?? ""}
-          onChange={(e) => onChange({ ...seo, ogDescription: e.target.value || undefined })}
-        />
+        <div className="space-y-1">
+          <TextArea
+            rows={2}
+            value={seo.ogDescription ?? ""}
+            onChange={(e) => onChange({ ...seo, ogDescription: e.target.value || undefined })}
+          />
+          <CharCounter value={seo.ogDescription ?? ""} max={160} />
+        </div>
       </Field>
       <div className="sm:col-span-2">
-        <Field label="OG image URL" hint="รูปเมื่อแชร์ลิงก์ — ว่างได้">
-          <TextInput
-            value={seo.ogImageUrl ?? ""}
-            onChange={(e) => onChange({ ...seo, ogImageUrl: e.target.value || undefined })}
-            placeholder="https://..."
-          />
-        </Field>
+        <ImageUploadField
+          label="OG image"
+          value={seo.ogImageUrl ?? ""}
+          onChange={(url) => onChange({ ...seo, ogImageUrl: url || undefined })}
+          hint="รูปเมื่อแชร์ลิงก์ — อัปโหลดหรือวาง URL"
+        />
       </div>
     </div>
   );
@@ -523,9 +555,47 @@ function DocumentEditor({
           key={i}
           className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3"
         >
-          <p className="mb-2 text-[11px] font-medium text-[var(--muted)]">
-            หัวข้อที่ {i + 1}
-          </p>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium text-[var(--muted)]">
+              หัวข้อที่ {i + 1}
+            </p>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                disabled={i === 0}
+                onClick={() => {
+                  const sections = [...doc.sections];
+                  [sections[i - 1], sections[i]] = [sections[i], sections[i - 1]];
+                  onChange({ ...doc, sections });
+                }}
+              >
+                ↑
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={i === doc.sections.length - 1}
+                onClick={() => {
+                  const sections = [...doc.sections];
+                  [sections[i + 1], sections[i]] = [sections[i], sections[i + 1]];
+                  onChange({ ...doc, sections });
+                }}
+              >
+                ↓
+              </Button>
+              <Button
+                variant="danger"
+                disabled={doc.sections.length <= 1}
+                onClick={() =>
+                  onChange({
+                    ...doc,
+                    sections: doc.sections.filter((_, idx) => idx !== i),
+                  })
+                }
+              >
+                ลบ
+              </Button>
+            </div>
+          </div>
           <Field label="ชื่อหัวข้อ">
             <TextInput
               value={section.heading}
@@ -534,7 +604,7 @@ function DocumentEditor({
           </Field>
           <Field
             label="รายการเนื้อหา"
-            hint="หนึ่งบรรทัด = หนึ่ง bullet บนหน้าเว็บ"
+            hint="หนึ่งบรรทัด = หนึ่ง bullet บนหน้าเว็บ · รองรับ **ตัวหนา** และ [ลิงก์](url)"
           >
             <TextArea
               rows={4}
@@ -546,6 +616,20 @@ function DocumentEditor({
           </Field>
         </div>
       ))}
+      <Button
+        variant="ghost"
+        onClick={() =>
+          onChange({
+            ...doc,
+            sections: [
+              ...doc.sections,
+              { heading: `${doc.sections.length + 1}. หัวข้อใหม่`, body: ["รายละเอียด"] },
+            ],
+          })
+        }
+      >
+        + เพิ่มหัวข้อ
+      </Button>
       <Field label="ข้อความท้ายหน้า (ไม่บังคับ)">
         <TextInput
           value={doc.footer ?? ""}

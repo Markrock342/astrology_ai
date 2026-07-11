@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { seedAiContent } from "./seed-ai-content";
+import { seedCmsDefaults } from "./seed-cms-defaults";
 
 const prisma = new PrismaClient();
 
@@ -219,6 +220,7 @@ async function main() {
   }
 
   const { persona } = await seedAiContent(prisma);
+  await seedCmsDefaults(prisma);
   await prisma.aIProviderConfig.updateMany({
     data: { promptTemplateId: persona.id },
   });
