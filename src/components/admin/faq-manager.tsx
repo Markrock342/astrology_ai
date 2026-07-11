@@ -41,13 +41,13 @@ const CATEGORIES = [
 
 const EMPTY = { question: "", answer: "", category: "general", enabled: true, sortOrder: 0 };
 
-export function FaqManager() {
-  const [items, setItems] = useState<FaqItem[]>([]);
+export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }) {
+  const [items, setItems] = useState<FaqItem[]>(initialItems ?? []);
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialItems);
   const [error, setError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
 
@@ -68,8 +68,9 @@ export function FaqManager() {
   }, []);
 
   useEffect(() => {
+    if (initialItems) return;
     void load().catch((e) => setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ"));
-  }, [load]);
+  }, [initialItems, load]);
 
   function startEdit(item: FaqItem) {
     setEditingId(item.id);

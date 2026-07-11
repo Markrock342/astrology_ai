@@ -74,16 +74,16 @@ export async function listConversationThreads(
       title: true,
       updatedAt: true,
       category: { select: { slug: true, nameTh: true } },
-      messages: {
-        where: { role: "USER" },
-        orderBy: { createdAt: "asc" },
-        take: 1,
-        select: { content: true },
-      },
     },
   });
 
-  return mapConversationRows(rows);
+  return rows.map((c) => ({
+    id: c.id,
+    title: c.title?.trim() || c.category.nameTh,
+    categorySlug: c.category.slug,
+    categoryLabel: c.category.nameTh,
+    createdAt: c.updatedAt.toISOString(),
+  }));
 }
 
 /** @deprecated Use listConversationThreads(userId, "TRANSIT"). */

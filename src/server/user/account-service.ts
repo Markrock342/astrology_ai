@@ -18,6 +18,7 @@ export async function getEffectivePlan(userId: string): Promise<"FREE" | "PRO"> 
 
 /** Current user profile + plan + wallet snapshot for GET /api/me. */
 export async function getMe(userId: string) {
+  const now = new Date();
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -31,14 +32,22 @@ export async function getMe(userId: string) {
       passwordHash: true,
       createdAt: true,
       birthProfile: { select: { id: true, nickname: true, editCount: true } },
+      creditWallet: { select: { balance: true } },
+      subscriptions: {
+        where: {
+          status: "ACTIVE",
+          package: { type: "PRO" },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
+        take: 1,
+        select: { id: true },
+      },
     },
   });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
 
-  const [plan, balance] = await Promise.all([
-    getEffectivePlan(userId),
-    getBalance(userId),
-  ]);
+  const plan: "FREE" | "PRO" = user.subscriptions.length > 0 ? "PRO" : "FREE";
+  const balance = user.creditWallet?.balance ?? 0;
 
   const editsRemaining = isStaffRole(user.role)
     ? 999
@@ -46,7 +55,7 @@ export async function getMe(userId: string) {
       ? Math.max(0, MAX_BIRTH_EDITS - user.birthProfile.editCount)
       : MAX_BIRTH_EDITS;
 
-  const { passwordHash, ...profile } = user;
+  const { passwordHash, creditWallet: _w, subscriptions: _s, ...profile } = user;
 
   return {
     ...profile,

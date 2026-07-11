@@ -48,13 +48,17 @@ const TONE_LABEL: Record<Announcement["tone"], string> = {
   DANGER: "วิกฤต",
 };
 
-export function AnnouncementsManager() {
-  const [items, setItems] = useState<Announcement[]>([]);
+export function AnnouncementsManager({
+  initialItems,
+}: {
+  initialItems?: Announcement[] | null;
+}) {
+  const [items, setItems] = useState<Announcement[]>(initialItems ?? []);
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialItems);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -69,9 +73,10 @@ export function AnnouncementsManager() {
   }, []);
 
   useEffect(() => {
+    if (initialItems) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [load]);
+  }, [initialItems, load]);
 
   function startEdit(item: Announcement) {
     setEditingId(item.id);

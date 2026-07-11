@@ -29,11 +29,35 @@ export type AppUser = {
   birthEditsUnlimited?: boolean;
 };
 
+export type AppAnnouncement = {
+  id: string;
+  title: string;
+  message: string;
+  tone: string;
+  linkUrl: string | null;
+  linkLabel: string | null;
+};
+
+/** Serializable bootstrap payload (mirrors server getAppBootstrap). */
+export type AppBootstrapPayload = {
+  me: Record<string, unknown>;
+  categories: Array<{
+    slug: string;
+    nameTh: string;
+    accessLevel: string;
+    suggestedQuestions?: string[];
+  }>;
+  natalThreads: Thread[];
+  transitThreads: Thread[];
+  announcements: AppAnnouncement[];
+};
+
 type AppDataContextValue = {
   user: AppUser | null;
   categories: Category[];
   natalThreads: Thread[];
   transitThreads: Thread[];
+  announcements: AppAnnouncement[];
   loading: boolean;
   loadError: string | null;
   searchQuery: string;
@@ -49,12 +73,73 @@ type AppDataContextValue = {
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
-export function AppDataProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [categories, setCategories] = useState<Category[]>(NATAL_CATEGORIES);
-  const [natalThreads, setNatalThreads] = useState<Thread[]>([]);
-  const [transitThreads, setTransitThreads] = useState<Thread[]>([]);
-  const [loading, setLoading] = useState(true);
+function mapMe(me: Record<string, unknown>): AppUser {
+  return {
+    name:
+      (me.name as string | null | undefined) ??
+      String(me.email ?? "").split("@")[0] ??
+      "ผู้ใช้",
+    email: String(me.email ?? ""),
+    image: (me.image as string | null | undefined) ?? null,
+    plan: (me.plan as "FREE" | "PRO") ?? "FREE",
+    role: (me.role as AppUser["role"]) ?? "USER",
+    creditBalance: Number(me.creditBalance ?? 0),
+    canChat: Boolean(me.canChat ?? me.plan === "PRO"),
+    emailVerified: Boolean(me.emailVerified ?? true),
+    needsEmailVerification: Boolean(me.needsEmailVerification ?? false),
+    hasPassword: Boolean(me.hasPassword ?? false),
+    birthEditsUnlimited: Boolean(me.birthEditsUnlimited),
+  };
+}
+
+function applyBootstrap(
+  data: AppBootstrapPayload,
+  setters: {
+    setUser: (u: AppUser) => void;
+    setCategories: (c: Category[]) => void;
+    setNatalThreads: (t: Thread[]) => void;
+    setTransitThreads: (t: Thread[]) => void;
+    setAnnouncements: (a: AppAnnouncement[]) => void;
+  },
+) {
+  setters.setUser(mapMe(data.me));
+  if (Array.isArray(data.categories) && data.categories.length > 0) {
+    setters.setCategories(data.categories.map(mapApiCategory));
+  }
+  if (Array.isArray(data.natalThreads)) setters.setNatalThreads(data.natalThreads);
+  if (Array.isArray(data.transitThreads)) {
+    setters.setTransitThreads(data.transitThreads);
+  }
+  if (Array.isArray(data.announcements)) {
+    setters.setAnnouncements(data.announcements);
+  }
+}
+
+export function AppDataProvider({
+  children,
+  initialData,
+}: {
+  children: React.ReactNode;
+  initialData?: AppBootstrapPayload | null;
+}) {
+  const [user, setUser] = useState<AppUser | null>(() =>
+    initialData ? mapMe(initialData.me) : null,
+  );
+  const [categories, setCategories] = useState<Category[]>(() =>
+    initialData?.categories?.length
+      ? initialData.categories.map(mapApiCategory)
+      : NATAL_CATEGORIES,
+  );
+  const [natalThreads, setNatalThreads] = useState<Thread[]>(
+    () => initialData?.natalThreads ?? [],
+  );
+  const [transitThreads, setTransitThreads] = useState<Thread[]>(
+    () => initialData?.transitThreads ?? [],
+  );
+  const [announcements, setAnnouncements] = useState<AppAnnouncement[]>(
+    () => initialData?.announcements ?? [],
+  );
+  const [loading, setLoading] = useState(!initialData);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -75,43 +160,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const { me, categories: cats, natalThreads: natal, transitThreads: transit } =
-        json.data as {
-          me?: Record<string, unknown>;
-          categories?: Array<{
-            slug: string;
-            nameTh: string;
-            accessLevel: string;
-            suggestedQuestions?: string[];
-          }>;
-          natalThreads?: Thread[];
-          transitThreads?: Thread[];
-        };
-
-      if (me) {
-        setUser({
-          name:
-            (me.name as string | null | undefined) ??
-            String(me.email ?? "").split("@")[0] ??
-            "ผู้ใช้",
-          email: String(me.email ?? ""),
-          image: (me.image as string | null | undefined) ?? null,
-          plan: (me.plan as "FREE" | "PRO") ?? "FREE",
-          role: (me.role as AppUser["role"]) ?? "USER",
-          creditBalance: Number(me.creditBalance ?? 0),
-          canChat: Boolean(me.canChat ?? me.plan === "PRO"),
-          emailVerified: Boolean(me.emailVerified ?? true),
-          needsEmailVerification: Boolean(me.needsEmailVerification ?? false),
-          hasPassword: Boolean(me.hasPassword ?? false),
-          birthEditsUnlimited: Boolean(me.birthEditsUnlimited),
-        });
-      }
-
-      if (Array.isArray(cats) && cats.length > 0) {
-        setCategories(cats.map(mapApiCategory));
-      }
-      if (Array.isArray(natal)) setNatalThreads(natal);
-      if (Array.isArray(transit)) setTransitThreads(transit);
+      applyBootstrap(json.data as AppBootstrapPayload, {
+        setUser,
+        setCategories,
+        setNatalThreads,
+        setTransitThreads,
+        setAnnouncements,
+      });
     } catch (err) {
       if ((err as Error)?.name === "AbortError") {
         setLoadError("โหลดนานเกินไป — ลองใหม่อีกครั้ง");
@@ -125,10 +180,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Initial data load on mount — async fetch is intentional here.
+    if (initialData) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [load]);
+  }, [initialData, load]);
 
   const q = searchQuery.trim().toLowerCase();
   const filteredCategories = useMemo(
@@ -171,6 +226,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       categories,
       natalThreads,
       transitThreads,
+      announcements,
       loading,
       loadError,
       searchQuery,
@@ -187,6 +243,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       categories,
       natalThreads,
       transitThreads,
+      announcements,
       loading,
       loadError,
       searchQuery,
