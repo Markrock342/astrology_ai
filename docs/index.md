@@ -15,13 +15,16 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 
 **เอกสารอ้างอิง:** `README.md` · `PROJECT_STRUCTURE.md` · `BACKEND_TASKS.md` · `FRONTEND_TASKS.md` · **`M4_HANDOFF.md`** (สถานะจริงตรวจกับโค้ด)
 
+**M3 รอ/ค้าง:** [backend_m3_waitlist.md](./backend_m3_waitlist.md)  
+**M4 deploy/waitlist:** [backend_m4_deploy.md](./backend_m4_deploy.md) · [backend_m4_waitlist.md](./backend_m4_waitlist.md)
+
 ## Milestone ปัจจุบัน
 
 | Milestone | สถานะรวม |
 |-----------|----------|
 | **M2** — Schema chat, Auth, Birth profile, Admin CMS พื้นฐาน | ✅ ปิดแล้ว |
-| **M3** — แชท AI, Gemini, ประวัติเธรด, Admin AI CMS | ✅ **ปิด BN** — B1+B2 เสร็จ (รอ merge + FN F2) |
-| **M4** — Payment, Dashboard, Deploy | 🟢 **~80%** — code ครบ ขาด rate-limit prod (B3) + go-live config (B4) |
+| **M3** — แชท AI, Gemini, ประวัติเธรด, Admin AI CMS | ✅ **ปิด BN 100%** |
+| **M4** — Payment, Dashboard, Deploy | ✅ **ปิดแล้ว** — live https://horaai.vercel.app |
 
 **Feature gating:** `src/config/features.ts` — ตั้ง `NEXT_PUBLIC_APP_PHASE=2` บน Vercel จะปิด AI chat + Admin AI CMS; dev ไม่ตั้ง = เปิดทั้งหมด
 
@@ -40,8 +43,9 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 | Admin API (users, categories, packages) | ✅ M2 | [backend_admin_api.md](./backend_admin_api.md) | `user-admin-service.ts`, `catalog-admin-service.ts` |
 | Admin AI CMS (prompts, models, knowledge, usage) | ✅ ~M3 | [backend_ai_admin.md](./backend_ai_admin.md) | `ai-admin-service.ts`, `/api/admin/{prompts,ai-configs,knowledge,ai-usage}` |
 | AI engine + readings | ✅ ~M3 | [backend_ai_engine.md](./backend_ai_engine.md) | `src/server/ai/*`, `reading-service.ts` |
-| Chat conversations API | ✅ B1 done | [backend_m3_chat.md](./backend_m3_chat.md) | `message-service.ts`, `thread-service.ts`, `/api/conversations/*` |
-| Payment + dashboard (M4) | ✅ code | [backend_m4_payment.md](./backend_m4_payment.md) | `payment-service.ts`, `dashboard-admin-service.ts` |
+| Chat conversations API | ✅ M3 ปิด | [backend_m3_chat.md](./backend_m3_chat.md) | `thread-service.ts`, `message-service.ts`, `/api/conversations/*` |
+| Payment + dashboard (M4) | ✅ code + tests | [backend_m4_payment.md](./backend_m4_payment.md) | `payment-service.ts`, `dashboard-admin-service.ts` |
+| M4 deploy / go-live | 🟡 checklist | [backend_m4_deploy.md](./backend_m4_deploy.md) | `.env.example`, `scripts/smoke-public-api.mjs` |
 
 ## โมดูล Frontend
 
@@ -74,16 +78,13 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 
 | ID | งาน | หมายเหตุ |
 |----|-----|----------|
-| **B1** | Multi-turn chat context ใน prompt | ✅ `be/m3-multi-turn-chat` |
-| **B2** | Tests M3 (credit, refund, idempotency, lock, admin auth) | ✅ `be/m3-tests` |
-| **B3** | Rate-limit production (Redis/Upstash) | รอ PM |
-| **B4** | Go-live: env Vercel, migrate+seed prod, smoke test | หลัง B1+B2 |
+| **M4** | Manual smoke + OAuth redirect | [backend_m4_deploy.md](./backend_m4_deploy.md) |
 
 ---
 
 ## รอ PM ยืนยัน
 
-- Rate-limit strategy (บล็อก B3)
+- ~~Rate-limit strategy~~ → **ตัดสินใจแล้ว:** Upstash Redis (code พร้อม — รอใส่ env บน Vercel)
 - ดวงจร (transit) auto-คำนวณวัน — gate Pro มีแล้ว แต่ยังไม่มี engine transit เต็ม
 - ~~Sign-in อีเมล~~ → **ตัดสินใจแล้ว:** อีเมล+รหัสผ่าน สมัครตรง เก็บ DB
 - แหล่งข้อมูลจังหวัด/อำเภอเต็ม — อำเภอยังชุดย่อใน `thailand-geo.ts`

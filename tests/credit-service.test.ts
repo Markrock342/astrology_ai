@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { AppError } from "@/lib/errors";
 import { deductCredits } from "@/server/credit/credit-service";
 import { createMockTx } from "./helpers/mock-prisma-tx";
