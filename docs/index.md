@@ -15,6 +15,8 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 
 **เอกสารอ้างอิง:** `README.md` · `PROJECT_STRUCTURE.md` · `BACKEND_TASKS.md` · `FRONTEND_TASKS.md` · **`M4_HANDOFF.md`** (สถานะจริงตรวจกับโค้ด)
 
+**M3 รอ/ค้าง:** [backend_m3_waitlist.md](./backend_m3_waitlist.md)
+
 ## Milestone ปัจจุบัน
 
 | Milestone | สถานะรวม |
