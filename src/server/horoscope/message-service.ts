@@ -23,11 +23,9 @@ export async function sendMessage(input: SendMessageInput) {
   if (!conversation) throw new AppError("NOT_FOUND", "Conversation not found");
 
   const plan = await getEffectivePlan(input.userId);
-  if (plan !== "PRO") {
-    throw new AppError(
-      "CHAT_REQUIRES_PRO",
-      "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
-    );
+
+  if (conversation.category.accessLevel === "PRO" && plan !== "PRO") {
+    throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
   }
 
   if (conversation.mode === "TRANSIT" && plan !== "PRO") {
@@ -77,6 +75,12 @@ export async function sendMessage(input: SendMessageInput) {
     priorMessages,
   });
 
+  const threadTitle =
+    conversation.title?.trim() ||
+    (input.content.length > 48
+      ? `${input.content.slice(0, 48)}…`
+      : input.content);
+
   await prisma.$transaction([
     prisma.message.create({
       data: {
@@ -99,7 +103,10 @@ export async function sendMessage(input: SendMessageInput) {
     }),
     prisma.conversation.update({
       where: { id: conversation.id },
-      data: { updatedAt: new Date() },
+      data: {
+        updatedAt: new Date(),
+        ...(conversation.title?.trim() ? {} : { title: threadTitle }),
+      },
     }),
   ]);
 

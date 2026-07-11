@@ -43,7 +43,7 @@ const conversation = {
   id: "conv-1",
   userId: "user-1",
   mode: "NATAL" as const,
-  category: { slug: "career", nameTh: "การงาน" },
+  category: { slug: "career", nameTh: "การงาน", accessLevel: "FREE" },
 };
 
 describe("sendMessage (M3 B2)", () => {
@@ -64,8 +64,25 @@ describe("sendMessage (M3 B2)", () => {
     mocks.transaction.mockResolvedValue([]);
   });
 
-  it("throws CHAT_REQUIRES_PRO for Free users", async () => {
+  it("allows Free users on FREE access categories", async () => {
     mocks.getEffectivePlan.mockResolvedValue("FREE");
+
+    await sendMessage({
+      conversationId: "conv-1",
+      userId: "user-1",
+      content: "สวัสดี",
+      idempotencyKey: "k1",
+    });
+
+    expect(mocks.createReading).toHaveBeenCalled();
+  });
+
+  it("throws CATEGORY_LOCKED when Free user messages in Pro category thread", async () => {
+    mocks.getEffectivePlan.mockResolvedValue("FREE");
+    mocks.findConversation.mockResolvedValue({
+      ...conversation,
+      category: { slug: "love", nameTh: "ความรัก", accessLevel: "PRO" },
+    });
 
     await expect(
       sendMessage({
@@ -74,7 +91,7 @@ describe("sendMessage (M3 B2)", () => {
         content: "สวัสดี",
         idempotencyKey: "k1",
       }),
-    ).rejects.toMatchObject({ code: "CHAT_REQUIRES_PRO" });
+    ).rejects.toMatchObject({ code: "CATEGORY_LOCKED" });
 
     expect(mocks.createReading).not.toHaveBeenCalled();
   });

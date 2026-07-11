@@ -57,13 +57,10 @@ export async function createReading(input: CreateReadingInput) {
     throw new AppError("NOT_FOUND", "Category not available");
   }
 
-  // 3. Flowchart: Free users cannot chat at all; Pro-only categories stay locked for Free.
+  // 3. Pro-only categories stay locked for Free; Free may chat on FREE access categories.
   const plan = await getEffectivePlan(userId);
-  if (plan !== "PRO") {
-    throw new AppError(
-      "CHAT_REQUIRES_PRO",
-      "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
-    );
+  if (category.accessLevel === "PRO" && plan !== "PRO") {
+    throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
   }
 
   // 4. Quota pre-check (final atomic check happens inside the transaction).

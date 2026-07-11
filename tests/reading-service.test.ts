@@ -65,6 +65,7 @@ const baseCategory = {
   id: "cat-1",
   slug: "career",
   enabled: true,
+  accessLevel: "FREE",
   creditCost: 1,
   promptTemplateId: null,
   nameTh: "การงาน",
@@ -148,12 +149,30 @@ describe("createReading (M3 B2)", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("throws CHAT_REQUIRES_PRO for Free users", async () => {
+  it("allows Free users on FREE access categories", async () => {
     mocks.getEffectivePlan.mockResolvedValue("FREE");
 
+    const result = await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "q",
+    });
+
+    expect(result.responseText).toBe("คำตอบจาก AI");
+    expect(mocks.generateWithFallback).toHaveBeenCalled();
+  });
+
+  it("throws CATEGORY_LOCKED when Free user uses Pro category", async () => {
+    mocks.getEffectivePlan.mockResolvedValue("FREE");
+    mocks.findCategory.mockResolvedValue({
+      ...baseCategory,
+      slug: "love",
+      accessLevel: "PRO",
+    });
+
     await expect(
-      createReading({ userId: "user-1", categorySlug: "career", question: "q" }),
-    ).rejects.toMatchObject({ code: "CHAT_REQUIRES_PRO" } satisfies Partial<AppError>);
+      createReading({ userId: "user-1", categorySlug: "love", question: "q" }),
+    ).rejects.toMatchObject({ code: "CATEGORY_LOCKED" } satisfies Partial<AppError>);
 
     expect(mocks.generateWithFallback).not.toHaveBeenCalled();
   });
