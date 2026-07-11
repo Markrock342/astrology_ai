@@ -1,65 +1,61 @@
-# Backend — M4 Go-live / Deploy (B4)
-
-## สถานะปัจจุบันของฟีเจอร์นี้ (Current Status)
-- ✅ **Code M4 ครบบน main** — payment, dashboard, subscription cancel, email sender
-- 🟡 **B4 ค้างการตั้งค่า** — env production, migrate/seed prod, smoke test จริง (ไม่ใช่เขียนโค้ดเพิ่ม)
-- ⏸️ **B3 รอ PM** — rate-limit Redis vs in-memory ([backend_m4_waitlist.md](./backend_m4_waitlist.md))
-
-## งานที่เพิ่งทำเสร็จ (Recently Completed)
-- `.env.example` — อัปเดตตัวแปร production ครบตาม `env.ts` + M4_HANDOFF §8
-- `scripts/smoke-public-api.mjs` + `npm run smoke:public` — ตรวจ public API หลัง deploy
-- `tests/payment-service.test.ts` — approve/reject payment flow
-- เอกสารนี้ + waitlist
-
-## บันทึกการแก้บัค (Bug & Troubleshooting Log)
-- ไม่มีบันทึกใหม่
-
-## สิ่งที่ยังค้างอยู่และปัญหาที่ทราบ (Pending & Known Issues)
-- ตั้ง env บน Vercel ต้องมีสิทธิ์ project + ค่าจริงจาก PM/ลูกค้า
-- `db:migrate` + `db:seed` บน Supabase prod ต้องรันจากเครื่องที่มี `DIRECT_URL`
-- Smoke test แบบเต็ม (sign-in → แชท → Gemini) ต้องทำ manual หรือ E2E ภายหลัง
-
-## Checklist งานต่อไป (Next Steps)
-
-### ก่อน deploy
-- [ ] PM ยืนยัน `NEXT_PUBLIC_APP_PHASE` (unset / 2 / 3)
-- [ ] PM ยืนยัน quota/ราคา (Free 3 / Pro 100 / 199฿)
-- [ ] PM ตัดสินใจ B3 rate-limit ([waitlist](./backend_m4_waitlist.md))
-
-### Supabase production
-- [ ] ตั้ง `DATABASE_URL` (pooler port 6543, `?pgbouncer=true`)
-- [ ] ตั้ง `DIRECT_URL` (session pooler port 5432) — ใช้เฉพาะ migrate
-- [ ] รัน `npm run db:migrate` กับ prod `DIRECT_URL`
-- [ ] รัน `npm run db:seed` (ครั้งแรกเท่านั้น หรือตามนโยบายทีม)
-- [ ] ยืนยัน backup policy ใน Supabase dashboard
-
-### Upstash Redis (B3 — code พร้อมแล้ว)
-- [ ] สร้าง database ที่ [upstash.com](https://upstash.com) (free tier)
-- [ ] Copy `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` ไป Vercel
-- [ ] ไม่ตั้ง = ใช้ in-memory fallback อัตโนมัติ (dev/single-instance)
-
-### Vercel environment (Production)
-- [ ] `AUTH_SECRET` — `npx auth secret`
-- [ ] `AUTH_URL` + `APP_BASE_URL` — domain จริง (https)
-- [ ] `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — redirect URI ตรง domain prod
-- [ ] `GEMINI_API_KEY` — จำเป็นสำหรับ AI chat
-- [ ] `RESEND_API_KEY` + `EMAIL_FROM` — อีเมล reset/verify จริง
-- [ ] `TURNSTILE_SECRET_KEY` + `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (แนะนำ)
-- [ ] `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` — สำหรับ seed admin
-- [ ] `NEXT_PUBLIC_APP_PHASE=3` — เปิด AI + Admin AI CMS (PM เลือกแล้ว)
-- [ ] `OPENAI_API_KEY` — ถ้าใช้ fallback provider ใน Admin CMS
-
-### หลัง deploy
-- [ ] `npm run smoke:public` กับ production URL
-- [ ] Manual smoke: sign-in (Google + email) → birth profile → manual payment approve → แชท Pro → Gemini ตอบ
-- [ ] ตรวจ admin dashboard KPIs แสดงตัวเลข
-
-### คำสั่งอ้างอิง
-```bash
-# migrate บน production (ต้องมี DIRECT_URL ใน .env ชั่วคราว)
-npm run db:migrate
-npm run db:seed
-
-# smoke public APIs หลัง deploy
-SMOKE_BASE_URL=https://your-domain.com npm run smoke:public
-```
+# Backend — M4 Go-live / Deploy (B4)
+
+## สถานะปัจจุบันของฟีเจอร์นี้ (Current Status)
+- ✅ **Production live:** https://horaai.vercel.app (Vercel project `son-s-projects6/hora_ai`)
+- ✅ Supabase prod — migrations up to date + seed รันแล้ว
+- ✅ Env บน Vercel Production (14 ตัว) + `AUTH_URL`/`APP_BASE_URL` ชี้ domain จริง
+- ✅ Smoke public API 5/5 ผ่าน
+- 🟡 **Manual smoke** ยังต้องทดสอบ sign-in → birth → payment → แชท Gemini ด้วยมือ
+
+## งานที่เพิ่งทำเสร็จ (Recently Completed)
+- Deploy production ผ่าน `npx vercel --prod` (alias `horaai.vercel.app`)
+- `scripts/sync-vercel-env.mjs` + `npm run deploy:env` — push `.env` → Vercel อย่างปลอดภัย
+- `.vercelignore` — ห้ามอัปโหลด `.env` ไปกับ deployment อีก
+- `npm run db:migrate:deploy` — คำสั่ง migrate บน production (ใช้ `DIRECT_URL`)
+- `npm run smoke:public` กับ `SMOKE_BASE_URL=https://horaai.vercel.app` — ผ่านครบ
+
+## บันทึกการแก้บัค (Bug & Troubleshooting Log)
+- **[Deploy แรก bundle .env]:** Vercel เตือน "Detected .env file" — แก้ด้วย `.vercelignore` + sync env ผ่าน dashboard/CLI แล้ว redeploy
+- **[GitHub ↔ Vercel]:** `vercel link` ไม่สามารถ connect repo `Markrock342/astrology_ai` ได้ (สิทธิ์) — deploy ผ่าน CLI ได้ปกติ
+
+## สิ่งที่ยังค้างอยู่และปัญหาที่ทราบ (Pending & Known Issues)
+
+### ต้องทำ manual (ไม่ใช่โค้ด)
+- [ ] **Google OAuth:** เพิ่ม Authorized redirect URI  
+  `https://horaai.vercel.app/api/auth/callback/google` ใน Google Cloud Console
+- [ ] **Manual smoke:** sign-in (Google + email) → birth profile → admin approve payment → แชท Pro → Gemini ตอบ
+- [ ] **Merge `be/m4-rate-limit` → `main`** เพื่อให้ GitHub/Vercel auto-deploy รอบถัดไป (ถ้าเชื่อม repo ได้)
+
+### Optional env (ยังไม่ sync — ไม่มีใน local `.env`)
+| ตัวแปร | ผลถ้าไม่ตั้ง |
+|--------|-------------|
+| `RESEND_API_KEY` + `EMAIL_FROM` | อีเมล reset/verify log ใน console แทนส่งจริง |
+| `TURNSTILE_*` | ไม่มี bot protection บนฟอร์ม auth |
+| `UPSTASH_*` | rate-limit ใช้ in-memory per instance |
+| `OPENAI_API_KEY` | ไม่มี OpenAI fallback ใน Admin CMS |
+
+เพิ่มใน local `.env` แล้วรัน `npm run deploy:env` อีกครั้ง
+
+## Checklist งานต่อไป (Next Steps)
+- [x] Supabase migrate + seed prod
+- [x] Vercel env + deploy
+- [x] Smoke public APIs
+- [ ] Google OAuth redirect URI
+- [ ] Manual end-to-end smoke
+- [ ] (Optional) Upstash + Resend + Turnstile บน Vercel
+
+### คำสั่งอ้างอิง
+```bash
+# migrate บน production
+npm run db:migrate:deploy
+npm run db:seed
+
+# sync env จาก .env ไป Vercel (ตั้ง PRODUCTION_URL ถ้า domain เปลี่ยน)
+PRODUCTION_URL=https://horaai.vercel.app npm run deploy:env
+
+# deploy
+npx vercel --prod --yes
+
+# smoke หลัง deploy
+SMOKE_BASE_URL=https://horaai.vercel.app npm run smoke:public
+```

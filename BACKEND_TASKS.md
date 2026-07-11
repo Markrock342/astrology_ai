@@ -111,10 +111,12 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 - [x] หน้า legal scaffold + CMS settings (`privacy`/`terms`/`disclaimer` — เนื้อหาจริงรอ FE F4)
 - [x] Email: `mailer.ts` — Resend เมื่อมี `RESEND_API_KEY` / dev-console fallback
 
-**ค้างจริง (BN รอบตั้งค่า — ไม่ใช่โค้ด):**
+**ค้างจริง (manual — ไม่ใช่โค้ด):**
 
-- [ ] ตั้ง env บน Vercel + Upstash + `NEXT_PUBLIC_APP_PHASE=3` — [backend_m4_deploy.md](./docs/backend_m4_deploy.md)
-- [ ] migrate/seed prod + smoke test
+- [ ] Google OAuth redirect URI สำหรับ https://horaai.vercel.app — [backend_m4_deploy.md](./docs/backend_m4_deploy.md)
+- [ ] Manual smoke: sign-in → birth → payment → แชท Gemini
+- [ ] Merge `be/m4-rate-limit` → `main`
+- [ ] (Optional) Resend / Upstash / Turnstile บน Vercel แล้ว `npm run deploy:env`
 
 **เสร็จแล้ว (M4 BN code):**
 
