@@ -44,7 +44,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     user,
     refresh,
     filteredCategories,
-    filteredThreads,
+    filteredNatalThreads,
+    filteredTransitThreads,
     searchQuery,
     setSearchQuery,
     loading,
@@ -176,14 +177,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <SidebarDivider />
 
+        <SectionLabel>ประวัติแชท</SectionLabel>
+        <nav className="flex flex-col gap-0.5">
+          {filteredNatalThreads.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-[var(--muted-2)]">
+              {loading ? "กำลังโหลด…" : "ยังไม่มีประวัติแชท"}
+            </p>
+          ) : (
+            filteredNatalThreads.map((t) => (
+              <Link
+                key={t.id}
+                href={`/dashboard?thread=${t.id}${t.categorySlug ? `&cat=${t.categorySlug}` : ""}`}
+                onClick={closeMobile}
+                className={`flex items-center gap-2 truncate rounded-lg px-3 py-2 text-xs transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] ${
+                  activeThread === t.id
+                    ? "bg-[var(--surface-3)] text-[var(--foreground)]"
+                    : "text-[var(--muted)]"
+                }`}
+              >
+                {t.categorySlug ? (
+                  <span className="shrink-0 text-[var(--primary)]">
+                    <CategoryIcon slug={t.categorySlug} />
+                  </span>
+                ) : null}
+                {t.title}
+              </Link>
+            ))
+          )}
+        </nav>
+
+        <SidebarDivider />
+
         <SectionLabel>ดวงจร</SectionLabel>
         <nav className="flex flex-col gap-0.5">
-          {filteredThreads.length === 0 ? (
+          {filteredTransitThreads.length === 0 ? (
             <p className="px-3 py-2 text-xs text-[var(--muted-2)]">
               {loading ? "กำลังโหลด…" : "ยังไม่มีดวงจร"}
             </p>
           ) : (
-            filteredThreads.map((t) => (
+            filteredTransitThreads.map((t) => (
               <Link
                 key={t.id}
                 href={`/dashboard?thread=${t.id}${t.categorySlug ? `&cat=${t.categorySlug}` : ""}`}

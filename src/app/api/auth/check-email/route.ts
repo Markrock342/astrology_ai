@@ -9,7 +9,7 @@ import { getEmailAuthStatus } from "@/server/auth/account-lookup";
  */
 export async function POST(req: Request) {
   return handle(async () => {
-    rateLimit(`check-email:${req.headers.get("x-forwarded-for") ?? "local"}`, 20, 60_000);
+    await rateLimit(`check-email:${req.headers.get("x-forwarded-for") ?? "local"}`, 20, 60_000);
     const { email } = checkEmailSchema.parse(await req.json());
     return ok(await getEmailAuthStatus(email));
   });

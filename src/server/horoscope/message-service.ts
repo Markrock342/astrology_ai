@@ -2,6 +2,10 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getEffectivePlan } from "@/server/user/account-service";
 import { createReading } from "@/server/horoscope/reading-service";
+import {
+  appendExchangeToConversation,
+  loadPriorMessages,
+} from "@/server/horoscope/thread-service";
 import type { ConversationMode } from "@prisma/client";
 
 export type SendMessageInput = {
@@ -30,11 +34,14 @@ export async function sendMessage(input: SendMessageInput) {
     );
   }
 
+  if (conversation.category.accessLevel === "PRO" && plan !== "PRO") {
+    throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
+  }
+
   if (conversation.mode === "TRANSIT" && plan !== "PRO") {
     throw new AppError("TRANSIT_REQUIRES_PRO", "โหมดดวงจรสำหรับสมาชิก Pro");
   }
 
-  // Idempotency: assistant message already created for this key → return without duplicate charge/messages.
   const existingAssistant = await prisma.message.findUnique({
     where: {
       conversationId_idempotencyKey: {
@@ -63,11 +70,7 @@ export async function sendMessage(input: SendMessageInput) {
     };
   }
 
-  const priorMessages = await prisma.message.findMany({
-    where: { conversationId: conversation.id },
-    orderBy: { createdAt: "asc" },
-    select: { role: true, content: true },
-  });
+  const priorMessages = await loadPriorMessages(conversation.id, input.userId);
 
   const reading = await createReading({
     userId: input.userId,
@@ -75,33 +78,30 @@ export async function sendMessage(input: SendMessageInput) {
     question: input.content,
     idempotencyKey: input.idempotencyKey,
     priorMessages,
+    mode: conversation.mode,
+    transit:
+      conversation.mode === "TRANSIT" && conversation.transitDate
+        ? {
+            date: conversation.transitDate,
+            time: conversation.transitTime,
+            country: conversation.transitCountry,
+            province: conversation.transitProvince,
+            district: conversation.transitDistrict,
+          }
+        : null,
   });
 
-  await prisma.$transaction([
-    prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        role: "USER",
-        content: input.content,
-      },
-    }),
-    prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        role: "ASSISTANT",
-        content: reading.responseText ?? "",
-        idempotencyKey: input.idempotencyKey,
-        provider: reading.provider,
-        modelId: reading.modelId ?? undefined,
-        creditCost: reading.creditCost,
-        status: reading.status,
-      },
-    }),
-    prisma.conversation.update({
-      where: { id: conversation.id },
-      data: { updatedAt: new Date() },
-    }),
-  ]);
+  await appendExchangeToConversation({
+    conversationId: conversation.id,
+    userId: input.userId,
+    userContent: input.content,
+    idempotencyKey: input.idempotencyKey,
+    assistantContent: reading.responseText ?? "",
+    provider: reading.provider ?? undefined,
+    modelId: reading.modelId,
+    creditCost: reading.creditCost,
+    status: reading.status,
+  });
 
   return reading;
 }

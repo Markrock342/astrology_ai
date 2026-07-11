@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CompactRasiWheel } from "./compact-rasi-wheel";
+import type { ChartJson } from "@/types/chart";
 
 type NatalChartRow = {
   status: "PENDING" | "READY" | "FAILED";
   note?: string | null;
-  computedAt?: string | null;
+  chartJson?: ChartJson | null;
 };
 
-const STATUS_LABEL: Record<NatalChartRow["status"], string> = {
-  PENDING: "กำลังเตรียมพื้นดวงเดิม",
-  READY: "พื้นดวงเดิมพร้อมแล้ว",
-  FAILED: "คำนวณพื้นดวงไม่สำเร็จ",
-};
-
+/**
+ * Silent chart strip: show wheel when ready.
+ * Only show short status text for PENDING/FAILED (actionable).
+ */
 export function NatalChartBanner() {
   const [chart, setChart] = useState<NatalChartRow | null>(null);
 
@@ -33,10 +33,29 @@ export function NatalChartBanner() {
 
   if (!chart) return null;
 
-  return (
-    <div className="animate-fade-in mx-auto mb-4 max-w-3xl rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-xs text-[var(--muted)]">
-      <p className="font-medium text-[var(--foreground)]">{STATUS_LABEL[chart.status]}</p>
-      {chart.note && <p className="mt-1 leading-relaxed">{chart.note}</p>}
-    </div>
-  );
+  if (chart.status === "READY" && chart.chartJson) {
+    return (
+      <div className="animate-fade-in mx-auto mb-3 flex max-w-3xl justify-center px-4 pt-2">
+        <CompactRasiWheel chart={chart.chartJson} size={120} />
+      </div>
+    );
+  }
+
+  if (chart.status === "PENDING") {
+    return (
+      <div className="mx-auto mb-3 max-w-3xl px-4 text-center text-[11px] text-[var(--muted-2)]">
+        …
+      </div>
+    );
+  }
+
+  if (chart.status === "FAILED") {
+    return (
+      <div className="mx-auto mb-3 max-w-3xl px-4 text-center text-[11px] text-[var(--danger)]">
+        {chart.note ?? "คำนวณไม่สำเร็จ"}
+      </div>
+    );
+  }
+
+  return null;
 }

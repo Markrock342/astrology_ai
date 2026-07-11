@@ -1,71 +1,69 @@
-# newhora engine integration
+# newhora / myhora integration (scrape-first + formula fallback)
 
-HoraSard computes natal charts using a **vendored copy** of the [newhora](https://github.com/) formula pipeline (Thai suryayat / Lahiri / Antonathi samrap).
-
-## chartJson shape
-
-Stored in `NatalChart.chartJson` — TypeScript type: `src/types/chart.ts` (`ChartJson`).
-
-| Field | Description |
-|-------|-------------|
-| `input` | Birth date/time/place sent to the engine |
-| `calculatedAt` | ISO timestamp |
-| `settings` | Fixed Thai calculation rules (suryayat, lahiri, …) |
-| `meta.lagna` | Ascendant sign (ลัคนา) |
-| `meta.calculationSource` | `formula-pipeline` \| `suryayat-100-*` (when year tables added) |
-| `planets[]` | 10 planets → sidereal sign |
-| `chart.taksa[]` | Taksa slots from lagna |
-
-## Code map
-
-| Path | Role |
-|------|------|
-| `src/server/horoscope/engine/compute-chart.ts` | Entry: `computeNatalChart(input)` |
-| `src/server/horoscope/engine/birth-input-mapper.ts` | `BirthProfile` → engine input |
-| `src/server/horoscope/engine/format-chart-prompt.ts` | Chart → Thai text for AI |
-| `src/server/horoscope/engine/newhora/` | Vendored formulas from newhora repo |
-| `src/server/horoscope/natal-chart-service.ts` | Compute on birth save → DB |
-| `src/server/horoscope/chart-context.ts` | Load READY chart for chat |
-| `src/server/horoscope/prompt-resolver.ts` | System/persona/format from CMS |
-| `src/server/ai/prompt-builder.ts` | Assemble system + user prompts |
+HoraSard builds chart evidence for AI readings from **myhora scrape first**
+(same tables that work well in the newhora project), then lets Gemini **interpret
+only those tables**. Local formula pipeline remains the fallback when scrape fails.
 
 ## Runtime flow
 
 ```
 Save birth profile
   → queueNatalChart()
-  → computeNatalChart()  (astronomy-engine + formulas)
-  → NatalChart { status: READY, chartJson }
+  → computeNatalChart()          // scrape-first
+       ├─ ENABLE_MYHORA_SCRAPE (default on)
+       │    → fetch myhora thai.aspx + embeds
+       │    → map → ChartJson { calculationSource: "myhora-scrape", myhora: {...} }
+       └─ on failure → formula-pipeline / suryayat-100
+  → NatalChart { status: READY, chartJson }   // cached — no scrape per chat message
 
-User sends chat message
-  → loadChartForUser()
-  → buildUserPrompt(profile, question, chartJson)
-  → Gemini
+User sends chat
+  → requireReadyNatalChart()     // load cache; recompute once if needed
+  → [TRANSIT] computeTransitChart(transit snapshot, natal input)
+  → formatChartForPrompt()       // samrap / taksa / triwai when present
+  → Gemini (ENGINE_CHART_RULE: no inventing planets)
+  → UI: CompactRasiWheel + ChartEvidenceTable (proof for the user)
 ```
 
-## Suryayat-100 calendar (optional upgrade)
+## Env
 
-newhora can lookup precomputed year JSON (`data/suryayat100/years/*.json`).  
-Our vendored `lookup.ts` currently returns `null` → always uses **formula-pipeline**.
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `ENABLE_MYHORA_SCRAPE` | on | Set `false` / `0` / `off` to force local formulas only |
+| `MYHORA_ORIGIN` | `https://myhora.com` | Upstream origin (server-side only) |
+| `MYHORA_SCRAPE_TIMEOUT_MS` | `20000` | Per-request abort timeout |
 
-To enable calendar lookup:
+Never scrape from the browser (CORS / leak). All fetch runs in Node on the server.
 
-1. Copy `newhora/src/data/suryayat100/` into `engine/newhora/data/suryayat100/`
-2. Replace `lookup.ts` with newhora version adapted for Node (no `import.meta.glob` — use `fs.readdir` or static imports)
+## chartJson shape
 
-## Syncing from newhora
+Type: `src/types/chart.ts` (`ChartJson`).
 
-Source of truth: `code-archive/newhora` (or your git remote).
+| Field | Description |
+|-------|-------------|
+| `input` | Birth date/time/place |
+| `meta.calculationSource` | `myhora-scrape` \| `formula-pipeline` \| `suryayat-100-*` |
+| `planets[]` | 10 planets → sidereal sign + optional degree |
+| `chart.taksa[]` | Taksa from lagna (always filled) |
+| `myhora` | Structured scrape tables: natalPlanets, transitPlanets, taksa grid, triwai, dateDetail |
 
-```bash
-# Example: refresh formula files after newhora updates
-cp newhora/src/utils/formulas/*.ts hora_ai/src/server/horoscope/engine/newhora/formulas/
-# Re-apply lookup stub or port glob loader
-npm run typecheck
-```
+## Code map
 
-## Dependencies
+| Path | Role |
+|------|------|
+| `engine/myhora/fetch-myhora.ts` | Node scrape (ViewState POST + embeds) |
+| `engine/myhora/parse-*.ts` | HTML → structured tables |
+| `engine/myhora/map-to-chart.ts` | Scrape → `ChartJson` |
+| `engine/compute-chart.ts` | Scrape-first + formula fallback |
+| `engine/format-chart-prompt.ts` | Evidence tables → AI prompt text |
+| `natal-chart-service.ts` | Persist READY chart (cache) |
+| `components/app/chart-evidence-table.tsx` | Show proof table in chat |
 
-- `astronomy-engine` — ephemeris for formula fallback path
+## Out of scope until scrape HTML exists
 
-No `NEWHORA_ROOT` env required — engine is embedded in this repo.
+กาลจักร / พารณสี / ทศา (10luck) — add when parse paths return real data.
+
+## Ops notes
+
+- myhora HTML changes break parsers → formula fallback still serves chat
+- Recompute is rate-limited (`natal-recompute:{userId}`, 5/min)
+- Treat myhora as a brittle third party; prefer caching birth charts

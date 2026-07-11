@@ -1,3 +1,4 @@
+import type { ConversationMode } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getEffectivePlan } from "@/server/user/account-service";
@@ -7,8 +8,10 @@ import { generateWithFallback, resolveConfig } from "@/server/ai/router";
 import { buildSystemPrompt, buildConversationHistory } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
-import { loadChartForUser } from "@/server/horoscope/chart-context";
+import { requireReadyNatalChart } from "@/server/horoscope/chart-context";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
+import { computeTransitChart } from "@/server/horoscope/engine/compute-chart";
+import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
 import type { BirthProfileSnapshot } from "@/types";
 
 /**
@@ -18,9 +21,16 @@ import type { BirthProfileSnapshot } from "@/types";
  *   - retry / double-click => idempotencyKey returns the existing reading
  *   - credit deduction + reading + usage log committed in ONE transaction
  *
- * Steps 1-6 run outside the DB transaction (checks + AI call). Only after a
- * validated success do we open the transaction to charge + persist (step 7).
+ * Engine-first: natal chart MUST be READY (recompute once) before Gemini.
  */
+
+export type TransitSnapshotInput = {
+  date: Date;
+  time?: string | null;
+  country?: string | null;
+  province?: string | null;
+  district?: string | null;
+};
 
 export type CreateReadingInput = {
   userId: string;
@@ -29,17 +39,43 @@ export type CreateReadingInput = {
   idempotencyKey?: string;
   /** Prior messages in the conversation (oldest first), excluding the new question. */
   priorMessages?: PriorThreadMessage[];
+  mode?: ConversationMode;
+  transit?: TransitSnapshotInput | null;
 };
+
+function transitToChartInput(
+  transit: TransitSnapshotInput,
+  natalFallback: BirthInputSnapshot,
+): BirthInputSnapshot {
+  const d = transit.date;
+  return {
+    day: d.getUTCDate(),
+    month: d.getUTCMonth() + 1,
+    year: d.getUTCFullYear(),
+    time: transit.time?.trim() || "12:00",
+    country: transit.country?.trim() || natalFallback.country,
+    province: transit.province?.trim() || natalFallback.province,
+    district: transit.district?.trim() || natalFallback.district,
+  };
+}
 
 export async function createReading(input: CreateReadingInput) {
   const { userId, categorySlug, question, idempotencyKey, priorMessages } = input;
+  const mode = input.mode ?? "NATAL";
 
   // 0. Idempotency: if we already produced a reading for this key, return it.
   if (idempotencyKey) {
     const existing = await prisma.horoscopeReading.findUnique({
       where: { userId_idempotencyKey: { userId, idempotencyKey } },
     });
-    if (existing) return existing;
+    if (existing) {
+      const natalChart = await requireReadyNatalChart(userId).catch(() => null);
+      return {
+        ...existing,
+        chartSnapshot: natalChart,
+        transitSnapshot: null as ChartJson | null,
+      };
+    }
   }
 
   // 1. User must be active.
@@ -66,6 +102,14 @@ export async function createReading(input: CreateReadingInput) {
     );
   }
 
+  if (category.accessLevel === "PRO" && plan !== "PRO") {
+    throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
+  }
+
+  if (mode === "TRANSIT" && plan !== "PRO") {
+    throw new AppError("TRANSIT_REQUIRES_PRO", "โหมดดวงจรสำหรับสมาชิก Pro");
+  }
+
   // 4. Quota pre-check (final atomic check happens inside the transaction).
   const wallet = await prisma.creditWallet.findUnique({ where: { userId } });
   if ((wallet?.balance ?? 0) < category.creditCost) {
@@ -88,8 +132,27 @@ export async function createReading(input: CreateReadingInput) {
     additionalInfo: profile.additionalInfo,
   };
 
+  // 5b. Engine-first gate — never call Gemini without a computed natal chart.
+  const natalChart = await requireReadyNatalChart(userId);
+
+  let transitChart: ChartJson | null = null;
+  if (mode === "TRANSIT") {
+    if (!input.transit?.date) {
+      throw new AppError(
+        "VALIDATION",
+        "โหมดดวงจรต้องระบุวันเวลา/สถานที่สำหรับคำนวณดวงจร",
+      );
+    }
+    const transitInput = transitToChartInput(input.transit, natalChart.input);
+    try {
+      transitChart = await computeTransitChart(transitInput, natalChart.input);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "คำนวณดวงจรไม่สำเร็จ";
+      throw new AppError("CHART_NOT_READY", message);
+    }
+  }
+
   // 6. Resolve config + prompt, then call AI (no charge yet).
-  // Prompt priority: category-specific template > config template > default.
   const config = await resolveConfig(category.id, plan);
   const templateId = category.promptTemplateId ?? config.promptTemplateId;
 
@@ -110,8 +173,6 @@ export async function createReading(input: CreateReadingInput) {
     personaTemplateId: templateId,
   });
 
-  const chartJson = await loadChartForUser(userId);
-
   const systemPrompt = buildSystemPrompt({
     ...promptParts,
     knowledge,
@@ -119,8 +180,9 @@ export async function createReading(input: CreateReadingInput) {
   const { conversationHistory, userPrompt } = buildConversationHistory(
     priorMessages ?? [],
     snapshot,
-    chartJson,
+    natalChart,
     question,
+    transitChart,
   );
 
   const result = await generateWithFallback(config.id, {
@@ -188,5 +250,9 @@ export async function createReading(input: CreateReadingInput) {
     return created;
   });
 
-  return reading;
+  return {
+    ...reading,
+    chartSnapshot: natalChart,
+    transitSnapshot: transitChart,
+  };
 }

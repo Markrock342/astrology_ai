@@ -11,7 +11,7 @@ import { verifyTurnstile, clientIp } from "@/server/auth/turnstile";
  */
 export async function POST(req: Request) {
   return handle(async () => {
-    rateLimit(`forgot-password:${req.headers.get("x-forwarded-for") ?? "local"}`, 10, 60_000);
+    await rateLimit(`forgot-password:${req.headers.get("x-forwarded-for") ?? "local"}`, 10, 60_000);
     const body = forgotPasswordSchema.parse(await req.json());
     await verifyTurnstile(body.turnstileToken, clientIp(req));
     await requestPasswordReset(body.email);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
 import { handle, ok } from "@/lib/http";
+import { rateLimit } from "@/lib/rate-limit";
 import { requireUser } from "@/server/auth/rbac";
 import { sendMessage } from "@/server/horoscope/message-service";
 
@@ -15,6 +16,7 @@ export async function POST(
 ) {
   return handle(async () => {
     const user = await requireUser();
+    await rateLimit(`chat:${user.id}`, 10, 60_000);
     const { id } = await ctx.params;
     const idempotencyKey = req.headers.get("Idempotency-Key");
     if (!idempotencyKey) {

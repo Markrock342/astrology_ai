@@ -60,4 +60,6 @@ export type ChartJson = {
   };
   planets: PlanetSignRow[];
   chart?: ChartSnapshot;
+  /** Structured myhora scrape tables (evidence for UI + AI). */
+  myhora?: import("@/types/myhora").MyhoraTables;
 };

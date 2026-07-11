@@ -1,0 +1,4 @@
+# Never upload local secrets to Vercel — use `npm run deploy:env` instead.
+.env
+.env.*
+!.env.example
