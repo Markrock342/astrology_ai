@@ -20,7 +20,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 | Milestone | สถานะรวม |
 |-----------|----------|
 | **M2** — Schema chat, Auth, Birth profile, Admin CMS พื้นฐาน | ✅ ปิดแล้ว |
-| **M3** — แชท AI, Gemini, ประวัติเธรด, Admin AI CMS | 🟢 **~90%** — B1 multi-turn แล้ว ขาด B2 tests |
+| **M3** — แชท AI, Gemini, ประวัติเธรด, Admin AI CMS | ✅ **ปิด BN** — B1+B2 เสร็จ (รอ merge + FN F2) |
 | **M4** — Payment, Dashboard, Deploy | 🟢 **~80%** — code ครบ ขาด rate-limit prod (B3) + go-live config (B4) |
 
 **Feature gating:** `src/config/features.ts` — ตั้ง `NEXT_PUBLIC_APP_PHASE=2` บน Vercel จะปิด AI chat + Admin AI CMS; dev ไม่ตั้ง = เปิดทั้งหมด
@@ -75,7 +75,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 | ID | งาน | หมายเหตุ |
 |----|-----|----------|
 | **B1** | Multi-turn chat context ใน prompt | ✅ `be/m3-multi-turn-chat` |
-| **B2** | Tests M3 (credit, refund, idempotency, lock, admin auth) | ค้าง |
+| **B2** | Tests M3 (credit, refund, idempotency, lock, admin auth) | ✅ `be/m3-tests` |
 | **B3** | Rate-limit production (Redis/Upstash) | รอ PM |
 | **B4** | Go-live: env Vercel, migrate+seed prod, smoke test | หลัง B1+B2 |
 
