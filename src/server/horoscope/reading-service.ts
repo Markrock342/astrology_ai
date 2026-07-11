@@ -4,7 +4,8 @@ import { getEffectivePlan } from "@/server/user/account-service";
 import { deductCredits } from "@/server/credit/credit-service";
 import { assertWithinUsageLimits } from "@/server/credit/quota-service";
 import { generateWithFallback, resolveConfig } from "@/server/ai/router";
-import { buildSystemPrompt, buildUserPrompt } from "@/server/ai/prompt-builder";
+import { buildSystemPrompt, buildConversationHistory } from "@/server/ai/prompt-builder";
+import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
 import { loadChartForUser } from "@/server/horoscope/chart-context";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
@@ -26,10 +27,12 @@ export type CreateReadingInput = {
   categorySlug: string;
   question: string;
   idempotencyKey?: string;
+  /** Prior messages in the conversation (oldest first), excluding the new question. */
+  priorMessages?: PriorThreadMessage[];
 };
 
 export async function createReading(input: CreateReadingInput) {
-  const { userId, categorySlug, question, idempotencyKey } = input;
+  const { userId, categorySlug, question, idempotencyKey, priorMessages } = input;
 
   // 0. Idempotency: if we already produced a reading for this key, return it.
   if (idempotencyKey) {
@@ -113,9 +116,18 @@ export async function createReading(input: CreateReadingInput) {
     ...promptParts,
     knowledge,
   });
-  const userPrompt = buildUserPrompt(snapshot, question, chartJson);
+  const { conversationHistory, userPrompt } = buildConversationHistory(
+    priorMessages ?? [],
+    snapshot,
+    chartJson,
+    question,
+  );
 
-  const result = await generateWithFallback(config.id, { systemPrompt, userPrompt });
+  const result = await generateWithFallback(config.id, {
+    systemPrompt,
+    userPrompt,
+    conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
+  });
 
   // 6b. On failure/timeout: log usage, DO NOT charge, surface a typed error.
   if (!result.ok || !result.rawText) {
