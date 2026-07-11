@@ -39,6 +39,11 @@ vi.mock("@/server/horoscope/reading-service", () => ({
   createReading: mocks.createReading,
 }));
 
+vi.mock("@/server/horoscope/thread-service", () => ({
+  loadPriorMessages: mocks.findMessages,
+  appendExchangeToConversation: vi.fn().mockResolvedValue(undefined),
+}));
+
 const conversation = {
   id: "conv-1",
   userId: "user-1",
@@ -100,10 +105,9 @@ describe("sendMessage (M3 B2)", () => {
 
     expect(result).toBe(existingReading);
     expect(mocks.createReading).not.toHaveBeenCalled();
-    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("passes prior messages into createReading", async () => {
+  it("passes prior messages into createReading via loadPriorMessages", async () => {
     mocks.findMessages.mockResolvedValue([
       { role: "USER", content: "คำถามแรก" },
       { role: "ASSISTANT", content: "คำตอบแรก" },

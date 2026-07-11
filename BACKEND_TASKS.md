@@ -91,14 +91,12 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 ### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History ✅ ปิด BN
 
-**เสร็จแล้ว:**
-
-- [x] API แชท + multi-turn context (B1)
-- [x] กฎ Free/Pro/transit lock + idempotency
-- [x] Gemini/OpenAI + Admin AI CMS
-- [x] **B2** Tests: credit · AI fail no charge · locks · idempotency · rbac · router fallback
-
-**รอ merge / FN:** F2 render thread history
+- [x] API แชท + multi-turn context
+- [x] thread list/detail จาก `Conversation`/`Message`
+- [x] `POST /api/horoscope/readings` รองรับ `conversationId` (ต่อเธรด + persist)
+- [x] กฎ Free/Pro/transit lock + idempotency + charge-after-success
+- [x] Gemini/OpenAI + Admin AI CMS + natal chart engine
+- [x] tests ครอบ flow หลัก (`npm run test` — 48 tests)
 
 ---
 
@@ -123,7 +121,7 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 ## 3. สิ่งที่เขียนไว้ให้แล้ว (ใช้ซ้ำ อย่าเขียนใหม่)
 - `credit-service.ts` — หักเครดิต atomic + optimistic lock + ledger immutable → **ทุกการเปลี่ยนเครดิตผ่านที่นี่ ห้ามแตะ `balance` ตรง**
 - `reading-service.ts` — flow charge-after-success + idempotency (ปรับให้ทำงานระดับ message)
-- `message-service.ts` + `thread-service.ts` — API แชท (B1: ยังไม่ส่ง thread context)
+- `message-service.ts` + `thread-service.ts` — API แชท + list/detail/persist บน `Conversation`/`Message`
 - `src/server/ai/` — adapter · router (fallback) · prompt-builder · usage-logger
 - `payment-service.ts` · `dashboard-admin-service.ts`
 - `rbac.ts` — `requireUser()`, `requireAdmin()`, `requireSuperAdmin()`
