@@ -65,6 +65,8 @@ export const birthProfileSchema = z
 export const createReadingSchema = z.object({
   categorySlug: z.string().min(1),
   question: z.string().min(1).max(1000),
+  /** When set, prior thread messages are loaded and the exchange is persisted on the thread. */
+  conversationId: z.string().min(1).optional(),
 });
 
 export const updateProfileSchema = z.object({

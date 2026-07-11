@@ -18,7 +18,7 @@ const createSchema = z.object({
   transitDistrict: z.string().optional(),
 });
 
-/** Sidebar threads — TRANSIT (ดวงจร) by default; NATAL for legacy/history. */
+/** Sidebar threads — TRANSIT by default; NATAL lists natal conversation threads. */
 export async function GET(req: Request) {
   return handle(async () => {
     const user = await requireUser();
