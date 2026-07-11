@@ -89,25 +89,16 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 ---
 
-### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History 🟢 ~90%
+### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History ✅ ปิด BN
 
-**เสร็จแล้ว (อย่าทำซ้ำ):**
+**เสร็จแล้ว:**
 
-- [x] API แชท: `GET|POST /api/conversations`, `GET /api/conversations/:id`, `POST .../messages` (+ `Idempotency-Key`)
-- [x] กฎ Free ห้ามแชท: `CHAT_REQUIRES_PRO` + `canChat` ใน `/api/me`
-- [x] `TRANSIT_REQUIRES_PRO` ใน `message-service`
-- [x] `NatalChart` + newhora engine port เต็ม + `GET /api/me/natal-chart` + `chart-engine.test.ts`
-- [x] `providers/gemini.ts` — REST จริง + `AbortController(timeoutMs)` + คืน `ok:false` (ไม่ throw)
-- [x] **B1** multi-turn: `buildConversationHistory` + adapter multi-turn + message idempotency
-- [x] `suggestedQuestions` ใน `GET /api/horoscope/categories` (`category-service.ts`)
-- [x] Admin AI CMS: prompts, ai-configs, knowledge + `POST .../test`, `GET /api/admin/ai-usage`
-- [x] Admin CMS ขยาย: draft/publish, revisions, FAQ, announcements, settings, SEO (`3796e65`)
+- [x] API แชท + multi-turn context (B1)
+- [x] กฎ Free/Pro/transit lock + idempotency
+- [x] Gemini/OpenAI + Admin AI CMS
+- [x] **B2** Tests: credit · AI fail no charge · locks · idempotency · rbac · router fallback
 
-**ค้างจริง (B2):**
-
-- [ ] **B2** Tests: หักเครดิต · refund เมื่อ AI error · Free/Pro + ดวงจร lock · model routing · admin auth · idempotency
-
-**Acceptance (ยังไม่ครบ):** test ครอบคลุมเงิน/สิทธิ์ (B2)
+**รอ merge / FN:** F2 render thread history
 
 ---
 
