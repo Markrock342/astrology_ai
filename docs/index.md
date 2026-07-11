@@ -15,7 +15,8 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 
 **เอกสารอ้างอิง:** `README.md` · `PROJECT_STRUCTURE.md` · `BACKEND_TASKS.md` · `FRONTEND_TASKS.md` · **`M4_HANDOFF.md`** (สถานะจริงตรวจกับโค้ด)
 
-**M3 รอ/ค้าง:** [backend_m3_waitlist.md](./backend_m3_waitlist.md)
+**M3 รอ/ค้าง:** [backend_m3_waitlist.md](./backend_m3_waitlist.md)  
+**M4 deploy/waitlist:** [backend_m4_deploy.md](./backend_m4_deploy.md) · [backend_m4_waitlist.md](./backend_m4_waitlist.md)
 
 ## Milestone ปัจจุบัน
 
@@ -23,7 +24,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 |-----------|----------|
 | **M2** — Schema chat, Auth, Birth profile, Admin CMS พื้นฐาน | ✅ ปิดแล้ว |
 | **M3** — แชท AI, Gemini, ประวัติเธรด, Admin AI CMS | ✅ **ปิด BN 100%** |
-| **M4** — Payment, Dashboard, Deploy | 🟢 **~80%** — code ครบ ขาด rate-limit prod (B3) + go-live config (B4) |
+| **M4** — Payment, Dashboard, Deploy | 🟡 **BN prep ครบ** — รอ PM (B3) + ตั้งค่า prod (B4) |
 
 **Feature gating:** `src/config/features.ts` — ตั้ง `NEXT_PUBLIC_APP_PHASE=2` บน Vercel จะปิด AI chat + Admin AI CMS; dev ไม่ตั้ง = เปิดทั้งหมด
 
@@ -43,7 +44,8 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 | Admin AI CMS (prompts, models, knowledge, usage) | ✅ ~M3 | [backend_ai_admin.md](./backend_ai_admin.md) | `ai-admin-service.ts`, `/api/admin/{prompts,ai-configs,knowledge,ai-usage}` |
 | AI engine + readings | ✅ ~M3 | [backend_ai_engine.md](./backend_ai_engine.md) | `src/server/ai/*`, `reading-service.ts` |
 | Chat conversations API | ✅ M3 ปิด | [backend_m3_chat.md](./backend_m3_chat.md) | `thread-service.ts`, `message-service.ts`, `/api/conversations/*` |
-| Payment + dashboard (M4) | ✅ code | [backend_m4_payment.md](./backend_m4_payment.md) | `payment-service.ts`, `dashboard-admin-service.ts` |
+| Payment + dashboard (M4) | ✅ code + tests | [backend_m4_payment.md](./backend_m4_payment.md) | `payment-service.ts`, `dashboard-admin-service.ts` |
+| M4 deploy / go-live | 🟡 checklist | [backend_m4_deploy.md](./backend_m4_deploy.md) | `.env.example`, `scripts/smoke-public-api.mjs` |
 
 ## โมดูล Frontend
 
@@ -76,7 +78,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 
 | ID | งาน | หมายเหตุ |
 |----|-----|----------|
-| **M4** | Rate-limit prod (รอ PM) + go-live config | ดู [backend_m4_payment.md](./backend_m4_payment.md) |
+| **M4** | B3 รอ PM · B4 ตั้งค่า prod | [backend_m4_deploy.md](./docs/backend_m4_deploy.md) |
 
 ---
 

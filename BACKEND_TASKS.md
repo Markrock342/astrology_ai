@@ -113,8 +113,14 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 **ค้างจริง (B3–B4):**
 
-- [ ] **B3** Rate-limit production-grade (Redis/Upstash) — **รอ PM ตัดสินใจ** (ตอนนี้ in-memory)
-- [ ] **B4** Go-live config: env บน Vercel ครบ, migrate+seed prod, backup, smoke test
+- [ ] **B3** Rate-limit production — **รอ PM** ([docs/backend_m4_waitlist.md](./docs/backend_m4_waitlist.md))
+- [ ] **B4** Go-live: ตั้ง env Vercel, migrate+seed prod, smoke test — [docs/backend_m4_deploy.md](./docs/backend_m4_deploy.md)
+
+**เตรียมแล้ว (BN):**
+
+- [x] `.env.example` production vars
+- [x] `npm run smoke:public` — ตรวจ public API หลัง deploy
+- [x] `tests/payment-service.test.ts`
 
 ---
 
