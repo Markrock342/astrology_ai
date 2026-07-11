@@ -53,8 +53,8 @@ export async function getMe(userId: string) {
     birthEditsRemaining: editsRemaining,
     plan,
     creditBalance: balance,
-    /** Flowchart: only Pro may use AI chat. */
-    canChat: plan === "PRO",
+    /** Free may chat on FREE categories; Pro categories gated by CATEGORY_LOCKED. */
+    canChat: true,
     emailVerified: Boolean(user.emailVerifiedAt),
     needsEmailVerification: Boolean(passwordHash && !user.emailVerifiedAt),
   };
@@ -94,7 +94,7 @@ export async function getMyPackage(userId: string) {
     plan,
     credits: balance,
     creditBalance: balance,
-    canChat: plan === "PRO",
+    canChat: true,
     subscription,
   };
 }
