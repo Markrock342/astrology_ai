@@ -33,6 +33,11 @@
 - [ ] รัน `npm run db:seed` (ครั้งแรกเท่านั้น หรือตามนโยบายทีม)
 - [ ] ยืนยัน backup policy ใน Supabase dashboard
 
+### Upstash Redis (B3 — code พร้อมแล้ว)
+- [ ] สร้าง database ที่ [upstash.com](https://upstash.com) (free tier)
+- [ ] Copy `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` ไป Vercel
+- [ ] ไม่ตั้ง = ใช้ in-memory fallback อัตโนมัติ (dev/single-instance)
+
 ### Vercel environment (Production)
 - [ ] `AUTH_SECRET` — `npx auth secret`
 - [ ] `AUTH_URL` + `APP_BASE_URL` — domain จริง (https)
@@ -41,7 +46,7 @@
 - [ ] `RESEND_API_KEY` + `EMAIL_FROM` — อีเมล reset/verify จริง
 - [ ] `TURNSTILE_SECRET_KEY` + `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (แนะนำ)
 - [ ] `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` — สำหรับ seed admin
-- [ ] `NEXT_PUBLIC_APP_PHASE` — ตาม milestone ที่เปิดขาย
+- [ ] `NEXT_PUBLIC_APP_PHASE=3` — เปิด AI + Admin AI CMS (PM เลือกแล้ว)
 - [ ] `OPENAI_API_KEY` — ถ้าใช้ fallback provider ใน Admin CMS
 
 ### หลัง deploy

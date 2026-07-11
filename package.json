@@ -25,6 +25,8 @@
     "@auth/prisma-adapter": "^2.11.2",
     "@marsidev/react-turnstile": "^1.5.3",
     "@prisma/client": "^6.19.3",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "astronomy-engine": "^2.1.19",
     "bcryptjs": "^3.0.3",
     "next": "16.2.10",

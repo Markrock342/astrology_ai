@@ -9,7 +9,7 @@ import { resetPassword } from "@/server/auth/password-reset-service";
  */
 export async function POST(req: Request) {
   return handle(async () => {
-    rateLimit(`reset-password:${req.headers.get("x-forwarded-for") ?? "local"}`, 10, 60_000);
+    await rateLimit(`reset-password:${req.headers.get("x-forwarded-for") ?? "local"}`, 10, 60_000);
     const { token, password } = resetPasswordSchema.parse(await req.json());
     await resetPassword(token, password);
     return ok({ reset: true });

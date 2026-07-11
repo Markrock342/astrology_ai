@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       );
     }
     const user = await requireUser();
-    rateLimit(`reading:${user.id}`, 10, 60_000);
+    await rateLimit(`reading:${user.id}`, 10, 60_000);
 
     const body = await req.json();
     const { categorySlug, question, conversationId } = createReadingSchema.parse(body);
