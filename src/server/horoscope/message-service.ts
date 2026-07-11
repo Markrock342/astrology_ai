@@ -75,6 +75,17 @@ export async function sendMessage(input: SendMessageInput) {
     question: input.content,
     idempotencyKey: input.idempotencyKey,
     priorMessages,
+    mode: conversation.mode,
+    transit:
+      conversation.mode === "TRANSIT" && conversation.transitDate
+        ? {
+            date: conversation.transitDate,
+            time: conversation.transitTime,
+            country: conversation.transitCountry,
+            province: conversation.transitProvince,
+            district: conversation.transitDistrict,
+          }
+        : null,
   });
 
   await prisma.$transaction([

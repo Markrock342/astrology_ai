@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   resolveConfig: vi.fn(),
   resolvePromptParts: vi.fn(),
   loadChart: vi.fn(),
+  requireReadyNatalChart: vi.fn(),
   generateWithFallback: vi.fn(),
   logUsage: vi.fn(),
   deductCredits: vi.fn(),
@@ -51,6 +52,7 @@ vi.mock("@/server/horoscope/prompt-resolver", () => ({
 
 vi.mock("@/server/horoscope/chart-context", () => ({
   loadChartForUser: mocks.loadChart,
+  requireReadyNatalChart: mocks.requireReadyNatalChart,
 }));
 
 vi.mock("@/server/ai/usage-logger", () => ({
@@ -99,6 +101,37 @@ function setupHappyPath() {
     outputFormat: "fmt",
   });
   mocks.loadChart.mockResolvedValue(null);
+  mocks.requireReadyNatalChart.mockResolvedValue({
+    input: {
+      day: 15,
+      month: 1,
+      year: 1990,
+      time: "08:30",
+      country: "ไทย",
+      province: "กรุงเทพมหานคร",
+      district: "พระนคร",
+    },
+    calculatedAt: new Date().toISOString(),
+    settings: {
+      calendar: "suryayat",
+      ayanamsa: "lahiri",
+      timeMethod: "antonathi_samrap_sunrise_local",
+      rahuRule: "eight_signs_aquarius",
+      taksaRahuLord: "mercury_night",
+      taksaCountFrom: "center",
+    },
+    meta: {
+      birthDisplay: "15/1/1990 08:30",
+      locationDisplay: "พระนคร, กรุงเทพมหานคร",
+      calculationSource: "formula-pipeline",
+      lagna: "เมษ",
+    },
+    planets: [
+      { planet: "อาทิตย์", siderealSign: "มกร", degreeText: "10°" },
+      { planet: "จันทร์", siderealSign: "เมษ", degreeText: "5°" },
+    ],
+    chart: { lagna: "เมษ", taksa: [] },
+  });
   mocks.generateWithFallback.mockResolvedValue({
     ok: true,
     rawText: "คำตอบจาก AI",
@@ -143,7 +176,11 @@ describe("createReading (M3 B2)", () => {
       idempotencyKey: "key-1",
     });
 
-    expect(result).toBe(existing);
+    expect(result).toMatchObject({
+      id: "reading-existing",
+      responseText: "เดิม",
+      transitSnapshot: null,
+    });
     expect(mocks.generateWithFallback).not.toHaveBeenCalled();
     expect(mocks.transaction).not.toHaveBeenCalled();
   });

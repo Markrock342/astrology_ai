@@ -11,11 +11,17 @@ import {
   useCategory,
 } from "./app-data-provider";
 
+import { CompactRasiWheel } from "./compact-rasi-wheel";
+import { ChartEvidenceTable } from "./chart-evidence-table";
+import type { ChartJson } from "@/types/chart";
+
 type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
   modelId?: string;
+  chartSnapshot?: ChartJson | null;
+  transitSnapshot?: ChartJson | null;
 };
 type ChatState =
   | "idle"
@@ -45,6 +51,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   CATEGORY_LOCKED: "หมวดนี้สำหรับสมาชิก Pro",
   CHAT_REQUIRES_PRO: "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
   TRANSIT_REQUIRES_PRO: "โหมดดวงจรสำหรับสมาชิก Pro เท่านั้น อัปเกรดเพื่อใช้งาน",
+  CHART_NOT_READY:
+    "ยังคำนวณพื้นดวงไม่สำเร็จ กรุณาตรวจสอบข้อมูลวันเกิดแล้วลองใหม่",
   AI_TIMEOUT: "หมอดูใช้เวลานานเกินไป ลองถามใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
   AI_PROVIDER_ERROR: "ระบบทำนายขัดข้องชั่วคราว ลองใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
   VALIDATION: "กรุณากรอกข้อมูลวันเกิดก่อนเริ่มดูดวง",
@@ -141,9 +149,23 @@ export function ChatView() {
     };
   }, []);
 
-  function streamReply(full: string, modelId: string) {
+  function streamReply(
+    full: string,
+    modelId: string,
+    charts?: { natal?: ChartJson | null; transit?: ChartJson | null },
+  ) {
     const id = crypto.randomUUID();
-    setMessages((m) => [...m, { id, role: "assistant", content: "", modelId }]);
+    setMessages((m) => [
+      ...m,
+      {
+        id,
+        role: "assistant",
+        content: "",
+        modelId,
+        chartSnapshot: charts?.natal ?? null,
+        transitSnapshot: charts?.transit ?? null,
+      },
+    ]);
     setState("streaming");
 
     let i = 0;
@@ -243,11 +265,16 @@ export function ChatView() {
 
       setErrorCode(null);
       setPendingRetry(null);
-      const reading = json.data as { responseText: string; modelId: string | null };
-      streamReply(
-        reading.responseText,
-        reading.modelId ?? DEFAULTS.defaultGeminiModelId,
-      );
+      const reading = json.data as {
+        responseText: string;
+        modelId: string | null;
+        chartSnapshot?: ChartJson | null;
+        transitSnapshot?: ChartJson | null;
+      };
+      streamReply(reading.responseText, reading.modelId ?? DEFAULTS.defaultGeminiModelId, {
+        natal: reading.chartSnapshot,
+        transit: reading.transitSnapshot,
+      });
     } catch {
       setErrorCode("NETWORK");
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
@@ -294,6 +321,24 @@ export function ChatView() {
                 </div>
               ) : (
                 <div key={m.id} className="animate-msg-in max-w-[85%]">
+                  {(m.chartSnapshot || m.transitSnapshot) && (
+                    <div className="mb-3 flex flex-col gap-3">
+                      <div className="flex flex-wrap items-start gap-3">
+                        {m.chartSnapshot && (
+                          <CompactRasiWheel chart={m.chartSnapshot} size={132} />
+                        )}
+                        {m.transitSnapshot && (
+                          <CompactRasiWheel chart={m.transitSnapshot} size={132} />
+                        )}
+                      </div>
+                      {m.chartSnapshot && (
+                        <ChartEvidenceTable chart={m.chartSnapshot} mode="natal" />
+                      )}
+                      {m.transitSnapshot && (
+                        <ChartEvidenceTable chart={m.transitSnapshot} mode="transit" />
+                      )}
+                    </div>
+                  )}
                   <div
                     className={`whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)] ${
                       state === "streaming" && idx === messages.length - 1
