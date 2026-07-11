@@ -17,9 +17,21 @@ function generatedClientMarker(): string {
   }
 }
 
+/** Serverless-friendly URL: one connection per lambda via PgBouncer. */
+function databaseUrl(): string | undefined {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return undefined;
+  if (/[?&]connection_limit=/.test(raw)) return raw;
+  return raw.includes("?")
+    ? `${raw}&connection_limit=1`
+    : `${raw}?connection_limit=1`;
+}
+
 function createPrismaClient(): PrismaClient {
+  const url = databaseUrl();
   return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+    ...(url ? { datasources: { db: { url } } } : {}),
   });
 }
 
