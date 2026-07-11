@@ -43,6 +43,7 @@
 - [x] Wave D — UI ฟอร์มดวงจร (`TransitFormModal` + Pro gate)
 - [x] Engine scrape-first + ตารางหลักฐานดวง
 - [x] Free ห้ามแชท (`CHAT_REQUIRES_PRO` / `canChat: plan === "PRO"`)
+- [x] Admin AI CMS: prompts/persona + knowledge inject + ai-configs + usage
 
 ---
 
@@ -55,6 +56,24 @@
 5. แชทหลาย turn + ตารางหลักฐาน + ประวัติ sidebar  
 6. **ดวงจร:** แถบข้าง → เริ่มดวงจรใหม่ → กรอกวันเวลา → สนทนา  
 7. ตั้งค่า: กดโปรไฟล์ · ธีม: ไอคอนอาทิตย์/พระจันทร์  
+
+### 3.1 Admin AI หลังบ้าน (บุคลิก + ความรู้) — **มีครบ ไม่ใช่งานค้าง**
+
+| หน้า | ทำอะไร | ผลต่อแชท |
+|------|--------|----------|
+| `/admin/prompts` **บุคลิก AI** | แก้ system / persona / output format (draft → publish) | เข้า `buildSystemPrompt` ทุกครั้งที่ยิง Gemini |
+| `/admin/knowledge` **คลังความรู้** | ตำรา/FAQ ต่อหมวดหรือทั้งระบบ (เปิดใช้ + publish) | inject เป็นบล็อก “ความรู้อ้างอิง” ใน system prompt |
+| `/admin/ai-configs` **โมเดล AI** | เลือก Gemini model, ผูก persona, test endpoint | `secretReference` = ชื่อ env เช่น `GEMINI_API_KEY` |
+| `/admin/categories` | ผูก `promptTemplateId` / โมเดลต่อหมวด | หมวดใช้บุคลิกเฉพาะได้ |
+| `/admin/usage` | ดู log การเรียก AI | ไม่หักเครดิตตอน test |
+
+เงื่อนไข: `NEXT_PUBLIC_APP_PHASE≥3` (หรือไม่ตั้งใน dev) → `FEATURES.aiAdmin` + `aiChat` เปิด  
+รายละเอียด: `docs/backend_ai_admin.md`
+
+**Smoke แอดมิน (แนะนำก่อนส่งลูกค้า):**
+1. Login admin → แก้ persona แล้ว publish  
+2. เพิ่ม knowledge เปิดใช้ → ถามแชท Pro ว่าตอบอ้างอิงเนื้อหานั้นได้ไหม  
+3. AI Configs → กด Test โมเดล (ไม่หักเครดิต)  
 
 ---
 

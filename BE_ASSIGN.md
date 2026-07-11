@@ -11,8 +11,9 @@
 - [x] Deploy docs + smoke/scripts (B4)
 - [x] Engine scrape-first + transit create fields
 - [x] Empty TRANSIT thread โหลดได้ (ก่อนข้อความแรก)
+- [x] Admin AI CMS: prompts/persona + knowledge + ai-configs (inject เข้าแชท)
 
 ## ค้างมือ (ไม่ใช่โค้ด)
-- [ ] Manual smoke production
+- [ ] Manual smoke production (รวมแก้บุคลิก/ความรู้แล้วถามแชท)
 - [ ] Google OAuth redirect URI ตรงโดเมนจริง
 - [ ] (Optional) `UPSTASH_*` บน Vercel
