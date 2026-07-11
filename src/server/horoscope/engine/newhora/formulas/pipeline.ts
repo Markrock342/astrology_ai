@@ -65,10 +65,15 @@ function fromFormulaPipeline(input: BirthInput, place: PlaceCoords): {
 
   const lagnaResult = computeAntonathiSamrapLagna(riseTime, birthMin, sunriseMin)
 
-  const planets = PLANETS.map((planet) => ({
-    planet,
-    siderealSign: placements.get(planet)?.siderealSign ?? '—',
-  }))
+  const planets = PLANETS.map((planet) => {
+    const p = placements.get(planet)
+    return {
+      planet,
+      siderealSign: p?.siderealSign ?? '—',
+      degreeInSign: p?.degreeInSign,
+      degreeText: p?.degreeText,
+    }
+  })
 
   return { planets, lagna: lagnaResult.sign }
 }
