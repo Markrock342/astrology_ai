@@ -12,7 +12,7 @@ import { signInCredentials } from "@/server/auth/server-sign-in";
  */
 export async function POST(req: Request) {
   return handle(async () => {
-    rateLimit(`login:${req.headers.get("x-forwarded-for") ?? "local"}`, 20, 60_000);
+    await rateLimit(`login:${req.headers.get("x-forwarded-for") ?? "local"}`, 20, 60_000);
 
     const body = await req.json();
     const data = loginSchema.parse(body);

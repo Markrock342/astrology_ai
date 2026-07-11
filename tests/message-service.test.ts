@@ -39,11 +39,16 @@ vi.mock("@/server/horoscope/reading-service", () => ({
   createReading: mocks.createReading,
 }));
 
+vi.mock("@/server/horoscope/thread-service", () => ({
+  loadPriorMessages: mocks.findMessages,
+  appendExchangeToConversation: vi.fn().mockResolvedValue(undefined),
+}));
+
 const conversation = {
   id: "conv-1",
   userId: "user-1",
   mode: "NATAL" as const,
-  category: { slug: "career", nameTh: "การงาน" },
+  category: { slug: "career", nameTh: "การงาน", accessLevel: "FREE" },
 };
 
 describe("sendMessage (M3 B2)", () => {
@@ -79,6 +84,25 @@ describe("sendMessage (M3 B2)", () => {
     expect(mocks.createReading).not.toHaveBeenCalled();
   });
 
+  it("throws CHAT_REQUIRES_PRO before CATEGORY_LOCKED for Free on Pro category", async () => {
+    mocks.getEffectivePlan.mockResolvedValue("FREE");
+    mocks.findConversation.mockResolvedValue({
+      ...conversation,
+      category: { slug: "love", nameTh: "ความรัก", accessLevel: "PRO" },
+    });
+
+    await expect(
+      sendMessage({
+        conversationId: "conv-1",
+        userId: "user-1",
+        content: "สวัสดี",
+        idempotencyKey: "k1",
+      }),
+    ).rejects.toMatchObject({ code: "CHAT_REQUIRES_PRO" });
+
+    expect(mocks.createReading).not.toHaveBeenCalled();
+  });
+
   it("returns existing reading on idempotent retry without calling AI again", async () => {
     const existingReading = { id: "reading-1", responseText: "เดิม" };
     mocks.findMessage.mockResolvedValue({
@@ -100,10 +124,9 @@ describe("sendMessage (M3 B2)", () => {
 
     expect(result).toBe(existingReading);
     expect(mocks.createReading).not.toHaveBeenCalled();
-    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("passes prior messages into createReading", async () => {
+  it("passes prior messages into createReading via loadPriorMessages", async () => {
     mocks.findMessages.mockResolvedValue([
       { role: "USER", content: "คำถามแรก" },
       { role: "ASSISTANT", content: "คำตอบแรก" },

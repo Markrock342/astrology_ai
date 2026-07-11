@@ -34,6 +34,11 @@ const serverEnvSchema = z.object({
 
   SEED_ADMIN_EMAIL: z.string().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().optional(),
+
+  // Upstash Redis (M4 B3 distributed rate-limit). Optional — without these,
+  // rate-limit.ts falls back to in-memory per process.
+  UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
 });
 
 const parsed = serverEnvSchema.safeParse(process.env);

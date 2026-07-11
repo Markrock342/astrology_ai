@@ -27,6 +27,7 @@ import {
   AdminPage,
   Badge,
   Card,
+  CardSkeleton,
   Field,
   InfoBox,
   NavGroupLabel,
@@ -61,6 +62,7 @@ export function SettingsManager() {
   const [activeKey, setActiveKey] = useState<CmsKey>(CMS_KEYS.privacyPolicy);
   const [draft, setDraft] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
@@ -73,13 +75,20 @@ export function SettingsManager() {
   }, []);
 
   const load = useCallback(async () => {
-    const data = await adminFetch<SettingRow[]>("/api/admin/settings");
-    setRows(data);
-    const current = data.find((r) => r.key === activeKey);
-    if (current) {
-      setDraft(structuredClone(current.draft ?? current.published));
+    try {
+      setLoading(true);
+      const data = await adminFetch<SettingRow[]>("/api/admin/settings");
+      setRows(data);
+      const current = data.find((r) => r.key === activeKey);
+      if (current) {
+        setDraft(structuredClone(current.draft ?? current.published));
+      }
+      await loadRevisions(activeKey);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
-    await loadRevisions(activeKey);
   }, [activeKey, loadRevisions]);
 
   useEffect(() => {
@@ -198,6 +207,12 @@ export function SettingsManager() {
         </p>
       )}
 
+      {loading ? (
+        <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      ) : (
       <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
         <Card className="!p-2">
           <nav className="flex flex-col">
@@ -300,6 +315,7 @@ export function SettingsManager() {
           </p>
         </Card>
       </div>
+      )}
     </AdminPage>
   );
 }
