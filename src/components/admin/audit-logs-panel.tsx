@@ -8,6 +8,7 @@ import {
   PageHeader,
   Select,
   TableShell,
+  TableSkeleton,
   Td,
   TextInput,
   Th,
@@ -38,6 +39,7 @@ const PAGE_SIZE = 25;
 
 export function AuditLogsPanel() {
   const [data, setData] = useState<AuditList | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -46,6 +48,7 @@ export function AuditLogsPanel() {
 
   const load = useCallback(async () => {
     try {
+      setLoading(true);
       const params = new URLSearchParams({
         page: String(page),
         pageSize: String(PAGE_SIZE),
@@ -56,6 +59,8 @@ export function AuditLogsPanel() {
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   }, [page, search, entityType]);
 
@@ -100,6 +105,9 @@ export function AuditLogsPanel() {
         </Select>
       </div>
 
+      {loading && !data ? (
+        <TableSkeleton rows={10} />
+      ) : (
       <TableShell>
         <thead>
           <tr>
@@ -172,6 +180,7 @@ export function AuditLogsPanel() {
           ))}
         </tbody>
       </TableShell>
+      )}
 
       <div className="mt-4 flex items-center justify-between text-xs text-[var(--muted)]">
         <span>
