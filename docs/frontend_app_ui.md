@@ -1,30 +1,31 @@
-# Frontend — App UI ตาม Horasard mockups (M2)
+# Frontend — App UI ตาม Horasard mockups
 
 ## สถานะปัจจุบันของฟีเจอร์นี้ (Current Status)
-- ✅ **UI หลักตาม mockups บน main** — sign-in, onboarding/birth, chat, account, admin CMS shell; merge ผ่าน `fe/ui-milestone2` และ commit `0250fd7`
+- ✅ **UI หลักครบบน main** — auth-card, onboarding/birth, chat, account, payment, admin CMS ทุกหน้า, legal scaffold
+- 🟡 **F1–F4 ค้าง:** error-state chat, thread render หลัง B1, polish, legal content จริง
 
 ## งานที่เพิ่งทำเสร็จ (Recently Completed)
-- `src/components/app/app-shell.tsx` — sidebar + mobile nav, collapse animation
-- `src/components/app/chat-view.tsx` — แชท UI, เรียก `POST /api/horoscope/readings`, error states, typewriter
-- `src/components/birth/birth-form.tsx` — ฟอร์มวันเกิด พ.ศ./ค.ศ., จังหวัด/อำเภอ, `PUT /api/me/birth-profile`
-- `src/components/account/account-view.tsx` — แพ็กเกจ/เครดิตจาก `/api/me`, `/api/packages`
-- `src/components/auth/sign-in-form.tsx` — login + Google + แสดง/ซ่อนรหัสผ่าน
-- Admin: `packages-manager`, `prompts-manager`, `ai-configs-manager`, `knowledge-manager`, `admin/ui.tsx`
-- `src/app/globals.css` — dark astrology theme, Noto Sans Thai (`f74fde5`)
-- `src/config/features.ts` — ซ่อน AI chat / Admin AI ตาม phase
+- `src/components/auth/auth-card.tsx` — login/register/forgot/reset หน้าเดียว + Turnstile
+- `src/components/app/app-shell.tsx` — sidebar + mobile nav
+- `src/components/app/chat-view.tsx` — แชท + `suggestedQuestions` + conversations API
+- `src/components/birth/birth-form.tsx` + `birth-profile-gate.tsx`
+- `src/components/account/account-view.tsx`, `payment-submit-card.tsx`
+- Admin: dashboard, users, payments, prompts, ai-configs, knowledge, usage, FAQ, announcements, settings, audit
+- Legal: `(public)/privacy`, `terms`, `disclaimer`
+- `src/config/features.ts` — phase gating
 
 ## บันทึกการแก้บัค (Bug & Troubleshooting Log)
 - [ปัญหา]: ESLint `setState` ใน `useEffect` ที่ `chat-view.tsx`
-  - [วิธีที่ลองแก้]: เพิ่ม `eslint-disable-next-line` สำหรับ reset thread เมื่อเปลี่ยนหมวด (`0250fd7`)
-- [ปัญหา]: Sidebar collapse bug
-  - [วิธีที่ลองแก้]: แก้ใน `app-shell.tsx` (`6de3053`, `0250fd7`)
+  - [วิธีที่ลองแก้]: eslint-disable สำหรับ reset thread เมื่อเปลี่ยนหมวด
+- [ปัญหา]: Sidebar collapse bug — แก้ใน `app-shell.tsx`
 
 ## สิ่งที่ยังค้างอยู่และปัญหาที่ทราบ (Pending & Known Issues)
-- `history/page.tsx` ยัง stub — รอ `GET /api/conversations` (M3)
-- แชทยังไม่โหลดเธรดเก่าจาก API — state อยู่แค่ใน client
-- หน้า `/admin/usage` ยังไม่ดึงข้อมูลจริง
+- F2: render ประวัติเธรดเต็ม — รอ B1 multi-turn backend
+- F1: error-state ครบทุกโค้ด + retry idempotency key เดิม
+- F4: เนื้อหา legal จริง (หน้า scaffold มีแล้ว)
 
 ## Checklist งานต่อไป (Next Steps)
-- [ ] เชื่อม history กับ conversations API (M3)
-- [ ] แสดง `suggestedQuestions` จาก categories API
-- [ ] E2E / component test สำหรับ birth-form + chat flow
+- [ ] F1: QA error-state แชท
+- [ ] F2: history/thread หลัง B1 merge
+- [ ] F3: responsive + skeleton polish
+- [ ] F4: legal content จริง

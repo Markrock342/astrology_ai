@@ -24,11 +24,20 @@ export type BirthProfileSnapshot = {
   additionalInfo?: string | null;
 };
 
+/** One turn in a multi-turn chat (user or assistant). */
+export type ConversationTurn = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 /** Input passed into a provider adapter. Fully assembled prompt, no secrets. */
 export type GenerateAIInput = {
   modelId: string;
   systemPrompt: string;
+  /** Latest user message. When `conversationHistory` is set, this is the new question only. */
   userPrompt: string;
+  /** Prior turns (oldest first). The adapter appends `userPrompt` as the final user turn. */
+  conversationHistory?: ConversationTurn[];
   temperature: number;
   maxOutputTokens: number;
   timeoutMs: number;

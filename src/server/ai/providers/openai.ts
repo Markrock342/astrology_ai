@@ -46,6 +46,11 @@ export class OpenAIAdapter implements AIProviderAdapter {
     const timer = setTimeout(() => controller.abort(), input.timeoutMs);
 
     try {
+      const historyMessages = (input.conversationHistory ?? []).map((turn) => ({
+        role: turn.role === "assistant" ? ("assistant" as const) : ("user" as const),
+        content: turn.content,
+      }));
+
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -57,6 +62,7 @@ export class OpenAIAdapter implements AIProviderAdapter {
           model: input.modelId,
           messages: [
             { role: "system", content: input.systemPrompt },
+            ...historyMessages,
             { role: "user", content: input.userPrompt },
           ],
           temperature: input.temperature,

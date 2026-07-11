@@ -69,6 +69,15 @@ export class GeminiAdapter implements AIProviderAdapter {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.modelId)}:generateContent`;
 
+      const historyContents = (input.conversationHistory ?? []).map((turn) => ({
+        role: turn.role === "assistant" ? "model" : "user",
+        parts: [{ text: turn.content }],
+      }));
+      const contents = [
+        ...historyContents,
+        { role: "user", parts: [{ text: input.userPrompt }] },
+      ];
+
       const res = await fetch(url, {
         method: "POST",
         headers: {
@@ -78,7 +87,7 @@ export class GeminiAdapter implements AIProviderAdapter {
         signal: controller.signal,
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: input.systemPrompt }] },
-          contents: [{ role: "user", parts: [{ text: input.userPrompt }] }],
+          contents,
           generationConfig: buildGenerationConfig(input),
         }),
       });

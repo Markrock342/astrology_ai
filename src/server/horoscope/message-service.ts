@@ -13,8 +13,7 @@ export type SendMessageInput = {
 
 /**
  * Send a message in an existing conversation thread.
- * Phase 1: delegates to the reading pipeline (HoroscopeReading) while the
- * Conversation/Message tables are wired for full multi-turn chat in Wave C+.
+ * Loads prior messages for multi-turn context and persists USER + ASSISTANT rows.
  */
 export async function sendMessage(input: SendMessageInput) {
   const conversation = await prisma.conversation.findFirst({
@@ -35,11 +34,47 @@ export async function sendMessage(input: SendMessageInput) {
     throw new AppError("TRANSIT_REQUIRES_PRO", "โหมดดวงจรสำหรับสมาชิก Pro");
   }
 
+  // Idempotency: assistant message already created for this key → return without duplicate charge/messages.
+  const existingAssistant = await prisma.message.findUnique({
+    where: {
+      conversationId_idempotencyKey: {
+        conversationId: conversation.id,
+        idempotencyKey: input.idempotencyKey,
+      },
+    },
+  });
+  if (existingAssistant) {
+    const reading = await prisma.horoscopeReading.findUnique({
+      where: {
+        userId_idempotencyKey: {
+          userId: input.userId,
+          idempotencyKey: input.idempotencyKey,
+        },
+      },
+    });
+    if (reading) return reading;
+    return {
+      id: existingAssistant.id,
+      responseText: existingAssistant.content,
+      provider: existingAssistant.provider,
+      modelId: existingAssistant.modelId,
+      creditCost: existingAssistant.creditCost,
+      status: existingAssistant.status,
+    };
+  }
+
+  const priorMessages = await prisma.message.findMany({
+    where: { conversationId: conversation.id },
+    orderBy: { createdAt: "asc" },
+    select: { role: true, content: true },
+  });
+
   const reading = await createReading({
     userId: input.userId,
     categorySlug: conversation.category.slug,
     question: input.content,
     idempotencyKey: input.idempotencyKey,
+    priorMessages,
   });
 
   await prisma.$transaction([
