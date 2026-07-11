@@ -9,6 +9,7 @@ import {
   PageHeader,
   Select,
   TableShell,
+  TableSkeleton,
   Td,
   TextInput,
   Th,
@@ -42,8 +43,10 @@ export function UsersManager() {
   const [status, setStatus] = useState<"" | "ACTIVE" | "DISABLED">("");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -55,6 +58,8 @@ export function UsersManager() {
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   }, [page, search, status]);
 
@@ -101,59 +106,63 @@ export function UsersManager() {
 
       {error && <p className="mb-3 text-sm text-[var(--danger)]">{error}</p>}
 
-      <TableShell>
-        <thead>
-          <tr>
-            <Th>ผู้ใช้</Th>
-            <Th>แพ็กเกจ</Th>
-            <Th>เครดิต</Th>
-            <Th>สถานะ</Th>
-            <Th>สมัครเมื่อ</Th>
-            <Th className="text-right">จัดการ</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {data?.items.map((u) => {
-            const sub = u.subscriptions[0];
-            const plan = sub?.package.type ?? "FREE";
-            return (
-              <tr key={u.id} className="hover:bg-[var(--surface-2)]/50">
-                <Td>
-                  <p className="font-medium">{u.name ?? "—"}</p>
-                  <p className="text-xs text-[var(--muted)]">{u.email}</p>
-                </Td>
-                <Td>
-                  <Badge tone={plan === "PRO" ? "gold" : "muted"}>{plan}</Badge>
-                </Td>
-                <Td>{u.creditWallet?.balance ?? 0}</Td>
-                <Td>
-                  <Badge tone={u.status === "ACTIVE" ? "green" : "red"}>
-                    {u.status === "ACTIVE" ? "ใช้งาน" : "ระงับ"}
-                  </Badge>
-                </Td>
-                <Td className="text-xs text-[var(--muted)]">
-                  {new Date(u.createdAt).toLocaleDateString("th-TH")}
-                </Td>
-                <Td className="text-right">
-                  <Link
-                    href={`/admin/users/${u.id}`}
-                    className="text-xs font-medium text-[var(--primary)] hover:underline"
-                  >
-                    รายละเอียด
-                  </Link>
-                </Td>
-              </tr>
-            );
-          })}
-          {data?.items.length === 0 && (
+      {loading ? (
+        <TableSkeleton />
+      ) : (
+        <TableShell>
+          <thead>
             <tr>
-              <td colSpan={6} className="px-4 py-8 text-center text-[var(--muted)]">
-                ไม่พบผู้ใช้
-              </td>
+              <Th>ผู้ใช้</Th>
+              <Th>แพ็กเกจ</Th>
+              <Th>เครดิต</Th>
+              <Th>สถานะ</Th>
+              <Th>สมัครเมื่อ</Th>
+              <Th className="text-right">จัดการ</Th>
             </tr>
-          )}
-        </tbody>
-      </TableShell>
+          </thead>
+          <tbody>
+            {data?.items.map((u) => {
+              const sub = u.subscriptions[0];
+              const plan = sub?.package.type ?? "FREE";
+              return (
+                <tr key={u.id} className="hover:bg-[var(--surface-2)]/50">
+                  <Td>
+                    <p className="font-medium">{u.name ?? "—"}</p>
+                    <p className="text-xs text-[var(--muted)]">{u.email}</p>
+                  </Td>
+                  <Td>
+                    <Badge tone={plan === "PRO" ? "gold" : "muted"}>{plan}</Badge>
+                  </Td>
+                  <Td>{u.creditWallet?.balance ?? 0}</Td>
+                  <Td>
+                    <Badge tone={u.status === "ACTIVE" ? "green" : "red"}>
+                      {u.status === "ACTIVE" ? "ใช้งาน" : "ระงับ"}
+                    </Badge>
+                  </Td>
+                  <Td className="text-xs text-[var(--muted)]">
+                    {new Date(u.createdAt).toLocaleDateString("th-TH")}
+                  </Td>
+                  <Td className="text-right">
+                    <Link
+                      href={`/admin/users/${u.id}`}
+                      className="text-xs font-medium text-[var(--primary)] hover:underline"
+                    >
+                      รายละเอียด
+                    </Link>
+                  </Td>
+                </tr>
+              );
+            })}
+            {data?.items.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-[var(--muted)]">
+                  ไม่พบผู้ใช้
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </TableShell>
+      )}
 
       <div className="mt-4 flex items-center justify-between text-xs text-[var(--muted)]">
         <span>

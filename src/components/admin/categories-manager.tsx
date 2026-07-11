@@ -6,6 +6,7 @@ import {
   Badge,
   Button,
   Card,
+  CardSkeleton,
   Field,
   PageHeader,
   Select,
@@ -52,8 +53,10 @@ export function CategoriesManager() {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const rows = await adminFetch<Category[]>("/api/admin/categories");
       setCategories(
@@ -66,6 +69,8 @@ export function CategoriesManager() {
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -154,6 +159,14 @@ export function CategoriesManager() {
       />
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
+
+      {loading && !formOpen && (
+        <div className="flex flex-col gap-3">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      )}
 
       {formOpen && (
         <Card className="mb-4">
