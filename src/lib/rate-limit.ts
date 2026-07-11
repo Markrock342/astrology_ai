@@ -3,8 +3,9 @@ import { AppError } from "./errors";
 /**
  * Minimal in-memory rate limiter for auth and AI endpoints (spec 11).
  *
- * NOTE: In-memory only — fine for a single instance / Milestone 1. For
- * multi-instance production, back this with Redis/Upstash (Backend task).
+ * Production note (M4 B3): in-memory is intentional until PM chooses Upstash
+ * Redis. Safe for single-instance / demo; multi-instance Vercel may under-limit.
+ * See docs/backend_m4_waitlist.md — do not swap implementation without PM sign-off.
  */
 type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
