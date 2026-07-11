@@ -93,14 +93,12 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 ### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History ✅ ปิด BN
 
-**เสร็จแล้ว:**
-
 - [x] API แชท + multi-turn context (B1)
-- [x] กฎ Free/Pro/transit lock + idempotency
-- [x] Gemini/OpenAI + Admin AI CMS
-- [x] **B2** Tests: credit · AI fail no charge · locks · idempotency · rbac · router fallback
-
-**รอ FN:** F2 render thread history (FE) — ปลดแล้วหลัง B1 merge · BE ต้องแก้ thread list/detail ให้ใช้ Conversation (ดู `BE_ASSIGN.md`)
+- [x] thread list/detail จาก `Conversation`/`Message`
+- [x] `POST /api/horoscope/readings` รองรับ `conversationId` (ต่อเธรด + persist)
+- [x] กฎ Free/Pro/transit lock + idempotency + charge-after-success
+- [x] Gemini/OpenAI + Admin AI CMS + natal chart engine (scrape-first)
+- [x] **B2** Tests: credit · AI fail no charge · locks · idempotency · rbac · router fallback · thread
 
 ---
 
@@ -115,19 +113,26 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 - [x] หน้า legal scaffold + CMS settings (`privacy`/`terms`/`disclaimer` — F4 FE merged)
 - [x] Email: `mailer.ts` — Resend เมื่อมี `RESEND_API_KEY` / dev-console fallback
 
-**ค้างจริง (ดู [`BE_ASSIGN.md`](./BE_ASSIGN.md)):**
+**เสร็จแล้ว (M4 BN code):**
 
-- [ ] **Thread API** — `thread-service` list/detail จาก `Conversation`+`Message` (ปลดบล็อก F2)
-- [ ] **B4** Go-live config: env บน Vercel ครบ, migrate+seed prod, backup, smoke test
-- [ ] **B3** Rate-limit Upstash — **optional รอบนี้** (PM ยอม in-memory ชั่วคราวได้)
+- [x] B3 Upstash rate-limit + in-memory fallback
+- [x] Payment + dashboard code
+- [x] `tests/payment-service.test.ts`, `tests/rate-limit.test.ts`, `tests/thread-service.test.ts`
+- [x] `npm run smoke:public` script
+
+**ค้างจริง (manual — ไม่ใช่โค้ด):**
+
+- [ ] Google OAuth redirect URI สำหรับ production — [backend_m4_deploy.md](./docs/backend_m4_deploy.md)
+- [ ] Manual smoke: sign-in → birth → payment → แชท Gemini (ตารางหลักฐาน)
+- [ ] Merge `be/engine-first` → `main` (รวม thread + rate-limit + scrape engine)
+- [ ] (Optional) Resend / Upstash / Turnstile บน Vercel แล้ว `npm run deploy:env`
 
 ---
 
 ## 3. สิ่งที่เขียนไว้ให้แล้ว (ใช้ซ้ำ อย่าเขียนใหม่)
 - `credit-service.ts` — หักเครดิต atomic + optimistic lock + ledger immutable → **ทุกการเปลี่ยนเครดิตผ่านที่นี่ ห้ามแตะ `balance` ตรง**
 - `reading-service.ts` — flow charge-after-success + idempotency (ปรับให้ทำงานระดับ message)
-- `message-service.ts` — ส่งข้อความ + multi-turn (B1 ปิดแล้ว)
-- `thread-service.ts` — **ยัง list/detail จาก HoroscopeReading** → ต้องย้ายไป Conversation (งานรอบนี้)
+- `message-service.ts` + `thread-service.ts` — API แชท + list/detail/persist บน `Conversation`/`Message`
 - `src/server/ai/` — adapter · router (fallback) · prompt-builder · usage-logger
 - `payment-service.ts` · `dashboard-admin-service.ts`
 - `rbac.ts` — `requireUser()`, `requireAdmin()`, `requireSuperAdmin()`
@@ -163,8 +168,8 @@ export async function POST(req: Request) {
 ---
 
 ## 6. รอ PM ยืนยัน (มีผลกับ backend)
-- ~~**Rate-limit production**~~ → **ชั่วคราว:** ยอม in-memory ไปก่อน go-live · B3 Upstash = optional
-- **ดวงจร (transit)** auto-คำนวณวัน — enum มีแล้ว gate Pro แล้ว แต่ยังไม่มี engine transit เต็ม
+- ~~**Rate-limit production**~~ → **ตัดสินใจแล้ว:** Upstash Redis (`src/lib/rate-limit.ts` พร้อม — รอ env บน Vercel; ไม่มี env = in-memory fallback)
+- **ดวงจร (transit)** auto-คำนวณวัน — enum มีแล้ว gate Pro แล้ว + scrape/transit chart บน engine branch
 - ~~Sign-in อีเมล~~ → **ตัดสินใจแล้ว:** อีเมล+รหัสผ่าน สมัครตรง เก็บ DB (ไม่ใช้ magic-link)
 - Free/Pro quota + ราคา + credit cost ต่อข้อความ/หมวด (ตอนนี้: Free 3, Pro 100, 199฿)
 - Pro หมดอายุรายเดือน หรือ manual ไม่มีกำหนด
@@ -176,9 +181,7 @@ export async function POST(req: Request) {
 ## 7. Critical path ปิด M4 (BN)
 
 ```
-B1+B2 ✅ → Thread API (Conversation) → B4 deploy → go-live
+B1+B2 ✅ → Thread API ✅ → B3 rate-limit ✅ → B4 deploy docs ✅ → go-live (manual)
                     │
-                    └── FE F2 (คู่ขนานหลัง Thread API พร้อม / ตกลง contract)
-
-B3 Upstash — optional รอบนี้
+                    └── FE F2 + engine scrape (be/engine-first)
 ```
