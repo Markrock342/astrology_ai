@@ -59,52 +59,48 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [meRes, catRes, natalRes, transitRes] = await Promise.all([
-        fetch("/api/me"),
-        fetch("/api/horoscope/categories"),
-        fetch("/api/conversations?mode=NATAL"),
-        fetch("/api/conversations?mode=TRANSIT"),
-      ]);
+      const res = await fetch("/api/app/bootstrap");
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json?.ok || !json.data) return;
 
-      if (meRes.ok) {
-        const meJson = await meRes.json();
-        if (meJson.ok && meJson.data) {
-          setUser({
-            name: meJson.data.name ?? meJson.data.email?.split("@")[0] ?? "ผู้ใช้",
-            email: meJson.data.email,
-            image: meJson.data.image ?? null,
-            plan: meJson.data.plan,
-            role: meJson.data.role ?? "USER",
-            creditBalance: meJson.data.creditBalance,
-            canChat: meJson.data.canChat ?? meJson.data.plan === "PRO",
-            emailVerified: meJson.data.emailVerified ?? true,
-            needsEmailVerification: meJson.data.needsEmailVerification ?? false,
-            hasPassword: meJson.data.hasPassword ?? false,
-            birthEditsUnlimited: Boolean(meJson.data.birthEditsUnlimited),
-          });
-        }
+      const { me, categories: cats, natalThreads: natal, transitThreads: transit } =
+        json.data as {
+          me?: Record<string, unknown>;
+          categories?: Array<{
+            slug: string;
+            nameTh: string;
+            accessLevel: string;
+            suggestedQuestions?: string[];
+          }>;
+          natalThreads?: Thread[];
+          transitThreads?: Thread[];
+        };
+
+      if (me) {
+        setUser({
+          name:
+            (me.name as string | null | undefined) ??
+            String(me.email ?? "").split("@")[0] ??
+            "ผู้ใช้",
+          email: String(me.email ?? ""),
+          image: (me.image as string | null | undefined) ?? null,
+          plan: (me.plan as "FREE" | "PRO") ?? "FREE",
+          role: (me.role as AppUser["role"]) ?? "USER",
+          creditBalance: Number(me.creditBalance ?? 0),
+          canChat: Boolean(me.canChat ?? me.plan === "PRO"),
+          emailVerified: Boolean(me.emailVerified ?? true),
+          needsEmailVerification: Boolean(me.needsEmailVerification ?? false),
+          hasPassword: Boolean(me.hasPassword ?? false),
+          birthEditsUnlimited: Boolean(me.birthEditsUnlimited),
+        });
       }
 
-      if (catRes.ok) {
-        const catJson = await catRes.json();
-        if (catJson.ok && Array.isArray(catJson.data) && catJson.data.length > 0) {
-          setCategories(catJson.data.map(mapApiCategory));
-        }
+      if (Array.isArray(cats) && cats.length > 0) {
+        setCategories(cats.map(mapApiCategory));
       }
-
-      if (natalRes.ok) {
-        const natalJson = await natalRes.json();
-        if (natalJson.ok && Array.isArray(natalJson.data)) {
-          setNatalThreads(natalJson.data);
-        }
-      }
-
-      if (transitRes.ok) {
-        const transitJson = await transitRes.json();
-        if (transitJson.ok && Array.isArray(transitJson.data)) {
-          setTransitThreads(transitJson.data);
-        }
-      }
+      if (Array.isArray(natal)) setNatalThreads(natal);
+      if (Array.isArray(transit)) setTransitThreads(transit);
     } finally {
       setLoading(false);
     }

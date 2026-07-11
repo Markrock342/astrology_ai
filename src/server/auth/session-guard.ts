@@ -1,7 +1,10 @@
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AppError } from "@/lib/errors";
+import { prisma } from "@/server/db";
 import { getMe } from "@/server/user/account-service";
+import { getMaintenanceMode } from "@/server/settings/settings-service";
 
 /** Redirect to /login when there is no valid session. */
 export async function requireSessionUserId(): Promise<string> {
@@ -23,3 +26,42 @@ export async function requireSessionMe() {
     throw err;
   }
 }
+
+export type SessionShell = {
+  id: string;
+  role: string;
+  status: string;
+  hasBirthProfile: boolean;
+};
+
+/**
+ * Lightweight shell check for (app)/layout — one user row, no plan/wallet.
+ * Cuts 2–3 DB round-trips on every navigation vs full getMe().
+ */
+export async function requireSessionShell(): Promise<SessionShell> {
+  const userId = await requireSessionUserId();
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+      status: true,
+      birthProfile: { select: { id: true } },
+    },
+  });
+  if (!user) redirect("/login");
+  if (user.status === "DISABLED") redirect("/login");
+  return {
+    id: user.id,
+    role: user.role,
+    status: user.status,
+    hasBirthProfile: Boolean(user.birthProfile),
+  };
+}
+
+/** Maintenance flag cached ~45s — avoids hitting CMS on every navigation. */
+export const getCachedMaintenanceMode = unstable_cache(
+  async () => getMaintenanceMode(),
+  ["cms-maintenance-mode"],
+  { revalidate: 45 },
+);
