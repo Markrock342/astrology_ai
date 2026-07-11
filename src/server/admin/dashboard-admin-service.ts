@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/server/db";
 
 /**
@@ -19,76 +20,90 @@ function bangkokBoundaries(now = new Date()) {
   return { dayStart, monthStart, weekStart };
 }
 
-export async function getDashboardStats() {
+type StatRow = {
+  total_users: bigint | number;
+  active_users: bigint | number;
+  new_users_week: bigint | number;
+  pro_subs: bigint | number;
+  ai_today: bigint | number;
+  ai_errors_today: bigint | number;
+  ai_month: bigint | number;
+  credits_used_month: bigint | number | null;
+  wallet_total: bigint | number | null;
+  pending_payments: bigint | number;
+};
+
+function n(v: bigint | number | null | undefined): number {
+  if (v == null) return 0;
+  return typeof v === "bigint" ? Number(v) : v;
+}
+
+async function loadDashboardStats() {
   const now = new Date();
   const { dayStart, monthStart, weekStart } = bangkokBoundaries(now);
 
-  const [
-    totalUsers,
-    activeUsers,
-    newUsersWeek,
-    proSubs,
-    aiToday,
-    aiErrorsToday,
-    aiMonth,
-    creditsUsedMonth,
-    walletTotal,
-    pendingPayments,
-    recentAudit,
-  ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { status: "ACTIVE" } }),
-    prisma.user.count({ where: { createdAt: { gte: weekStart } } }),
-    prisma.userSubscription.count({
-      where: {
-        status: "ACTIVE",
-        package: { type: "PRO" },
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-      },
-    }),
-    prisma.aIUsageLog.count({ where: { createdAt: { gte: dayStart } } }),
-    prisma.aIUsageLog.count({
-      where: { createdAt: { gte: dayStart }, status: { not: "SUCCESS" } },
-    }),
-    prisma.aIUsageLog.count({ where: { createdAt: { gte: monthStart } } }),
-    prisma.creditTransaction.aggregate({
-      where: { type: "AI_USAGE", createdAt: { gte: monthStart } },
-      _sum: { amount: true },
-    }),
-    prisma.creditWallet.aggregate({ _sum: { balance: true } }),
-    prisma.payment.count({ where: { status: "PENDING" } }),
-    prisma.adminAuditLog.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 8,
-      select: {
-        id: true,
-        action: true,
-        entityType: true,
-        entityId: true,
-        createdAt: true,
-        admin: { select: { email: true, name: true } },
-      },
-    }),
-  ]);
+  // One round-trip for KPIs (avoids 10 sequential queries under connection_limit=1).
+  const [stats] = await prisma.$queryRaw<StatRow[]>`
+    SELECT
+      (SELECT COUNT(*)::int FROM users) AS total_users,
+      (SELECT COUNT(*)::int FROM users WHERE status = 'ACTIVE') AS active_users,
+      (SELECT COUNT(*)::int FROM users WHERE "createdAt" >= ${weekStart}) AS new_users_week,
+      (SELECT COUNT(*)::int FROM user_subscriptions us
+         INNER JOIN packages p ON p.id = us."packageId"
+         WHERE us.status = 'ACTIVE'
+           AND p.type = 'PRO'
+           AND (us."expiresAt" IS NULL OR us."expiresAt" > ${now})
+      ) AS pro_subs,
+      (SELECT COUNT(*)::int FROM ai_usage_logs WHERE "createdAt" >= ${dayStart}) AS ai_today,
+      (SELECT COUNT(*)::int FROM ai_usage_logs
+         WHERE "createdAt" >= ${dayStart} AND status <> 'SUCCESS') AS ai_errors_today,
+      (SELECT COUNT(*)::int FROM ai_usage_logs WHERE "createdAt" >= ${monthStart}) AS ai_month,
+      (SELECT COALESCE(SUM(amount), 0)::int FROM credit_transactions
+         WHERE type = 'AI_USAGE' AND "createdAt" >= ${monthStart}) AS credits_used_month,
+      (SELECT COALESCE(SUM(balance), 0)::int FROM credit_wallets) AS wallet_total,
+      (SELECT COUNT(*)::int FROM payments WHERE status = 'PENDING') AS pending_payments
+  `;
+
+  const recentAudit = await prisma.adminAuditLog.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 8,
+    select: {
+      id: true,
+      action: true,
+      entityType: true,
+      entityId: true,
+      createdAt: true,
+      admin: { select: { email: true, name: true } },
+    },
+  });
 
   return {
     users: {
-      total: totalUsers,
-      active: activeUsers,
-      pro: proSubs,
-      newThisWeek: newUsersWeek,
+      total: n(stats?.total_users),
+      active: n(stats?.active_users),
+      pro: n(stats?.pro_subs),
+      newThisWeek: n(stats?.new_users_week),
     },
     ai: {
-      requestsToday: aiToday,
-      errorsToday: aiErrorsToday,
-      requestsThisMonth: aiMonth,
+      requestsToday: n(stats?.ai_today),
+      errorsToday: n(stats?.ai_errors_today),
+      requestsThisMonth: n(stats?.ai_month),
     },
     credits: {
-      // AI_USAGE amounts are negative in the ledger; report as positive usage.
-      usedThisMonth: Math.abs(creditsUsedMonth._sum.amount ?? 0),
-      totalBalance: walletTotal._sum.balance ?? 0,
+      usedThisMonth: Math.abs(n(stats?.credits_used_month)),
+      totalBalance: n(stats?.wallet_total),
     },
-    payments: { pending: pendingPayments },
-    recentAudit,
+    payments: { pending: n(stats?.pending_payments) },
+    recentAudit: recentAudit.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+    })),
   };
 }
+
+/** Cached ~30s — dashboard is a summary, not live tick. */
+export const getDashboardStats = unstable_cache(
+  loadDashboardStats,
+  ["admin-dashboard-stats"],
+  { revalidate: 30 },
+);

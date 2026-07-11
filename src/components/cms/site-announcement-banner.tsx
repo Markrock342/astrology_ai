@@ -1,60 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAppData } from "@/components/app/app-data-provider";
 
-type Announcement = {
-  id: string;
-  title: string;
-  message: string;
-  tone: "INFO" | "WARNING" | "PROMO" | "DANGER";
-  linkUrl: string | null;
-  linkLabel: string | null;
-};
+type AnnouncementTone = "INFO" | "WARNING" | "PROMO" | "DANGER";
 
-const TONE_CLASS: Record<Announcement["tone"], string> = {
+const TONE_CLASS: Record<AnnouncementTone, string> = {
   INFO: "border-[var(--primary)]/30 bg-[var(--primary)]/10 text-[var(--foreground)]",
   WARNING: "border-amber-500/40 bg-amber-500/10 text-amber-100",
   PROMO: "border-[var(--secondary-active)]/40 bg-[var(--secondary-active)]/10 text-[var(--foreground)]",
   DANGER: "border-[var(--danger)]/40 bg-[var(--danger)]/10 text-[var(--danger)]",
 };
 
+/** Renders active announcements from app bootstrap (no extra client fetch). */
 export function SiteAnnouncementBanner() {
-  const [items, setItems] = useState<Announcement[]>([]);
-
-  useEffect(() => {
-    fetch("/api/announcements")
-      .then((r) => r.json())
-      .then((body) => {
-        if (body?.ok && Array.isArray(body.data)) setItems(body.data);
-      })
-      .catch(() => {});
-  }, []);
-
-  if (items.length === 0) return null;
+  const { announcements } = useAppData();
+  if (announcements.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-1 border-b border-[var(--border)] px-4 py-2">
-      {items.map((item) => (
-        <div
-          key={item.id}
-          className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${TONE_CLASS[item.tone]}`}
-        >
-          <div>
-            <span className="font-medium">{item.title}</span>
-            <span className="mx-2 opacity-40">·</span>
-            <span>{item.message}</span>
+      {announcements.map((item) => {
+        const tone = (item.tone as AnnouncementTone) in TONE_CLASS
+          ? (item.tone as AnnouncementTone)
+          : "INFO";
+        return (
+          <div
+            key={item.id}
+            className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${TONE_CLASS[tone]}`}
+          >
+            <div>
+              <span className="font-medium">{item.title}</span>
+              <span className="mx-2 opacity-40">·</span>
+              <span>{item.message}</span>
+            </div>
+            {item.linkUrl && (
+              <Link
+                href={item.linkUrl}
+                className="shrink-0 underline-offset-2 hover:underline"
+              >
+                {item.linkLabel ?? "ดูรายละเอียด"}
+              </Link>
+            )}
           </div>
-          {item.linkUrl && (
-            <Link
-              href={item.linkUrl}
-              className="shrink-0 underline-offset-2 hover:underline"
-            >
-              {item.linkLabel ?? "ดูรายละเอียด"}
-            </Link>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

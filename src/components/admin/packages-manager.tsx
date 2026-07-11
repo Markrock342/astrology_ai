@@ -75,14 +75,18 @@ function limitToNumber(v: string): number | null {
   return v.trim() === "" || Number.isNaN(n) ? null : n;
 }
 
-export function PackagesManager() {
-  const [packages, setPackages] = useState<Package[]>([]);
+export function PackagesManager({
+  initialPackages,
+}: {
+  initialPackages?: Package[] | null;
+}) {
+  const [packages, setPackages] = useState<Package[]>(initialPackages ?? []);
   // editingId: null = closed, "new" = creating, otherwise package id.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialPackages);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,9 +100,10 @@ export function PackagesManager() {
   }, []);
 
   useEffect(() => {
+    if (initialPackages) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [load]);
+  }, [initialPackages, load]);
 
   function startCreate() {
     setEditingId("new");

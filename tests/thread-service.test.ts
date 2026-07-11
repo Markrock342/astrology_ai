@@ -39,18 +39,17 @@ describe("listConversationThreads (M3)", () => {
         title: null,
         updatedAt: new Date("2026-07-01T10:00:00Z"),
         category: { slug: "career", nameTh: "การงาน" },
-        messages: [{ content: "เรื่องงานเป็นอย่างไรบ้าง" }],
       },
     ]);
   });
 
-  it("lists natal conversations with title from first user message", async () => {
+  it("lists natal conversations with title or category fallback", async () => {
     const rows = await listConversationThreads("user-1", "NATAL");
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       id: "conv-1",
       categorySlug: "career",
-      title: "เรื่องงานเป็นอย่างไรบ้าง",
+      title: "การงาน",
     });
   });
 });

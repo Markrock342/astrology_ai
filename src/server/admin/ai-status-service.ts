@@ -148,17 +148,11 @@ async function fetchGoogleIncidents() {
 async function getUsageHealth() {
   const since = new Date(Date.now() - USAGE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
-  const [logs, recentFailures] = await Promise.all([
-    prisma.aIUsageLog.findMany({
+  const [grouped, recentFailures] = await Promise.all([
+    prisma.aIUsageLog.groupBy({
+      by: ["modelId", "status"],
       where: { createdAt: { gte: since }, provider: "GEMINI" },
-      select: {
-        modelId: true,
-        status: true,
-        errorCode: true,
-        errorMessage: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
+      _count: { _all: true },
     }),
     prisma.aIUsageLog.findMany({
       where: {
@@ -180,7 +174,7 @@ async function getUsageHealth() {
   ]);
 
   const byModelMap = new Map<string, ModelUsageHealth>();
-  for (const row of logs) {
+  for (const row of grouped) {
     let entry = byModelMap.get(row.modelId);
     if (!entry) {
       entry = {
@@ -193,14 +187,18 @@ async function getUsageHealth() {
       };
       byModelMap.set(row.modelId, entry);
     }
-    entry.total7d += 1;
+    entry.total7d += row._count._all;
     if (row.status !== "SUCCESS") {
-      entry.failures7d += 1;
-      if (!entry.lastFailureAt) {
-        entry.lastFailureAt = row.createdAt.toISOString();
-        entry.lastErrorCode = row.errorCode;
-        entry.lastErrorMessage = row.errorMessage;
-      }
+      entry.failures7d += row._count._all;
+    }
+  }
+
+  for (const fail of recentFailures) {
+    const entry = byModelMap.get(fail.modelId);
+    if (entry && !entry.lastFailureAt) {
+      entry.lastFailureAt = fail.createdAt.toISOString();
+      entry.lastErrorCode = fail.errorCode;
+      entry.lastErrorMessage = fail.errorMessage;
     }
   }
 

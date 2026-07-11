@@ -36,7 +36,21 @@ export type PromptCreateInput = {
 export type PromptUpdateInput = Partial<Omit<PromptCreateInput, "code">>;
 
 export function listPrompts() {
-  return prisma.promptTemplate.findMany({ orderBy: { createdAt: "asc" } });
+  return prisma.promptTemplate.findMany({
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      type: true,
+      content: true,
+      draftContent: true,
+      enabled: true,
+      version: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 }
 
 export async function createPrompt(input: PromptCreateInput, actor: Actor) {

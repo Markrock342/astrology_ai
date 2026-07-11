@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/server/db";
 import { Prisma } from "@prisma/client";
 import {
@@ -169,13 +170,21 @@ export async function getContactInfo(): Promise<CmsContact> {
 }
 
 export async function getConsentTexts() {
-  const [register, birthPrivacy, birthEditLimit] = await Promise.all([
-    getPublishedSetting(CMS_KEYS.consentRegister) as Promise<CmsText>,
-    getPublishedSetting(CMS_KEYS.consentBirthPrivacy) as Promise<CmsText>,
-    getPublishedSetting(CMS_KEYS.consentBirthEditLimit) as Promise<CmsText>,
-  ]);
-  return { register, birthPrivacy, birthEditLimit };
+  return getCachedConsentTexts();
 }
+
+const getCachedConsentTexts = unstable_cache(
+  async () => {
+    const [register, birthPrivacy, birthEditLimit] = await Promise.all([
+      getPublishedSetting(CMS_KEYS.consentRegister) as Promise<CmsText>,
+      getPublishedSetting(CMS_KEYS.consentBirthPrivacy) as Promise<CmsText>,
+      getPublishedSetting(CMS_KEYS.consentBirthEditLimit) as Promise<CmsText>,
+    ]);
+    return { register, birthPrivacy, birthEditLimit };
+  },
+  ["cms-consent-texts"],
+  { revalidate: 60 },
+);
 
 export async function getActiveAnnouncements(now = new Date()) {
   const rows = await prisma.siteAnnouncement.findMany({

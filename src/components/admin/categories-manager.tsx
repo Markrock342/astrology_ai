@@ -68,7 +68,13 @@ export function CategoriesManager() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await adminFetch<Category[]>("/api/admin/categories");
+      const [rows, p, a] = await Promise.all([
+        adminFetch<Category[]>("/api/admin/categories"),
+        adminFetch<PromptOption[]>("/api/admin/prompts").catch(() => [] as PromptOption[]),
+        adminFetch<AiConfigOption[]>("/api/admin/ai-configs").catch(
+          () => [] as AiConfigOption[],
+        ),
+      ]);
       setCategories(
         rows.map((c) => ({
           ...c,
@@ -77,18 +83,10 @@ export function CategoriesManager() {
             : null,
         })),
       );
-      try {
-        const [p, a] = await Promise.all([
-          adminFetch<PromptOption[]>("/api/admin/prompts"),
-          adminFetch<AiConfigOption[]>("/api/admin/ai-configs"),
-        ]);
-        setPrompts(p.map((x) => ({ id: x.id, code: x.code, name: x.name })));
-        setAiConfigs(
-          a.map((x) => ({ id: x.id, displayName: x.displayName, modelId: x.modelId })),
-        );
-      } catch {
-        /* AI CMS may be phase-gated — linking fields stay optional */
-      }
+      setPrompts(p.map((x) => ({ id: x.id, code: x.code, name: x.name })));
+      setAiConfigs(
+        a.map((x) => ({ id: x.id, displayName: x.displayName, modelId: x.modelId })),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
     } finally {

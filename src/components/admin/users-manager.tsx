@@ -40,10 +40,16 @@ type UsersResponse = {
 export function UsersManager() {
   const [data, setData] = useState<UsersResponse | null>(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState<"" | "ACTIVE" | "DISABLED">("");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search), 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,7 +58,7 @@ export function UsersManager() {
         page: String(page),
         pageSize: "20",
       });
-      if (search.trim()) params.set("search", search.trim());
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
       if (status) params.set("status", status);
       setData(await adminFetch<UsersResponse>(`/api/admin/users?${params}`));
       setError(null);
@@ -61,7 +67,7 @@ export function UsersManager() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, status]);
+  }, [page, debouncedSearch, status]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

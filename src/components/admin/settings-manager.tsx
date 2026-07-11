@@ -57,12 +57,19 @@ function arrayToLines(arr: string[]): string {
   return arr.join("\n");
 }
 
-export function SettingsManager() {
-  const [rows, setRows] = useState<SettingRow[]>([]);
+export function SettingsManager({
+  initialRows,
+}: {
+  initialRows?: SettingRow[] | null;
+}) {
+  const [rows, setRows] = useState<SettingRow[]>(initialRows ?? []);
   const [activeKey, setActiveKey] = useState<CmsKey>(CMS_KEYS.privacyPolicy);
-  const [draft, setDraft] = useState<unknown>(null);
+  const [draft, setDraft] = useState<unknown>(() => {
+    const current = initialRows?.find((r) => r.key === CMS_KEYS.privacyPolicy);
+    return current ? structuredClone(current.draft ?? current.published) : null;
+  });
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialRows);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
@@ -79,24 +86,28 @@ export function SettingsManager() {
       setLoading(true);
       const data = await adminFetch<SettingRow[]>("/api/admin/settings");
       setRows(data);
-      const current = data.find((r) => r.key === activeKey);
-      if (current) {
-        setDraft(structuredClone(current.draft ?? current.published));
-      }
-      await loadRevisions(activeKey);
+      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
-  }, [activeKey, loadRevisions]);
+  }, []);
 
   useEffect(() => {
+    if (initialRows) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load().catch((e) =>
-      setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ"),
-    );
-  }, [load]);
+    void load();
+  }, [initialRows, load]);
+
+  // Sync draft + revisions when switching CMS key (do not reload all settings).
+  useEffect(() => {
+    const current = rows.find((r) => r.key === activeKey);
+    if (current) {
+      setDraft(structuredClone(current.draft ?? current.published));
+    }
+    void loadRevisions(activeKey).catch(() => setRevisions([]));
+  }, [activeKey, rows, loadRevisions]);
 
   function selectKey(key: CmsKey) {
     setActiveKey(key);

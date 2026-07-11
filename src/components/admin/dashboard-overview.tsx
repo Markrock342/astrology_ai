@@ -21,12 +21,17 @@ type DashboardStats = {
   }>;
 };
 
-export function DashboardOverview() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+export function DashboardOverview({
+  initialStats,
+}: {
+  initialStats?: DashboardStats | null;
+}) {
+  const [stats, setStats] = useState<DashboardStats | null>(initialStats ?? null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialStats);
 
   useEffect(() => {
+    if (initialStats) return;
     let alive = true;
     adminFetch<DashboardStats>("/api/admin/dashboard")
       .then((data) => {
@@ -41,7 +46,7 @@ export function DashboardOverview() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [initialStats]);
 
   return (
     <AdminPage>

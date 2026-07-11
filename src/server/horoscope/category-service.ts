@@ -1,7 +1,8 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/server/db";
 
 /** Enabled categories for the app shell + chat (includes suggested questions). */
-export async function listPublicCategories() {
+async function loadPublicCategories() {
   const rows = await prisma.horoscopeCategory.findMany({
     where: { enabled: true },
     orderBy: { sortOrder: "asc" },
@@ -25,3 +26,10 @@ export async function listPublicCategories() {
       : [],
   }));
 }
+
+/** Cached ~60s — categories change rarely from admin CMS. */
+export const listPublicCategories = unstable_cache(
+  loadPublicCategories,
+  ["public-horoscope-categories"],
+  { revalidate: 60 },
+);
