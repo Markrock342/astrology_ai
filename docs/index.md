@@ -24,7 +24,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 |-----------|----------|
 | **M2** — Schema chat, Auth, Birth profile, Admin CMS พื้นฐาน | ✅ ปิดแล้ว |
 | **M3** — แชท AI, Gemini, ประวัติเธรด, Admin AI CMS | ✅ **ปิด BN 100%** |
-| **M4** — Payment, Dashboard, Deploy | ✅ **BN code ~100%** — รอตั้งค่า .env/deploy |
+| **M4** — Payment, Dashboard, Deploy | ✅ **ปิดแล้ว** — live https://horaai.vercel.app |
 
 **Feature gating:** `src/config/features.ts` — ตั้ง `NEXT_PUBLIC_APP_PHASE=2` บน Vercel จะปิด AI chat + Admin AI CMS; dev ไม่ตั้ง = เปิดทั้งหมด
 
@@ -78,7 +78,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 
 | ID | งาน | หมายเหตุ |
 |----|-----|----------|
-| **M4** | ตั้งค่า .env/Vercel/deploy | [backend_m4_deploy.md](./backend_m4_deploy.md) |
+| **M4** | Manual smoke + OAuth redirect | [backend_m4_deploy.md](./backend_m4_deploy.md) |
 
 ---
 
