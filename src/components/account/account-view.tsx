@@ -74,7 +74,6 @@ export function AccountView({
           email={profile.email}
           image={profile.image}
           canUpload={profile.canUploadAvatar}
-          onUpdated={() => {}}
         />
 
         <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
