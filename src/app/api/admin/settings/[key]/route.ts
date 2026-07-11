@@ -17,7 +17,7 @@ import { publishSetting } from "@/server/admin/settings-admin-service";
 const SCHEMA_BY_KEY: Record<string, z.ZodType> = {
   [CMS_KEYS.privacyPolicy]: cmsDocumentSchema,
   [CMS_KEYS.termsOfService]: cmsDocumentSchema,
-  [CMS_KEYS.disclaimer]: cmsTextSchema,
+  [CMS_KEYS.disclaimer]: cmsDocumentSchema,
   [CMS_KEYS.consentRegister]: cmsTextSchema,
   [CMS_KEYS.consentBirthPrivacy]: cmsTextSchema,
   [CMS_KEYS.consentBirthEditLimit]: cmsTextSchema,

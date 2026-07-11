@@ -17,3 +17,50 @@ export function ContentSkeleton() {
     </div>
   );
 }
+
+/** Chat thread loading placeholder (user + assistant bubbles). */
+export function ChatThreadSkeleton() {
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-6" aria-busy="true">
+      <div className="flex justify-end">
+        <div className="h-10 w-48 animate-pulse rounded-2xl bg-[var(--surface-3)]" />
+      </div>
+      <div className="h-24 w-[85%] animate-pulse rounded-xl bg-[var(--surface-2)]" />
+      <div className="flex justify-end">
+        <div className="h-10 w-56 animate-pulse rounded-2xl bg-[var(--surface-3)]" />
+      </div>
+      <div className="h-32 w-[85%] animate-pulse rounded-xl bg-[var(--surface-2)]" />
+    </div>
+  );
+}
+
+/** List rows for history / sidebar-style pages. */
+export function ListSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="flex flex-col gap-2" aria-busy="true">
+      {Array.from({ length: rows }, (_, i) => (
+        <div
+          key={i}
+          className="h-12 animate-pulse rounded-xl bg-[var(--surface-2)]"
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Admin dashboard stat cards while fetching. */
+export function AdminDashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-6" aria-busy="true">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="h-24 animate-pulse rounded-2xl bg-[var(--surface-2)]" />
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="h-48 animate-pulse rounded-2xl bg-[var(--surface-2)]" />
+        <div className="h-48 animate-pulse rounded-2xl bg-[var(--surface-2)]" />
+      </div>
+    </div>
+  );
+}

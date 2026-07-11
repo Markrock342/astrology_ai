@@ -315,7 +315,8 @@ function SettingEditor({
 }) {
   if (
     settingKey === CMS_KEYS.privacyPolicy ||
-    settingKey === CMS_KEYS.termsOfService
+    settingKey === CMS_KEYS.termsOfService ||
+    settingKey === CMS_KEYS.disclaimer
   ) {
     return (
       <DocumentEditor
@@ -325,7 +326,6 @@ function SettingEditor({
     );
   }
   if (
-    settingKey === CMS_KEYS.disclaimer ||
     settingKey === CMS_KEYS.consentRegister ||
     settingKey === CMS_KEYS.consentBirthPrivacy ||
     settingKey === CMS_KEYS.consentBirthEditLimit
