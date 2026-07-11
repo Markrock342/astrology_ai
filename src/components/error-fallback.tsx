@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { BrandMark } from "@/components/brand-logo";
 
@@ -14,6 +15,9 @@ type ErrorFallbackProps = {
 /**
  * Branded fallback when a route segment throws. Used by error.tsx files so
  * users see a friendly Thai message instead of the generic Vercel error page.
+ *
+ * Retry = hard reload (clears stuck RSC error boundaries).
+ * Home = leave this segment for a known-good route.
  */
 export function ErrorFallback({
   error,
@@ -21,9 +25,25 @@ export function ErrorFallback({
   homeHref = "/",
   homeLabel = "กลับหน้าแรก",
 }: ErrorFallbackProps) {
+  const router = useRouter();
+
   useEffect(() => {
     console.error("[HoraSard]", error.digest ?? error.message);
   }, [error]);
+
+  function handleRetry() {
+    // Soft retry alone often re-renders the same failed tree; hard reload
+    // recovers from transient DB/CMS failures the user hit on /account.
+    if (typeof window !== "undefined") {
+      window.location.reload();
+      return;
+    }
+    unstable_retry?.();
+  }
+
+  function handleHome() {
+    router.replace(homeHref);
+  }
 
   return (
     <main className="flex min-h-[60vh] flex-1 flex-col items-center justify-center px-6 py-16 text-center">
@@ -41,19 +61,22 @@ export function ErrorFallback({
         </p>
       ) : null}
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        {unstable_retry ? (
-          <button
-            type="button"
-            onClick={() => unstable_retry()}
-            className="press-scale rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
-          >
-            ลองใหม่
-          </button>
-        ) : null}
-        <Link
-          href={homeHref}
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="press-scale rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+        >
+          ลองใหม่
+        </button>
+        <button
+          type="button"
+          onClick={handleHome}
           className="rounded-full border border-[var(--border)] px-5 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-2)]"
         >
+          {homeLabel}
+        </button>
+        {/* Keep a real link for no-JS / crawlers */}
+        <Link href={homeHref} className="sr-only">
           {homeLabel}
         </Link>
       </div>

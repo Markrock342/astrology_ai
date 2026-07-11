@@ -14,17 +14,20 @@ import { CategoryIcon } from "./category-icon";
 import {
   CollapseSidebarIcon,
   ExpandSidebarIcon,
-  GearIcon,
   LockIcon,
   MenuIcon,
+  MoonIcon,
   NewChatIcon,
   SearchIcon,
+  SunIcon,
   TransitIcon,
 } from "./sidebar-icons";
 import { useAppData, isCategoryLocked } from "./app-data-provider";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banner";
 import { UserAvatar } from "./user-avatar";
+import { useTheme } from "@/components/theme-provider";
+import { TransitFormModal } from "./transit-form-modal";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -34,11 +37,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileShown, setMobileShown] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [transitOpen, setTransitOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<SettingsModal>(null);
-  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const profileBtnRef = useRef<HTMLButtonElement>(null);
   const searchParams = useSearchParams();
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
+  const { theme, toggleTheme } = useTheme();
 
   const {
     user,
@@ -53,6 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const displayName = user?.name ?? (loading ? "…" : "ผู้ใช้");
   const planLabel = user?.plan === "PRO" ? "Pro" : "Free";
+  const themeLabel = theme === "dark" ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด";
 
   const openMobile = useCallback(() => {
     setMobileRender(true);
@@ -209,6 +215,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarDivider />
 
         <SectionLabel>ดวงจร</SectionLabel>
+        <button
+          type="button"
+          onClick={() => {
+            setTransitOpen(true);
+            closeMobile();
+          }}
+          className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--primary)] transition hover:bg-[var(--surface-2)]"
+        >
+          <TransitIcon />
+          เริ่มดวงจรใหม่
+        </button>
         <nav className="flex flex-col gap-0.5">
           {filteredTransitThreads.length === 0 ? (
             <p className="px-3 py-2 text-xs text-[var(--muted-2)]">
@@ -241,27 +258,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SettingsPopover
             onClose={() => setSettingsOpen(false)}
             onOpenModal={openModal}
-            anchorRef={settingsBtnRef}
+            anchorRef={profileBtnRef}
           />
         )}
-        <div className="flex items-center justify-between rounded-xl px-2 py-2">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1 rounded-xl px-1 py-1">
+          <button
+            ref={profileBtnRef}
+            type="button"
+            onClick={() => setSettingsOpen((v) => !v)}
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-[var(--surface-2)]"
+            aria-label="เปิดการตั้งค่า"
+            aria-expanded={settingsOpen}
+            title="การตั้งค่า"
+          >
             <UserAvatar name={displayName} image={user?.image} size={36} />
-            <div className="leading-tight">
-              <p className="max-w-[140px] truncate text-sm font-medium text-[var(--foreground)]">
+            <div className="min-w-0 leading-tight">
+              <p className="max-w-[120px] truncate text-sm font-medium text-[var(--foreground)]">
                 {displayName}
               </p>
               <p className="text-[11px] text-[var(--muted-2)]">{planLabel}</p>
             </div>
-          </div>
+          </button>
           <button
-            ref={settingsBtnRef}
             type="button"
-            onClick={() => setSettingsOpen((v) => !v)}
-            className="rounded-full p-2 text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-            aria-label="ตั้งค่า"
+            onClick={toggleTheme}
+            className="shrink-0 rounded-full p-2 text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+            aria-label={themeLabel}
+            title={themeLabel}
           >
-            <GearIcon />
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
           </button>
         </div>
       </div>
@@ -309,6 +334,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onCloseSettings={() => setSettingsOpen(false)}
             onExpand={() => setCollapsed(false)}
             onOpenModal={openModal}
+            onToggleTheme={toggleTheme}
+            theme={theme}
+            themeLabel={themeLabel}
             displayName={displayName}
             image={user?.image}
           />
@@ -365,6 +393,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onCancelled={() => refresh()}
         />
       )}
+      {transitOpen && <TransitFormModal onClose={() => setTransitOpen(false)} />}
     </div>
   );
 }
@@ -376,6 +405,9 @@ function CollapsedRail({
   onCloseSettings,
   onExpand,
   onOpenModal,
+  onToggleTheme,
+  theme,
+  themeLabel,
   displayName,
   image,
 }: {
@@ -385,6 +417,9 @@ function CollapsedRail({
   onCloseSettings: () => void;
   onExpand: () => void;
   onOpenModal: (m: SettingsModal) => void;
+  onToggleTheme: () => void;
+  theme: "dark" | "light";
+  themeLabel: string;
   displayName: string;
   image?: string | null;
 }) {
@@ -451,16 +486,25 @@ function CollapsedRail({
           />
         )}
         <button
+          type="button"
+          onClick={onToggleTheme}
+          className="rounded-full p-2 text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+          aria-label={themeLabel}
+          title={themeLabel}
+        >
+          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+        </button>
+        <button
           ref={railBtnRef}
           type="button"
           onClick={onToggleSettings}
-          className="rounded-full p-2 text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-          aria-label="ตั้งค่า"
-          title="ตั้งค่า"
+          className="rounded-full p-0.5 transition hover:ring-2 hover:ring-[var(--primary)]/40"
+          aria-label="เปิดการตั้งค่า"
+          aria-expanded={settingsOpen}
+          title="การตั้งค่า"
         >
-          <GearIcon />
+          <UserAvatar name={displayName} image={image} size={36} />
         </button>
-        <UserAvatar name={displayName} image={image} size={36} />
       </div>
     </div>
   );

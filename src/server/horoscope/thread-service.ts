@@ -23,6 +23,11 @@ export type ThreadDetail = {
   categoryLabel: string;
   mode: ConversationMode;
   messages: ThreadMessage[];
+  transitDate?: string | null;
+  transitTime?: string | null;
+  transitCountry?: string | null;
+  transitProvince?: string | null;
+  transitDistrict?: string | null;
 };
 
 function truncateTitle(text: string, max = 48): string {
@@ -102,6 +107,11 @@ export async function getThreadDetail(
     select: {
       id: true,
       mode: true,
+      transitDate: true,
+      transitTime: true,
+      transitCountry: true,
+      transitProvince: true,
+      transitDistrict: true,
       category: { select: { slug: true, nameTh: true } },
       messages: {
         orderBy: { createdAt: "asc" },
@@ -116,15 +126,17 @@ export async function getThreadDetail(
   });
 
   if (conversation) {
-    if (conversation.messages.length === 0) {
-      throw new AppError("NOT_FOUND", "ไม่พบประวัติการสนทนานี้");
-    }
-
+    // Allow empty threads (e.g. just-created TRANSIT before first message).
     return {
       id: conversation.id,
       categorySlug: conversation.category.slug,
       categoryLabel: conversation.category.nameTh,
       mode: conversation.mode,
+      transitDate: conversation.transitDate?.toISOString() ?? null,
+      transitTime: conversation.transitTime,
+      transitCountry: conversation.transitCountry,
+      transitProvince: conversation.transitProvince,
+      transitDistrict: conversation.transitDistrict,
       messages: conversation.messages.map((m) => ({
         id: m.id,
         role: m.role === "USER" ? "user" : "assistant",

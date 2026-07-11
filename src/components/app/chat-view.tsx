@@ -140,6 +140,12 @@ export function ChatView() {
   const [threadCategorySlug, setThreadCategorySlug] = useState<string | null>(
     null,
   );
+  const [threadMode, setThreadMode] = useState<"NATAL" | "TRANSIT" | null>(
+    null,
+  );
+  const [threadTransitLabel, setThreadTransitLabel] = useState<string | null>(
+    null,
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamTimer = useRef<number | null>(null);
   const conversationIdRef = useRef<string | null>(threadId);
@@ -169,6 +175,24 @@ export function ChatView() {
         }
         setMessages(json.data.messages);
         setThreadCategorySlug(json.data.categorySlug ?? null);
+        setThreadMode(json.data.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
+        if (json.data.mode === "TRANSIT" && json.data.transitDate) {
+          const d = new Date(json.data.transitDate);
+          const dateLabel = Number.isNaN(d.getTime())
+            ? null
+            : d.toLocaleDateString("th-TH", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                timeZone: "UTC",
+              });
+          const time = json.data.transitTime
+            ? ` · ${json.data.transitTime}`
+            : "";
+          setThreadTransitLabel(dateLabel ? `${dateLabel}${time}` : null);
+        } else {
+          setThreadTransitLabel(null);
+        }
         setState("idle");
         setErrorText(null);
         setErrorCode(null);
@@ -195,6 +219,8 @@ export function ChatView() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages([]);
     setThreadCategorySlug(null);
+    setThreadMode(null);
+    setThreadTransitLabel(null);
     setState(locked ? "locked" : "idle");
     setInput("");
     setErrorText(null);
@@ -397,6 +423,11 @@ export function ChatView() {
 
   return (
     <div className="flex flex-1 flex-col">
+      {threadMode === "TRANSIT" && threadTransitLabel ? (
+        <div className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-center text-xs text-[var(--muted)] md:px-8">
+          โหมดดวงจร · {threadTransitLabel}
+        </div>
+      ) : null}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 md:px-8">
         {!FEATURES.aiChat && (
           <div className="animate-fade-in mx-auto mb-6 max-w-3xl rounded-xl border border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 text-center text-xs text-[var(--muted)]">
@@ -416,7 +447,10 @@ export function ChatView() {
             </a>
           </div>
         ) : showEmpty ? (
-          <div className="mx-auto flex w-full max-w-2xl flex-col items-center">
+          <div
+            key={catSlug ?? "home"}
+            className="page-enter mx-auto flex w-full max-w-2xl flex-col items-center"
+          >
             <EmptyState
               category={category?.label}
               suggestions={category?.suggestedQuestions ?? []}

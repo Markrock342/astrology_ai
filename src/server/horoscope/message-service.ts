@@ -135,12 +135,24 @@ export async function createConversation(input: CreateConversationInput) {
     throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
   }
 
+  const transitDate = input.transitDate ? new Date(input.transitDate) : null;
+  const title =
+    mode === "TRANSIT" && transitDate && !Number.isNaN(transitDate.getTime())
+      ? `ดวงจร ${transitDate.toLocaleDateString("th-TH", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC",
+        })}`
+      : null;
+
   return prisma.conversation.create({
     data: {
       userId: input.userId,
       categoryId: category.id,
       mode,
-      transitDate: input.transitDate ? new Date(input.transitDate) : null,
+      title,
+      transitDate,
       transitTime: input.transitTime ?? null,
       transitCountry: input.transitCountry ?? null,
       transitProvince: input.transitProvince ?? null,

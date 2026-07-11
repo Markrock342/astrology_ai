@@ -122,10 +122,11 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 **ค้างจริง (manual — ไม่ใช่โค้ด):**
 
-- [ ] Google OAuth redirect URI สำหรับ production
-- [ ] Manual smoke: sign-in → birth → payment → แชท Gemini (ตารางหลักฐาน)
+- [ ] Google OAuth redirect URI สำหรับ production (โดเมนจริง)
+- [ ] Manual smoke: sign-in → birth → payment → แชท Gemini + ดวงจร (ตารางหลักฐาน)
 - [x] Merge engine + F2 + thread/rate-limit → `main` ([PR #9](https://github.com/Markrock342/astrology_ai/pull/9))
-- [ ] (Optional) Resend / Upstash / Turnstile ครบบน Vercel
+- [x] Wave D transit create UI (FE) + empty thread detail (BE)
+- [ ] (Optional) Resend / Upstash / Turnstile ครบบน Vercel — Resend+Turnstile มีแล้ว · Upstash optional
 - [ ] Preview env มี `DATABASE_URL` + `AUTH_SECRET` (กัน Vercel PR build fail)
 
 ---
