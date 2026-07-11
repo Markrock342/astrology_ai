@@ -4,6 +4,8 @@
 และ **`PROJECT_STRUCTURE.md`** (โครงสร้างโปรเจกต์ / ความจำกลางของทีม)
 ฝั่ง Frontend อยู่ในไฟล์ `FRONTEND_TASKS.md`
 
+**อ้างอิงสถานะจริง:** `M4_HANDOFF.md` (commit `3796e65`) · เอกสาร sync ล่าสุด ก.ค. 2026
+
 **ขอบเขตของคุณ:** service layer + API + ฐานข้อมูล + AI integration
 **โฟลเดอร์ที่ดูแล:** `src/server/`, `src/app/api/`, `prisma/`
 **กฎเหล็ก:** business logic อยู่ใน `src/server/*` เท่านั้น — route handler แค่ validate + authorize + เรียก service
@@ -33,10 +35,10 @@
 **กฎ Flowchart (ยืนยัน PM แล้ว)**
 - **Free ห้ามแชท AI** — `reading-service` + `message-service` คืน `CHAT_REQUIRES_PRO`; `GET /api/me` มี `canChat: plan === "PRO"`
 - **Free หมวด:** ตัวตน + การงานเท่านั้น (หมวด Pro ยัง lock ด้วย `CATEGORY_LOCKED`)
-- **`NatalChart`** model + stub service หลัง save birth — engine จริง port จาก `newhora` ภายหลัง
+- **`NatalChart`** model + engine จริง (port จาก `newhora`) หลัง save birth
 - **ดวงจร:** `TRANSIT_REQUIRES_PRO` + ฟิลด์ transit บน `Conversation`
 
-> โมเดลเดิม `HoroscopeReading`/`ai_usage_logs` ยังใช้เป็นฐานได้ — ปรับ `reading-service.ts` ให้ทำงานระดับ "ข้อความ" แทน "reading" แล้ว migrate ชื่อ/ความสัมพันธ์ให้ตรงโมเดลแชท
+> โมเดลเดิม `HoroscopeReading`/`ai_usage_logs` ยังใช้เป็นฐานได้ — `message-service` ยัง delegate ผ่าน `reading-service` จนกว่า B1 จะปิด
 
 ---
 
@@ -48,72 +50,82 @@
 1. **ห้าม push ตรงเข้า `main`** 2. **1 งาน = 1 branch สั้นๆ** 3. **`git pull` ก่อนเริ่มเสมอ**
 4. **PR เล็กๆ** 5. **PM merge** 6. **คุยกับ Frontend ก่อนแก้ไฟล์กลาง**
 
-### ชื่อ branch: `be/<งาน>`  เช่น `be/chat-model`, `be/gemini-adapter`
+### ชื่อ branch: `be/<งาน>`  เช่น `be/multi-turn-chat`, `be/m3-tests`
 
 ```bash
 git checkout main && git pull
-git checkout -b be/chat-model
-# ...แก้ schema...
-npm run db:migrate          # สร้าง migration (commit ไปด้วย)
-npm run typecheck && npm run lint
-git add -A && git commit -m "feat(chat): add Conversation + Message models"
-git push -u origin be/chat-model
+git checkout -b be/multi-turn-chat
+# ...แก้โค้ด...
+npm run typecheck && npm run lint && npm run test
+git add -A && git commit -m "feat(chat): send thread history in prompt"
+git push -u origin be/multi-turn-chat
 # เปิด PR → รอ PM รีวิว → merge → ลบ branch
 ```
 
 ### conflict
 ```bash
 git checkout main && git pull
-git checkout be/chat-model
+git checkout be/multi-turn-chat
 git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 ```
 
 ---
 
-## 2. Checklist ราย Milestone (อัปเดตตามดีไซน์จริง)
+## 2. Checklist ราย Milestone (อัปเดตตามโค้ดจริง ณ `3796e65`)
 
-### 🎯 Milestone 2 — Schema chat, Auth, Birth profile, Admin API
+### 🎯 Milestone 2 — Schema chat, Auth, Birth profile, Admin API ✅ ปิดแล้ว
 
-- [x] **ปรับ schema**: เพิ่ม `Conversation` + `Message`, ปรับ `BirthProfile` (country/province/district + `editCount`), เพิ่ม `suggestedQuestions` ที่ category → เขียน migration
-- [x] เตรียม dataset **จังหวัด/อำเภอไทย** (เสิร์ฟผ่าน `GET /api/geo/thailand` + `src/data/thailand-geo.ts`; อำเภอยังชุดย่อ)
+- [x] **ปรับ schema**: `Conversation` + `Message`, `BirthProfile` fields, `suggestedQuestions` → migration
+- [x] dataset จังหวัด/อำเภอไทย (`GET /api/geo/thailand`)
 - [x] แปลงปี **พ.ศ.→ค.ศ.** ก่อนบันทึก (เก็บ UTC)
-- [x] Auth: เปิด **Google provider** ใน `src/auth.ts` + **auto-create user ตอน sign-in ครั้งแรก**
-- [x] Sign-in อีเมล: **อีเมล+รหัสผ่าน** สมัครตรง เก็บ `passwordHash` ใน DB เรา (Credentials) — **ไม่ใช้ magic-link**
-- [x] `GET/PUT /api/me/birth-profile` — **บังคับ editCount ≤ 1** (แก้ได้อีกครั้งเดียว)
+- [x] Auth: Google provider + auto-create user
+- [x] Sign-in อีเมล: **อีเมล+รหัสผ่าน** สมัครตรง (Credentials) — **ไม่ใช้ magic-link**
+- [x] Register + forgot/reset password + email verification (Turnstile)
+- [x] `GET/PUT /api/me/birth-profile` — **บังคับ editCount ≤ 1**
 - [x] `GET /api/me`, `/api/me/package`, `/api/me/credits`
-- [x] Admin API: users (list/detail/status/credits/subscription) + CRUD categories, packages (+ `writeAudit` ทุก mutation)
+- [x] Admin API: users + CRUD categories, packages (+ `writeAudit`)
 
-**Acceptance:** sign-in (Google+email) ได้ · กรอก/แก้วันเกิด (จำกัด 1 ครั้ง) ได้ · admin จัดการผู้ใช้/หมวด/แพ็กเกจได้
+**Acceptance:** ✅ ผ่าน
 
-> **M2 ปิดแล้ว** (`be/m2-close` + `fe/milestone2-3-ui` + flowchart rules). DB migrate+seed บน Supabase แล้ว.
+---
 
-### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History
+### 🎯 Milestone 3 — Chat + Gemini + Credit/Quota + History ✅ ปิด BN
 
-- [x] API แชท (บางส่วน): `GET /api/conversations`, `GET /api/conversations/:id`, `POST /api/conversations`, `POST /api/conversations/:id/messages` (ยัง delegate ผ่าน `reading-service` + sync Message)
-- [x] กฎ Free ห้ามแชท: `CHAT_REQUIRES_PRO` + `canChat` ใน `/api/me`
-- [x] `NatalChart` stub + `GET /api/me/natal-chart` หลัง save birth
-- [ ] ปรับ `reading-service.ts` → **message-service** เต็มรูป: context เธรด + ไม่พึ่ง HoroscopeReading
-- [ ] `providers/gemini.ts` — เรียก Gemini จริง + `AbortController(timeoutMs)`, ใช้ `resolveSecret()`; **ห้าม throw** เมื่อ error (คืน `ok:false` เพื่อ fallback และไม่หักเครดิต)
-- [ ] Prompt builder: รองรับประวัติสนทนา (ส่ง context ของเธรด) + persona แม่หมอ + โหมด natal/transit
-- [ ] คำถามแนะนำต่อหมวด (ตอบใน `GET /api/horoscope/categories`)
-- [ ] Admin: CRUD prompts, ai-configs + `POST /api/admin/ai-configs/:id/test`, `GET /api/admin/ai-usage`
-- [ ] Tests: หักเครดิต · refund เมื่อ AI error · Free/Pro + ดวงจร lock · model routing · admin auth · idempotency
+**เสร็จแล้ว:**
 
-**Acceptance:** แชทได้ · AI ตอบ+บันทึก · หักเครดิตถูก · error ไม่หักซ้ำ · retry ไม่สร้างข้อความซ้ำ · ประวัติเธรดครบ
+- [x] API แชท + multi-turn context (B1)
+- [x] กฎ Free/Pro/transit lock + idempotency
+- [x] Gemini/OpenAI + Admin AI CMS
+- [x] **B2** Tests: credit · AI fail no charge · locks · idempotency · rbac · router fallback
 
-### 🎯 Milestone 4 — Payment, Package, Dashboard, Deploy
-- [ ] Manual payment: `POST /api/payments/manual` + admin review + เปิดแพ็กเกจ (+ audit)
-- [ ] จัดการแพ็กเกจ + **ยกเลิกการเป็นสมาชิก** (endpoint + ปรับ subscription)
-- [ ] `GET /api/admin/dashboard` (ตัวเลข + ต้นทุน AI โดยประมาณ)
-- [ ] Rate-limit production-grade (Redis/Upstash), production DB + secrets + backup
-- [ ] เก็บ/เสิร์ฟ นโยบายความเป็นส่วนตัว/เงื่อนไข
+**รอ merge / FN:** F2 render thread history
+
+---
+
+### 🎯 Milestone 4 — Payment, Package, Dashboard, Deploy 🟢 ~80%
+
+**เสร็จแล้ว (อย่าทำซ้ำ):**
+
+- [x] Manual payment: `POST /api/payments/manual` + admin review + เปิดแพ็กเกจ (+ audit)
+- [x] `GET /api/payments/me`
+- [x] ยกเลิกสมาชิก: `POST /api/me/subscription/cancel`
+- [x] `GET /api/admin/dashboard` (KPIs + ต้นทุน AI โดยประมาณ)
+- [x] หน้า legal scaffold + CMS settings (`privacy`/`terms`/`disclaimer` — เนื้อหาจริงรอ FE F4)
+- [x] Email: `mailer.ts` — Resend เมื่อมี `RESEND_API_KEY` / dev-console fallback
+
+**ค้างจริง (B3–B4):**
+
+- [ ] **B3** Rate-limit production-grade (Redis/Upstash) — **รอ PM ตัดสินใจ** (ตอนนี้ in-memory)
+- [ ] **B4** Go-live config: env บน Vercel ครบ, migrate+seed prod, backup, smoke test
 
 ---
 
 ## 3. สิ่งที่เขียนไว้ให้แล้ว (ใช้ซ้ำ อย่าเขียนใหม่)
 - `credit-service.ts` — หักเครดิต atomic + optimistic lock + ledger immutable → **ทุกการเปลี่ยนเครดิตผ่านที่นี่ ห้ามแตะ `balance` ตรง**
 - `reading-service.ts` — flow charge-after-success + idempotency (ปรับให้ทำงานระดับ message)
+- `message-service.ts` + `thread-service.ts` — API แชท (B1: ยังไม่ส่ง thread context)
 - `src/server/ai/` — adapter · router (fallback) · prompt-builder · usage-logger
+- `payment-service.ts` · `dashboard-admin-service.ts`
 - `rbac.ts` — `requireUser()`, `requireAdmin()`, `requireSuperAdmin()`
 - `audit-service.ts` — `writeAudit()` (เรียกทุก admin mutation)
 - `http.ts` — `handle()`, `ok()`, `fail()` · `errors.ts` — `AppError(code, msg)`
@@ -147,9 +159,22 @@ export async function POST(req: Request) {
 ---
 
 ## 6. รอ PM ยืนยัน (มีผลกับ backend)
-- **ดวงจร (transit)** อยู่ Phase 1 ไหม (เพิ่มงานเยอะ: คำนวณ/หาวันอัตโนมัติ) หรือเลื่อน
+- **Rate-limit production** — Redis/Upstash หรือยอม in-memory ชั่วคราว (บล็อก B3)
+- **ดวงจร (transit)** auto-คำนวณวัน — enum มีแล้ว gate Pro แล้ว แต่ยังไม่มี engine transit เต็ม
 - ~~Sign-in อีเมล~~ → **ตัดสินใจแล้ว:** อีเมล+รหัสผ่าน สมัครตรง เก็บ DB (ไม่ใช้ magic-link)
 - Free/Pro quota + ราคา + credit cost ต่อข้อความ/หมวด (ตอนนี้: Free 3, Pro 100, 199฿)
 - Pro หมดอายุรายเดือน หรือ manual ไม่มีกำหนด
 - ประวัติแชท: แยกตามหัวข้อ หรือรวมใน ดวงจร (ดีไซน์มี 2 ไอเดีย)
 - ใครถือบัญชี/จ่าย Gemini + hosting/Postgres · แหล่งข้อมูลจังหวัด/อำเภอ
+
+---
+
+## 7. Critical path ปิด M4 (BN)
+
+```
+B1 multi-turn chat → B2 tests → B4 deploy config → go-live
+         │
+         └── FN F2 (render thread) เริ่มหลัง B1 merge
+
+B3 rate-limit — รอ PM (ทำขนานได้ถ้าตัดสินใจแล้ว)
+```

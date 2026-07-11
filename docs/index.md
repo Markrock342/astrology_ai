@@ -1,169 +1,98 @@
 # HoraSard — Master Index / Architecture Map
 
-
-
-สารบัญกลางของโปรเจกต์ (อัปเดต: `be/m2-close`, ก.ค. 2026)
-
-
+สารบัญกลางของโปรเจกต์ (อัปเดต: `main` @ `3796e65`, ก.ค. 2026)
 
 ## ภาพรวมสถาปัตยกรรม
 
-
-
 ```
-
 UI (src/app, src/components)  →  เรียก API เท่านั้น ไม่มี business logic
-
 API (src/app/api/*)           →  validate (Zod) + authorize (rbac) + handle()
-
 Service (src/server/*)        →  business logic ทั้งหมด
-
 DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน Vercel)
-
 ```
-
-
 
 **กฎเหล็ก:** ห้ามเรียก AI จาก browser · API key อยู่ใน env เท่านั้น · หักเครดิตหลัง AI สำเร็จ + `Idempotency-Key`
 
-
-
-**เอกสารอ้างอิง:** `README.md` · `PROJECT_STRUCTURE.md` · `BACKEND_TASKS.md` · `FRONTEND_TASKS.md`
-
-
+**เอกสารอ้างอิง:** `README.md` · `PROJECT_STRUCTURE.md` · `BACKEND_TASKS.md` · `FRONTEND_TASKS.md` · **`M4_HANDOFF.md`** (สถานะจริงตรวจกับโค้ด)
 
 ## Milestone ปัจจุบัน
 
-
-
 | Milestone | สถานะรวม |
-
 |-----------|----------|
-
-| **M2** — Schema chat, Auth, Birth profile, Admin CMS พื้นฐาน | ✅ ปิดงานบน `be/m2-close` (รอ PR merge) |
-
-| **M3** — แชท AI จริง, message-service, ประวัติเธรด | 🚧 เริ่มแล้วบางส่วน (ดูด้านล่าง) |
-
-| **M4** — Payment, Dashboard, Deploy | ⏳ ยังไม่เริ่ม |
-
-
+| **M2** — Schema chat, Auth, Birth profile, Admin CMS พื้นฐาน | ✅ ปิดแล้ว |
+| **M3** — แชท AI, Gemini, ประวัติเธรด, Admin AI CMS | ✅ **ปิด BN** — B1+B2 เสร็จ (รอ merge + FN F2) |
+| **M4** — Payment, Dashboard, Deploy | 🟢 **~80%** — code ครบ ขาด rate-limit prod (B3) + go-live config (B4) |
 
 **Feature gating:** `src/config/features.ts` — ตั้ง `NEXT_PUBLIC_APP_PHASE=2` บน Vercel จะปิด AI chat + Admin AI CMS; dev ไม่ตั้ง = เปิดทั้งหมด
 
-
-
 ---
-
-
 
 ## โมดูล Backend
 
-
-
 | โมดูล | สถานะ | บันทึก | โค้ดหลัก |
-
 | ----- | ----- | ------ | -------- |
-
 | Chat schema (Conversation/Message, BirthProfile fields) | ✅ M2 | [backend_chat_schema.md](./backend_chat_schema.md) | `prisma/schema.prisma`, `prisma/migrations/*` |
-
-| Birth profile API (พ.ศ.→ค.ศ., editCount≤1) | ✅ M2 | [backend_birth_profile.md](./backend_birth_profile.md) | `src/server/user/birth-profile-service.ts`, `src/app/api/me/birth-profile` |
-
-| Thailand geo API | ✅ M2 | [backend_geo_api.md](./backend_geo_api.md) | `src/data/thailand-geo.ts`, `src/app/api/geo/thailand` |
-
-| Google auth + auto-create user | ✅ M2 | [backend_google_auth.md](./backend_google_auth.md) | `src/server/auth/provisioning.ts`, `src/auth.ts` |
-| Register + password reset (หน้า login เดียว) | ✅ | [backend_auth_register_reset.md](./backend_auth_register_reset.md) | `sign-in-form.tsx`, `/api/auth/*` |
-
-| User API (`/api/me`, package, credits) | ✅ M2 | [backend_me_api.md](./backend_me_api.md) | `src/server/user/account-service.ts`, `src/app/api/me/*` |
-
-| Admin API (users, categories, packages) | ✅ M2 | [backend_admin_api.md](./backend_admin_api.md) | `src/server/admin/user-admin-service.ts`, `catalog-admin-service.ts` |
-
-| Admin AI CMS (prompts, models, knowledge) | 🚧 M3 บางส่วน | [backend_ai_admin.md](./backend_ai_admin.md) | `src/server/admin/ai-admin-service.ts`, `src/app/api/admin/{prompts,ai-configs,knowledge}` |
-
-| AI engine (Gemini/OpenAI, readings) | 🚧 M3 บางส่วน | [backend_ai_engine.md](./backend_ai_engine.md) | `src/server/ai/*`, `src/server/horoscope/reading-service.ts`, `POST /api/horoscope/readings` |
-
-
+| Birth profile API (พ.ศ.→ค.ศ., editCount≤1) | ✅ M2 | [backend_birth_profile.md](./backend_birth_profile.md) | `birth-profile-service.ts`, `/api/me/birth-profile` |
+| Thailand geo API | ✅ M2 | [backend_geo_api.md](./backend_geo_api.md) | `thailand-geo.ts`, `/api/geo/thailand` |
+| Google auth + auto-create user | ✅ M2 | [backend_google_auth.md](./backend_google_auth.md) | `provisioning.ts`, `src/auth.ts` |
+| Register + password reset + email verify | ✅ | [backend_auth_register_reset.md](./backend_auth_register_reset.md) | `auth-card.tsx`, `/api/auth/*` |
+| User API (`/api/me`, package, credits, natal-chart) | ✅ | [backend_me_api.md](./backend_me_api.md) | `account-service.ts`, `/api/me/*` |
+| Admin API (users, categories, packages) | ✅ M2 | [backend_admin_api.md](./backend_admin_api.md) | `user-admin-service.ts`, `catalog-admin-service.ts` |
+| Admin AI CMS (prompts, models, knowledge, usage) | ✅ ~M3 | [backend_ai_admin.md](./backend_ai_admin.md) | `ai-admin-service.ts`, `/api/admin/{prompts,ai-configs,knowledge,ai-usage}` |
+| AI engine + readings | ✅ ~M3 | [backend_ai_engine.md](./backend_ai_engine.md) | `src/server/ai/*`, `reading-service.ts` |
+| Chat conversations API | ✅ B1 done | [backend_m3_chat.md](./backend_m3_chat.md) | `message-service.ts`, `thread-service.ts`, `/api/conversations/*` |
+| Payment + dashboard (M4) | ✅ code | [backend_m4_payment.md](./backend_m4_payment.md) | `payment-service.ts`, `dashboard-admin-service.ts` |
 
 ## โมดูล Frontend
 
-
-
 | โมดูล | สถานะ | บันทึก | โค้ดหลัก |
-
 | ----- | ----- | ------ | -------- |
-
-| App UI (mockups, chat, birth form, admin) | ✅ M2 UI | [frontend_app_ui.md](./frontend_app_ui.md) | `src/components/app/*`, `src/components/birth/*`, `src/components/admin/*` |
-
+| App UI (mockups, chat, birth form, admin) | ✅ | [frontend_app_ui.md](./frontend_app_ui.md) | `src/components/app/*`, `auth-card.tsx`, `admin/*` |
 | จังหวัด/อำเภอ (dropdown) | ✅ API + shim | [backend_geo_api.md](./backend_geo_api.md) | `GET /api/geo/thailand`, `src/lib/th-geo.ts` |
 
-
-
 ---
-
-
 
 ## API ที่มีบน main (สรุป)
 
+**Auth:** `POST /api/auth/{register,login,check-email,forgot-password,reset-password,verify-email,resend-verification}` · NextAuth `[...nextauth]`
 
+**User:** `GET /api/me` · `GET /api/me/{package,credits}` · `GET|PUT /api/me/birth-profile` · `GET /api/me/natal-chart` · `PUT /api/me/{profile,password,avatar}` · `POST /api/me/subscription/cancel`
 
-**Auth:** `POST /api/auth/register` · `POST /api/auth/check-email` · `POST /api/auth/forgot-password` · `POST /api/auth/reset-password` · NextAuth `[...nextauth]`
+**Chat:** `GET|POST /api/conversations` · `GET /api/conversations/:id` · `POST /api/conversations/:id/messages` *(header `Idempotency-Key`)*
 
+**Horoscope:** `GET /api/horoscope/categories` *(มี `suggestedQuestions`)* · `POST /api/horoscope/readings` *(gated `FEATURES.aiChat`)*
 
+**Payment:** `POST /api/payments/manual` · `GET /api/payments/me`
 
-**User:** `GET /api/me` · `GET /api/me/package` · `GET /api/me/credits` · `GET|PUT /api/me/birth-profile`
+**Public:** `GET /api/packages` · `GET /api/geo/thailand` · `GET /api/{announcements,faq,settings/public}`
 
-
-
-**Horoscope:** `GET /api/horoscope/categories` · `POST /api/horoscope/readings` *(gated `FEATURES.aiChat`)*
-
-
-
-**Public:** `GET /api/packages` · `GET /api/geo/thailand`
-
-
-
-**Admin M2:** `/api/admin/users/*` · `/api/admin/categories/*` · `/api/admin/packages/*`
-
-
-
-**Admin M3:** `/api/admin/prompts/*` · `/api/admin/ai-configs/*` (+ `POST .../test`) · `/api/admin/knowledge/*` *(gated `FEATURES.aiAdmin`)*
-
-
-
-**ยังไม่มี:** `/api/conversations/*` · `GET /api/admin/ai-usage` · payment/dashboard (M3/M4)
-
-
+**Admin:** `/api/admin/{users,categories,packages,prompts,ai-configs,knowledge,payments,announcements,faq,settings,revisions,audit-logs,ai-usage,ai-status,dashboard}/*`
 
 ---
 
+## งานค้างจริง (BN)
 
+| ID | งาน | หมายเหตุ |
+|----|-----|----------|
+| **B1** | Multi-turn chat context ใน prompt | ✅ `be/m3-multi-turn-chat` |
+| **B2** | Tests M3 (credit, refund, idempotency, lock, admin auth) | ✅ `be/m3-tests` |
+| **B3** | Rate-limit production (Redis/Upstash) | รอ PM |
+| **B4** | Go-live: env Vercel, migrate+seed prod, smoke test | หลัง B1+B2 |
+
+---
 
 ## รอ PM ยืนยัน
 
-
-
-- ดวงจร (transit) อยู่ Phase 1 ไหม — enum `TRANSIT` มีใน schema แต่ยังไม่ทำ auto-คำนวณ
-- ~~Sign-in อีเมล~~ → **ตัดสินใจแล้ว:** อีเมล+รหัสผ่าน สมัครตรง เก็บ DB (ไม่ใช้ magic-link)
-
+- Rate-limit strategy (บล็อก B3)
+- ดวงจร (transit) auto-คำนวณวัน — gate Pro มีแล้ว แต่ยังไม่มี engine transit เต็ม
+- ~~Sign-in อีเมล~~ → **ตัดสินใจแล้ว:** อีเมล+รหัสผ่าน สมัครตรง เก็บ DB
 - แหล่งข้อมูลจังหวัด/อำเภอเต็ม — อำเภอยังชุดย่อใน `thailand-geo.ts`
-
 - Free/Pro quota, ราคา, Pro หมดอายุรายเดือนหรือไม่
 
+## งานที่เสร็จแล้ว (อย่าทำซ้ำ)
 
-
-## งานค้างข้าม milestone
-
-
-
-- [x] Unit tests พื้นฐาน M2 (`npm run test` — `tests/date.test.ts`, `tests/birth-profile-rules.test.ts`)
-
-- [x] Migration สำหรับ `KnowledgeDoc` (`20260703100000_knowledge_docs`)
-
-- [ ] รัน `db:migrate` + `db:seed` บน Supabase (ต้องมี `DIRECT_URL` ใน `.env`)
-
-- [ ] Refactor `reading-service` → `message-service` + `/api/conversations/*`
-
-- [ ] `suggestedQuestions` ใน `GET /api/horoscope/categories`
-
-- [ ] นโยบายความเป็นส่วนตัว/เงื่อนไข (M4)
-- [ ] **เชื่อมส่งอีเมลจริง** (password reset) — ตอนนี้ dev fallback เท่านั้น ดู [backend_auth_register_reset.md](./backend_auth_register_reset.md)
-
+- [x] Unit tests พื้นฐาน M2 (`date`, `birth-profile-rules`, `password-reset`, `chart-engine`)
+- [x] Migrations บน Supabase (รวม `knowledge_docs`, `password_reset_token`, CMS revisions)
+- [x] Conversations API + Gemini จริง + Admin AI CMS + payment + dashboard
+- [x] `suggestedQuestions` ใน categories API
+- [x] Email sender (Resend-ready) — ตั้ง `RESEND_API_KEY` + `EMAIL_FROM` เพื่อส่งจริง

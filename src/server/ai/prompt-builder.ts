@@ -1,5 +1,6 @@
-import type { BirthProfileSnapshot } from "@/types";
+import type { BirthProfileSnapshot, ConversationTurn } from "@/types";
 import type { ChartJson } from "@/types/chart";
+import { MAX_CONVERSATION_TURNS } from "@/config/constants";
 import { formatChartForPrompt } from "@/server/horoscope/engine/format-chart-prompt";
 
 /**
@@ -51,4 +52,56 @@ export function buildUserPrompt(
   ].filter((line) => line !== null);
 
   return lines.join("\n");
+}
+
+export type PriorThreadMessage = {
+  role: "USER" | "ASSISTANT";
+  content: string;
+};
+
+/**
+ * Build multi-turn history for the AI adapter from persisted thread messages.
+ * The first user turn is enriched with birth profile + chart (not stored in DB).
+ */
+export function buildConversationHistory(
+  priorMessages: PriorThreadMessage[],
+  profile: BirthProfileSnapshot,
+  chartJson: ChartJson | null | undefined,
+  currentQuestion: string,
+): { conversationHistory: ConversationTurn[]; userPrompt: string } {
+  if (priorMessages.length === 0) {
+    return {
+      conversationHistory: [],
+      userPrompt: buildUserPrompt(profile, currentQuestion, chartJson),
+    };
+  }
+
+  const history: ConversationTurn[] = [];
+  let firstUser = true;
+
+  for (const msg of priorMessages) {
+    if (msg.role === "USER") {
+      history.push({
+        role: "user",
+        content: firstUser
+          ? buildUserPrompt(profile, msg.content, chartJson)
+          : msg.content,
+      });
+      firstUser = false;
+    } else {
+      history.push({ role: "assistant", content: msg.content });
+    }
+  }
+
+  return {
+    conversationHistory: trimConversationHistory(history),
+    userPrompt: currentQuestion,
+  };
+}
+
+/** Keep only the most recent turns to stay within token budget. */
+export function trimConversationHistory(history: ConversationTurn[]): ConversationTurn[] {
+  const maxMessages = MAX_CONVERSATION_TURNS * 2;
+  if (history.length <= maxMessages) return history;
+  return history.slice(history.length - maxMessages);
 }

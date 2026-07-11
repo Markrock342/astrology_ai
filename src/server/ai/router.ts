@@ -47,8 +47,13 @@ export async function resolveConfig(categoryId: string, planScope: "FREE" | "PRO
   return candidates[0];
 }
 
-type RunInput = Omit<GenerateAIInput, "modelId" | "temperature" | "maxOutputTokens" | "timeoutMs" | "secretReference" | "systemPrompt"> & {
+type RunInput = Omit<
+  GenerateAIInput,
+  "modelId" | "temperature" | "maxOutputTokens" | "timeoutMs" | "secretReference"
+> & {
   systemPrompt: string;
+  userPrompt: string;
+  conversationHistory?: GenerateAIInput["conversationHistory"];
 };
 
 /**
@@ -68,6 +73,7 @@ export async function generateWithFallback(
       modelId: cfg.modelId,
       systemPrompt: base.systemPrompt,
       userPrompt: base.userPrompt,
+      conversationHistory: base.conversationHistory,
       temperature: cfg.temperature,
       maxOutputTokens: cfg.maxOutputTokens,
       timeoutMs: cfg.timeoutMs,
