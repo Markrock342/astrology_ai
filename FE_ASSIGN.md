@@ -1,18 +1,17 @@
-# 🟦 Frontend — งานรอบนี้ (มอบโดย PM · อัปเดต 12 ก.ค. 2026)
+# 🟦 Frontend — สถานะปิด M4 (อัปเดต 12 ก.ค. 2026)
 
-**สถานะ:** F2 **merged บน `main`** ผ่าน [PR #9](https://github.com/Markrock342/astrology_ai/pull/9) · PR #8 ปิดแล้ว (superseded)
+**สถานะ:** F1–F4 + Wave D + UX ChatGPT-style ครบบน `main`
 
-อ่านคู่กับ `FRONTEND_TASKS.md`
+อ่านคู่กับ `M4_HANDOFF.md` · `FRONTEND_TASKS.md`
 
-## F2 — ประวัติเธรดเต็ม + multi-turn ✅ ปิดแล้ว
+## ปิดแล้ว
+- [x] F1 error-state + Idempotency-Key retry
+- [x] F2 ประวัติเธรด + multi-turn
+- [x] F3 polish (skeleton, nav progress, theme toggle)
+- [x] F4 legal จาก CMS
+- [x] Landing CTAs แยก register / login
+- [x] โปรไฟล์ → ตั้งค่า · อาทิตย์/จันทร์ → ธีม
+- [x] **Wave D:** ฟอร์มดวงจร (`TransitFormModal`) + Pro gate
 
-### Acceptance
-- [x] เปิดประวัติจาก sidebar → ข้อความเก่าครบ
-- [x] multi-turn ผ่าน conversation/messages API
-- [x] Idempotency-Key retry
-- [x] Free ยังโดน `CHAT_REQUIRES_PRO`
-- [x] merge เข้า main
-
-### งานถัดไป (ถ้ามีเวลา)
-- smoke มือ: Pro แชท 3 รอบ → refresh → ประวัติ + ตารางหลักฐานดวง
-- **Wave D:** UI ฟอร์มดวงจร (backend พร้อมแล้ว)
+## ค้างมือ
+- [ ] Smoke มือ: Pro แชท + ดวงจร + ประวัติหลัง refresh

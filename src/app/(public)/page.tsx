@@ -39,7 +39,7 @@ export default async function LandingPage() {
       </p>
       <div className="mt-8 flex gap-3">
         <Link
-          href="/login"
+          href="/login?tab=register"
           className="rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
         >
           เริ่มต้นใช้งาน

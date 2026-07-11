@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 /* HoraSard — near-black + gold + turquoise theme (confirmed design). No violet. */
-:root {
+:root,
+[data-theme="dark"] {
   --background: #0d0d0f;
   --surface: #14141a;
   --surface-2: #1c1c24;
@@ -23,6 +24,27 @@
   /* Motion system */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Light theme — cool stone + gold (not cream/terracotta AI cliché). */
+[data-theme="light"] {
+  --background: #f3f4f6;
+  --surface: #ffffff;
+  --surface-2: #eef0f3;
+  --surface-3: #e4e7ec;
+  --border: #d5d9e0;
+  --foreground: #16181d;
+  --muted: #5c6370;
+  --muted-2: #8b929e;
+  --primary: #b8923a;
+  --primary-hover: #a07e2f;
+  --primary-foreground: #1a1508;
+  --accent: #b8923a;
+  --secondary: #0f7668;
+  --secondary-active: #0d9488;
+  --secondary-foreground: #f0fdfa;
+  --danger: #dc2626;
+  --ring: rgba(184, 146, 58, 0.4);
 }
 
 @theme inline {
@@ -150,6 +172,42 @@ select option {
 }
 .animate-msg-in {
   animation: msg-in 0.3s var(--ease-out-quart) both;
+}
+
+/* Route handoff — used by (app)/template.tsx */
+.page-enter {
+  animation: fade-in 0.28s var(--ease-out-quart) both;
+}
+
+/* Top navigation progress (NavProgress) */
+@keyframes nav-progress {
+  0% {
+    transform: scaleX(0);
+    transform-origin: left;
+    opacity: 1;
+  }
+  40% {
+    transform: scaleX(0.55);
+    transform-origin: left;
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    transform-origin: left;
+    opacity: 0.85;
+  }
+}
+.nav-progress {
+  background: linear-gradient(
+    90deg,
+    var(--primary),
+    var(--secondary-active),
+    var(--primary)
+  );
+  background-size: 200% 100%;
+  animation:
+    nav-progress 1.1s var(--ease-out-expo) infinite,
+    shimmer 1.6s linear infinite;
 }
 /* Staggered entrance helpers (suggestion chips, list items) */
 .stagger-1 { animation-delay: 0.05s; }

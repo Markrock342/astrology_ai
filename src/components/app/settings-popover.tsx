@@ -45,8 +45,8 @@ export function SettingsPopover({
     };
   }, []);
 
-  // Anchor the popover to the gear button and float it up-and-right over the
-  // content area (design 02). Fixed positioning escapes the sidebar overflow.
+  // Anchor the popover to the profile button (ChatGPT-style) and float it
+  // up-and-right over the content area. Fixed positioning escapes overflow.
   useLayoutEffect(() => {
     function place() {
       const el = anchorRef?.current;

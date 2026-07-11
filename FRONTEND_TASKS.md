@@ -106,7 +106,7 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 **ค้างจริง (→ production):**
 - [x] **F2 — render ประวัติเธรดเต็ม + multi-turn** — merged ใน [PR #9](https://github.com/Markrock342/astrology_ai/pull/9)
-- [ ] **Wave D — UI ฟอร์มดวงจร** (backend คำนวณ/scrape มีแล้ว)
+- [x] **Wave D — UI ฟอร์มดวงจร** (`TransitFormModal` + Pro gate + empty-thread load)
 
 ### 🎯 Milestone 4 — Polish
 

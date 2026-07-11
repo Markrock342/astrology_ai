@@ -70,6 +70,35 @@ export function GearIcon({ size = 18, className = "" }: IconProps) {
   );
 }
 
+/** Light / dark theme — sun (switch to light). */
+export function SunIcon({ size = 18, className = "" }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} aria-hidden>
+      <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.05 5.05l1.55 1.55M17.4 17.4l1.55 1.55M5.05 18.95l1.55-1.55M17.4 6.6l1.55-1.55"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Light / dark theme — moon (switch to dark). */
+export function MoonIcon({ size = 18, className = "" }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} aria-hidden>
+      <path
+        d="M19.5 13.4A7.5 7.5 0 0 1 10.6 4.5 7.6 7.6 0 1 0 19.5 13.4Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function LockIcon({ size = 13, className = "" }: IconProps) {
   return (
     <svg {...base(size)} className={className} aria-hidden>
