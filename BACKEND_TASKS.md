@@ -111,16 +111,17 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 - [x] หน้า legal scaffold + CMS settings (`privacy`/`terms`/`disclaimer` — เนื้อหาจริงรอ FE F4)
 - [x] Email: `mailer.ts` — Resend เมื่อมี `RESEND_API_KEY` / dev-console fallback
 
-**ค้างจริง (B3–B4):**
+**ค้างจริง (BN รอบตั้งค่า — ไม่ใช่โค้ด):**
 
-- [ ] **B3** Rate-limit production — **รอ PM** ([docs/backend_m4_waitlist.md](./docs/backend_m4_waitlist.md))
-- [ ] **B4** Go-live: ตั้ง env Vercel, migrate+seed prod, smoke test — [docs/backend_m4_deploy.md](./docs/backend_m4_deploy.md)
+- [ ] ตั้ง env บน Vercel + Upstash + `NEXT_PUBLIC_APP_PHASE=3` — [backend_m4_deploy.md](./docs/backend_m4_deploy.md)
+- [ ] migrate/seed prod + smoke test
 
-**เตรียมแล้ว (BN):**
+**เสร็จแล้ว (M4 BN code):**
 
-- [x] `.env.example` production vars
-- [x] `npm run smoke:public` — ตรวจ public API หลัง deploy
-- [x] `tests/payment-service.test.ts`
+- [x] B3 Upstash rate-limit + in-memory fallback
+- [x] Payment + dashboard code
+- [x] `tests/payment-service.test.ts`, `tests/rate-limit.test.ts`
+- [x] `npm run smoke:public` script
 
 ---
 
@@ -163,7 +164,7 @@ export async function POST(req: Request) {
 ---
 
 ## 6. รอ PM ยืนยัน (มีผลกับ backend)
-- **Rate-limit production** — Redis/Upstash หรือยอม in-memory ชั่วคราว (บล็อก B3)
+- ~~**Rate-limit production**~~ → **ตัดสินใจแล้ว:** Upstash Redis (`src/lib/rate-limit.ts` พร้อม — รอ env บน Vercel)
 - **ดวงจร (transit)** auto-คำนวณวัน — enum มีแล้ว gate Pro แล้ว แต่ยังไม่มี engine transit เต็ม
 - ~~Sign-in อีเมล~~ → **ตัดสินใจแล้ว:** อีเมล+รหัสผ่าน สมัครตรง เก็บ DB (ไม่ใช้ magic-link)
 - Free/Pro quota + ราคา + credit cost ต่อข้อความ/หมวด (ตอนนี้: Free 3, Pro 100, 199฿)
@@ -176,9 +177,7 @@ export async function POST(req: Request) {
 ## 7. Critical path ปิด M4 (BN)
 
 ```
-B1 multi-turn chat → B2 tests → B4 deploy config → go-live
+B1 multi-turn chat → B2 tests → B3 rate-limit → B4 deploy config → go-live
          │
          └── FN F2 (render thread) เริ่มหลัง B1 merge
-
-B3 rate-limit — รอ PM (ทำขนานได้ถ้าตัดสินใจแล้ว)
 ```

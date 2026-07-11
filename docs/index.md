@@ -24,7 +24,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 |-----------|----------|
 | **M2** — Schema chat, Auth, Birth profile, Admin CMS พื้นฐาน | ✅ ปิดแล้ว |
 | **M3** — แชท AI, Gemini, ประวัติเธรด, Admin AI CMS | ✅ **ปิด BN 100%** |
-| **M4** — Payment, Dashboard, Deploy | 🟡 **BN prep ครบ** — รอ PM (B3) + ตั้งค่า prod (B4) |
+| **M4** — Payment, Dashboard, Deploy | ✅ **BN code ~100%** — รอตั้งค่า .env/deploy |
 
 **Feature gating:** `src/config/features.ts` — ตั้ง `NEXT_PUBLIC_APP_PHASE=2` บน Vercel จะปิด AI chat + Admin AI CMS; dev ไม่ตั้ง = เปิดทั้งหมด
 
@@ -78,13 +78,13 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 
 | ID | งาน | หมายเหตุ |
 |----|-----|----------|
-| **M4** | B3 รอ PM · B4 ตั้งค่า prod | [backend_m4_deploy.md](./docs/backend_m4_deploy.md) |
+| **M4** | ตั้งค่า .env/Vercel/deploy | [backend_m4_deploy.md](./backend_m4_deploy.md) |
 
 ---
 
 ## รอ PM ยืนยัน
 
-- Rate-limit strategy (บล็อก B3)
+- ~~Rate-limit strategy~~ → **ตัดสินใจแล้ว:** Upstash Redis (code พร้อม — รอใส่ env บน Vercel)
 - ดวงจร (transit) auto-คำนวณวัน — gate Pro มีแล้ว แต่ยังไม่มี engine transit เต็ม
 - ~~Sign-in อีเมล~~ → **ตัดสินใจแล้ว:** อีเมล+รหัสผ่าน สมัครตรง เก็บ DB
 - แหล่งข้อมูลจังหวัด/อำเภอเต็ม — อำเภอยังชุดย่อใน `thailand-geo.ts`

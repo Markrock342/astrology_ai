@@ -1,16 +1,56 @@
 import { AppError } from "./errors";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
 /**
- * Minimal in-memory rate limiter for auth and AI endpoints (spec 11).
+ * Distributed rate limiter with Upstash Redis (M4 B3) and in-memory fallback.
  *
- * Production note (M4 B3): in-memory is intentional until PM chooses Upstash
- * Redis. Safe for single-instance / demo; multi-instance Vercel may under-limit.
- * See docs/backend_m4_waitlist.md — do not swap implementation without PM sign-off.
+ * When `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set, limits are
+ * enforced across all Vercel instances. Otherwise falls back to per-process memory
+ * (fine for local dev / single instance).
  */
+
 type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
 
-export function rateLimit(key: string, limit: number, windowMs: number): void {
+let redisClient: Redis | null | undefined;
+const ratelimitCache = new Map<string, Ratelimit>();
+
+function upstashConfigured(): boolean {
+  return Boolean(
+    process.env.UPSTASH_REDIS_REST_URL?.trim() &&
+      process.env.UPSTASH_REDIS_REST_TOKEN?.trim(),
+  );
+}
+
+function getRedis(): Redis {
+  if (redisClient === undefined) {
+    redisClient = upstashConfigured() ? Redis.fromEnv() : null;
+  }
+  if (!redisClient) {
+    throw new Error("Upstash Redis is not configured");
+  }
+  return redisClient;
+}
+
+function getUpstashLimiter(limit: number, windowMs: number): Ratelimit {
+  const cacheKey = `${limit}:${windowMs}`;
+  const cached = ratelimitCache.get(cacheKey);
+  if (cached) return cached;
+
+  const windowSec = Math.max(1, Math.ceil(windowMs / 1000));
+  const limiter = new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(limit, `${windowSec} s`),
+    prefix: "horasard:rl",
+    analytics: false,
+  });
+  ratelimitCache.set(cacheKey, limiter);
+  return limiter;
+}
+
+/** In-memory limiter used for dev fallback and unit tests. */
+export function memoryRateLimit(key: string, limit: number, windowMs: number): void {
   const now = Date.now();
   const bucket = buckets.get(key);
 
@@ -23,4 +63,39 @@ export function rateLimit(key: string, limit: number, windowMs: number): void {
   if (bucket.count > limit) {
     throw new AppError("RATE_LIMITED", "Too many requests, please slow down");
   }
+}
+
+/** Which backend is active for observability / docs. */
+export function getRateLimitBackend(): "upstash" | "memory" {
+  return upstashConfigured() ? "upstash" : "memory";
+}
+
+/**
+ * Enforce a sliding-window request limit. Throws RATE_LIMITED when exceeded.
+ */
+export async function rateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<void> {
+  if (!upstashConfigured()) {
+    memoryRateLimit(key, limit, windowMs);
+    return;
+  }
+
+  try {
+    const { success } = await getUpstashLimiter(limit, windowMs).limit(key);
+    if (!success) {
+      throw new AppError("RATE_LIMITED", "Too many requests, please slow down");
+    }
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    // Fail open on Redis outage so auth/chat still works; log for ops.
+    console.error("[rate-limit] Upstash error, allowing request:", err);
+  }
+}
+
+/** @internal test helper */
+export function resetMemoryRateLimitForTests(): void {
+  buckets.clear();
 }
