@@ -20,4 +20,8 @@ describe("birth profile edit rules (M2)", () => {
     expect(getEditsRemaining(null)).toBe(MAX_BIRTH_EDITS);
     expect(getEditsRemaining(undefined)).toBe(MAX_BIRTH_EDITS);
   });
+
+  it("returns unlimited sentinel for staff", () => {
+    expect(getEditsRemaining(MAX_BIRTH_EDITS, { unlimited: true })).toBe(999);
+  });
 });

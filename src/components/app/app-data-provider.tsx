@@ -20,11 +20,13 @@ export type AppUser = {
   email: string;
   image: string | null;
   plan: "FREE" | "PRO";
+  role: "USER" | "ADMIN" | "SUPER_ADMIN";
   creditBalance: number;
   canChat: boolean;
   emailVerified: boolean;
   needsEmailVerification: boolean;
   hasPassword: boolean;
+  birthEditsUnlimited?: boolean;
 };
 
 type AppDataContextValue = {
@@ -72,11 +74,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             email: meJson.data.email,
             image: meJson.data.image ?? null,
             plan: meJson.data.plan,
+            role: meJson.data.role ?? "USER",
             creditBalance: meJson.data.creditBalance,
             canChat: meJson.data.canChat ?? meJson.data.plan === "PRO",
             emailVerified: meJson.data.emailVerified ?? true,
             needsEmailVerification: meJson.data.needsEmailVerification ?? false,
             hasPassword: meJson.data.hasPassword ?? false,
+            birthEditsUnlimited: Boolean(meJson.data.birthEditsUnlimited),
           });
         }
       }

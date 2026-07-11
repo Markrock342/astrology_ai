@@ -1,7 +1,7 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getBalance } from "@/server/credit/credit-service";
-import { MAX_BIRTH_EDITS } from "@/server/user/birth-profile-service";
+import { MAX_BIRTH_EDITS, isStaffRole } from "@/server/user/birth-profile-service";
 
 /** Effective plan = an ACTIVE, non-expired Pro subscription, else FREE. */
 export async function getEffectivePlan(userId: string): Promise<"FREE" | "PRO"> {
@@ -40,9 +40,11 @@ export async function getMe(userId: string) {
     getBalance(userId),
   ]);
 
-  const editsRemaining = user.birthProfile
-    ? Math.max(0, MAX_BIRTH_EDITS - user.birthProfile.editCount)
-    : MAX_BIRTH_EDITS;
+  const editsRemaining = isStaffRole(user.role)
+    ? 999
+    : user.birthProfile
+      ? Math.max(0, MAX_BIRTH_EDITS - user.birthProfile.editCount)
+      : MAX_BIRTH_EDITS;
 
   const { passwordHash, ...profile } = user;
 
@@ -51,6 +53,7 @@ export async function getMe(userId: string) {
     hasPassword: Boolean(passwordHash),
     hasBirthProfile: Boolean(user.birthProfile),
     birthEditsRemaining: editsRemaining,
+    birthEditsUnlimited: isStaffRole(user.role),
     plan,
     creditBalance: balance,
     /** Free cannot chat AI — must upgrade to Pro (`CHAT_REQUIRES_PRO`). */

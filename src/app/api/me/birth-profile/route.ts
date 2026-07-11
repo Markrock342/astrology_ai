@@ -4,6 +4,7 @@ import { birthProfileSchema } from "@/lib/schemas";
 import {
   getBirthProfile,
   getEditsRemaining,
+  isStaffRole,
   upsertBirthProfile,
 } from "@/server/user/birth-profile-service";
 
@@ -12,21 +13,26 @@ export async function GET() {
   return handle(async () => {
     const user = await requireUser();
     const profile = await getBirthProfile(user.id);
-    const editsRemaining = getEditsRemaining(profile?.editCount);
-    return ok({ profile, editsRemaining });
+    const unlimited = isStaffRole(user.role);
+    const editsRemaining = getEditsRemaining(profile?.editCount, { unlimited });
+    return ok({ profile, editsRemaining, unlimitedEdits: unlimited });
   });
 }
 
 /**
  * Create or update the birth profile. Year (พ.ศ./ค.ศ.) is normalized to
- * Gregorian and stored in UTC by the service; editing is limited to once more.
+ * Gregorian and stored in UTC by the service; editing is limited to once more
+ * for normal users. ADMIN / SUPER_ADMIN may edit unlimited times.
  */
 export async function PUT(req: Request) {
   return handle(async () => {
     const user = await requireUser();
     const data = birthProfileSchema.parse(await req.json());
-    const profile = await upsertBirthProfile(user.id, data);
-    const editsRemaining = getEditsRemaining(profile.editCount);
-    return ok({ profile, editsRemaining });
+    const unlimited = isStaffRole(user.role);
+    const profile = await upsertBirthProfile(user.id, data, {
+      unlimitedEdits: unlimited,
+    });
+    const editsRemaining = getEditsRemaining(profile.editCount, { unlimited });
+    return ok({ profile, editsRemaining, unlimitedEdits: unlimited });
   });
 }

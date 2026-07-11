@@ -44,11 +44,14 @@ type UserDetail = {
 
 export function UserDetailManager({
   userId,
-  isSuperAdmin = false,
+  actorRole = "ADMIN",
 }: {
   userId: string;
-  isSuperAdmin?: boolean;
+  /** Role of the signed-in admin acting on this page. */
+  actorRole?: "ADMIN" | "SUPER_ADMIN";
 }) {
+  const canManageRoles = actorRole === "ADMIN" || actorRole === "SUPER_ADMIN";
+  const isSuperAdmin = actorRole === "SUPER_ADMIN";
   const [user, setUser] = useState<UserDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -141,9 +144,24 @@ export function UserDetailManager({
         method: "PATCH",
         body: JSON.stringify({ role }),
       });
+      setRole("");
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "เปลี่ยนบทบาทไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetBirthEdits() {
+    setBusy(true);
+    try {
+      await adminFetch(`/api/admin/users/${userId}/birth-edits/reset`, {
+        method: "POST",
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "รีเซ็ตโควตาวันเกิดไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -208,7 +226,13 @@ export function UserDetailManager({
               <Button variant="ghost" onClick={toggleStatus} disabled={busy}>
                 {user.status === "ACTIVE" ? "ระงับบัญชี" : "เปิดใช้งาน"}
               </Button>
-              {isSuperAdmin && (
+              {user.birthProfile ? (
+                <Button variant="ghost" onClick={resetBirthEdits} disabled={busy}>
+                  รีเซ็ตโควตาแก้วันเกิด
+                </Button>
+              ) : null}
+              {canManageRoles &&
+              !(actorRole === "ADMIN" && user.role === "SUPER_ADMIN") ? (
                 <>
                   <Select
                     value={role || user.role}
@@ -216,17 +240,19 @@ export function UserDetailManager({
                   >
                     <option value="USER">USER</option>
                     <option value="ADMIN">ADMIN</option>
-                    <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                    {isSuperAdmin ? (
+                      <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                    ) : null}
                   </Select>
                   <Button
                     variant="ghost"
                     onClick={changeRole}
                     disabled={busy || !role || role === user.role}
                   >
-                    เปลี่ยนบทบาท
+                    มอบ/ถอนสิทธิ์
                   </Button>
                 </>
-              )}
+              ) : null}
             </div>
           </Card>
 
