@@ -35,6 +35,7 @@ type AppDataContextValue = {
   natalThreads: Thread[];
   transitThreads: Thread[];
   loading: boolean;
+  loadError: string | null;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   filteredCategories: Category[];
@@ -54,15 +55,25 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [natalThreads, setNatalThreads] = useState<Thread[]>([]);
   const [transitThreads, setTransitThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
     try {
-      const res = await fetch("/api/app/bootstrap");
-      if (!res.ok) return;
+      const res = await fetch("/api/app/bootstrap", { signal: controller.signal });
+      if (!res.ok) {
+        setLoadError("โหลดข้อมูลไม่สำเร็จ");
+        return;
+      }
       const json = await res.json();
-      if (!json?.ok || !json.data) return;
+      if (!json?.ok || !json.data) {
+        setLoadError("โหลดข้อมูลไม่สำเร็จ");
+        return;
+      }
 
       const { me, categories: cats, natalThreads: natal, transitThreads: transit } =
         json.data as {
@@ -101,7 +112,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }
       if (Array.isArray(natal)) setNatalThreads(natal);
       if (Array.isArray(transit)) setTransitThreads(transit);
+    } catch (err) {
+      if ((err as Error)?.name === "AbortError") {
+        setLoadError("โหลดนานเกินไป — ลองใหม่อีกครั้ง");
+      } else {
+        setLoadError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+      }
     } finally {
+      window.clearTimeout(timeout);
       setLoading(false);
     }
   }, []);
@@ -154,6 +172,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       natalThreads,
       transitThreads,
       loading,
+      loadError,
       searchQuery,
       setSearchQuery,
       filteredCategories,
@@ -169,6 +188,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       natalThreads,
       transitThreads,
       loading,
+      loadError,
       searchQuery,
       filteredCategories,
       filteredNatalThreads,

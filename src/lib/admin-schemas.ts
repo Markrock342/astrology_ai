@@ -130,7 +130,7 @@ export const submitPaymentSchema = z.object({
   amount: z.number().int().positive(),
   reference: z.string().max(120).optional(),
   note: z.string().max(300).optional(),
-  proofUrl: z.string().url().max(2000).optional().or(z.literal("")),
+  proofUrl: z.string().url().max(2000),
 });
 
 export const paymentListQuerySchema = listQuerySchema.extend({

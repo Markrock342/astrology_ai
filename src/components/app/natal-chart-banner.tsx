@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CompactRasiWheel } from "./compact-rasi-wheel";
+import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import type { ChartJson } from "@/types/chart";
 
 type NatalChartRow = {
@@ -36,7 +36,11 @@ export function NatalChartBanner() {
   if (chart.status === "READY" && chart.chartJson) {
     return (
       <div className="animate-fade-in mx-auto mb-3 flex max-w-3xl justify-center px-4 pt-2">
-        <CompactRasiWheel chart={chart.chartJson} size={120} />
+        <ExpandableRasiWheel
+          chart={chart.chartJson}
+          size={140}
+          label="พื้นดวงเดิม"
+        />
       </div>
     );
   }

@@ -42,6 +42,11 @@ vi.mock("@/server/audit/audit-service", () => ({
   writeAudit: mocks.writeAudit,
 }));
 
+vi.mock("@/server/payment/payment-notify", () => ({
+  notifyAdminsNewPayment: vi.fn().mockResolvedValue(undefined),
+  notifyUserPaymentReviewed: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("payment-service (M4)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -58,8 +63,17 @@ describe("payment-service (M4)", () => {
   it("submitManualPayment blocks duplicate pending request", async () => {
     mocks.count.mockResolvedValue(1);
     await expect(
-      submitManualPayment("user-1", { amount: 199 }),
+      submitManualPayment("user-1", {
+        amount: 199,
+        proofUrl: "https://blob.example/slip.jpg",
+      }),
     ).rejects.toMatchObject({ code: "DUPLICATE_REQUEST" });
+  });
+
+  it("submitManualPayment requires proofUrl", async () => {
+    await expect(
+      submitManualPayment("user-1", { amount: 199, proofUrl: "" }),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
   });
 
   it("reviewPayment approve creates subscription and adds credits", async () => {

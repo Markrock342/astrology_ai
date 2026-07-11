@@ -54,9 +54,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     searchQuery,
     setSearchQuery,
     loading,
+    loadError,
   } = useAppData();
 
-  const displayName = user?.name ?? (loading ? "…" : "ผู้ใช้");
+  const displayName = user?.name ?? (loading ? "…" : loadError ? "—" : "ผู้ใช้");
   const isStaff = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const planLabel = isStaff
     ? user?.role === "SUPER_ADMIN"
@@ -191,6 +192,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarDivider />
 
         <SectionLabel>ประวัติแชท</SectionLabel>
+        {loadError ? (
+          <div className="px-3 py-2 text-xs text-[var(--danger)]">
+            <p>{loadError}</p>
+            <button
+              type="button"
+              onClick={() => refresh()}
+              className="mt-1 text-[var(--primary)] underline"
+            >
+              ลองใหม่
+            </button>
+          </div>
+        ) : null}
         <nav className="flex flex-col gap-0.5">
           {filteredNatalThreads.length === 0 ? (
             <p className="px-3 py-2 text-xs text-[var(--muted-2)]">

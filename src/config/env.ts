@@ -39,6 +39,15 @@ const serverEnvSchema = z.object({
   // rate-limit.ts falls back to in-memory per process.
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+
+  // Payment slip uploads (Vercel Blob). Required for POST /api/payments/proof.
+  BLOB_READ_WRITE_TOKEN: z.string().optional(),
+
+  // Admin alerts — email + Web Push (PWA).
+  ADMIN_ALERT_EMAIL: z.string().email().optional(),
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().optional(),
 });
 
 const parsed = serverEnvSchema.safeParse(process.env);
