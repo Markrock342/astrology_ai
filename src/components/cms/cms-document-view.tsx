@@ -16,7 +16,13 @@ export function CmsDocumentView({
       <p className="mt-2 text-xs text-[var(--muted-2)]">
         ปรับปรุงล่าสุด: {doc.lastUpdated}
       </p>
-      <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">{doc.intro}</p>
+      {doc.intro.startsWith("⚠️") ? (
+        <div className="mt-4 rounded-xl border border-[var(--primary)]/30 bg-[var(--surface-2)] p-4">
+          <p className="text-sm font-medium text-[var(--primary)]">{doc.intro}</p>
+        </div>
+      ) : (
+        <p className="mt-4 text-sm leading-relaxed text-[var(--muted)]">{doc.intro}</p>
+      )}
 
       <div className="mt-8 flex flex-col gap-8">
         {doc.sections.map((section) => (

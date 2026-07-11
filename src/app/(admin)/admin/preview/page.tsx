@@ -52,11 +52,10 @@ function BadgeLabel({ children }: { children: React.ReactNode }) {
 }
 
 function renderPreview(key: CmsKey, value: unknown) {
-  if (key === CMS_KEYS.privacyPolicy || key === CMS_KEYS.termsOfService) {
+  if (key === CMS_KEYS.privacyPolicy || key === CMS_KEYS.termsOfService || key === CMS_KEYS.disclaimer) {
     return <CmsDocumentView doc={value as CmsDocument} />;
   }
   if (
-    key === CMS_KEYS.disclaimer ||
     key === CMS_KEYS.consentRegister ||
     key === CMS_KEYS.consentBirthPrivacy ||
     key === CMS_KEYS.consentBirthEditLimit

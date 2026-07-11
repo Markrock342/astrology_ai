@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ListSkeleton } from "@/components/app/content-skeleton";
 import { useAppData } from "@/components/app/app-data-provider";
 
 /** Chat history list (user's own threads). */
@@ -15,7 +16,7 @@ export default function HistoryPage() {
 
         <div className="mt-6 flex flex-col gap-2">
           {loading ? (
-            <p className="text-sm text-[var(--muted)]">กำลังโหลด…</p>
+            <ListSkeleton rows={6} />
           ) : threads.length === 0 ? (
             <p className="text-sm text-[var(--muted-2)]">ยังไม่มีดวงจร</p>
           ) : (

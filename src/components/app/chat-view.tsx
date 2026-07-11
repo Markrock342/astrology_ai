@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
+import { ChatThreadSkeleton } from "@/components/app/content-skeleton";
 import {
   isCategoryLocked,
   useAppData,
@@ -23,6 +24,20 @@ type ChatState =
   | "locked"
   | "no-quota"
   | "error";
+
+/** Errors where retry reuses the same Idempotency-Key (no double charge). */
+const RETRYABLE_ERRORS = new Set([
+  "AI_TIMEOUT",
+  "AI_PROVIDER_ERROR",
+  "RATE_LIMITED",
+  "NETWORK",
+]);
+
+/** Errors that should offer an upgrade-to-Pro CTA. */
+const UPGRADE_ERRORS = new Set([
+  "CHAT_REQUIRES_PRO",
+  "TRANSIT_REQUIRES_PRO",
+]);
 
 /** Map API error codes (lib/errors.ts) to friendly Thai messages. */
 const ERROR_MESSAGES: Record<string, string> = {
@@ -69,6 +84,7 @@ export function ChatView() {
   const [input, setInput] = useState("");
   const [state, setState] = useState<ChatState>("idle");
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [pendingRetry, setPendingRetry] = useState<PendingRetry | null>(null);
   const [loadingThread, setLoadingThread] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -87,6 +103,7 @@ export function ChatView() {
         setMessages(json.data.messages);
         setState("idle");
         setErrorText(null);
+        setErrorCode(null);
         setPendingRetry(null);
       })
       .catch(() => {})
@@ -107,6 +124,7 @@ export function ChatView() {
     setState(locked ? "locked" : "idle");
     setInput("");
     setErrorText(null);
+    setErrorCode(null);
     setPendingRetry(null);
   }, [catSlug, locked, threadId]);
 
@@ -149,22 +167,30 @@ export function ChatView() {
     if (!content || state === "processing" || state === "streaming") return;
 
     if (!FEATURES.aiChat) {
+      setErrorCode("FEATURE_DISABLED");
       setErrorText(ERROR_MESSAGES.FEATURE_DISABLED);
       setState("error");
+      setPendingRetry(null);
       return;
     }
     if (locked) {
       setState("locked");
+      setErrorCode("CATEGORY_LOCKED");
+      setPendingRetry(null);
       return;
     }
     if (chatBlocked) {
+      setErrorCode("CHAT_REQUIRES_PRO");
       setErrorText(ERROR_MESSAGES.CHAT_REQUIRES_PRO);
       setState("error");
+      setPendingRetry(null);
       return;
     }
     if (!catSlug) {
+      setErrorCode("VALIDATION");
       setErrorText("เลือกหมวดจากแถบข้างก่อนเริ่มดูดวง");
       setState("error");
+      setPendingRetry(null);
       return;
     }
 
@@ -176,6 +202,7 @@ export function ChatView() {
     }
 
     setErrorText(null);
+    setErrorCode(null);
     setState("processing");
 
     const idempotencyKey = retryKey ?? crypto.randomUUID();
@@ -196,18 +223,10 @@ export function ChatView() {
 
       if (!res.ok || !json.ok) {
         const code: string = json?.error?.code ?? "INTERNAL";
+        setErrorCode(code);
         if (code === "CATEGORY_LOCKED") {
           setState("locked");
-          return;
-        }
-        if (code === "CHAT_REQUIRES_PRO") {
-          setErrorText(ERROR_MESSAGES.CHAT_REQUIRES_PRO);
-          setState("error");
-          return;
-        }
-        if (code === "TRANSIT_REQUIRES_PRO") {
-          setErrorText(ERROR_MESSAGES.TRANSIT_REQUIRES_PRO);
-          setState("error");
+          setPendingRetry(null);
           return;
         }
         setErrorText(
@@ -215,16 +234,14 @@ export function ChatView() {
             json?.error?.message ??
             "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
         );
-        setState(
-          code === "NO_QUOTA"
-            ? "no-quota"
-            : code === "USER_DISABLED"
-              ? "error"
-              : "error",
-        );
+        setState(code === "NO_QUOTA" ? "no-quota" : "error");
+        if (!RETRYABLE_ERRORS.has(code)) {
+          setPendingRetry(null);
+        }
         return;
       }
 
+      setErrorCode(null);
       setPendingRetry(null);
       const reading = json.data as { responseText: string; modelId: string | null };
       streamReply(
@@ -232,13 +249,19 @@ export function ChatView() {
         reading.modelId ?? DEFAULTS.defaultGeminiModelId,
       );
     } catch {
+      setErrorCode("NETWORK");
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
       setState("error");
     }
   }
 
   const showEmpty =
-    messages.length === 0 && !locked && state !== "locked" && !loadingThread && !threadId;
+    messages.length === 0 &&
+    !locked &&
+    state !== "locked" &&
+    !loadingThread &&
+    !threadId &&
+    !chatBlocked;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -249,7 +272,9 @@ export function ChatView() {
           </div>
         )}
         {loadingThread ? (
-          <p className="text-center text-sm text-[var(--muted)]">กำลังโหลดประวัติ…</p>
+          <ChatThreadSkeleton />
+        ) : chatBlocked && messages.length === 0 && !threadId ? (
+          <UpgradeProState />
         ) : showEmpty ? (
           <EmptyState
             category={category?.label}
@@ -292,9 +317,12 @@ export function ChatView() {
             {(state === "error" || state === "no-quota") && (
               <ErrorBanner
                 state={state}
+                errorCode={errorCode}
                 errorText={errorText}
                 onRetry={
-                  pendingRetry
+                  pendingRetry &&
+                  errorCode &&
+                  RETRYABLE_ERRORS.has(errorCode)
                     ? () => send(pendingRetry.question, pendingRetry.idempotencyKey)
                     : undefined
                 }
@@ -319,13 +347,21 @@ export function ChatView() {
 
 function ErrorBanner({
   state,
+  errorCode,
   errorText,
   onRetry,
 }: {
   state: "error" | "no-quota";
+  errorCode: string | null;
   errorText: string | null;
   onRetry?: () => void;
 }) {
+  const showUpgrade =
+    state === "no-quota" ||
+    (errorCode != null && UPGRADE_ERRORS.has(errorCode));
+  const showBirthProfile =
+    errorCode === "VALIDATION" && errorText === ERROR_MESSAGES.VALIDATION;
+
   return (
     <div className="animate-fade-in flex flex-col items-start gap-2">
       <p className="text-sm text-[var(--danger)]">
@@ -341,15 +377,53 @@ function ErrorBanner({
             ลองใหม่
           </button>
         )}
-        {state === "no-quota" && (
+        {showUpgrade && (
           <a
             href="/account"
             className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
           >
-            ดูแพ็กเกจ / เติมเครดิต
+            {state === "no-quota" ? "ดูแพ็กเกจ / เติมเครดิต" : "อัปเกรดเป็น Pro"}
+          </a>
+        )}
+        {showBirthProfile && (
+          <a
+            href="/onboarding"
+            className="press-scale rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)]"
+          >
+            กรอกข้อมูลวันเกิด
           </a>
         )}
       </div>
+    </div>
+  );
+}
+
+function UpgradeProState() {
+  return (
+    <div className="mx-auto flex max-w-md flex-col items-center pt-20 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[var(--primary)]/40 text-[var(--primary)]">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 2l2.4 7.4H22l-6 4.6 2.3 7-6.3-4.6L5.7 21 8 14 2 9.4h7.6L12 2z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+      <h2 className="text-lg font-semibold text-[var(--foreground)]">
+        สนทนากับ AI สำหรับสมาชิก Pro
+      </h2>
+      <p className="mt-2 text-sm text-[var(--muted)]">
+        แพ็กเกจ Free ดูหมวดตัวตนและการงานได้ แต่ต้องอัปเกรดเป็น Pro
+        เพื่อสนทนากับ AI และใช้โหมดดวงจร
+      </p>
+      <a
+        href="/account"
+        className="mt-5 rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+      >
+        อัปเกรดเป็น Pro
+      </a>
     </div>
   );
 }

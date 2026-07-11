@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { AdminDashboardSkeleton } from "@/components/app/content-skeleton";
 import { AdminPage, Badge, Card, PageHeader, StatCard, adminFetch } from "./ui";
 
 type DashboardStats = {
@@ -22,6 +23,7 @@ type DashboardStats = {
 export function DashboardOverview() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -31,6 +33,9 @@ export function DashboardOverview() {
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
       });
     return () => {
       alive = false;
@@ -43,6 +48,10 @@ export function DashboardOverview() {
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 
+      {loading && !stats ? (
+        <AdminDashboardSkeleton />
+      ) : (
+        <>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="ผู้ใช้ทั้งหมด" value={stats?.users.total ?? "—"} tone="gold" />
         <StatCard
@@ -158,6 +167,8 @@ export function DashboardOverview() {
           ))}
         </ul>
       </Card>
+        </>
+      )}
     </AdminPage>
   );
 }
