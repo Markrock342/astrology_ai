@@ -11,7 +11,7 @@ import {
   useCategory,
 } from "./app-data-provider";
 
-import { CompactRasiWheel } from "./compact-rasi-wheel";
+import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import type { ChartJson } from "@/types/chart";
 
@@ -494,10 +494,18 @@ export function ChatView() {
                     <div className="mb-3 flex flex-col gap-3">
                       <div className="flex flex-wrap items-start gap-3">
                         {m.chartSnapshot && (
-                          <CompactRasiWheel chart={m.chartSnapshot} size={132} />
+                          <ExpandableRasiWheel
+                            chart={m.chartSnapshot}
+                            size={132}
+                            label="พื้นดวงเดิม"
+                          />
                         )}
                         {m.transitSnapshot && (
-                          <CompactRasiWheel chart={m.transitSnapshot} size={132} />
+                          <ExpandableRasiWheel
+                            chart={m.transitSnapshot}
+                            size={132}
+                            label="ดวงจร"
+                          />
                         )}
                       </div>
                       {m.chartSnapshot && (

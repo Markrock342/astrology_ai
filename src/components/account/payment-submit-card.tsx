@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CmsPaymentInfo } from "@/lib/cms-keys";
 import { Button, Field, TextInput } from "@/components/admin/ui";
 
@@ -15,6 +15,12 @@ type PaymentRow = {
   createdAt: string;
 };
 
+const STATUS_TH: Record<PaymentRow["status"], string> = {
+  PENDING: "รออนุมัติ",
+  APPROVED: "อนุมัติแล้ว",
+  REJECTED: "ปฏิเสธ",
+};
+
 export function PaymentSubmitCard({
   proPrice,
   paymentInfo,
@@ -25,11 +31,13 @@ export function PaymentSubmitCard({
   const [amount, setAmount] = useState(proPrice);
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
-  const [proofUrl, setProofUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [history, setHistory] = useState<PaymentRow[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -46,12 +54,33 @@ export function PaymentSubmitCard({
     void loadHistory();
   }, [loadHistory]);
 
+  function onPickFile(f: File | null) {
+    setFile(f);
+    setPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return f ? URL.createObjectURL(f) : null;
+    });
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!file) {
+      setError("กรุณาอัปโหลดรูปสลิปจากเครื่อง");
+      return;
+    }
     setBusy(true);
     setError(null);
     setSuccess(false);
     try {
+      const form = new FormData();
+      form.append("file", file);
+      const up = await fetch("/api/payments/proof", { method: "POST", body: form });
+      const upJson = await up.json();
+      if (!up.ok || !upJson?.ok) {
+        throw new Error(upJson?.error?.message ?? "อัปโหลดสลิปไม่สำเร็จ");
+      }
+      const proofUrl = upJson.data.url as string;
+
       const res = await fetch("/api/payments/manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,7 +88,7 @@ export function PaymentSubmitCard({
           amount,
           reference: reference || undefined,
           note: note || undefined,
-          proofUrl: proofUrl || undefined,
+          proofUrl,
         }),
       });
       const json = await res.json();
@@ -67,7 +96,8 @@ export function PaymentSubmitCard({
       setSuccess(true);
       setReference("");
       setNote("");
-      setProofUrl("");
+      onPickFile(null);
+      if (inputRef.current) inputRef.current.value = "";
       await loadHistory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "ส่งไม่สำเร็จ");
@@ -102,10 +132,34 @@ export function PaymentSubmitCard({
       </div>
 
       {pending ? (
-        <p className="mt-4 text-sm text-[var(--primary)]">
-          มีคำขอชำระเงินรอตรวจสอบ (฿{pending.amount}) — ส่งเมื่อ{" "}
-          {new Date(pending.createdAt).toLocaleDateString("th-TH")}
-        </p>
+        <div className="mt-4 rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 p-4">
+          <p className="text-sm font-semibold text-[var(--primary)]">
+            รอแอดมินตรวจสอบการชำระเงิน
+          </p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            จำนวน ฿{pending.amount} · ส่งเมื่อ{" "}
+            {new Date(pending.createdAt).toLocaleString("th-TH")}
+            {pending.reference ? ` · อ้างอิง ${pending.reference}` : ""}
+          </p>
+          {pending.proofUrl ? (
+            <a
+              href={pending.proofUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-block overflow-hidden rounded-lg border border-[var(--border)]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={pending.proofUrl}
+                alt="สลิปที่ส่งแล้ว"
+                className="max-h-40 max-w-full object-contain"
+              />
+            </a>
+          ) : null}
+          <p className="mt-3 text-[11px] text-[var(--muted-2)]">
+            ไม่สามารถส่งคำขอใหม่ได้จนกว่าแอดมินจะอนุมัติหรือปฏิเสธคำขอนี้
+          </p>
+        </div>
       ) : (
         <form onSubmit={submit} className="mt-4 grid gap-3 sm:grid-cols-2">
           <Field label="จำนวนเงิน (บาท)">
@@ -123,13 +177,25 @@ export function PaymentSubmitCard({
               placeholder="REF123456"
             />
           </Field>
-          <Field label="ลิงก์หลักฐาน (URL สลิป)" hint="ถ้ามี">
-            <TextInput
-              value={proofUrl}
-              onChange={(e) => setProofUrl(e.target.value)}
-              placeholder="https://..."
-            />
-          </Field>
+          <div className="sm:col-span-2">
+            <Field label="อัปโหลดสลิปจากเครื่อง" hint="JPG / PNG / WebP สูงสุด 2 MB">
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="block w-full text-xs text-[var(--muted)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-3)] file:px-3 file:py-2 file:text-xs file:font-medium file:text-[var(--foreground)]"
+                onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+              />
+            </Field>
+            {preview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={preview}
+                alt="ตัวอย่างสลิป"
+                className="mt-2 max-h-48 rounded-lg border border-[var(--border)] object-contain"
+              />
+            ) : null}
+          </div>
           <Field label="หมายเหตุ">
             <TextInput
               value={note}
@@ -143,7 +209,7 @@ export function PaymentSubmitCard({
                 ส่งคำขอแล้ว — รอแอดมินตรวจสอบ
               </p>
             )}
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy || !file}>
               {busy ? "กำลังส่ง…" : "แจ้งชำระเงิน"}
             </Button>
           </div>
@@ -158,7 +224,7 @@ export function PaymentSubmitCard({
               className="flex justify-between text-xs text-[var(--muted)]"
             >
               <span>
-                ฿{p.amount} · {p.status}
+                ฿{p.amount} · {STATUS_TH[p.status]}
                 {p.reference ? ` · ${p.reference}` : ""}
               </span>
               <span>{new Date(p.createdAt).toLocaleDateString("th-TH")}</span>

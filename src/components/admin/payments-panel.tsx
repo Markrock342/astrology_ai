@@ -188,6 +188,19 @@ export function PaymentsPanel() {
                     >
                       ดูสลิป
                     </a>
+                    <a
+                      href={p.proofUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 block overflow-hidden rounded-md border border-[var(--border)]"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.proofUrl}
+                        alt="สลิป"
+                        className="max-h-24 max-w-[140px] object-contain"
+                      />
+                    </a>
                   </>
                 )}
               </Td>

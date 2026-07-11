@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminDashboardSkeleton } from "@/components/app/content-skeleton";
 import { AdminPage, Badge, Card, PageHeader, StatCard, adminFetch } from "./ui";
+import { AdminPushEnable } from "./admin-push-enable";
 
 type DashboardStats = {
   users: { total: number; active: number; pro: number; newThisWeek: number };
@@ -45,6 +46,10 @@ export function DashboardOverview() {
   return (
     <AdminPage>
       <PageHeader title="ภาพรวม" description="สรุปสถานะระบบแบบเรียลไทม์" />
+
+      <div className="mb-4">
+        <AdminPushEnable />
+      </div>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 

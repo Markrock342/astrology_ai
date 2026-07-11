@@ -2,6 +2,10 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { addCredits } from "@/server/credit/credit-service";
 import { writeAudit } from "@/server/audit/audit-service";
+import {
+  notifyAdminsNewPayment,
+  notifyUserPaymentReviewed,
+} from "@/server/payment/payment-notify";
 
 type Actor = { id: string; ip?: string };
 
@@ -9,11 +13,15 @@ export type SubmitPaymentInput = {
   amount: number;
   reference?: string;
   note?: string;
-  proofUrl?: string;
+  proofUrl: string;
 };
 
 /** User submits a manual payment request (POST /api/payments/manual). */
 export async function submitManualPayment(userId: string, input: SubmitPaymentInput) {
+  if (!input.proofUrl?.trim()) {
+    throw new AppError("VALIDATION", "กรุณาอัปโหลดสลิปการโอนเงิน");
+  }
+
   const pending = await prisma.payment.count({
     where: { userId, status: "PENDING" },
   });
@@ -21,13 +29,19 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
     throw new AppError("DUPLICATE_REQUEST", "มีคำขอชำระเงินรอตรวจสอบอยู่แล้ว");
   }
 
-  return prisma.payment.create({
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, name: true },
+  });
+  if (!user) throw new AppError("NOT_FOUND", "User not found");
+
+  const payment = await prisma.payment.create({
     data: {
       userId,
       amount: input.amount,
       reference: input.reference,
       note: input.note,
-      proofUrl: input.proofUrl,
+      proofUrl: input.proofUrl.trim(),
       status: "PENDING",
     },
     select: {
@@ -35,9 +49,20 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
       amount: true,
       status: true,
       reference: true,
+      proofUrl: true,
       createdAt: true,
     },
   });
+
+  void notifyAdminsNewPayment({
+    paymentId: payment.id,
+    amount: payment.amount,
+    userEmail: user.email,
+    userName: user.name,
+    reference: payment.reference,
+  }).catch((err) => console.error("[payment-notify]", err));
+
+  return payment;
 }
 
 export async function listMyPayments(userId: string) {
@@ -112,7 +137,7 @@ export async function reviewPayment(
     throw new AppError("NOT_FOUND", "Package not found");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const updated = await tx.payment.update({
       where: { id: paymentId },
       data: {
@@ -120,6 +145,7 @@ export async function reviewPayment(
         note: input.note ?? payment.note,
         reviewedByAdminId: actor.id,
         reviewedAt: new Date(),
+        paidAt: input.status === "APPROVED" ? new Date() : null,
       },
       select: {
         id: true,
@@ -178,4 +204,13 @@ export async function reviewPayment(
 
     return { payment: updated, subscription };
   });
+
+  void notifyUserPaymentReviewed({
+    userEmail: payment.user.email,
+    approved: input.status === "APPROVED",
+    amount: payment.amount,
+    note: input.note ?? payment.note,
+  }).catch((err) => console.error("[payment-user-notify]", err));
+
+  return result;
 }

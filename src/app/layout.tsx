@@ -21,6 +21,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: `${APP_NAME_TH} — ${APP_TAGLINE_TH}`,
   description: APP_TAGLINE_TH,
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: APP_NAME_TH,
+  },
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
 };
 
 /** Avoid FOUC before ThemeProvider hydrates. */
@@ -38,6 +48,8 @@ export default function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        <meta name="theme-color" content="#c9a24b" />
+        <link rel="manifest" href="/manifest.webmanifest" />
       </head>
       <body className={`${notoThai.className} min-h-full flex flex-col`}>
         <ThemeProvider>

@@ -8,12 +8,6 @@ export async function POST(req: Request) {
   return handle(async () => {
     const user = await requireUser();
     const data = submitPaymentSchema.parse(await req.json());
-    return ok(
-      await submitManualPayment(user.id, {
-        ...data,
-        proofUrl: data.proofUrl || undefined,
-      }),
-      { status: 201 },
-    );
+    return ok(await submitManualPayment(user.id, data), { status: 201 });
   });
 }
