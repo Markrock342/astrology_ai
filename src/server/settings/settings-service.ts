@@ -146,8 +146,14 @@ export async function getTermsDocument(): Promise<CmsDocument> {
   return getPublishedSetting(CMS_KEYS.termsOfService) as Promise<CmsDocument>;
 }
 
+export async function getDisclaimerDocument(): Promise<CmsDocument> {
+  return getPublishedSetting(CMS_KEYS.disclaimer) as Promise<CmsDocument>;
+}
+
+/** @deprecated Use getDisclaimerDocument — disclaimer is now a structured document. */
 export async function getDisclaimerText(): Promise<CmsText> {
-  return getPublishedSetting(CMS_KEYS.disclaimer) as Promise<CmsText>;
+  const doc = await getDisclaimerDocument();
+  return { text: doc.intro };
 }
 
 export async function getMaintenanceMode(): Promise<CmsMaintenance> {

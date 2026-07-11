@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Card,
+  CardSkeleton,
   Field,
   InfoBox,
   PageHeader,
@@ -81,12 +82,16 @@ export function PackagesManager() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       setPackages(await adminFetch<Package[]>("/api/admin/packages"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -180,6 +185,13 @@ export function PackagesManager() {
       </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
+
+      {loading && !editingId && (
+        <div className="flex flex-col gap-3">
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+      )}
 
       {editingId && (
         <Card>
