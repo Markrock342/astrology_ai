@@ -4,6 +4,8 @@
 และ **`PROJECT_STRUCTURE.md`** (โครงสร้างโปรเจกต์ / ความจำกลางของทีม)
 ฝั่ง Backend อยู่ในไฟล์ `BACKEND_TASKS.md`
 
+> **งานรอบนี้ (อ่านก่อน):** [`FE_ASSIGN.md`](./FE_ASSIGN.md) — F2 multi-turn / ประวัติเธรด
+
 **ขอบเขตของคุณ:** หน้าเว็บ + UI + client state
 **โฟลเดอร์ที่ดูแล:** `src/app/(public|app|admin)/`, `src/components/`
 **คุยกับ Backend ผ่าน JSON API เท่านั้น** — ห้ามเรียก AI/DB ตรงจากหน้าเว็บ
@@ -73,11 +75,11 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 ---
 
-## 2. Checklist ราย Milestone (สถานะจริง — ตรวจกับโค้ด ณ branch `fe/m4-polish`)
+## 2. Checklist ราย Milestone (สถานะจริง — ตรวจกับโค้ด ณ `main` หลัง merge PR #6/#7)
 
 > **อ่านก่อน:** checklist นี้ตรวจกับโค้ดจริงแล้ว ไม่ใช่แผนเดิม
 > `[x]` = มีในโค้ดและใช้งานได้ · `[ ]` = ยังค้างจริง (งานที่เหลือเพื่อ production)
-> รายละเอียดงานที่เหลือ + ผังลำดับงานดู [`M4_HANDOFF.md`](./M4_HANDOFF.md)
+> งานมอบรอบนี้: [`FE_ASSIGN.md`](./FE_ASSIGN.md)
 
 ### 🎯 Milestone 2 — Sign-in, Birth form, Layout, Settings ✅ ปิดแล้ว
 
@@ -103,7 +105,7 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 - [x] **F1 — QA error-state บนแชท** (`chat-view.tsx`): map ครบทุก error code · retry ใช้ `Idempotency-Key` เดิม (เฉพาะ AI timeout/provider/rate-limit/network) · `UpgradeProState` สำหรับ Free · CTA อัปเกรดใน error banner
 
 **ค้างจริง (→ production):**
-- [ ] **F2 — render ประวัติเธรดเต็ม + multi-turn** — **รอ B1** (backend ส่งประวัติเข้า AI) · โครงโหลดเธรด (`?thread=` + skeleton) มีแล้ว
+- [ ] **F2 — render ประวัติเธรดเต็ม + multi-turn** — **B1 merged แล้ว → เริ่มได้** · รายละเอียดใน [`FE_ASSIGN.md`](./FE_ASSIGN.md) · ต้องสลับไปใช้ Conversation messages API (ยังยิง `/api/horoscope/readings` อยู่)
 
 ### 🎯 Milestone 4 — Polish
 
