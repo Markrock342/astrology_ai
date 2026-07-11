@@ -89,6 +89,9 @@ export const listTransitThreads = (userId: string, limit?: number) =>
 export const listUserThreads = (userId: string, limit?: number) =>
   listConversationThreads(userId, "NATAL", limit);
 
+/** Alias used by FE F2 conversation list. */
+export const listNatalThreads = listUserThreads;
+
 /** Restore a thread as ordered user + assistant messages. */
 export async function getThreadDetail(
   userId: string,

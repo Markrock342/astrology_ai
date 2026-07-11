@@ -34,6 +34,10 @@ export async function sendMessage(input: SendMessageInput) {
     );
   }
 
+  if (conversation.category.accessLevel === "PRO" && plan !== "PRO") {
+    throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
+  }
+
   if (conversation.mode === "TRANSIT" && plan !== "PRO") {
     throw new AppError("TRANSIT_REQUIRES_PRO", "โหมดดวงจรสำหรับสมาชิก Pro");
   }

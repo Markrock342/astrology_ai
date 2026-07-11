@@ -48,7 +48,7 @@ const conversation = {
   id: "conv-1",
   userId: "user-1",
   mode: "NATAL" as const,
-  category: { slug: "career", nameTh: "การงาน" },
+  category: { slug: "career", nameTh: "การงาน", accessLevel: "FREE" },
 };
 
 describe("sendMessage (M3 B2)", () => {
@@ -71,6 +71,25 @@ describe("sendMessage (M3 B2)", () => {
 
   it("throws CHAT_REQUIRES_PRO for Free users", async () => {
     mocks.getEffectivePlan.mockResolvedValue("FREE");
+
+    await expect(
+      sendMessage({
+        conversationId: "conv-1",
+        userId: "user-1",
+        content: "สวัสดี",
+        idempotencyKey: "k1",
+      }),
+    ).rejects.toMatchObject({ code: "CHAT_REQUIRES_PRO" });
+
+    expect(mocks.createReading).not.toHaveBeenCalled();
+  });
+
+  it("throws CHAT_REQUIRES_PRO before CATEGORY_LOCKED for Free on Pro category", async () => {
+    mocks.getEffectivePlan.mockResolvedValue("FREE");
+    mocks.findConversation.mockResolvedValue({
+      ...conversation,
+      category: { slug: "love", nameTh: "ความรัก", accessLevel: "PRO" },
+    });
 
     await expect(
       sendMessage({

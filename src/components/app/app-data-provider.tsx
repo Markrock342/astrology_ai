@@ -30,11 +30,16 @@ export type AppUser = {
 type AppDataContextValue = {
   user: AppUser | null;
   categories: Category[];
-  threads: Thread[];
+  natalThreads: Thread[];
+  transitThreads: Thread[];
   loading: boolean;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   filteredCategories: Category[];
+  filteredNatalThreads: Thread[];
+  filteredTransitThreads: Thread[];
+  /** @deprecated Use filteredNatalThreads / filteredTransitThreads */
+  threads: Thread[];
   filteredThreads: Thread[];
   refresh: () => void;
 };
@@ -44,16 +49,18 @@ const AppDataContext = createContext<AppDataContextValue | null>(null);
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [categories, setCategories] = useState<Category[]>(NATAL_CATEGORIES);
-  const [threads, setThreads] = useState<Thread[]>([]);
+  const [natalThreads, setNatalThreads] = useState<Thread[]>([]);
+  const [transitThreads, setTransitThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [meRes, catRes, threadRes] = await Promise.all([
+      const [meRes, catRes, natalRes, transitRes] = await Promise.all([
         fetch("/api/me"),
         fetch("/api/horoscope/categories"),
+        fetch("/api/conversations?mode=NATAL"),
         fetch("/api/conversations?mode=TRANSIT"),
       ]);
 
@@ -81,10 +88,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      if (threadRes.ok) {
-        const threadJson = await threadRes.json();
-        if (threadJson.ok && Array.isArray(threadJson.data)) {
-          setThreads(threadJson.data);
+      if (natalRes.ok) {
+        const natalJson = await natalRes.json();
+        if (natalJson.ok && Array.isArray(natalJson.data)) {
+          setNatalThreads(natalJson.data);
+        }
+      }
+
+      if (transitRes.ok) {
+        const transitJson = await transitRes.json();
+        if (transitJson.ok && Array.isArray(transitJson.data)) {
+          setTransitThreads(transitJson.data);
         }
       }
     } finally {
@@ -110,38 +124,55 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         : categories,
     [categories, q],
   );
-  const filteredThreads = useMemo(
+  const filteredNatalThreads = useMemo(
     () =>
       q
-        ? threads.filter(
+        ? natalThreads.filter(
             (t) =>
               t.title.toLowerCase().includes(q) ||
               t.categoryLabel?.toLowerCase().includes(q),
           )
-        : threads,
-    [threads, q],
+        : natalThreads,
+    [natalThreads, q],
+  );
+  const filteredTransitThreads = useMemo(
+    () =>
+      q
+        ? transitThreads.filter(
+            (t) =>
+              t.title.toLowerCase().includes(q) ||
+              t.categoryLabel?.toLowerCase().includes(q),
+          )
+        : transitThreads,
+    [transitThreads, q],
   );
 
   const value = useMemo(
     () => ({
       user,
       categories,
-      threads,
+      natalThreads,
+      transitThreads,
       loading,
       searchQuery,
       setSearchQuery,
       filteredCategories,
-      filteredThreads,
+      filteredNatalThreads,
+      filteredTransitThreads,
+      threads: natalThreads,
+      filteredThreads: filteredNatalThreads,
       refresh: load,
     }),
     [
       user,
       categories,
-      threads,
+      natalThreads,
+      transitThreads,
       loading,
       searchQuery,
       filteredCategories,
-      filteredThreads,
+      filteredNatalThreads,
+      filteredTransitThreads,
       load,
     ],
   );

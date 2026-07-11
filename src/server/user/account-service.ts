@@ -53,7 +53,7 @@ export async function getMe(userId: string) {
     birthEditsRemaining: editsRemaining,
     plan,
     creditBalance: balance,
-    /** Flowchart: only Pro may use AI chat. */
+    /** Free cannot chat AI — must upgrade to Pro (`CHAT_REQUIRES_PRO`). */
     canChat: plan === "PRO",
     emailVerified: Boolean(user.emailVerifiedAt),
     needsEmailVerification: Boolean(passwordHash && !user.emailVerifiedAt),

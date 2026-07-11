@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { handle, ok } from "@/lib/http";
 import { requireUser } from "@/server/auth/rbac";
-import { listTransitThreads, listUserThreads } from "@/server/horoscope/thread-service";
+import { listNatalThreads, listTransitThreads } from "@/server/horoscope/thread-service";
 import { createConversation } from "@/server/horoscope/message-service";
 
 const listQuerySchema = z.object({
@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     });
 
     if (mode === "NATAL") {
-      return ok(await listUserThreads(user.id));
+      return ok(await listNatalThreads(user.id));
     }
 
     return ok(await listTransitThreads(user.id));

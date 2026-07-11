@@ -102,6 +102,10 @@ export async function createReading(input: CreateReadingInput) {
     );
   }
 
+  if (category.accessLevel === "PRO" && plan !== "PRO") {
+    throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
+  }
+
   if (mode === "TRANSIT" && plan !== "PRO") {
     throw new AppError("TRANSIT_REQUIRES_PRO", "โหมดดวงจรสำหรับสมาชิก Pro");
   }
