@@ -57,7 +57,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   } = useAppData();
 
   const displayName = user?.name ?? (loading ? "…" : "ผู้ใช้");
-  const planLabel = user?.plan === "PRO" ? "Pro" : "Free";
+  const isStaff = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+  const planLabel = isStaff
+    ? user?.role === "SUPER_ADMIN"
+      ? "Super Admin"
+      : "Admin"
+    : user?.plan === "PRO"
+      ? "Pro"
+      : "Free";
   const themeLabel = theme === "dark" ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด";
 
   const openMobile = useCallback(() => {

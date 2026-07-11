@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useAppData } from "./app-data-provider";
 
 // Total birthday settings allowed = 1 initial + 1 edit (design shows x/2).
 const BIRTH_TOTAL = 2;
@@ -19,16 +20,18 @@ export function SettingsPopover({
   anchorRef?: React.RefObject<HTMLElement | null>;
 }) {
   const router = useRouter();
+  const { user } = useAppData();
+  const isStaff = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const ref = useRef<HTMLDivElement>(null);
   const [editsRemaining, setEditsRemaining] = useState<number | null>(null);
+  const [unlimitedEdits, setUnlimitedEdits] = useState(false);
   const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
 
-  // Warm the routes this popover navigates to so the click feels instant
-  // instead of waiting on a cold dynamic (auth + DB) render.
   useEffect(() => {
     router.prefetch("/account");
     router.prefetch("/onboarding");
-  }, [router]);
+    if (isStaff) router.prefetch("/admin");
+  }, [router, isStaff]);
 
   useEffect(() => {
     let alive = true;
@@ -37,6 +40,7 @@ export function SettingsPopover({
       .then((json) => {
         if (alive && json?.data) {
           setEditsRemaining(json.data.editsRemaining ?? 0);
+          setUnlimitedEdits(Boolean(json.data.unlimitedEdits));
         }
       })
       .catch(() => {});
@@ -45,8 +49,6 @@ export function SettingsPopover({
     };
   }, []);
 
-  // Anchor the popover to the profile button (ChatGPT-style) and float it
-  // up-and-right over the content area. Fixed positioning escapes overflow.
   useLayoutEffect(() => {
     function place() {
       const el = anchorRef?.current;
@@ -93,10 +95,12 @@ export function SettingsPopover({
     };
   }, [onClose, anchorRef]);
 
-  const birthExhausted = editsRemaining === 0;
+  const birthUnlimited = unlimitedEdits || isStaff || user?.birthEditsUnlimited;
+  const birthExhausted = !birthUnlimited && editsRemaining === 0;
   const birthCurrent = BIRTH_TOTAL - (editsRemaining ?? BIRTH_TOTAL - 1);
-  const birthHint =
-    editsRemaining === null
+  const birthHint = birthUnlimited
+    ? "(ไม่จำกัด)"
+    : editsRemaining === null
       ? "…"
       : birthExhausted
         ? "ครบแล้ว"
@@ -117,6 +121,18 @@ export function SettingsPopover({
         <span className="h-px flex-1 bg-[var(--border)]" />
       </div>
       <div className="flex flex-col gap-2">
+        {isStaff ? (
+          <Row
+            icon={<AdminIcon />}
+            label="แผงควบคุมแอดมิน"
+            hint="(/admin)"
+            highlight
+            onClick={() => {
+              onClose();
+              router.push("/admin");
+            }}
+          />
+        ) : null}
         <Row
           icon={<UserIcon />}
           label="เปลี่ยนชื่อผู้ใช้"
@@ -153,13 +169,19 @@ export function SettingsPopover({
           onClick={() => void signOut({ callbackUrl: "/login" })}
         />
       </div>
-      <button
-        type="button"
-        onClick={() => onOpenModal("cancel")}
-        className="mt-2.5 w-full rounded-lg px-3 py-1.5 text-center text-[11px] text-[var(--muted-2)] transition hover:text-[var(--muted)]"
-      >
-        ยกเลิกการเป็นสมาชิก
-      </button>
+      {!isStaff ? (
+        <button
+          type="button"
+          onClick={() => onOpenModal("cancel")}
+          className="mt-2.5 w-full rounded-lg px-3 py-1.5 text-center text-[11px] text-[var(--muted-2)] transition hover:text-[var(--muted)]"
+        >
+          ยกเลิกการเป็นสมาชิก
+        </button>
+      ) : (
+        <p className="mt-2.5 px-1 text-center text-[11px] text-[var(--muted-2)]">
+          บัญชีแอดมิน · มอบ/ถอนสิทธิ์ได้ที่ ผู้ใช้ ในแผงควบคุม
+        </p>
+      )}
     </div>
   );
 }
@@ -215,6 +237,14 @@ const LINE = {
   strokeLinejoin: "round" as const,
 };
 
+function AdminIcon() {
+  return (
+    <svg {...ICON}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3" {...LINE} />
+      <path d="M8 12h8M12 8v8" {...LINE} />
+    </svg>
+  );
+}
 function UserIcon() {
   return (
     <svg {...ICON}>

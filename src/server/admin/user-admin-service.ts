@@ -10,7 +10,7 @@ import { writeAudit } from "@/server/audit/audit-service";
  * through the credit-service ledger — never touch `balance` directly.
  */
 
-type Actor = { id: string; ip?: string };
+type Actor = { id: string; role?: Role; ip?: string };
 
 export type ListUsersArgs = {
   page: number;
@@ -127,18 +127,35 @@ export async function setUserStatus(userId: string, status: UserStatus, actor: A
 }
 
 /**
- * Change a user's role. Route must guard with requireSuperAdmin(). A super
- * admin cannot demote themselves — prevents locking everyone out.
+ * Change a user's role.
+ * - SUPER_ADMIN: may set USER / ADMIN / SUPER_ADMIN
+ * - ADMIN: may set USER / ADMIN only (cannot touch SUPER_ADMIN accounts)
+ * A staff user cannot demote themselves — prevents locking everyone out.
  */
 export async function setUserRole(userId: string, role: Role, actor: Actor) {
-  if (userId === actor.id && role !== "SUPER_ADMIN") {
-    throw new AppError("VALIDATION", "ไม่สามารถลดสิทธิ์ของตัวเองได้");
+  if (!actor.role) {
+    throw new AppError("FORBIDDEN", "ไม่มีสิทธิ์เปลี่ยนบทบาท");
   }
+  if (userId === actor.id && role !== actor.role) {
+    throw new AppError("VALIDATION", "ไม่สามารถเปลี่ยนบทบาทของตัวเองได้");
+  }
+
   const before = await prisma.user.findUnique({
     where: { id: userId },
     select: { id: true, role: true },
   });
   if (!before) throw new AppError("NOT_FOUND", "User not found");
+
+  if (actor.role === "ADMIN") {
+    if (role === "SUPER_ADMIN") {
+      throw new AppError("FORBIDDEN", "ADMIN ไม่สามารถมอบสิทธิ์ SUPER_ADMIN ได้");
+    }
+    if (before.role === "SUPER_ADMIN") {
+      throw new AppError("FORBIDDEN", "ADMIN ไม่สามารถแก้บัญชี SUPER_ADMIN ได้");
+    }
+  } else if (actor.role !== "SUPER_ADMIN") {
+    throw new AppError("FORBIDDEN", "ไม่มีสิทธิ์เปลี่ยนบทบาท");
+  }
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.user.update({
@@ -152,6 +169,36 @@ export async function setUserRole(userId: string, role: Role, actor: Actor) {
         action: "user.role.update",
         entityType: "user",
         entityId: userId,
+        before,
+        after: updated,
+        ipAddress: actor.ip,
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
+/** Reset birth edit quota so the user can change birth data again. */
+export async function adminResetBirthEdits(userId: string, actor: Actor) {
+  const before = await prisma.birthProfile.findUnique({
+    where: { userId },
+    select: { id: true, editCount: true },
+  });
+  if (!before) throw new AppError("NOT_FOUND", "ยังไม่มีข้อมูลวันเกิด");
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.birthProfile.update({
+      where: { userId },
+      data: { editCount: 0 },
+      select: { id: true, editCount: true },
+    });
+    await writeAudit(
+      {
+        adminUserId: actor.id,
+        action: "user.birth_edits.reset",
+        entityType: "birth_profile",
+        entityId: before.id,
         before,
         after: updated,
         ipAddress: actor.ip,

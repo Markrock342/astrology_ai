@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { BirthForm } from "@/components/birth/birth-form";
 import {
   getBirthProfile,
+  isStaffRole,
   MAX_BIRTH_EDITS,
 } from "@/server/user/birth-profile-service";
 import { requireSessionUserId } from "@/server/auth/session-guard";
@@ -11,10 +13,15 @@ export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
   const userId = await requireSessionUserId();
+  const session = await auth();
+  const staff = isStaffRole(session?.user?.role);
 
-  // Also serves "เปลี่ยนวันเกิด" from settings — allowed while edits remain.
+  // Also serves "เปลี่ยนวันเกิด" from settings — allowed while edits remain
+  // (staff bypass the one-edit quota).
   const profile = await getBirthProfile(userId);
-  if (profile && profile.editCount >= MAX_BIRTH_EDITS) redirect("/dashboard");
+  if (profile && !staff && profile.editCount >= MAX_BIRTH_EDITS) {
+    redirect("/dashboard");
+  }
 
   const { birthPrivacy, birthEditLimit } = await getConsentTexts();
 
@@ -31,11 +38,20 @@ export default async function OnboardingPage() {
           เพื่อวางแผนและลงมือทำอย่างมีสติ สิ่งที่สำคัญที่สุดคือการกระทำและจิตใจของเราเอง
           ไม่ว่าดวงจะบอกอะไร เราก็ยังเป็นผู้เลือกทางเดินของตัวเองได้เสมอ
         </p>
+        {staff ? (
+          <p className="mt-2 text-xs text-[var(--secondary-active)]">
+            บัญชีแอดมิน — แก้ไขวันเกิดได้ไม่จำกัดครั้ง
+          </p>
+        ) : null}
       </div>
       <BirthForm
         editCount={profile?.editCount ?? 0}
         consentBirthPrivacy={birthPrivacy.text}
-        consentBirthEditLimit={birthEditLimit.text}
+        consentBirthEditLimit={
+          staff
+            ? "บัญชีแอดมินแก้ไขวันเกิดได้ไม่จำกัด"
+            : birthEditLimit.text
+        }
       />
     </div>
   );
