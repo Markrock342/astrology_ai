@@ -87,11 +87,96 @@ export const cmsPaymentInfoSchema = z.object({
 });
 
 export const cmsSeoSchema = z.object({
-  title: z.string().min(1).max(120),
-  description: z.string().min(1).max(300),
-  ogTitle: z.string().max(120).optional(),
-  ogDescription: z.string().max(300).optional(),
+  title: z.string().min(1).max(60),
+  description: z.string().min(1).max(160),
+  ogTitle: z.string().max(60).optional(),
+  ogDescription: z.string().max(160).optional(),
   ogImageUrl: z.string().url().max(2000).optional().or(z.literal("")),
+});
+
+const cmsCtaSchema = z.object({
+  text: z.string().min(1).max(80),
+  href: z.string().min(1).max(500),
+});
+
+export const cmsLandingHeroSchema = z.object({
+  eyebrow: z.string().max(80),
+  headline: z.string().min(1).max(120),
+  subheadline: z.string().min(1).max(500),
+  primaryCta: cmsCtaSchema,
+  secondaryCta: cmsCtaSchema,
+  imageUrl: z.string().url().max(2000).optional().or(z.literal("")),
+});
+
+export const cmsLandingFeaturesSchema = z.object({
+  title: z.string().min(1).max(120),
+  subtitle: z.string().max(300).optional(),
+  items: z
+    .array(
+      z.object({
+        icon: z.string().max(40),
+        title: z.string().min(1).max(120),
+        description: z.string().min(1).max(400),
+      }),
+    )
+    .min(1)
+    .max(12),
+});
+
+export const cmsLandingHowItWorksSchema = z.object({
+  title: z.string().min(1).max(120),
+  subtitle: z.string().max(300).optional(),
+  steps: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(120),
+        description: z.string().min(1).max(400),
+      }),
+    )
+    .min(1)
+    .max(6),
+});
+
+export const cmsLandingPricingSectionSchema = z.object({
+  title: z.string().min(1).max(120),
+  subtitle: z.string().max(300).optional(),
+  enabled: z.boolean(),
+});
+
+export const cmsLandingTestimonialsSchema = z.object({
+  title: z.string().min(1).max(120),
+  subtitle: z.string().max(300).optional(),
+  enabled: z.boolean(),
+  items: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(80),
+        quote: z.string().min(1).max(500),
+        stars: z.number().int().min(1).max(5),
+      }),
+    )
+    .max(12),
+});
+
+export const cmsSiteFooterSchema = z.object({
+  brandBlurb: z.string().min(1).max(400),
+  copyright: z.string().min(1).max(200),
+  links: z
+    .array(
+      z.object({
+        label: z.string().min(1).max(80),
+        href: z.string().min(1).max(500),
+      }),
+    )
+    .max(20),
+  socialLinks: z
+    .array(
+      z.object({
+        label: z.string().min(1).max(80),
+        href: z.string().url().max(2000),
+      }),
+    )
+    .max(10),
 });
 
 export const settingUpdateSchema = z.object({

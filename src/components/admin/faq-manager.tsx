@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ContentEditorToolbar,
   type ContentRevision,
@@ -13,6 +13,7 @@ import {
   CardSkeleton,
   Field,
   PageHeader,
+  SearchInput,
   Select,
   TextArea,
   Toggle,
@@ -50,6 +51,7 @@ export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }
   const [loading, setLoading] = useState(!initialItems);
   const [error, setError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -98,7 +100,7 @@ export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }
     try {
       await adminFetch(`/api/admin/faq/${editingId}`, {
         method: "PUT",
-        body: JSON.stringify({ question: form.question, answer: form.answer }),
+        body: JSON.stringify(form),
       });
       await load();
       await loadRevisions(editingId);
@@ -166,6 +168,16 @@ export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }
   }
 
   const editingItem = editingId ? items.find((i) => i.id === editingId) : null;
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (i) =>
+        i.question.toLowerCase().includes(q) ||
+        i.answer.toLowerCase().includes(q) ||
+        i.category.toLowerCase().includes(q),
+    );
+  }, [items, search]);
 
   return (
     <AdminPage>
@@ -177,12 +189,15 @@ export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 
+      <div className="mb-4">
+        <SearchInput value={search} onChange={setSearch} placeholder="ค้นหาคำถาม…" />
+      </div>
       {showForm && (
         <Card className="mb-4">
           {editingId && (
             <ContentEditorToolbar
               hasDraft={editingItem?.hasDraft ?? false}
-              previewHref={`/help?preview=1`}
+              previewHref="/help"
               busy={busy}
               onSaveDraft={() => void saveDraft()}
               onPublish={() => void publish()}
@@ -244,7 +259,7 @@ export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }
         </div>
       ) : (
       <div className="flex flex-col gap-2">
-        {items.map((item) => (
+        {filtered.map((item) => (
           <Card key={item.id}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium">{item.question}</span>

@@ -13,6 +13,7 @@ import {
   type CmsSeo,
   type CmsText,
 } from "@/lib/cms-keys";
+import { isPreviewMode } from "@/server/cms/preview-mode";
 
 type SettingRow = {
   key: string;
@@ -130,11 +131,16 @@ const SEO_BY_PATH: Record<string, CmsKey> = {
   "/terms": CMS_KEYS.seoTerms,
   "/disclaimer": CMS_KEYS.seoDisclaimer,
   "/help": CMS_KEYS.seoFaq,
+  "/pricing": CMS_KEYS.seoPricing,
+  "/contact": CMS_KEYS.seoContact,
 };
 
 export async function getSeoForPath(path: string): Promise<CmsSeo | null> {
   const key = SEO_BY_PATH[path];
   if (!key) return null;
+  if (await isPreviewMode()) {
+    return getDraftSetting(key) as Promise<CmsSeo>;
+  }
   return getPublishedSetting(key) as Promise<CmsSeo>;
 }
 
@@ -204,4 +210,32 @@ export async function getPublishedFaqItems() {
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     select: { id: true, question: true, answer: true, category: true },
   });
+}
+
+/**
+ * Public FAQ list. In preview mode, prefer draft Q/A when present.
+ */
+export async function getFaqForPublic(preview?: boolean) {
+  const useDraft = preview ?? (await isPreviewMode());
+  if (!useDraft) return getPublishedFaqItems();
+
+  const rows = await prisma.faqItem.findMany({
+    where: { enabled: true },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      question: true,
+      answer: true,
+      category: true,
+      draftQuestion: true,
+      draftAnswer: true,
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    question: row.draftQuestion ?? row.question,
+    answer: row.draftAnswer ?? row.answer,
+    category: row.category,
+  }));
 }

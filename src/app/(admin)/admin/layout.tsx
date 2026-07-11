@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { getMaintenanceMode } from "@/server/settings/settings-service";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Admin CMS shell (spec 6). Server-side role guard: only ADMIN / SUPER_ADMIN.
- * Every admin API route must ALSO authorize server-side (defense in depth).
+ * Admin CMS shell. Server-side role guard: only ADMIN / SUPER_ADMIN.
  */
 export default async function AdminLayout({
   children,
@@ -18,8 +18,17 @@ export default async function AdminLayout({
   if (!session?.user) redirect("/login");
   if (role !== "ADMIN" && role !== "SUPER_ADMIN") redirect("/dashboard");
 
+  const maintenance = await getMaintenanceMode().catch(() => ({
+    enabled: false,
+    message: "",
+  }));
+
   return (
-    <AdminShell userName={session.user.name} userRole={role}>
+    <AdminShell
+      userName={session.user.name}
+      userRole={role}
+      maintenanceOn={maintenance.enabled}
+    >
       {children}
     </AdminShell>
   );

@@ -31,12 +31,12 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   });
 }
 
-/** PUT /api/admin/faq/:id/draft */
+/** PUT /api/admin/faq/:id — save draft (Q/A + meta) */
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
   return handle(async () => {
     const admin = await requireAdmin();
     const { id } = await ctx.params;
-    const data = faqItemSchema.pick({ question: true, answer: true }).parse(await req.json());
+    const data = faqItemSchema.parse(await req.json());
     const ip = req.headers.get("x-forwarded-for") ?? undefined;
     return ok(await saveFaqDraft(id, data, { id: admin.id, ip }));
   });

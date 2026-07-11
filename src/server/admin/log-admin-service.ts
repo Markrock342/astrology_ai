@@ -36,8 +36,6 @@ export async function listAuditLogs(args: ListAuditLogsArgs) {
         action: true,
         entityType: true,
         entityId: true,
-        beforeJson: true,
-        afterJson: true,
         ipAddress: true,
         createdAt: true,
         admin: { select: { email: true, name: true } },
@@ -57,6 +55,17 @@ export async function listAuditLogs(args: ListAuditLogsArgs) {
     items,
     entityTypes: entityTypes.map((e) => e.entityType),
   };
+}
+
+export async function getAuditLogDetail(id: string) {
+  return prisma.adminAuditLog.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      beforeJson: true,
+      afterJson: true,
+    },
+  });
 }
 
 export type ListAiUsageArgs = {

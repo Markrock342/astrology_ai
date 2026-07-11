@@ -1,6 +1,6 @@
 /**
- * CMS content keys stored in `app_settings`. Admin edits these in /admin/settings;
- * public pages read via settings-service (never hardcode legal copy in components).
+ * CMS content keys stored in `app_settings`. Admin edits these in /admin/settings
+ * and /admin/landing; public pages read via settings-service.
  */
 
 export type CmsSection = { heading: string; body: string[] };
@@ -39,6 +39,69 @@ export type CmsSeo = {
   ogImageUrl?: string;
 };
 
+export type CmsCta = { text: string; href: string };
+
+export type CmsLandingHero = {
+  eyebrow: string;
+  headline: string;
+  subheadline: string;
+  primaryCta: CmsCta;
+  secondaryCta: CmsCta;
+  imageUrl?: string;
+};
+
+export type CmsLandingFeature = {
+  icon: string;
+  title: string;
+  description: string;
+};
+
+export type CmsLandingFeatures = {
+  title: string;
+  subtitle?: string;
+  items: CmsLandingFeature[];
+};
+
+export type CmsLandingStep = {
+  title: string;
+  description: string;
+};
+
+export type CmsLandingHowItWorks = {
+  title: string;
+  subtitle?: string;
+  steps: CmsLandingStep[];
+};
+
+export type CmsLandingPricingSection = {
+  title: string;
+  subtitle?: string;
+  /** When false, hide the pricing section on the landing page. */
+  enabled: boolean;
+};
+
+export type CmsLandingTestimonial = {
+  name: string;
+  quote: string;
+  stars: number;
+};
+
+export type CmsLandingTestimonials = {
+  title: string;
+  subtitle?: string;
+  enabled: boolean;
+  items: CmsLandingTestimonial[];
+};
+
+export type CmsFooterLink = { label: string; href: string };
+
+export type CmsSiteFooter = {
+  brandBlurb: string;
+  copyright: string;
+  links: CmsFooterLink[];
+  socialLinks: CmsFooterLink[];
+};
+
 export const CMS_KEYS = {
   privacyPolicy: "privacy_policy",
   termsOfService: "terms_of_service",
@@ -54,6 +117,14 @@ export const CMS_KEYS = {
   seoTerms: "seo_terms",
   seoDisclaimer: "seo_disclaimer",
   seoFaq: "seo_faq",
+  seoPricing: "seo_pricing",
+  seoContact: "seo_contact",
+  landingHero: "landing_hero",
+  landingFeatures: "landing_features",
+  landingHowItWorks: "landing_how_it_works",
+  landingPricingSection: "landing_pricing_section",
+  landingTestimonials: "landing_testimonials",
+  siteFooter: "site_footer",
 } as const;
 
 export type CmsKey = (typeof CMS_KEYS)[keyof typeof CMS_KEYS];
@@ -68,6 +139,12 @@ export const PUBLIC_CMS_KEYS: CmsKey[] = [
   CMS_KEYS.consentBirthEditLimit,
   CMS_KEYS.contact,
   CMS_KEYS.paymentInfo,
+  CMS_KEYS.landingHero,
+  CMS_KEYS.landingFeatures,
+  CMS_KEYS.landingHowItWorks,
+  CMS_KEYS.landingPricingSection,
+  CMS_KEYS.landingTestimonials,
+  CMS_KEYS.siteFooter,
 ];
 
 export const CMS_DEFAULTS: Record<CmsKey, unknown> = {
@@ -308,6 +385,108 @@ export const CMS_DEFAULTS: Record<CmsKey, unknown> = {
     title: "คำถามที่พบบ่อย — โหราศาสตร์",
     description: "คำตอบเกี่ยวกับเครดิต แพ็กเกจ Pro การชำระเงิน และการใช้งาน",
   } satisfies CmsSeo,
+  [CMS_KEYS.seoPricing]: {
+    title: "ราคาแพ็กเกจ — โหราศาสตร์",
+    description: "เปรียบเทียบ Free และ Pro ดูดวง AI ตามดวงชะตา",
+  } satisfies CmsSeo,
+  [CMS_KEYS.seoContact]: {
+    title: "ติดต่อเรา — โหราศาสตร์",
+    description: "ช่องทางติดต่อทีมงาน HoraSard",
+  } satisfies CmsSeo,
+  [CMS_KEYS.landingHero]: {
+    eyebrow: "AI Horoscope",
+    headline: "โหราศาสตร์",
+    subheadline:
+      "ดูดวงด้วย AI สไตล์แม่หมอ อ่านดวงจากข้อมูลวันเกิดของคุณ อบอุ่น น่าเชื่อถือ และเข้าใจง่าย",
+    primaryCta: { text: "เริ่มต้นใช้งาน", href: "/login?tab=register" },
+    secondaryCta: { text: "เข้าสู่ระบบ", href: "/login" },
+    imageUrl: "",
+  } satisfies CmsLandingHero,
+  [CMS_KEYS.landingFeatures]: {
+    title: "ทำไมต้อง HoraSard",
+    subtitle: "ดูดวงที่อ้างอิงพื้นดวงจริง ไม่แต่งดาว",
+    items: [
+      {
+        icon: "✨",
+        title: "คำนวณพื้นดวงจริง",
+        description: "ใช้สูตรโหรไทยสุริยยาตร์ ลัคนา ทักษา และตำแหน่งดาวจากระบบคำนวณ",
+      },
+      {
+        icon: "💬",
+        title: "คุยกับแม่หมอ AI",
+        description: "ถามได้หลายรอบต่อเนื่องในหัวข้อที่สนใจ เช่น การงาน ความรัก การเงิน",
+      },
+      {
+        icon: "🔒",
+        title: "ข้อมูลส่วนตัวปลอดภัย",
+        description: "วันเกิดและบทสนทนาเก็บในบัญชีของคุณ แก้ไขวันเกิดได้จำกัดเพื่อความถูกต้อง",
+      },
+      {
+        icon: "📱",
+        title: "ใช้ง่ายทุกอุปกรณ์",
+        description: "เปิดจากมือถือหรือคอมพิวเตอร์ — บันทึกประวัติการสนทนาไว้ให้กลับมาอ่าน",
+      },
+    ],
+  } satisfies CmsLandingFeatures,
+  [CMS_KEYS.landingHowItWorks]: {
+    title: "เริ่มต้นใน 3 ขั้นตอน",
+    subtitle: "ไม่กี่นาทีก็ถามดวงได้",
+    steps: [
+      {
+        title: "สมัครสมาชิก",
+        description: "สร้างบัญชีด้วยอีเมลหรือ Google — ฟรี",
+      },
+      {
+        title: "กรอกวันเกิด",
+        description: "ใส่วัน เวลา และสถานที่เกิด เพื่อคำนวณพื้นดวง",
+      },
+      {
+        title: "ถามดวง",
+        description: "เลือกหมวดแล้วถามแม่หมอ AI ได้ทันที (Pro สำหรับแชทเต็มรูปแบบ)",
+      },
+    ],
+  } satisfies CmsLandingHowItWorks,
+  [CMS_KEYS.landingPricingSection]: {
+    title: "แพ็กเกจที่เหมาะกับคุณ",
+    subtitle: "เริ่มฟรีได้ — อัปเกรดเมื่อพร้อมถามดวงเต็มรูปแบบ",
+    enabled: true,
+  } satisfies CmsLandingPricingSection,
+  [CMS_KEYS.landingTestimonials]: {
+    title: "เสียงจากผู้ใช้งาน",
+    subtitle: "ประสบการณ์จริงจากสมาชิก",
+    enabled: true,
+    items: [
+      {
+        name: "นภัส",
+        quote: "อ่านง่าย อบอุ่น เหมือนคุยกับแม่หมอจริง ๆ — ช่วยให้คิดเรื่องงานได้ชัดขึ้น",
+        stars: 5,
+      },
+      {
+        name: "กิตติ",
+        quote: "ชอบที่ระบบอ้างอิงดวงจากวันเกิด ไม่เดา — ใช้งานบนมือถือลื่นดี",
+        stars: 5,
+      },
+      {
+        name: "มินตรา",
+        quote: "อัปเกรด Pro แล้วถามได้หลายเรื่อง ประวัติคุยเก็บไว้กลับมาอ่านสะดวก",
+        stars: 4,
+      },
+    ],
+  } satisfies CmsLandingTestimonials,
+  [CMS_KEYS.siteFooter]: {
+    brandBlurb:
+      "HoraSard — ดูดวง AI ตามหลักโหรไทยสุริยยาตร์ เพื่อความบันเทิงและการไตร่ตรอง",
+    copyright: "© HoraSard. สงวนลิขสิทธิ์.",
+    links: [
+      { label: "ราคา", href: "/pricing" },
+      { label: "คำถามที่พบบ่อย", href: "/help" },
+      { label: "ติดต่อ", href: "/contact" },
+      { label: "นโยบายความเป็นส่วนตัว", href: "/privacy" },
+      { label: "เงื่อนไขการใช้งาน", href: "/terms" },
+      { label: "ข้อจำกัดความรับผิด", href: "/disclaimer" },
+    ],
+    socialLinks: [],
+  } satisfies CmsSiteFooter,
 };
 
 export const CMS_LABELS: Record<CmsKey, string> = {
@@ -325,12 +504,27 @@ export const CMS_LABELS: Record<CmsKey, string> = {
   [CMS_KEYS.seoTerms]: "SEO — เงื่อนไข",
   [CMS_KEYS.seoDisclaimer]: "SEO — คำเตือน",
   [CMS_KEYS.seoFaq]: "SEO — คำถามที่พบบ่อย",
+  [CMS_KEYS.seoPricing]: "SEO — ราคา",
+  [CMS_KEYS.seoContact]: "SEO — ติดต่อ",
+  [CMS_KEYS.landingHero]: "หน้าแรก — Hero",
+  [CMS_KEYS.landingFeatures]: "หน้าแรก — จุดเด่น",
+  [CMS_KEYS.landingHowItWorks]: "หน้าแรก — วิธีใช้",
+  [CMS_KEYS.landingPricingSection]: "หน้าแรก — ส่วนราคา",
+  [CMS_KEYS.landingTestimonials]: "หน้าแรก — รีวิว",
+  [CMS_KEYS.siteFooter]: "ส่วนท้ายเว็บ (Footer)",
 };
 
 /** Sidebar groups for /admin/settings — plain Thai, no jargon. */
-export type CmsGroupId = "legal" | "consent" | "payment" | "system" | "seo";
+export type CmsGroupId =
+  | "landing"
+  | "legal"
+  | "consent"
+  | "payment"
+  | "system"
+  | "seo";
 
 export const CMS_GROUPS: { id: CmsGroupId; label: string; hint: string }[] = [
+  { id: "landing", label: "หน้าแรก & การตลาด", hint: "เนื้อหา landing / footer" },
   { id: "legal", label: "หน้านโยบาย", hint: "เอกสารที่ผู้ใช้อ่านได้" },
   { id: "consent", label: "ข้อความยินยอม", hint: "ข้อความใน checkbox" },
   { id: "payment", label: "ชำระเงิน", hint: "ข้อมูลบัญชี & ขั้นตอน" },
@@ -340,11 +534,8 @@ export const CMS_GROUPS: { id: CmsGroupId; label: string; hint: string }[] = [
 
 export type CmsMeta = {
   group: CmsGroupId;
-  /** One-line explanation shown in the editor. */
   help: string;
-  /** Where users will see this content. */
   where: string;
-  /** Public page to preview (opens in new tab). */
   previewPath?: string;
 };
 
@@ -369,9 +560,9 @@ export const CMS_META: Record<CmsKey, CmsMeta> = {
   },
   [CMS_KEYS.consentRegister]: {
     group: "consent",
-    help: "ข้อความข้าง checkbox ตอนสมัครสมาชิก — มักเขียนว่า “ยอมรับนโยบายความเป็นส่วนตัว”",
-    where: "หน้าสมัครสมาชิก /register",
-    previewPath: "/register",
+    help: "ข้อความข้าง checkbox ตอนสมัครสมาชิก",
+    where: "หน้าสมัครสมาชิก /login?tab=register",
+    previewPath: "/login?tab=register",
   },
   [CMS_KEYS.consentBirthPrivacy]: {
     group: "consent",
@@ -387,18 +578,19 @@ export const CMS_META: Record<CmsKey, CmsMeta> = {
   },
   [CMS_KEYS.contact]: {
     group: "system",
-    help: "อีเมลที่ผู้ใช้ติดต่อทีมงาน — แสดงในหน้านโยบายและข้อความช่วยเหลือ",
-    where: "หน้านโยบาย · ข้อความในแอป",
+    help: "อีเมลที่ผู้ใช้ติดต่อทีมงาน",
+    where: "หน้า /contact · หน้านโยบาย",
+    previewPath: "/contact",
   },
   [CMS_KEYS.maintenanceMode]: {
     group: "system",
-    help: "เปิดเมื่อต้องการปิดแอปชั่วคราว — ผู้ใช้ทั่วไปจะเห็นข้อความด้านล่าง (แอดมินยังเข้าได้)",
+    help: "เปิดเมื่อต้องการปิดแอปชั่วคราว — ผู้ใช้ทั่วไปจะเห็นข้อความ (แอดมินยังเข้าได้)",
     where: "ทุกหน้าในแอป (ยกเว้นแอดมิน)",
   },
   [CMS_KEYS.paymentInfo]: {
     group: "payment",
-    help: "บัญชีธนาคารและขั้นตอนโอนเงิน — ผู้ใช้เห็นในหน้าบัญชีก่อนแจ้งชำระ",
-    where: "หน้าบัญชี /account",
+    help: "บัญชีธนาคารและขั้นตอนโอนเงิน",
+    where: "หน้าบัญชี /account · หน้าราคา",
     previewPath: "/account",
   },
   [CMS_KEYS.seoHome]: {
@@ -431,6 +623,54 @@ export const CMS_META: Record<CmsKey, CmsMeta> = {
     where: "หน้า /help · meta tags",
     previewPath: "/help",
   },
+  [CMS_KEYS.seoPricing]: {
+    group: "seo",
+    help: "SEO สำหรับหน้าราคา",
+    where: "หน้า /pricing · meta tags",
+    previewPath: "/pricing",
+  },
+  [CMS_KEYS.seoContact]: {
+    group: "seo",
+    help: "SEO สำหรับหน้าติดต่อ",
+    where: "หน้า /contact · meta tags",
+    previewPath: "/contact",
+  },
+  [CMS_KEYS.landingHero]: {
+    group: "landing",
+    help: "หัวข้อหลักและปุ่ม CTA บนหน้าแรก",
+    where: "หน้าแรก /",
+    previewPath: "/",
+  },
+  [CMS_KEYS.landingFeatures]: {
+    group: "landing",
+    help: "การ์ดจุดเด่น — เพิ่ม/ลบ/เรียงได้",
+    where: "หน้าแรก /",
+    previewPath: "/",
+  },
+  [CMS_KEYS.landingHowItWorks]: {
+    group: "landing",
+    help: "ขั้นตอนสมัคร → กรอกวันเกิด → ถามดวง",
+    where: "หน้าแรก /",
+    previewPath: "/",
+  },
+  [CMS_KEYS.landingPricingSection]: {
+    group: "landing",
+    help: "หัวข้อส่วนราคา (ราคาจริงดึงจากแพ็กเกจในระบบ)",
+    where: "หน้าแรก / · /pricing",
+    previewPath: "/",
+  },
+  [CMS_KEYS.landingTestimonials]: {
+    group: "landing",
+    help: "รีวิวผู้ใช้ — ปิดทั้ง section ได้",
+    where: "หน้าแรก /",
+    previewPath: "/",
+  },
+  [CMS_KEYS.siteFooter]: {
+    group: "landing",
+    help: "ส่วนท้ายทุกหน้าสาธารณะ — ลิงก์และข้อความลิขสิทธิ์",
+    where: "ทุกหน้า public",
+    previewPath: "/",
+  },
 };
 
 export function cmsKeysInGroup(group: CmsGroupId): CmsKey[] {
@@ -438,3 +678,13 @@ export function cmsKeysInGroup(group: CmsGroupId): CmsKey[] {
     (key) => CMS_META[key].group === group,
   );
 }
+
+/** Keys edited primarily on /admin/landing. */
+export const LANDING_CMS_KEYS: CmsKey[] = [
+  CMS_KEYS.landingHero,
+  CMS_KEYS.landingFeatures,
+  CMS_KEYS.landingHowItWorks,
+  CMS_KEYS.landingPricingSection,
+  CMS_KEYS.landingTestimonials,
+  CMS_KEYS.siteFooter,
+];

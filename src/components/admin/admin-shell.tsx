@@ -6,20 +6,23 @@ import { useState } from "react";
 import { BrandMark } from "@/components/brand-logo";
 import { APP_NAME_TH } from "@/config/constants";
 import { FEATURES } from "@/config/features";
-import { filterAdminNav } from "@/config/admin-nav";
+import { groupedAdminNav } from "@/config/admin-nav";
+import { Badge } from "./ui";
 
 export function AdminShell({
   children,
   userName,
   userRole,
+  maintenanceOn,
 }: {
   children: React.ReactNode;
   userName?: string | null;
   userRole?: string | null;
+  maintenanceOn?: boolean;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const nav = filterAdminNav(FEATURES.aiAdmin);
+  const groups = groupedAdminNav(FEATURES.aiAdmin);
 
   function isActive(href: string) {
     if (href === "/admin/dashboard") return pathname === href;
@@ -27,36 +30,44 @@ export function AdminShell({
   }
 
   const sidebar = (
-    <nav className="flex flex-col gap-0.5">
-      {nav.map((item) => {
-        const active = isActive(item.href);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setMobileOpen(false)}
-            className={`rounded-lg px-3 py-2 text-sm transition ${
-              active
-                ? "bg-[var(--surface-3)] font-medium text-[var(--primary)]"
-                : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
-            }`}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
+    <nav className="flex flex-col gap-3">
+      {groups.map((group) => (
+        <div key={group.id}>
+          <p className="mb-1 px-3 text-[10px] font-medium uppercase tracking-wide text-[var(--muted-2)]">
+            {group.label}
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {group.items.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`rounded-lg px-3 py-2 text-sm transition ${
+                    active
+                      ? "bg-[var(--surface-3)] font-medium text-[var(--primary)]"
+                      : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-1">
-      {/* Desktop sidebar */}
       <aside className="hidden w-60 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] lg:flex">
         <div className="border-b border-[var(--border)] px-4 py-4">
           <Link href="/admin/dashboard" className="flex items-center gap-2">
             <BrandMark size={28} />
             <div>
-              <p className="text-xs font-semibold text-[var(--primary)]">Admin CMS</p>
+              <p className="text-xs font-semibold text-[var(--primary)]">ระบบจัดการ</p>
               <p className="text-[10px] text-[var(--muted-2)]">{APP_NAME_TH}</p>
             </div>
           </Link>
@@ -72,7 +83,6 @@ export function AdminShell({
         </div>
       </aside>
 
-      {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
@@ -83,7 +93,7 @@ export function AdminShell({
           />
           <aside className="relative z-50 flex h-full w-72 flex-col bg-[var(--surface)] shadow-xl">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-4">
-              <span className="text-sm font-semibold text-[var(--primary)]">Admin CMS</span>
+              <span className="text-sm font-semibold text-[var(--primary)]">ระบบจัดการ</span>
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
@@ -122,6 +132,7 @@ export function AdminShell({
                 )}
               </p>
             </div>
+            {maintenanceOn && <Badge tone="red">ปิดระบบชั่วคราว</Badge>}
           </div>
           <Link
             href="/dashboard"

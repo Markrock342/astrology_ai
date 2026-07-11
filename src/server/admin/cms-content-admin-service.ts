@@ -135,6 +135,10 @@ export async function saveFaqDraft(id: string, input: FaqInput, actor: Actor) {
     data: {
       draftQuestion: input.question,
       draftAnswer: input.answer,
+      // Meta fields are part of the draft workflow (visible in admin list immediately).
+      category: input.category ?? item.category,
+      enabled: input.enabled ?? item.enabled,
+      sortOrder: input.sortOrder ?? item.sortOrder,
       draftUpdatedAt: new Date(),
       draftUpdatedById: actor.id,
     },
@@ -143,7 +147,13 @@ export async function saveFaqDraft(id: string, input: FaqInput, actor: Actor) {
   await recordRevision({
     entityType: "FAQ_ITEM",
     entityId: id,
-    snapshotJson: { question: input.question, answer: input.answer, category: item.category },
+    snapshotJson: {
+      question: input.question,
+      answer: input.answer,
+      category: updated.category,
+      enabled: updated.enabled,
+      sortOrder: updated.sortOrder,
+    },
     action: "DRAFT_SAVE",
     actor,
   });

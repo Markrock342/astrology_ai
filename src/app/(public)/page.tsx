@@ -1,17 +1,46 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { BrandMark } from "@/components/brand-logo";
-import { APP_NAME_TH } from "@/config/constants";
+import { FaqTeaser } from "@/components/marketing/faq-teaser";
+import { FeaturesSection } from "@/components/marketing/features-section";
+import { HeroSection } from "@/components/marketing/hero-section";
+import { HowItWorksSection } from "@/components/marketing/how-it-works-section";
+import { PricingSection } from "@/components/marketing/pricing-section";
+import { TestimonialsSection } from "@/components/marketing/testimonials-section";
+import {
+  CMS_KEYS,
+  type CmsLandingFeatures,
+  type CmsLandingHero,
+  type CmsLandingHowItWorks,
+  type CmsLandingPricingSection,
+  type CmsLandingTestimonials,
+  type CmsSeo,
+} from "@/lib/cms-keys";
 import { AppError } from "@/lib/errors";
+import { metadataFromSeo } from "@/lib/seo";
+import { listPublicPackages } from "@/server/admin/catalog-admin-service";
 import { resolveAppEntryPath } from "@/server/auth/app-entry";
+import { isPreviewMode } from "@/server/cms/preview-mode";
+import {
+  getDraftSetting,
+  getFaqForPublic,
+  getPublishedSetting,
+  getSeoForPath,
+} from "@/server/settings/settings-service";
 import { getMe } from "@/server/user/account-service";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata(): Promise<Metadata> {
+  const seo =
+    (await getSeoForPath("/")) ??
+    ((await getPublishedSetting(CMS_KEYS.seoHome)) as CmsSeo);
+  return metadataFromSeo(seo);
+}
+
 /**
  * Public landing page. Logged-in users skip straight to onboarding or chat;
- * visitors see CTAs to sign in / register.
+ * visitors see CMS-driven marketing sections.
  */
 export default async function LandingPage() {
   const session = await auth();
@@ -24,33 +53,29 @@ export default async function LandingPage() {
     }
   }
 
+  const preview = await isPreviewMode();
+  const cms = <K extends typeof CMS_KEYS[keyof typeof CMS_KEYS]>(key: K) =>
+    preview ? getDraftSetting(key) : getPublishedSetting(key);
+
+  const [hero, features, how, pricingSection, testimonials, packages, faqItems] =
+    await Promise.all([
+      cms(CMS_KEYS.landingHero) as Promise<CmsLandingHero>,
+      cms(CMS_KEYS.landingFeatures) as Promise<CmsLandingFeatures>,
+      cms(CMS_KEYS.landingHowItWorks) as Promise<CmsLandingHowItWorks>,
+      cms(CMS_KEYS.landingPricingSection) as Promise<CmsLandingPricingSection>,
+      cms(CMS_KEYS.landingTestimonials) as Promise<CmsLandingTestimonials>,
+      listPublicPackages(),
+      getFaqForPublic(preview),
+    ]);
+
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-      <BrandMark size={56} />
-      <span className="mt-6 text-xs uppercase tracking-[0.4em] text-[var(--muted-2)]">
-        AI Horoscope
-      </span>
-      <h1 className="mt-2 text-4xl font-semibold text-[var(--primary)] sm:text-6xl">
-        {APP_NAME_TH}
-      </h1>
-      <p className="mt-4 max-w-xl text-[var(--muted)]">
-        ดูดวงด้วย AI สไตล์แม่หมอ อ่านดวงจากข้อมูลวันเกิดของคุณ อบอุ่น น่าเชื่อถือ
-        และเข้าใจง่าย
-      </p>
-      <div className="mt-8 flex gap-3">
-        <Link
-          href="/login?tab=register"
-          className="rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
-        >
-          เริ่มต้นใช้งาน
-        </Link>
-        <Link
-          href="/login"
-          className="rounded-full border border-[var(--border)] px-6 py-3 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-2)]"
-        >
-          เข้าสู่ระบบ
-        </Link>
-      </div>
+    <main className="flex flex-1 flex-col">
+      <HeroSection hero={hero} />
+      <FeaturesSection features={features} />
+      <HowItWorksSection how={how} />
+      <PricingSection section={pricingSection} packages={packages} compact />
+      <TestimonialsSection testimonials={testimonials} />
+      <FaqTeaser items={faqItems} />
     </main>
   );
 }

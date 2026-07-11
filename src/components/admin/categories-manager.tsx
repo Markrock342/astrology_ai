@@ -42,8 +42,19 @@ function linesToArray(text: string): string[] {
     .filter(Boolean);
 }
 
-export function CategoriesManager() {
-  const [categories, setCategories] = useState<Category[]>([]);
+export function CategoriesManager({
+  initialCategories,
+}: {
+  initialCategories?: Category[] | null;
+}) {
+  const [categories, setCategories] = useState<Category[]>(() =>
+    (initialCategories ?? []).map((c) => ({
+      ...c,
+      suggestedQuestions: Array.isArray(c.suggestedQuestions)
+        ? (c.suggestedQuestions as string[])
+        : null,
+    })),
+  );
   const [prompts, setPrompts] = useState<PromptOption[]>([]);
   const [aiConfigs, setAiConfigs] = useState<AiConfigOption[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,7 +74,7 @@ export function CategoriesManager() {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialCategories);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,9 +106,24 @@ export function CategoriesManager() {
   }, []);
 
   useEffect(() => {
+    if (initialCategories) {
+      // Still load prompts/configs in background for edit form options.
+      void Promise.all([
+        adminFetch<PromptOption[]>("/api/admin/prompts").catch(() => [] as PromptOption[]),
+        adminFetch<AiConfigOption[]>("/api/admin/ai-configs").catch(
+          () => [] as AiConfigOption[],
+        ),
+      ]).then(([p, a]) => {
+        setPrompts(p.map((x) => ({ id: x.id, code: x.code, name: x.name })));
+        setAiConfigs(
+          a.map((x) => ({ id: x.id, displayName: x.displayName, modelId: x.modelId })),
+        );
+      });
+      return;
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [load]);
+  }, [initialCategories, load]);
 
   function startEdit(cat: Category) {
     setEditingId(cat.id);
