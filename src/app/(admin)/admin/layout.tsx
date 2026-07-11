@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
+
+export const dynamic = "force-dynamic";
 
 /**
  * Admin CMS shell (spec 6). Server-side role guard: only ADMIN / SUPER_ADMIN.

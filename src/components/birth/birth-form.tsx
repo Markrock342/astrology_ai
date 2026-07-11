@@ -31,7 +31,15 @@ const CURRENT_CE = new Date().getFullYear();
  * `editCount` is provided by the caller (0 on first entry). Backend enforces the
  * "edit at most once more" rule; this only mirrors it for messaging.
  */
-export function BirthForm({ editCount = 0 }: { editCount?: number }) {
+export function BirthForm({
+  editCount = 0,
+  consentBirthPrivacy = "ฉันได้อ่านและยอมรับนโยบายความเป็นส่วนตัว",
+  consentBirthEditLimit = "ฉันรับทราบว่าสามารถแก้ไขข้อมูลวันเกิดได้อีก 1 ครั้ง",
+}: {
+  editCount?: number;
+  consentBirthPrivacy?: string;
+  consentBirthEditLimit?: string;
+}) {
   const router = useRouter();
 
   const [day, setDay] = useState("");
@@ -242,11 +250,10 @@ export function BirthForm({ editCount = 0 }: { editCount?: number }) {
       {/* Consent */}
       <div className="mt-6 flex flex-col gap-3">
         <Checkbox checked={acceptPrivacy} onChange={setAcceptPrivacy}>
-          ฉันได้อ่านและยอมรับ{" "}
-          <span className="text-[var(--primary)]">นโยบายความเป็นส่วนตัว</span>
+          {consentBirthPrivacy}
         </Checkbox>
         <Checkbox checked={acceptEditLimit} onChange={setAcceptEditLimit}>
-          ฉันรับทราบว่าสามารถแก้ไขข้อมูลวันเกิดได้อีก 1 ครั้ง
+          {consentBirthEditLimit}
           {editCount > 0 && (
             <span className="ml-1 text-[var(--muted-2)]">
               (ใช้ไปแล้ว {editCount}/1)

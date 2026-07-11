@@ -20,6 +20,9 @@ const serverEnvSchema = z.object({
   // Public base URL used to build links inside emails (falls back to AUTH_URL).
   APP_BASE_URL: z.string().url().optional(),
 
+  // Cloudflare Turnstile (bot protection on auth forms). Optional locally.
+  TURNSTILE_SECRET_KEY: z.string().optional(),
+
   // AI keys are read by name via secretReference; kept optional so the app can
   // boot without them during early Milestone 1 work.
   GEMINI_API_KEY: z.string().optional(),

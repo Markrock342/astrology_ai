@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { env } from "@/config/env";
 import { BrandLogo } from "@/components/brand-logo";
-import { SignInForm } from "@/components/auth/sign-in-form";
+import { AuthPanels } from "@/components/auth/auth-panels";
+import { AppError } from "@/lib/errors";
+import { resolveAppEntryPath } from "@/server/auth/app-entry";
+import { getConsentTexts } from "@/server/settings/settings-service";
+import { getMe } from "@/server/user/account-service";
 
 // Reads the session (cookies) and redirects when already signed in, so it must
 // render per-request — never statically prerendered at build time.
@@ -10,14 +14,32 @@ export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
   const session = await auth();
-  if (session?.user) redirect("/dashboard");
+  if (session?.user?.id) {
+    try {
+      await getMe(session.user.id);
+      redirect(await resolveAppEntryPath(session.user.id));
+    } catch (err) {
+      // Stale JWT — show login form instead of bouncing in a redirect loop.
+      if (!(err instanceof AppError && err.code === "NOT_FOUND")) throw err;
+    }
+  }
 
   const googleEnabled = Boolean(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET);
+  const { register: consentRegister } = await getConsentTexts();
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
-      <BrandLogo size={44} className="mb-10" />
-      <SignInForm googleEnabled={googleEnabled} />
+    <main className="relative flex flex-1 flex-col items-center justify-center px-6 py-12">
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(201,162,75,0.07),transparent_65%)]"
+        aria-hidden
+      />
+      <BrandLogo size={44} className="relative mb-8" />
+      <div className="relative w-full flex justify-center">
+        <AuthPanels
+          googleEnabled={googleEnabled}
+          consentRegisterLabel={consentRegister.text}
+        />
+      </div>
     </main>
   );
 }

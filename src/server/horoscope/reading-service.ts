@@ -2,9 +2,12 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getEffectivePlan } from "@/server/user/account-service";
 import { deductCredits } from "@/server/credit/credit-service";
+import { assertWithinUsageLimits } from "@/server/credit/quota-service";
 import { generateWithFallback, resolveConfig } from "@/server/ai/router";
 import { buildSystemPrompt, buildUserPrompt } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
+import { loadChartForUser } from "@/server/horoscope/chart-context";
+import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
 import type { BirthProfileSnapshot } from "@/types";
 
 /**
@@ -66,6 +69,9 @@ export async function createReading(input: CreateReadingInput) {
     throw new AppError("NO_QUOTA", "Not enough credit");
   }
 
+  // 4b. Package daily/monthly usage limits (throws RATE_LIMITED when hit).
+  await assertWithinUsageLimits(userId);
+
   // 5. Load birth profile and freeze a snapshot (rule 14).
   const profile = await prisma.birthProfile.findUnique({ where: { userId } });
   if (!profile) throw new AppError("VALIDATION", "Birth profile is required");
@@ -83,12 +89,7 @@ export async function createReading(input: CreateReadingInput) {
   // Prompt priority: category-specific template > config template > default.
   const config = await resolveConfig(category.id, plan);
   const templateId = category.promptTemplateId ?? config.promptTemplateId;
-  const template = templateId
-    ? await prisma.promptTemplate.findUnique({ where: { id: templateId } })
-    : null;
-  const activeTemplate = template?.enabled ? template : null;
 
-  // Admin-managed knowledge: docs for this category + global docs, in order.
   const knowledgeDocs = await prisma.knowledgeDoc.findMany({
     where: { enabled: true, OR: [{ categoryId: category.id }, { categoryId: null }] },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -99,17 +100,20 @@ export async function createReading(input: CreateReadingInput) {
         knowledgeDocs.map((d) => `## ${d.title}\n${d.content}`).join("\n\n")
       : undefined;
 
-  const systemPrompt = buildSystemPrompt({
-    safety: "ให้คำแนะนำเชิงบวก ไม่ทำนายแบบฟันธงหรือสร้างความกลัว",
-    persona:
-      activeTemplate?.content ??
-      "คุณคือแม่หมอผู้ให้คำปรึกษาด้วยน้ำเสียงอบอุ่นและน่าเชื่อถือ",
-    plan: plan === "PRO" ? "ผู้ใช้ระดับ Pro: ตอบละเอียด" : "ผู้ใช้ระดับ Free: ตอบกระชับ",
-    category: category.description ?? category.nameTh,
-    knowledge,
-    outputFormat: "ตอบเป็นภาษาไทยที่สุภาพ อ่านง่าย และมีข้อคิดปิดท้าย",
+  const promptParts = await resolvePromptParts({
+    plan,
+    categoryName: category.nameTh,
+    categoryDescription: category.description,
+    personaTemplateId: templateId,
   });
-  const userPrompt = buildUserPrompt(snapshot, question);
+
+  const chartJson = await loadChartForUser(userId);
+
+  const systemPrompt = buildSystemPrompt({
+    ...promptParts,
+    knowledge,
+  });
+  const userPrompt = buildUserPrompt(snapshot, question, chartJson);
 
   const result = await generateWithFallback(config.id, { systemPrompt, userPrompt });
 
@@ -141,8 +145,8 @@ export async function createReading(input: CreateReadingInput) {
         responseText: result.rawText,
         provider: result.provider,
         modelId: result.modelId,
-        promptTemplateId: activeTemplate?.id,
-        promptVersion: activeTemplate?.version,
+        promptTemplateId: templateId ?? undefined,
+        promptVersion: undefined,
         status: "SUCCESS",
         creditCost: category.creditCost,
       },

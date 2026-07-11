@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/server/db";
 import { env } from "@/config/env";
 import { ensureOAuthUser } from "@/server/auth/provisioning";
+import { syncGoogleProfile } from "@/server/user/avatar-service";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -69,7 +70,13 @@ export const authConfig: NextAuthConfig = {
       if (account?.provider === "google") {
         if (!user.email) return false;
         const result = await ensureOAuthUser({ email: user.email, name: user.name });
-        return result === "ok";
+        if (result !== "ok") return false;
+        await syncGoogleProfile({
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        });
+        return true;
       }
       return true;
     },
@@ -77,16 +84,28 @@ export const authConfig: NextAuthConfig = {
      * Carry our DB user id/role/status on the token. For Google (no DB adapter,
      * JWT strategy) we resolve the user by email so token.sub is OUR user id.
      */
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
-        const email = user.email ?? (token.email as string | undefined);
-        if (email) {
-          const dbUser = await prisma.user.findUnique({ where: { email } });
+        const u = user as {
+          role?: string;
+          status?: string;
+          email?: string | null;
+        };
+
+        // Google OAuth `user.id` is the provider id, not our DB id. Always
+        // resolve by email so getMe() and guards see the correct user row.
+        if (account?.provider === "google" && u.email) {
+          const dbUser = await prisma.user.findUnique({ where: { email: u.email } });
           if (dbUser) {
             token.sub = dbUser.id;
             token.role = dbUser.role;
             token.status = dbUser.status;
           }
+        } else {
+          // Credentials authorize already returns our DB id/role/status.
+          if (user.id) token.sub = user.id;
+          if (u.role) token.role = u.role;
+          if (u.status) token.status = u.status;
         }
       }
       return token;

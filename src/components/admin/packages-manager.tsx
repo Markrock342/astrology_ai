@@ -9,7 +9,9 @@ import {
   Card,
   CardSkeleton,
   Field,
+  InfoBox,
   PageHeader,
+  Select,
   TextArea,
   TextInput,
   Toggle,
@@ -31,6 +33,36 @@ type Package = {
   upgradeSteps: string[];
 };
 
+type FormState = {
+  code: string;
+  name: string;
+  type: "FREE" | "PRO";
+  price: number;
+  billingLabel: string;
+  creditQuota: number;
+  dailyLimit: string;
+  monthlyLimit: string;
+  enabled: boolean;
+  description: string;
+  featuresText: string;
+  upgradeStepsText: string;
+};
+
+const EMPTY_FORM: FormState = {
+  code: "",
+  name: "",
+  type: "FREE",
+  price: 0,
+  billingLabel: "",
+  creditQuota: 0,
+  dailyLimit: "",
+  monthlyLimit: "",
+  enabled: true,
+  description: "",
+  featuresText: "",
+  upgradeStepsText: "",
+};
+
 function linesToArray(text: string): string[] {
   return text
     .split("\n")
@@ -38,23 +70,16 @@ function linesToArray(text: string): string[] {
     .filter(Boolean);
 }
 
-function arrayToLines(arr: string[]): string {
-  return arr.join("\n");
+function limitToNumber(v: string): number | null {
+  const n = Number(v);
+  return v.trim() === "" || Number.isNaN(n) ? null : n;
 }
 
 export function PackagesManager() {
   const [packages, setPackages] = useState<Package[]>([]);
+  // editingId: null = closed, "new" = creating, otherwise package id.
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    name: "",
-    price: 0,
-    billingLabel: "",
-    creditQuota: 0,
-    enabled: true,
-    description: "",
-    featuresText: "",
-    upgradeStepsText: "",
-  });
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,17 +100,26 @@ export function PackagesManager() {
     void load();
   }, [load]);
 
+  function startCreate() {
+    setEditingId("new");
+    setForm(EMPTY_FORM);
+  }
+
   function startEdit(pkg: Package) {
     setEditingId(pkg.id);
     setForm({
+      code: pkg.code,
       name: pkg.name,
+      type: pkg.type,
       price: pkg.price,
       billingLabel: pkg.billingLabel ?? "",
       creditQuota: pkg.creditQuota,
+      dailyLimit: pkg.dailyLimit == null ? "" : String(pkg.dailyLimit),
+      monthlyLimit: pkg.monthlyLimit == null ? "" : String(pkg.monthlyLimit),
       enabled: pkg.enabled,
       description: pkg.description ?? "",
-      featuresText: arrayToLines(pkg.features ?? []),
-      upgradeStepsText: arrayToLines(pkg.upgradeSteps ?? []),
+      featuresText: (pkg.features ?? []).join("\n"),
+      upgradeStepsText: (pkg.upgradeSteps ?? []).join("\n"),
     });
   }
 
@@ -93,19 +127,24 @@ export function PackagesManager() {
     if (!editingId) return;
     setBusy(true);
     setError(null);
+    const isNew = editingId === "new";
+    const body = {
+      ...(isNew ? { code: form.code, type: form.type } : {}),
+      name: form.name,
+      price: Number(form.price),
+      billingLabel: form.billingLabel || undefined,
+      creditQuota: Number(form.creditQuota),
+      dailyLimit: limitToNumber(form.dailyLimit),
+      monthlyLimit: limitToNumber(form.monthlyLimit),
+      enabled: form.enabled,
+      description: form.description || undefined,
+      features: linesToArray(form.featuresText),
+      upgradeSteps: linesToArray(form.upgradeStepsText),
+    };
     try {
-      await adminFetch(`/api/admin/packages/${editingId}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          name: form.name,
-          price: Number(form.price),
-          billingLabel: form.billingLabel || undefined,
-          creditQuota: Number(form.creditQuota),
-          enabled: form.enabled,
-          description: form.description || undefined,
-          features: linesToArray(form.featuresText),
-          upgradeSteps: linesToArray(form.upgradeStepsText),
-        }),
+      await adminFetch(isNew ? "/api/admin/packages" : `/api/admin/packages/${editingId}`, {
+        method: isNew ? "POST" : "PATCH",
+        body: JSON.stringify(body),
       });
       setEditingId(null);
       await load();
@@ -116,12 +155,34 @@ export function PackagesManager() {
     }
   }
 
+  async function remove(pkg: Package) {
+    if (!window.confirm(`ลบแพ็กเกจ "${pkg.name}" ?`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await adminFetch(`/api/admin/packages/${pkg.id}`, { method: "DELETE" });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ลบไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <AdminPage>
       <PageHeader
-        title="แพ็กเกจ Free / Pro"
-        description="แก้ราคา รายละเอียด และ bullet ที่แสดงในหน้าบัญชี & แพ็กเกจของผู้ใช้ — บันทึกแล้วมีผลทันที"
+        title="แพ็กเกจ & โควตา"
+        description="กำหนดราคา เครดิต และจำกัดการใช้งานต่อวัน/เดือน — บันทึกแล้วมีผลทันที"
+        action={<Button onClick={startCreate}>+ สร้างแพ็กเกจ</Button>}
       />
+
+      <InfoBox>
+        <strong className="text-[var(--foreground)]">Free</strong> = ผู้ใช้ทั่วไป ·{" "}
+        <strong className="text-[var(--foreground)]">Pro</strong> = ใช้ AI ได้ ·{" "}
+        <strong className="text-[var(--foreground)]">โควตาเครดิต</strong> = จำนวนครั้งที่ใช้ถาม
+        · จำกัดต่อวัน/เดือน = กันถามเกิน (เว้นว่าง = ไม่จำกัด)
+      </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 
@@ -135,6 +196,27 @@ export function PackagesManager() {
       {editingId && (
         <Card>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {editingId === "new" && (
+              <>
+                <Field label="รหัสภายใน (ภาษาอังกฤษ)" hint="เช่น PRO_YEARLY — ใช้ในระบบ ห้ามซ้ำ">
+                  <TextInput
+                    value={form.code}
+                    onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  />
+                </Field>
+                <Field label="ประเภทแพ็กเกจ">
+                  <Select
+                    value={form.type}
+                    onChange={(e) =>
+                      setForm({ ...form, type: e.target.value as "FREE" | "PRO" })
+                    }
+                  >
+                    <option value="FREE">ฟรี (Free)</option>
+                    <option value="PRO">Pro — ใช้ AI ได้</option>
+                  </Select>
+                </Field>
+              </>
+            )}
             <Field label="ชื่อแพ็กเกจ">
               <TextInput
                 value={form.name}
@@ -155,7 +237,7 @@ export function PackagesManager() {
                 onChange={(e) => setForm({ ...form, billingLabel: e.target.value })}
               />
             </Field>
-            <Field label="โควตาเครดิต">
+            <Field label="เครดิตที่ให้" hint="จำนวนครั้งที่ถาม AI ได้">
               <TextInput
                 type="number"
                 min={0}
@@ -163,6 +245,22 @@ export function PackagesManager() {
                 onChange={(e) =>
                   setForm({ ...form, creditQuota: Number(e.target.value) })
                 }
+              />
+            </Field>
+            <Field label="จำกัดต่อวัน (ครั้ง)" hint="เว้นว่าง = ไม่จำกัด">
+              <TextInput
+                type="number"
+                min={0}
+                value={form.dailyLimit}
+                onChange={(e) => setForm({ ...form, dailyLimit: e.target.value })}
+              />
+            </Field>
+            <Field label="จำกัดต่อเดือน (ครั้ง)" hint="เว้นว่าง = ไม่จำกัด">
+              <TextInput
+                type="number"
+                min={0}
+                value={form.monthlyLimit}
+                onChange={(e) => setForm({ ...form, monthlyLimit: e.target.value })}
               />
             </Field>
             <Field label="คำอธิบายสั้น">
@@ -206,8 +304,11 @@ export function PackagesManager() {
               <Button variant="ghost" onClick={() => setEditingId(null)}>
                 ยกเลิก
               </Button>
-              <Button onClick={save} disabled={busy || !form.name}>
-                {busy ? "กำลังบันทึก…" : "บันทึก"}
+              <Button
+                onClick={save}
+                disabled={busy || !form.name || (editingId === "new" && !form.code)}
+              >
+                {busy ? "กำลังบันทึก…" : editingId === "new" ? "สร้าง" : "บันทึก"}
               </Button>
             </div>
           </div>
@@ -221,13 +322,18 @@ export function PackagesManager() {
               <span className="text-sm font-medium text-[var(--foreground)]">
                 {pkg.name}
               </span>
-              <Badge tone="gold">{pkg.type}</Badge>
+              <Badge tone="gold">{pkg.type === "PRO" ? "Pro" : "ฟรี"}</Badge>
               <Badge>฿{pkg.price}</Badge>
               <Badge>{pkg.creditQuota} เครดิต</Badge>
+              {pkg.dailyLimit != null && <Badge>{pkg.dailyLimit}/วัน</Badge>}
+              {pkg.monthlyLimit != null && <Badge>{pkg.monthlyLimit}/เดือน</Badge>}
               {!pkg.enabled && <Badge tone="red">ปิดอยู่</Badge>}
-              <div className="ml-auto">
+              <div className="ml-auto flex gap-2">
                 <Button variant="ghost" onClick={() => startEdit(pkg)}>
                   แก้ไข
+                </Button>
+                <Button variant="danger" onClick={() => remove(pkg)} disabled={busy}>
+                  ลบ
                 </Button>
               </div>
             </div>

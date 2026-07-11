@@ -14,14 +14,18 @@ export async function provisionUser(input: {
   name?: string | null;
   passwordHash?: string | null;
   role?: Role;
+  /** OAuth accounts are treated as email-verified immediately. */
+  emailVerified?: boolean;
 }) {
-  const user = await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
       data: {
         email: input.email,
         name: input.name ?? null,
         passwordHash: input.passwordHash ?? null,
         role: input.role ?? "USER",
+        emailVerifiedAt:
+          input.emailVerified || !input.passwordHash ? new Date() : null,
       },
     });
     await tx.creditWallet.create({ data: { userId: created.id, balance: 0 } });
@@ -37,15 +41,16 @@ export async function provisionUser(input: {
         },
       });
     }
+
+    await addCredits(
+      created.id,
+      DEFAULTS.freeCreditQuota,
+      { type: "INITIAL_GRANT", note: "Free sign-up grant" },
+      tx,
+    );
+
     return created;
   });
-
-  await addCredits(user.id, DEFAULTS.freeCreditQuota, {
-    type: "INITIAL_GRANT",
-    note: "Free sign-up grant",
-  });
-
-  return user;
 }
 
 export type EnsureOAuthResult = "ok" | "disabled";
@@ -62,6 +67,6 @@ export async function ensureOAuthUser(input: {
   if (existing) {
     return existing.status === "DISABLED" ? "disabled" : "ok";
   }
-  await provisionUser({ email: input.email, name: input.name });
+  await provisionUser({ email: input.email, name: input.name, emailVerified: true });
   return "ok";
 }

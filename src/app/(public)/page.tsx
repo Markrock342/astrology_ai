@@ -1,11 +1,29 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { BrandMark } from "@/components/brand-logo";
 import { APP_NAME_TH } from "@/config/constants";
+import { AppError } from "@/lib/errors";
+import { resolveAppEntryPath } from "@/server/auth/app-entry";
+import { getMe } from "@/server/user/account-service";
+
+export const dynamic = "force-dynamic";
 
 /**
- * Public landing page. Single entry CTA → /login (design: no separate register).
+ * Public landing page. Logged-in users skip straight to onboarding or chat;
+ * visitors see CTAs to sign in / register.
  */
-export default function LandingPage() {
+export default async function LandingPage() {
+  const session = await auth();
+  if (session?.user?.id) {
+    try {
+      await getMe(session.user.id);
+      redirect(await resolveAppEntryPath(session.user.id));
+    } catch (err) {
+      if (!(err instanceof AppError && err.code === "NOT_FOUND")) throw err;
+    }
+  }
+
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
       <BrandMark size={56} />
