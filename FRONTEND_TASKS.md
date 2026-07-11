@@ -105,7 +105,8 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 - [x] **F1 — QA error-state บนแชท** (`chat-view.tsx`): map ครบทุก error code · retry ใช้ `Idempotency-Key` เดิม (เฉพาะ AI timeout/provider/rate-limit/network) · `UpgradeProState` สำหรับ Free · CTA อัปเกรดใน error banner
 
 **ค้างจริง (→ production):**
-- [ ] **F2 — render ประวัติเธรดเต็ม + multi-turn** — **B1 merged แล้ว → เริ่มได้** · รายละเอียดใน [`FE_ASSIGN.md`](./FE_ASSIGN.md) · ต้องสลับไปใช้ Conversation messages API (ยังยิง `/api/horoscope/readings` อยู่)
+- [x] **F2 — render ประวัติเธรดเต็ม + multi-turn** — merged ใน [PR #9](https://github.com/Markrock342/astrology_ai/pull/9)
+- [ ] **Wave D — UI ฟอร์มดวงจร** (backend คำนวณ/scrape มีแล้ว)
 
 ### 🎯 Milestone 4 — Polish
 
