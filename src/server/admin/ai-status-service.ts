@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { generateWithFallback } from "@/server/ai/router";
+import { classifyProviderFailure } from "@/server/ai/provider-alerts";
 
 /** Hybrid Gemini status: Google Cloud incidents + our usage logs + on-demand health checks. */
 
@@ -76,6 +77,17 @@ export type AiStatusSnapshot = {
     stale: boolean;
     results: ConfigHealthCheck[];
   };
+  /** Shared Gemini wallet/quota is failing — admin must top up or raise limits. */
+  providerAlert: {
+    kind: "BILLING" | "QUOTA" | "KEY";
+    severity: "critical";
+    title: string;
+    message: string;
+    since: string;
+    sampleErrorCode: string | null;
+    sampleErrorMessage: string | null;
+    actionUrl: string;
+  } | null;
 };
 
 let googleCache: { at: number; data: Omit<AiStatusSnapshot["google"], "fetchedAt" | "cacheTtlSec"> } | null =
@@ -283,9 +295,62 @@ function getCachedHealth() {
   };
 }
 
+async function getProviderAlert(): Promise<AiStatusSnapshot["providerAlert"]> {
+  const since = new Date(Date.now() - 6 * 60 * 60 * 1000); // last 6 hours
+  const failures = await prisma.aIUsageLog.findMany({
+    where: {
+      createdAt: { gte: since },
+      provider: "GEMINI",
+      status: { in: ["FAILED", "TIMEOUT"] },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 30,
+    select: {
+      errorCode: true,
+      errorMessage: true,
+      createdAt: true,
+    },
+  });
+
+  for (const fail of failures) {
+    const kind = classifyProviderFailure(fail.errorCode, fail.errorMessage);
+    if (!kind) continue;
+
+    const titles = {
+      BILLING: "เครดิต Gemini อาจหมด — แชททั้งระบบพังได้",
+      QUOTA: "โควต้า Gemini เต็ม — คำขอถูกปฏิเสธ",
+      KEY: "API key Gemini ใช้ไม่ได้",
+    } as const;
+    const messages = {
+      BILLING:
+        "พบ error แบบ billing/credits จาก Google ในช่วง 6 ชม.ที่ผ่านมา เติม Prepay ใน AI Studio ทันที แล้วตั้ง Budget alert ใน Cloud Billing",
+      QUOTA:
+        "พบ error โควต้า/rate-limit จาก Google — รอรีเซ็ตหรือขอเพิ่มโควต้าใน AI Studio",
+      KEY: "ตรวจ GEMINI_API_KEY บน Vercel ว่าถูกต้องและยังใช้งานได้",
+    } as const;
+
+    return {
+      kind,
+      severity: "critical",
+      title: titles[kind],
+      message: messages[kind],
+      since: fail.createdAt.toISOString(),
+      sampleErrorCode: fail.errorCode,
+      sampleErrorMessage: fail.errorMessage,
+      actionUrl: "https://aistudio.google.com/plans",
+    };
+  }
+
+  return null;
+}
+
 /** Combined status for GET /api/admin/ai-status. */
 export async function getAiStatus() {
-  const [google, usage] = await Promise.all([fetchGoogleIncidents(), getUsageHealth()]);
+  const [google, usage, providerAlert] = await Promise.all([
+    fetchGoogleIncidents(),
+    getUsageHealth(),
+    getProviderAlert(),
+  ]);
   return {
     google: {
       fetchedAt: new Date().toISOString(),
@@ -294,5 +359,11 @@ export async function getAiStatus() {
     },
     usage,
     health: getCachedHealth(),
+    providerAlert,
   } satisfies AiStatusSnapshot;
+}
+
+/** Lightweight poll for admin shell banner. */
+export async function getProviderAlertOnly() {
+  return getProviderAlert();
 }

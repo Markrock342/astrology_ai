@@ -1,6 +1,7 @@
 import type { AIProviderAdapter } from "@/server/ai/adapter";
 import type { GenerateAIInput, GenerateAIResult, HoroscopeResponse } from "@/types";
 import { resolveSecret } from "@/config/env";
+import { normalizeGeminiError } from "@/server/ai/provider-alerts";
 
 type GeminiApiResponse = {
   candidates?: Array<{
@@ -96,13 +97,18 @@ export class GeminiAdapter implements AIProviderAdapter {
       const latencyMs = Date.now() - start;
 
       if (!res.ok) {
+        const normalized = normalizeGeminiError({
+          httpStatus: res.status,
+          status: data.error?.status,
+          message: data.error?.message,
+        });
         return {
           ok: false,
           provider: "GEMINI",
           modelId: input.modelId,
           latencyMs,
-          errorCode: data.error?.status ?? String(res.status),
-          errorMessage: data.error?.message ?? `Gemini HTTP ${res.status}`,
+          errorCode: normalized.errorCode,
+          errorMessage: normalized.errorMessage,
         };
       }
 

@@ -95,6 +95,13 @@ type AiStatusSnapshot = {
       errorMessage: string | null;
     }>;
   };
+  providerAlert: {
+    kind: "BILLING" | "QUOTA" | "KEY";
+    title: string;
+    message: string;
+    actionUrl: string;
+    sampleErrorCode: string | null;
+  } | null;
 };
 
 function fmtWhen(iso: string) {
@@ -317,7 +324,8 @@ export function AiConfigsManager() {
           <div>
             <h2 className="text-sm font-semibold text-[var(--foreground)]">สถานะ Gemini / AI</h2>
             <p className="mt-1 text-[11px] text-[var(--muted-2)]">
-              ชั้น 1: Google Cloud incidents · ชั้น 2: log ระบบเรา + health check
+              ชั้น 1: Google Cloud incidents · ชั้น 2: log ระบบเรา + health check · ชั้น 3: เตือน
+              billing/quota
             </p>
           </div>
           <div className="flex gap-2">
@@ -329,6 +337,23 @@ export function AiConfigsManager() {
             </Button>
           </div>
         </div>
+
+        {status?.providerAlert ? (
+          <div className="mt-3 rounded-lg border border-[var(--danger)]/50 bg-[var(--danger)]/10 px-3 py-2">
+            <p className="text-sm font-semibold text-[var(--danger)]">
+              ⚠ {status.providerAlert.title}
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted)]">{status.providerAlert.message}</p>
+            <a
+              href={status.providerAlert.actionUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-xs font-medium text-[var(--primary)] underline"
+            >
+              เปิด AI Studio Billing →
+            </a>
+          </div>
+        ) : null}
 
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <div

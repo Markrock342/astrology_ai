@@ -9,6 +9,11 @@ import {
   reserveUsageSlot,
 } from "@/server/credit/quota-service";
 import { generateWithFallback, resolveConfig } from "@/server/ai/router";
+import {
+  classifyProviderFailure,
+  logProviderAlert,
+  providerAlertUserMessage,
+} from "@/server/ai/provider-alerts";
 import { buildSystemPrompt, buildConversationHistory } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
@@ -215,8 +220,17 @@ export async function createReading(input: CreateReadingInput) {
       errorCode: result.errorCode,
       errorMessage: result.errorMessage,
     });
+    const alert = classifyProviderFailure(result.errorCode, result.errorMessage);
+    logProviderAlert(alert, {
+      modelId: result.modelId,
+      errorCode: result.errorCode,
+      errorMessage: result.errorMessage,
+    });
     const code = result.errorCode === "TIMEOUT" ? "AI_TIMEOUT" : "AI_PROVIDER_ERROR";
-    throw new AppError(code, result.errorMessage ?? "AI request failed");
+    throw new AppError(
+      code,
+      providerAlertUserMessage(alert) ?? result.errorMessage ?? "AI request failed",
+    );
   }
 
   // Success => charge tx: finalize reservation, deduct credit, persist reading.
