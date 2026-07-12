@@ -46,6 +46,7 @@ export function invalidateCachedThread(threadId: string) {
 
 export async function prefetchThread(
   threadId: string,
+  options?: { timeoutMs?: number },
 ): Promise<CachedThreadPayload | null> {
   const existing = cache.get(threadId);
   if (existing && Date.now() - existing.fetchedAt < 30_000) return existing;
@@ -53,9 +54,15 @@ export async function prefetchThread(
   const pending = inflight.get(threadId);
   if (pending) return pending;
 
+  const timeoutMs = options?.timeoutMs ?? 10_000;
+
   const job = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(`/api/conversations/${threadId}`);
+      const res = await fetch(`/api/conversations/${threadId}`, {
+        signal: controller.signal,
+      });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) return null;
       const payload: CachedThreadPayload = {
@@ -71,6 +78,7 @@ export async function prefetchThread(
     } catch {
       return null;
     } finally {
+      clearTimeout(timer);
       inflight.delete(threadId);
     }
   })();

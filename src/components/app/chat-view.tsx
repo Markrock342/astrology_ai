@@ -207,7 +207,9 @@ export function ChatView() {
       if (!alive || !payload) {
         if (!alive) return;
         if (!cached) {
-          setThreadLoadError("โหลดประวัติการสนทนาไม่สำเร็จ");
+          setThreadLoadError(
+            "โหลดประวัติการสนทนาไม่สำเร็จหรือใช้เวลานานเกินไป — กดลองใหม่หรือเริ่มสนทนาใหม่",
+          );
           setMessages([]);
           setState("error");
           setLoadingThread(false);

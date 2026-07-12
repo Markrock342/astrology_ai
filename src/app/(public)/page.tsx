@@ -16,7 +16,6 @@ import {
   type CmsLandingTestimonials,
   type CmsSeo,
 } from "@/lib/cms-keys";
-import { AppError } from "@/lib/errors";
 import { metadataFromSeo } from "@/lib/seo";
 import { listPublicPackages } from "@/server/admin/catalog-admin-service";
 import { resolveAppEntryPath } from "@/server/auth/app-entry";
@@ -27,7 +26,6 @@ import {
   getPublishedSetting,
   getSeoForPath,
 } from "@/server/settings/settings-service";
-import { getMe } from "@/server/user/account-service";
 
 export const revalidate = 60;
 
@@ -44,13 +42,9 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function LandingPage() {
   const session = await auth();
+  // One lightweight redirect — avoid getMe + second DB hop before paint.
   if (session?.user?.id) {
-    try {
-      await getMe(session.user.id);
-      redirect(await resolveAppEntryPath(session.user.id));
-    } catch (err) {
-      if (!(err instanceof AppError && err.code === "NOT_FOUND")) throw err;
-    }
+    redirect(await resolveAppEntryPath(session.user.id));
   }
 
   const preview = await isPreviewMode();

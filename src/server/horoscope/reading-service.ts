@@ -164,7 +164,7 @@ async function runReading(
       transitChart = await getOrComputeDailyTransit(userId, natalChart, {
         date: input.transit.date,
         time: input.transit.time,
-        scrapeTimeoutMs: 4_000,
+        scrapeTimeoutMs: 800,
       });
     } catch (err) {
       if (err instanceof AppError) throw err;
@@ -175,7 +175,7 @@ async function runReading(
     // Natal chat asking about "today" — attach cached daily transit (no mode switch).
     try {
       transitChart = await getOrComputeDailyTransit(userId, natalChart, {
-        scrapeTimeoutMs: 4_000,
+        scrapeTimeoutMs: 800,
       });
     } catch (err) {
       console.warn(
