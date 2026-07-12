@@ -4,8 +4,19 @@ import { knowledgeUpdateSchema } from "@/lib/admin-schemas";
 import {
   updateKnowledgeDoc,
   deleteKnowledgeDoc,
+  getKnowledgeDocById,
   assertAiAdminEnabled,
 } from "@/server/admin/ai-admin-service";
+
+/** GET /api/admin/knowledge/:id — full body for editor. */
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return handle(async () => {
+    assertAiAdminEnabled();
+    await requireAdmin();
+    const { id } = await ctx.params;
+    return ok(await getKnowledgeDocById(id));
+  });
+}
 
 /** PATCH /api/admin/knowledge/:id — update a knowledge doc (audited). */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {

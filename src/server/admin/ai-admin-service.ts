@@ -35,9 +35,29 @@ export type PromptCreateInput = {
 
 export type PromptUpdateInput = Partial<Omit<PromptCreateInput, "code">>;
 
-export function listPrompts() {
+const promptSummarySelect = {
+  id: true,
+  code: true,
+  name: true,
+  type: true,
+  enabled: true,
+  version: true,
+  draftUpdatedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+/** List metadata only — omit large content bodies (admin list views). */
+export function listPromptsSummary() {
   return prisma.promptTemplate.findMany({
     orderBy: { createdAt: "asc" },
+    select: promptSummarySelect,
+  });
+}
+
+export function getPromptById(id: string) {
+  return prisma.promptTemplate.findUnique({
+    where: { id },
     select: {
       id: true,
       code: true,
@@ -51,6 +71,11 @@ export function listPrompts() {
       updatedAt: true,
     },
   });
+}
+
+/** @deprecated Prefer listPromptsSummary for list UIs. */
+export function listPrompts() {
+  return listPromptsSummary();
 }
 
 export async function createPrompt(input: PromptCreateInput, actor: Actor) {
@@ -388,11 +413,49 @@ export type KnowledgeCreateInput = {
 
 export type KnowledgeUpdateInput = Partial<KnowledgeCreateInput>;
 
-export function listKnowledgeDocs() {
-  return prisma.knowledgeDoc.findMany({
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+const knowledgeSummarySelect = {
+  id: true,
+  title: true,
+  categoryId: true,
+  enabled: true,
+  sortOrder: true,
+  draftUpdatedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  category: { select: { id: true, nameTh: true } },
+} as const;
+
+/** List metadata only — omit large content bodies. */
+export async function listKnowledgeDocsSummary() {
+  // Every enabled doc is concatenated into the system prompt on each AI call, so
+  // the admin needs the size. Measure it in the database rather than shipping the
+  // bodies over the wire just to call .length on them.
+  const [rows, sizes] = await Promise.all([
+    prisma.knowledgeDoc.findMany({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: knowledgeSummarySelect,
+    }),
+    prisma.$queryRaw<{ id: string; chars: bigint }[]>`
+      SELECT id, char_length(content) AS chars FROM knowledge_docs
+    `,
+  ]);
+
+  const charsById = new Map(sizes.map((s) => [s.id, Number(s.chars)]));
+  return rows.map((r) => ({ ...r, contentChars: charsById.get(r.id) ?? 0 }));
+}
+
+export async function getKnowledgeDocById(id: string) {
+  const doc = await prisma.knowledgeDoc.findUnique({
+    where: { id },
     include: { category: { select: { id: true, nameTh: true } } },
   });
+  if (!doc) throw new AppError("NOT_FOUND", "Knowledge doc not found");
+  return doc;
+}
+
+/** @deprecated Prefer listKnowledgeDocsSummary for list UIs. */
+export function listKnowledgeDocs() {
+  return listKnowledgeDocsSummary();
 }
 
 export async function createKnowledgeDoc(input: KnowledgeCreateInput, actor: Actor) {

@@ -7,6 +7,7 @@
 - 🟡 **Go-live manual** — smoke + OAuth redirect ([backend_m4_deploy.md](./backend_m4_deploy.md))
 
 ## งานที่เพิ่งทำเสร็จ (Recently Completed) — Wave E
+- ฟอร์มแจ้งชำระเก็บแค่ **ยอดเงิน + สลิป** (ลบเลขอ้างอิง/หมายเหตุผู้ใช้ออก) — ใช้ `packageCode` แยก Pro vs เติมเครดิต
 - `Payment.notifiedAt` / `notifyError` — บันทึกผลส่งอีเมลหลัง approve/reject
 - `Package.creditOnly` + seed `CREDIT_TOPUP` (เติมเครดิต 50 / 99฿ ไม่แตะ subscription)
 - `Payment.packageCode` — user ระบุแพ็กตอนส่งสลิป; admin review ใช้/override ได้

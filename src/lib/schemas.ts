@@ -87,8 +87,6 @@ export const adminCreditSchema = z.object({
 export const manualPaymentSchema = z.object({
   userId: z.string().min(1),
   amount: z.number().int().positive(),
-  reference: z.string().max(120).optional(),
-  note: z.string().max(300).optional(),
 });
 
 export const resendVerificationSchema = z.object({

@@ -102,10 +102,31 @@ export type FaqInput = {
   sortOrder?: number;
 };
 
-export function listFaqItemsAdmin() {
+export function listFaqItemsAdminSummary() {
   return prisma.faqItem.findMany({
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      question: true,
+      category: true,
+      enabled: true,
+      sortOrder: true,
+      draftUpdatedAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   });
+}
+
+export async function getFaqItemById(id: string) {
+  const item = await prisma.faqItem.findUnique({ where: { id } });
+  if (!item) throw new AppError("NOT_FOUND", "FAQ item not found");
+  return item;
+}
+
+/** @deprecated Prefer listFaqItemsAdminSummary for list UIs. */
+export function listFaqItemsAdmin() {
+  return listFaqItemsAdminSummary();
 }
 
 export async function createFaqItem(input: FaqInput, actor: Actor) {

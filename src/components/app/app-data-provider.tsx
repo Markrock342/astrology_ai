@@ -45,6 +45,11 @@ export type AppPendingPayment = {
   createdAt: string;
 };
 
+export type NatalChartStatus = {
+  status: "PENDING" | "READY" | "FAILED";
+  note: string | null;
+};
+
 /** Serializable bootstrap payload (mirrors server getAppBootstrap). */
 export type AppBootstrapPayload = {
   me: Record<string, unknown>;
@@ -58,7 +63,13 @@ export type AppBootstrapPayload = {
   transitThreads: Thread[];
   announcements: AppAnnouncement[];
   pendingPayment?: AppPendingPayment | null;
+  natalChartStatus?: NatalChartStatus | null;
 };
+
+type AppLightBootstrapPayload = Pick<
+  AppBootstrapPayload,
+  "me" | "natalThreads" | "transitThreads"
+>;
 
 type AppDataContextValue = {
   user: AppUser | null;
@@ -67,6 +78,7 @@ type AppDataContextValue = {
   transitThreads: Thread[];
   announcements: AppAnnouncement[];
   pendingPayment: AppPendingPayment | null;
+  natalChartStatus: NatalChartStatus | null;
   loading: boolean;
   loadError: string | null;
   searchQuery: string;
@@ -77,9 +89,12 @@ type AppDataContextValue = {
   /** @deprecated Use filteredNatalThreads / filteredTransitThreads */
   threads: Thread[];
   filteredThreads: Thread[];
+  /** Full reload (categories, announcements, payment, threads, me). */
   refresh: () => void;
   /** Optimistic remove from sidebar lists (delete chat). */
   removeThreadLocal: (threadId: string) => void;
+  /** After chat — me + thread lists only (much smaller). */
+  refreshLight: () => void;
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -112,6 +127,7 @@ function applyBootstrap(
     setTransitThreads: (t: Thread[]) => void;
     setAnnouncements: (a: AppAnnouncement[]) => void;
     setPendingPayment: (p: AppPendingPayment | null) => void;
+    setNatalChartStatus: (s: NatalChartStatus | null) => void;
   },
 ) {
   setters.setUser(mapMe(data.me));
@@ -135,6 +151,24 @@ function applyBootstrap(
         }
       : null,
   );
+  if ("natalChartStatus" in data) {
+    setters.setNatalChartStatus(data.natalChartStatus ?? null);
+  }
+}
+
+function applyLightBootstrap(
+  data: AppLightBootstrapPayload,
+  setters: {
+    setUser: (u: AppUser) => void;
+    setNatalThreads: (t: Thread[]) => void;
+    setTransitThreads: (t: Thread[]) => void;
+  },
+) {
+  setters.setUser(mapMe(data.me));
+  if (Array.isArray(data.natalThreads)) setters.setNatalThreads(data.natalThreads);
+  if (Array.isArray(data.transitThreads)) {
+    setters.setTransitThreads(data.transitThreads);
+  }
 }
 
 export function AppDataProvider({
@@ -172,6 +206,9 @@ export function AppDataProvider({
           }
         : null,
   );
+  const [natalChartStatus, setNatalChartStatus] = useState<NatalChartStatus | null>(
+    () => initialData?.natalChartStatus ?? null,
+  );
   const [loading, setLoading] = useState(!initialData);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -200,6 +237,7 @@ export function AppDataProvider({
         setTransitThreads,
         setAnnouncements,
         setPendingPayment,
+        setNatalChartStatus,
       });
     } catch (err) {
       if ((err as Error)?.name === "AbortError") {
@@ -210,6 +248,22 @@ export function AppDataProvider({
     } finally {
       window.clearTimeout(timeout);
       setLoading(false);
+    }
+  }, []);
+
+  const refreshLight = useCallback(async () => {
+    try {
+      const res = await fetch("/api/app/bootstrap?scope=light");
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json?.ok || !json.data) return;
+      applyLightBootstrap(json.data as AppLightBootstrapPayload, {
+        setUser,
+        setNatalThreads,
+        setTransitThreads,
+      });
+    } catch {
+      /* non-blocking */
     }
   }, []);
 
@@ -267,6 +321,7 @@ export function AppDataProvider({
       transitThreads,
       announcements,
       pendingPayment,
+      natalChartStatus,
       loading,
       loadError,
       searchQuery,
@@ -278,6 +333,7 @@ export function AppDataProvider({
       filteredThreads: filteredNatalThreads,
       refresh: load,
       removeThreadLocal,
+      refreshLight,
     }),
     [
       user,
@@ -286,6 +342,7 @@ export function AppDataProvider({
       transitThreads,
       announcements,
       pendingPayment,
+      natalChartStatus,
       loading,
       loadError,
       searchQuery,
@@ -294,6 +351,7 @@ export function AppDataProvider({
       filteredTransitThreads,
       load,
       removeThreadLocal,
+      refreshLight,
     ],
   );
 

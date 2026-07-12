@@ -3,12 +3,14 @@ import {
   appendExchangeToConversation,
   getThreadDetail,
   listConversationThreads,
+  pollThreadForUser,
 } from "@/server/horoscope/thread-service";
 
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   findFirst: vi.fn(),
   findUnique: vi.fn(),
+  count: vi.fn(),
   transaction: vi.fn(),
   messageCreate: vi.fn(),
   conversationUpdate: vi.fn(),
@@ -25,6 +27,7 @@ vi.mock("@/server/db", () => ({
     message: {
       findUnique: mocks.findUnique,
       create: mocks.messageCreate,
+      count: mocks.count,
     },
     $transaction: mocks.transaction,
   },
@@ -96,6 +99,44 @@ describe("getThreadDetail (M3)", () => {
     expect(detail.id).toBe("reading-1");
     expect(detail.messages).toHaveLength(2);
     expect(detail.messages[1].content).toBe("คำตอบเก่า");
+  });
+});
+
+describe("pollThreadForUser", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.findFirst.mockResolvedValue({ id: "conv-1" });
+  });
+
+  it("returns hasPending without loading full messages", async () => {
+    mocks.count.mockResolvedValue(1);
+    const result = await pollThreadForUser("user-1", "conv-1");
+    expect(result).toEqual({ hasPending: true, messages: null });
+    expect(mocks.count).toHaveBeenCalled();
+  });
+
+  it("loads full thread when no pending messages remain", async () => {
+    mocks.count.mockResolvedValue(0);
+    mocks.findFirst
+      .mockResolvedValueOnce({ id: "conv-1" })
+      .mockResolvedValueOnce({
+        id: "conv-1",
+        mode: "NATAL",
+        transitDate: null,
+        transitTime: null,
+        transitCountry: null,
+        transitProvince: null,
+        transitDistrict: null,
+        category: { slug: "career", nameTh: "การงาน" },
+        messages: [
+          { id: "m1", role: "USER", content: "q", modelId: null, status: "SUCCESS" },
+          { id: "m2", role: "ASSISTANT", content: "a", modelId: "g", status: "SUCCESS" },
+        ],
+      });
+
+    const result = await pollThreadForUser("user-1", "conv-1");
+    expect(result.hasPending).toBe(false);
+    expect(result.messages).toHaveLength(2);
   });
 });
 
