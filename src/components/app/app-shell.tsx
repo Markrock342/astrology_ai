@@ -41,6 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [transitOpen, setTransitOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<SettingsModal>(null);
   const profileBtnRef = useRef<HTMLButtonElement>(null);
+  const closeMobileTimer = useRef<number | null>(null);
   const searchParams = useSearchParams();
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
@@ -70,6 +71,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const themeLabel = theme === "dark" ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด";
 
   const openMobile = useCallback(() => {
+    // Cancel a pending unmount — otherwise open-after-close within 240ms
+    // gets killed by the previous close timer (feels like taps don't stick).
+    if (closeMobileTimer.current != null) {
+      window.clearTimeout(closeMobileTimer.current);
+      closeMobileTimer.current = null;
+    }
     setMobileRender(true);
     // Mount first, then flip to shown on the next frame so the transition runs.
     requestAnimationFrame(() => setMobileShown(true));
@@ -77,9 +84,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const closeMobile = useCallback(() => {
     setMobileShown(false);
+    if (closeMobileTimer.current != null) {
+      window.clearTimeout(closeMobileTimer.current);
+    }
     // Unmount after the exit transition. The global reduced-motion rule
     // collapses the transition to ~0ms, so this is effectively instant then.
-    window.setTimeout(() => setMobileRender(false), 240);
+    closeMobileTimer.current = window.setTimeout(() => {
+      setMobileRender(false);
+      closeMobileTimer.current = null;
+    }, 240);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (closeMobileTimer.current != null) {
+        window.clearTimeout(closeMobileTimer.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -90,6 +111,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [mobileRender, closeMobile]);
+
+  // Prevent background scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!mobileShown) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileShown]);
 
   // Modal state lives here (not in the popover) so it survives the popover
   // closing/unmounting and never duplicates across sidebar variants.
@@ -318,7 +349,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-[100dvh] overflow-hidden">
       {/* Mobile drawer: overlay fades, panel slides. transform/opacity only. */}
       {mobileRender && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div
+          className={`fixed inset-0 z-40 md:hidden ${
+            mobileShown ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+        >
           <button
             type="button"
             className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ease-[var(--ease-out-quart)] ${
@@ -326,11 +361,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             }`}
             onClick={closeMobile}
             aria-label="ปิดเมนู"
+            tabIndex={mobileShown ? 0 : -1}
           />
           <aside
             className={`relative z-50 flex h-full w-[86vw] max-w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-transform duration-[240ms] ease-[var(--ease-out-quart)] will-change-transform ${
               mobileShown ? "translate-x-0" : "-translate-x-full"
             }`}
+            aria-hidden={!mobileShown}
           >
             {sidebarContent}
           </aside>
@@ -345,7 +382,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div
           className={`absolute inset-0 transition-opacity duration-200 ${
-            collapsed ? "opacity-100" : "pointer-events-none opacity-0"
+            collapsed
+              ? "pointer-events-auto opacity-100"
+              : "pointer-events-none opacity-0"
           }`}
         >
           <CollapsedRail
@@ -365,7 +404,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div
           className={`absolute inset-0 overflow-hidden transition-opacity duration-200 ${
-            collapsed ? "pointer-events-none opacity-0" : "opacity-100"
+            collapsed
+              ? "pointer-events-none opacity-0"
+              : "pointer-events-auto opacity-100"
           }`}
         >
           <div className="flex h-full w-72 flex-col">{sidebarContent}</div>
