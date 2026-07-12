@@ -2,7 +2,7 @@
 
 ## สถานะปัจจุบัน
 - ✅ โค้ด M4 BN + FE + engine + Wave D บน `main`
-- ✅ B3 rate-limit + B4 deploy docs/scripts
+- ✅ **Wave E HANDOFF_BE ครบ** บน branch `be/wave-e-handoff` (รอ merge)
 - ⬜ Manual E2E smoke + ยืนยัน Google OAuth URI บนโดเมนจริง
 
 ## ปิดแล้ว
@@ -10,15 +10,19 @@
 - [x] B4 deploy docs / migrate notes / smoke public
 - [x] Merge engine + F2 + rate-limit → `main` (PR #9)
 - [x] Transit conversation create + empty-thread load
+- [x] Wave E: usage API, quota atomic, top-up, notify fields, account delete
 
 ## ค้างมือ / PM
 | รายการ | สถานะ |
 |--------|--------|
+| Merge `be/wave-e-handoff` | รอ PR |
+| Seed `CREDIT_TOPUP` บน prod | หลังตั้ง `SEED_ADMIN_PASSWORD` ที่ไม่ใช่ default |
 | Google OAuth redirect URI | ตรวจ `{AUTH_URL}/api/auth/callback/google` |
 | Manual smoke | ยังต้องรันบน production |
-| Upstash / Resend / Turnstile | Resend+Turnstile มีบน prod แล้ว · Upstash optional |
-| โดเมนหลัก | ยืนยัน `horaai.vercel.app` vs `astrology-ai-three.vercel.app` |
+| Upstash (optional) | Resend+Turnstile มีบน prod แล้ว |
+| แจ้ง FE contracts | `/api/me/usage`, `QUOTA_EXCEEDED`, `creditOnly`, notify fields |
 
 ## Next
+- [ ] Merge Wave E → `main`
 - [ ] Manual smoke ตาม `M4_HANDOFF.md` §4
-- [ ] (Optional) เพิ่ม `UPSTASH_*` แล้ว `npm run deploy:env`
+- [ ] Wave E2 ตาม `BE_ASSIGN.md` § E2 (packageId FK, cron, cost)

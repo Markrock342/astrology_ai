@@ -2,8 +2,12 @@ import type { ConversationMode } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getEffectivePlan } from "@/server/user/account-service";
-import { deductCredits } from "@/server/credit/credit-service";
-import { assertWithinUsageLimits } from "@/server/credit/quota-service";
+import { deductCredits, lockWalletForUpdate } from "@/server/credit/credit-service";
+import {
+  assertWithinUsageLimits,
+  releaseUsageReservation,
+  reserveUsageSlot,
+} from "@/server/credit/quota-service";
 import { generateWithFallback, resolveConfig } from "@/server/ai/router";
 import { buildSystemPrompt, buildConversationHistory } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
@@ -16,10 +20,10 @@ import type { BirthProfileSnapshot } from "@/types";
 
 /**
  * Orchestrates the reading flow (spec 5.6). Enforces the four hard rules:
- *   - permission + quota checked BEFORE any AI call
- *   - AI failure/timeout => NO credit charged
+ *   - quota slot reserved under lock BEFORE any AI call (SUCCESS + RESERVED count)
+ *   - AI failure/timeout => release reservation, NO credit charged
  *   - retry / double-click => idempotencyKey returns the existing reading
- *   - credit deduction + reading + usage log committed in ONE transaction
+ *   - credit deduction + reading + usage finalize committed in ONE transaction
  *
  * Engine-first: natal chart MUST be READY (recompute once) before Gemini.
  */
@@ -110,13 +114,13 @@ export async function createReading(input: CreateReadingInput) {
     throw new AppError("TRANSIT_REQUIRES_PRO", "โหมดดวงจรสำหรับสมาชิก Pro");
   }
 
-  // 4. Quota pre-check (final atomic check happens inside the transaction).
+  // 4. Fast-fail balance (authoritative check at reserveUsageSlot).
   const wallet = await prisma.creditWallet.findUnique({ where: { userId } });
   if ((wallet?.balance ?? 0) < category.creditCost) {
     throw new AppError("NO_QUOTA", "Not enough credit");
   }
 
-  // 4b. Package daily/monthly usage limits (throws RATE_LIMITED when hit).
+  // 4b. Fast-fail package limits (authoritative gate is reserveUsageSlot).
   await assertWithinUsageLimits(userId);
 
   // 5. Load birth profile and freeze a snapshot (rule 14).
@@ -156,6 +160,14 @@ export async function createReading(input: CreateReadingInput) {
   const config = await resolveConfig(category.id, plan);
   const templateId = category.promptTemplateId ?? config.promptTemplateId;
 
+  // Reserve quota slot + balance under lock BEFORE AI (prevents concurrent over-quota).
+  const reservationId = await reserveUsageSlot({
+    userId,
+    creditCost: category.creditCost,
+    provider: config.provider,
+    modelId: config.modelId,
+  });
+
   const knowledgeDocs = await prisma.knowledgeDoc.findMany({
     where: { enabled: true, OR: [{ categoryId: category.id }, { categoryId: null }] },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -191,8 +203,9 @@ export async function createReading(input: CreateReadingInput) {
     conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
   });
 
-  // 6b. On failure/timeout: log usage, DO NOT charge, surface a typed error.
+  // On failure/timeout: release reservation, log failure, DO NOT charge.
   if (!result.ok || !result.rawText) {
+    await releaseUsageReservation(reservationId);
     await logUsage({
       userId,
       provider: result.provider,
@@ -206,8 +219,18 @@ export async function createReading(input: CreateReadingInput) {
     throw new AppError(code, result.errorMessage ?? "AI request failed");
   }
 
-  // 7. Success => single transaction: deduct credit + save reading + usage log.
+  // Success => charge tx: finalize reservation, deduct credit, persist reading.
   const reading = await prisma.$transaction(async (tx) => {
+    await lockWalletForUpdate(userId, tx);
+
+    const reserved = await tx.aIUsageLog.findFirst({
+      where: { id: reservationId, userId, status: "RESERVED" },
+      select: { id: true },
+    });
+    if (!reserved) {
+      throw new AppError("INTERNAL", "Usage reservation expired — please retry");
+    }
+
     const created = await tx.horoscopeReading.create({
       data: {
         userId,
@@ -233,19 +256,16 @@ export async function createReading(input: CreateReadingInput) {
       tx,
     );
 
-    await logUsage(
-      {
-        readingId: created.id,
-        userId,
-        provider: result.provider,
-        modelId: result.modelId,
+    await tx.aIUsageLog.update({
+      where: { id: reservationId },
+      data: {
         status: "SUCCESS",
+        readingId: created.id,
         inputUsage: result.usage?.inputTokens,
         outputUsage: result.usage?.outputTokens,
         latencyMs: result.latencyMs,
       },
-      tx,
-    );
+    });
 
     return created;
   });
