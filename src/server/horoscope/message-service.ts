@@ -2,6 +2,7 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 import { getEffectivePlan } from "@/server/user/account-service";
+import { assertCanRequestReading } from "@/server/horoscope/access-policy";
 import { createReading, streamReading } from "@/server/horoscope/reading-service";
 import {
   appendUserMessage,
@@ -44,21 +45,19 @@ async function assertCanSend(
   });
   if (!conversation) throw new AppError("NOT_FOUND", "Conversation not found");
 
-  const plan = await getEffectivePlan(userId);
-  if (plan !== "PRO") {
-    throw new AppError(
-      "CHAT_REQUIRES_PRO",
-      "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
-    );
-  }
+  // A thread that already has turns means this send is a follow-up, which Free
+  // does not get — the chart, the knowledge docs and the history are re-sent on
+  // every turn, so an unbounded free thread is an unbounded free bill.
+  const priorTurns = await prisma.message.count({
+    where: { conversationId: conversation.id, role: "ASSISTANT", status: "SUCCESS" },
+  });
 
-  if (conversation.category.accessLevel === "PRO" && plan !== "PRO") {
-    throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
-  }
-
-  if (conversation.mode === "TRANSIT" && plan !== "PRO") {
-    throw new AppError("TRANSIT_REQUIRES_PRO", "โหมดดวงจรสำหรับสมาชิก Pro");
-  }
+  await assertCanRequestReading({
+    userId,
+    categoryAccessLevel: conversation.category.accessLevel,
+    mode: conversation.mode,
+    isFollowUp: priorTurns > 0,
+  });
 
   return conversation;
 }

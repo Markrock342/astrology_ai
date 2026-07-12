@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AppError } from "@/lib/errors";
 import { createConversation, sendMessage } from "@/server/horoscope/message-service";
 
 const mocks = vi.hoisted(() => ({
@@ -16,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   finalizeAssistantMessage: vi.fn(),
   messageUpdate: vi.fn(),
   messageUpdateMany: vi.fn(),
+  messageCount: vi.fn(),
+  assertCanRequestReading: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -31,6 +34,7 @@ vi.mock("@/server/db", () => ({
       create: vi.fn(),
       update: mocks.messageUpdate,
       updateMany: mocks.messageUpdateMany,
+      count: mocks.messageCount,
     },
     horoscopeReading: { findUnique: mocks.findReading },
     horoscopeCategory: { findFirst: mocks.findCategory },
@@ -40,6 +44,12 @@ vi.mock("@/server/db", () => ({
 
 vi.mock("@/server/user/account-service", () => ({
   getEffectivePlan: mocks.getEffectivePlan,
+}));
+
+// The free-tier policy has its own suite (access-policy.test.ts); here we only
+// care that assertCanSend consults it, and with the right follow-up flag.
+vi.mock("@/server/horoscope/access-policy", () => ({
+  assertCanRequestReading: mocks.assertCanRequestReading,
 }));
 
 vi.mock("@/server/horoscope/reading-service", () => ({
@@ -81,10 +91,14 @@ describe("sendMessage (M3 B2)", () => {
     mocks.createPendingAssistant.mockResolvedValue({ id: "pend-1" });
     mocks.finalizeAssistantMessage.mockResolvedValue(undefined);
     mocks.messageUpdateMany.mockResolvedValue({ count: 0 });
+    mocks.messageCount.mockResolvedValue(0);
+    mocks.assertCanRequestReading.mockResolvedValue("PRO");
   });
 
-  it("throws CHAT_REQUIRES_PRO for Free users", async () => {
-    mocks.getEffectivePlan.mockResolvedValue("FREE");
+  it("refuses the send when the access policy refuses it", async () => {
+    mocks.assertCanRequestReading.mockRejectedValue(
+      new AppError("CATEGORY_LOCKED", "หมวดนี้สำหรับสมาชิก Pro"),
+    );
 
     await expect(
       sendMessage({
@@ -93,28 +107,39 @@ describe("sendMessage (M3 B2)", () => {
         content: "สวัสดี",
         idempotencyKey: "k1",
       }),
-    ).rejects.toMatchObject({ code: "CHAT_REQUIRES_PRO" });
+    ).rejects.toMatchObject({ code: "CATEGORY_LOCKED" });
 
     expect(mocks.createReading).not.toHaveBeenCalled();
   });
 
-  it("throws CHAT_REQUIRES_PRO before CATEGORY_LOCKED for Free on Pro category", async () => {
-    mocks.getEffectivePlan.mockResolvedValue("FREE");
-    mocks.findConversation.mockResolvedValue({
-      ...conversation,
-      category: { slug: "love", nameTh: "ความรัก", accessLevel: "PRO" },
+  it("tells the policy this is a follow-up once the thread already has an answer", async () => {
+    mocks.messageCount.mockResolvedValue(1);
+
+    await sendMessage({
+      conversationId: "conv-1",
+      userId: "user-1",
+      content: "แล้วปีหน้าล่ะ",
+      idempotencyKey: "k2",
     });
 
-    await expect(
-      sendMessage({
-        conversationId: "conv-1",
-        userId: "user-1",
-        content: "สวัสดี",
-        idempotencyKey: "k1",
-      }),
-    ).rejects.toMatchObject({ code: "CHAT_REQUIRES_PRO" });
+    expect(mocks.assertCanRequestReading).toHaveBeenCalledWith(
+      expect.objectContaining({ isFollowUp: true }),
+    );
+  });
 
-    expect(mocks.createReading).not.toHaveBeenCalled();
+  it("tells the policy the opening turn is not a follow-up", async () => {
+    mocks.messageCount.mockResolvedValue(0);
+
+    await sendMessage({
+      conversationId: "conv-1",
+      userId: "user-1",
+      content: "สวัสดี",
+      idempotencyKey: "k3",
+    });
+
+    expect(mocks.assertCanRequestReading).toHaveBeenCalledWith(
+      expect.objectContaining({ isFollowUp: false }),
+    );
   });
 
   it("returns existing reading on idempotent retry without calling AI again", async () => {

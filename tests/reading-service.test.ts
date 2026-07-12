@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   findKnowledge: vi.fn(),
   transaction: vi.fn(),
   getEffectivePlan: vi.fn(),
+  assertCanRequestReading: vi.fn(),
   assertWithinUsageLimits: vi.fn(),
   reserveUsageSlot: vi.fn(),
   releaseUsageReservation: vi.fn(),
@@ -40,6 +41,12 @@ vi.mock("@/server/db", () => ({
 
 vi.mock("@/server/user/account-service", () => ({
   getEffectivePlan: mocks.getEffectivePlan,
+}));
+
+// The free-tier rules live in access-policy and have their own suite; here we
+// only assert that runReading honours its verdict.
+vi.mock("@/server/horoscope/access-policy", () => ({
+  assertCanRequestReading: mocks.assertCanRequestReading,
 }));
 
 vi.mock("@/server/credit/quota-service", () => ({
@@ -235,6 +242,7 @@ function setupHappyPath() {
 describe("createReading (M3 B2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.assertCanRequestReading.mockResolvedValue("PRO");
     setupHappyPath();
   });
 
@@ -258,34 +266,45 @@ describe("createReading (M3 B2)", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("throws CHAT_REQUIRES_PRO for Free users", async () => {
-    mocks.getEffectivePlan.mockResolvedValue("FREE");
+  it("does not call the AI when the access policy refuses the request", async () => {
+    mocks.assertCanRequestReading.mockRejectedValue(
+      new AppError("CATEGORY_LOCKED", "หมวดนี้สำหรับสมาชิก Pro"),
+    );
 
     await expect(
       createReading({
         userId: "user-1",
-        categorySlug: "career",
+        categorySlug: "love",
         question: "q",
       }),
-    ).rejects.toMatchObject({ code: "CHAT_REQUIRES_PRO" } satisfies Partial<AppError>);
+    ).rejects.toMatchObject({ code: "CATEGORY_LOCKED" } satisfies Partial<AppError>);
 
     expect(mocks.generateWithFallback).not.toHaveBeenCalled();
   });
 
-  it("throws CATEGORY_LOCKED when Free would use Pro category after Pro gate", async () => {
-    // Unreachable for Free in practice (CHAT_REQUIRES_PRO first); keep lock for safety.
-    mocks.getEffectivePlan.mockResolvedValue("FREE");
-    mocks.findCategory.mockResolvedValue({
-      ...baseCategory,
-      slug: "love",
-      accessLevel: "PRO",
+  it("marks a threaded question as a follow-up so Free cannot chain turns for free", async () => {
+    await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "แล้วปีหน้าล่ะ",
+      priorMessages: [{ role: "USER", content: "ก่อนหน้า" }],
     });
 
-    await expect(
-      createReading({ userId: "user-1", categorySlug: "love", question: "q" }),
-    ).rejects.toMatchObject({ code: "CHAT_REQUIRES_PRO" } satisfies Partial<AppError>);
+    expect(mocks.assertCanRequestReading).toHaveBeenCalledWith(
+      expect.objectContaining({ isFollowUp: true }),
+    );
+  });
 
-    expect(mocks.generateWithFallback).not.toHaveBeenCalled();
+  it("marks an opening question as not a follow-up", async () => {
+    await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "q",
+    });
+
+    expect(mocks.assertCanRequestReading).toHaveBeenCalledWith(
+      expect.objectContaining({ isFollowUp: false }),
+    );
   });
 
   it("throws NO_QUOTA when wallet balance is too low", async () => {

@@ -42,12 +42,18 @@ export async function provisionUser(input: {
       });
     }
 
-    await addCredits(
-      created.id,
-      DEFAULTS.freeCreditQuota,
-      { type: "INITIAL_GRANT", note: "Free sign-up grant" },
-      tx,
-    );
+    // The grant is the Free package's own quota, so raising it in the CMS takes
+    // effect for the next sign-up. It used to come from a hardcoded constant,
+    // which meant the admin's number was decorative.
+    const grant = freePkg?.creditQuota ?? DEFAULTS.freeCreditQuota;
+    if (grant > 0) {
+      await addCredits(
+        created.id,
+        grant,
+        { type: "INITIAL_GRANT", note: `Free sign-up grant (${freePkg?.code ?? "default"})` },
+        tx,
+      );
+    }
 
     return created;
   });
