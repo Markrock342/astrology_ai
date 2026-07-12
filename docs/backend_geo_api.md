@@ -5,7 +5,7 @@
 - สร้าง/อัปเดตด้วย `node scripts/generate-thailand-geo.mjs` จาก [thailand-geography-json](https://github.com/thailand-geography-data/thailand-geography-json)
 
 ## งานที่เพิ่งทำเสร็จ (Recently Completed)
-- `src/data/thailand-geo.ts` — จังหวัด 77 จังหวัด + อำเภอชุดย่อ (กทม. ครบ 50 เขต)
+- `src/data/thailand-geo.ts` — จังหวัด 77 จังหวัด + อำเภอ/เขต 928 รายการ (ครบทุกจังหวัด)
 - `src/server/geo/thailand-geo-service.ts` — `getThailandGeo()`, `getDistrictsForProvince()`
 - `src/app/api/geo/thailand/route.ts` — public GET ไม่ต้อง auth
 - `src/lib/th-geo.ts` — re-export จาก data layer (FE import เดิมยังใช้ได้)

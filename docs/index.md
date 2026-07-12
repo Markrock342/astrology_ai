@@ -87,7 +87,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 - ~~Rate-limit strategy~~ → **ตัดสินใจแล้ว:** Upstash Redis (code พร้อม — รอใส่ env บน Vercel)
 - ดวงจร (transit) auto-คำนวณวัน — gate Pro มีแล้ว แต่ยังไม่มี engine transit เต็ม
 - ~~Sign-in อีเมล~~ → **ตัดสินใจแล้ว:** อีเมล+รหัสผ่าน สมัครตรง เก็บ DB
-- แหล่งข้อมูลจังหวัด/อำเภอเต็ม — อำเภอยังชุดย่อใน `thailand-geo.ts`
+- แหล่งข้อมูลจังหวัด/อำเภอ — ครบ 77 จังหวัด + 928 อำเภอ/เขต ใน `thailand-geo.ts`
 - Free/Pro quota, ราคา, Pro หมดอายุรายเดือนหรือไม่
 
 ## งานที่เสร็จแล้ว (อย่าทำซ้ำ)
