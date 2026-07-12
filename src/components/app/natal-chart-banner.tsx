@@ -35,10 +35,10 @@ export function NatalChartBanner() {
 
   if (chart.status === "READY" && chart.chartJson) {
     return (
-      <div className="animate-fade-in mx-auto mb-3 flex max-w-3xl justify-center px-4 pt-2">
+      <div className="animate-fade-in mb-6 flex justify-center">
         <ExpandableRasiWheel
           chart={chart.chartJson}
-          size={140}
+          size={120}
           label="พื้นดวงเดิม"
         />
       </div>
@@ -47,7 +47,7 @@ export function NatalChartBanner() {
 
   if (chart.status === "PENDING") {
     return (
-      <div className="mx-auto mb-3 max-w-3xl px-4 text-center text-[11px] text-[var(--muted-2)]">
+      <div className="mb-4 text-center text-[11px] text-[var(--muted-2)]">
         …
       </div>
     );
@@ -55,7 +55,7 @@ export function NatalChartBanner() {
 
   if (chart.status === "FAILED") {
     return (
-      <div className="mx-auto mb-3 max-w-3xl px-4 text-center text-[11px] text-[var(--danger)]">
+      <div className="mb-4 text-center text-[11px] text-[var(--danger)]">
         {chart.note ?? "คำนวณไม่สำเร็จ"}
       </div>
     );

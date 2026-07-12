@@ -14,6 +14,7 @@ import {
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import { ChatUsageBar } from "./chat-usage-bar";
+import { NatalChartBanner } from "./natal-chart-banner";
 import type { ChartJson } from "@/types/chart";
 
 type Message = {
@@ -661,7 +662,9 @@ function EmptyState({
   onPick: (q: string) => void;
 }) {
   return (
-    <div className="mx-auto flex max-w-2xl flex-col items-center pt-10 text-center">
+    <div className="mx-auto flex max-w-2xl flex-col items-center pt-6 text-center">
+      {/* Scrolls with empty home — not pinned above every thread */}
+      <NatalChartBanner />
       <h1 className="animate-fade-up whitespace-pre-line text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
         {EMPTY_HEADING}
       </h1>
