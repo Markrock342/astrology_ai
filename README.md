@@ -53,7 +53,7 @@ npm run db:seed         # categories, Free/Pro packages, prompts, Gemini config,
 npm run dev             # http://localhost:3000
 ```
 
-Default admin (from seed / .env): `admin@horasard.local` / `ChangeMe123!`
+Default admin email (from seed): `admin@horasard.local` — set `SEED_ADMIN_PASSWORD` in `.env` (required, never commit the real value).
 
 ### Useful scripts
 
