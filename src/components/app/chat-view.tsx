@@ -836,19 +836,47 @@ function LockedState({ category }: { category?: string }) {
   );
 }
 
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds} วินาที`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")} นาที`;
+}
+
 function ThinkingIndicator() {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - started) / 1000));
+    }, 250);
+    return () => window.clearInterval(id);
+  }, []);
+
   return (
-    <div className="animate-fade-in flex items-center gap-3">
-      <div className="flex items-end gap-1.5">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <span
-            key={i}
-            className="wave-dot inline-block h-1.5 w-1.5 rounded-full bg-[var(--primary)]"
-            style={{ animationDelay: `${i * 0.12}s` }}
-          />
-        ))}
+    <div className="animate-fade-in flex flex-col gap-1.5">
+      <div className="flex items-center gap-3">
+        <div className="flex items-end gap-1.5">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <span
+              key={i}
+              className="wave-dot inline-block h-1.5 w-1.5 rounded-full bg-[var(--primary)]"
+              style={{ animationDelay: `${i * 0.12}s` }}
+            />
+          ))}
+        </div>
+        <span className="shimmer-text text-xs font-medium">กำลังเพ่งดวงดาว…</span>
       </div>
-      <span className="shimmer-text text-xs font-medium">กำลังเพ่งดวงดาว…</span>
+      <p className="pl-0 text-[11px] tabular-nums text-[var(--muted-2)]">
+        ใช้เวลาไปแล้ว{" "}
+        <span className="font-medium text-[var(--muted)]">
+          {formatElapsed(elapsed)}
+        </span>
+        {elapsed >= 30 ? (
+          <span className="ml-1 opacity-80">· ระบบกำลังคำนวณดวงและเรียก AI</span>
+        ) : null}
+      </p>
     </div>
   );
 }
