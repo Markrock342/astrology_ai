@@ -172,6 +172,16 @@ export function ChatView() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamTimer = useRef<number | null>(null);
   const conversationIdRef = useRef<string | null>(threadId);
+  // Aborting this cancels the provider call server-side. stoppedRef tells the
+  // catch below that the resulting AbortError was the user's doing, not a
+  // network failure — the partial answer stays on screen and stays charged.
+  const abortRef = useRef<AbortController | null>(null);
+  const stoppedRef = useRef(false);
+
+  function stopStreaming() {
+    stoppedRef.current = true;
+    abortRef.current?.abort();
+  }
   const usageRefreshRef = useRef<(() => void) | null>(null);
   const registerUsageRefresh = useCallback((fn: () => void) => {
     usageRefreshRef.current = fn;
@@ -445,6 +455,8 @@ export function ChatView() {
     }
 
     const assistantId = `stream-${idempotencyKey}`;
+    // Hoisted so the catch can keep whatever streamed before a stop/disconnect.
+    let assembled = "";
 
     try {
       const conversationId = categorySlug
@@ -474,6 +486,10 @@ export function ChatView() {
         ];
       });
 
+      stoppedRef.current = false;
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       const res = await fetch(
         `/api/conversations/${conversationId}/messages`,
         {
@@ -484,6 +500,7 @@ export function ChatView() {
             "Idempotency-Key": idempotencyKey,
           },
           body: JSON.stringify({ content }),
+          signal: controller.signal,
         },
       );
 
@@ -550,7 +567,6 @@ export function ChatView() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let assembled = "";
       let gotDelta = false;
       let finished = false;
 
@@ -662,10 +678,31 @@ export function ChatView() {
           );
         }
         setState("processing");
-      }    } catch {
+      }
+    } catch {
+      // The user pressed stop: the server already persisted and charged the
+      // partial answer, so keep it on screen and settle to idle rather than
+      // showing a network error over text they can plainly see.
+      if (stoppedRef.current) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: assembled, status: "SUCCESS" }
+              : m,
+          ),
+        );
+        setState("idle");
+        setErrorText(null);
+        setErrorCode(null);
+        void refresh();
+        usageRefreshRef.current?.();
+        return;
+      }
       setErrorCode("NETWORK");
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
       setState("error");
+    } finally {
+      abortRef.current = null;
     }
   }
 
@@ -849,6 +886,8 @@ export function ChatView() {
           value={input}
           onChange={setInput}
           onSend={() => send(input)}
+          onStop={stopStreaming}
+          streaming={state === "processing" || state === "streaming"}
           disabled={state === "processing" || state === "streaming" || locked}
           aiEnabled={FEATURES.aiChat && !locked}
           creditCost={DEFAULTS.creditCostPerReading}
@@ -1041,6 +1080,8 @@ function Composer({
   value,
   onChange,
   onSend,
+  onStop,
+  streaming,
   disabled,
   aiEnabled,
   creditCost,
@@ -1048,6 +1089,8 @@ function Composer({
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
+  onStop: () => void;
+  streaming: boolean;
   disabled: boolean;
   aiEnabled: boolean;
   creditCost?: number;
@@ -1083,17 +1126,31 @@ function Composer({
             />
           </svg>
         </button>
-        <button
-          type="button"
-          onClick={onSend}
-          disabled={disabled || !aiEnabled || !value.trim()}
-          className="press-scale flex shrink-0 items-center justify-center text-[var(--primary)] transition hover:text-[var(--primary-hover)] disabled:opacity-40"
-          aria-label="ส่ง"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3.4 20.4l17.6-8.4a.9.9 0 0 0 0-1.6L3.4 2A.7.7 0 0 0 2.4 3l2.3 6.9c.1.4.4.6.8.7l7.3 1c.2 0 .2.3 0 .4l-7.3 1c-.4 0-.7.3-.8.7L2.4 21a.7.7 0 0 0 1 .9z" />
-          </svg>
-        </button>
+        {streaming ? (
+          <button
+            type="button"
+            onClick={onStop}
+            className="press-scale flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--foreground)] text-[var(--background)] transition hover:opacity-80"
+            aria-label="หยุดคำตอบ"
+            title="หยุดคำตอบ"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="5" y="5" width="14" height="14" rx="2.5" />
+            </svg>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onSend}
+            disabled={disabled || !aiEnabled || !value.trim()}
+            className="press-scale flex shrink-0 items-center justify-center text-[var(--primary)] transition hover:text-[var(--primary-hover)] disabled:opacity-40"
+            aria-label="ส่ง"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3.4 20.4l17.6-8.4a.9.9 0 0 0 0-1.6L3.4 2A.7.7 0 0 0 2.4 3l2.3 6.9c.1.4.4.6.8.7l7.3 1c.2 0 .2.3 0 .4l-7.3 1c-.4 0-.7.3-.8.7L2.4 21a.7.7 0 0 0 1 .9z" />
+            </svg>
+          </button>
+        )}
       </div>
       <p className="mt-2 text-center text-[10px] text-[var(--muted-2)]">
         {aiEnabled && creditCost != null && creditCost > 0

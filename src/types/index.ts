@@ -60,4 +60,10 @@ export type GenerateAIResult = {
   latencyMs: number;
   errorCode?: string;
   errorMessage?: string;
+  /**
+   * The user pressed stop. rawText holds whatever streamed before that, and the
+   * result is still ok — a stopped reading is persisted and charged like a
+   * completed one, so it must never be retried or routed to a fallback.
+   */
+  stopped?: boolean;
 };

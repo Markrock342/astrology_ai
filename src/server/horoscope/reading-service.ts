@@ -67,13 +67,15 @@ export async function createReading(input: CreateReadingInput) {
 export async function streamReading(
   input: CreateReadingInput,
   onDelta: (chunk: string) => void,
+  signal?: AbortSignal,
 ) {
-  return runReading(input, onDelta);
+  return runReading(input, onDelta, signal);
 }
 
 async function runReading(
   input: CreateReadingInput,
   onDelta?: (chunk: string) => void,
+  signal?: AbortSignal,
 ) {
   const { userId, categorySlug, question, idempotencyKey, priorMessages } = input;
   const mode = input.mode ?? "NATAL";
@@ -248,6 +250,7 @@ async function runReading(
             conversationHistory.length > 0 ? conversationHistory : undefined,
         },
         onDelta,
+        signal,
       )
     : await generateWithFallback(config.id, {
         systemPrompt,

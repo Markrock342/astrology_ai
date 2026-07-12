@@ -97,8 +97,23 @@ export async function POST(
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
+        // Once the client stops or navigates away the stream is dead, but
+        // completePendingMessage still has to persist and charge the partial
+        // answer — so writing to a closed stream must never throw into it.
         const send = (event: Record<string, unknown>) => {
-          controller.enqueue(encoder.encode(sseEncode(event)));
+          if (req.signal.aborted) return;
+          try {
+            controller.enqueue(encoder.encode(sseEncode(event)));
+          } catch {
+            /* client already gone */
+          }
+        };
+        const close = () => {
+          try {
+            controller.close();
+          } catch {
+            /* already closed */
+          }
         };
 
         try {
@@ -118,7 +133,7 @@ export async function POST(
                 transitSnapshot: accepted.reading.transitSnapshot ?? null,
               },
             });
-            controller.close();
+            close();
             return;
           }
 
@@ -134,6 +149,10 @@ export async function POST(
             (chunk) => {
               send({ type: "delta", text: chunk });
             },
+            // Client pressed stop (or navigated away): abort the provider call so
+            // we stop paying for tokens nobody will read. The partial text is
+            // still persisted and charged below.
+            req.signal,
           );
 
           send({
@@ -155,7 +174,7 @@ export async function POST(
                   : null,
             },
           });
-          controller.close();
+          close();
         } catch (err) {
           const code = err instanceof AppError ? err.code : "AI_PROVIDER_ERROR";
           const message =
@@ -165,7 +184,7 @@ export async function POST(
                 ? err.message
                 : "AI request failed";
           send({ type: "error", code, message });
-          controller.close();
+          close();
         }
       },
     });

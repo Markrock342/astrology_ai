@@ -174,6 +174,7 @@ export async function acceptMessage(
 export async function completePendingMessage(
   input: SendMessageInput,
   onDelta?: (chunk: string) => void,
+  signal?: AbortSignal,
 ) {
   const conversation = await assertCanSend(input.conversationId, input.userId);
 
@@ -224,6 +225,7 @@ export async function completePendingMessage(
                 : null,
           },
           onDelta,
+          signal,
         )
       : await createReading({
           userId: input.userId,
