@@ -36,6 +36,49 @@ function slipSrc(p: Payment): string | null {
   return `/api/payments/proof/${p.id}`;
 }
 
+function SlipLightbox({
+  src,
+  alt,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="ดูสลิปขยาย"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 rounded-lg bg-black/50 px-3 py-1.5 text-xs text-white"
+      >
+        ปิด
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        className="max-h-[90vh] max-w-full object-contain"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
 type PaymentList = {
   total: number;
   page: number;
@@ -59,6 +102,9 @@ export function PaymentsPanel() {
   const [status, setStatus] = useState<"" | "PENDING" | "APPROVED" | "REJECTED">("PENDING");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
+  const [zoomSlip, setZoomSlip] = useState<{ src: string; alt: string } | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -186,27 +232,41 @@ export function PaymentsPanel() {
                 {p.proofUrl && (
                   <>
                     <br />
-                    <a
-                      href={slipSrc(p) ?? "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const src = slipSrc(p);
+                        if (src) {
+                          setZoomSlip({
+                            src,
+                            alt: `สลิป ${p.user.email}`,
+                          });
+                        }
+                      }}
                       className="text-[var(--primary)] underline"
                     >
-                      ดูสลิป
-                    </a>
-                    <a
-                      href={slipSrc(p) ?? "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      ดูสลิป (ซูม)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const src = slipSrc(p);
+                        if (src) {
+                          setZoomSlip({
+                            src,
+                            alt: `สลิป ${p.user.email}`,
+                          });
+                        }
+                      }}
                       className="mt-1 block overflow-hidden rounded-md border border-[var(--border)]"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={slipSrc(p) ?? undefined}
                         alt="สลิป"
-                        className="max-h-24 max-w-[140px] object-contain"
+                        className="max-h-24 max-w-[140px] cursor-zoom-in object-contain"
                       />
-                    </a>
+                    </button>
                   </>
                 )}
               </Td>
@@ -282,6 +342,13 @@ export function PaymentsPanel() {
           </Button>
         </div>
       </div>
+      {zoomSlip ? (
+        <SlipLightbox
+          src={zoomSlip.src}
+          alt={zoomSlip.alt}
+          onClose={() => setZoomSlip(null)}
+        />
+      ) : null}
     </AdminPage>
   );
 }
