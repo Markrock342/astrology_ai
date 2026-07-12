@@ -193,6 +193,12 @@ export function ChatView() {
   // never strands it as "generating"), while stop must actually cancel the model.
   const [inFlight, setInFlight] = useState<StopTarget | null>(null);
   const [stopping, setStopping] = useState(false);
+  // A send owns the message list for its thread. Creating a thread rewrites the
+  // URL, which wakes the loader below — and the just-created thread comes back
+  // empty, because the turn is still being persisted. Without this guard that
+  // empty response overwrites the optimistic bubbles and the answer streams into
+  // a message that no longer exists, leaving a blank chat.
+  const sendingThreadRef = useRef<string | null>(null);
 
   async function stopStreaming(target: StopTarget | null) {
     if (!target || stopping) return;
@@ -203,8 +209,18 @@ export function ChatView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idempotencyKey: target.idempotencyKey }),
       });
+      // A live answer settles through its own stream. A stranded one is closed
+      // out by the endpoint, and only a re-read will show that — otherwise the
+      // turn keeps rendering as "generating" even though it is now finished.
+      if (!inFlight) {
+        const fresh = await prefetchThread(target.threadId);
+        if (fresh) {
+          setMessages(fresh.messages as Message[]);
+          setState("idle");
+        }
+      }
     } catch {
-      /* the stream/poll below still settles the message either way */
+      /* the stream/poll still settles the message either way */
     } finally {
       setStopping(false);
     }
@@ -221,6 +237,7 @@ export function ChatView() {
   // Load past thread when ?thread= is set — soft switch from cache first.
   useEffect(() => {
     if (!threadId) return;
+    if (sendingThreadRef.current === threadId) return;
     let alive = true;
 
     const cached = getCachedThread(threadId);
@@ -506,8 +523,16 @@ export function ChatView() {
         : (threadId ?? conversationIdRef.current);
       if (!conversationId) return;
 
+      // Claim it before the URL changes, so the loader never races this send.
+      sendingThreadRef.current = conversationId;
+
       const syncCat = categorySlug ?? catSlug;
       if (!threadId && syncCat) {
+        // The loader stands down for this thread, so seed what it would have set.
+        setThreadCategorySlug(syncCat);
+        setThreadMode("NATAL");
+        setThreadLoadError(null);
+        setLoadingThread(false);
         router.replace(
           `/dashboard?thread=${conversationId}&cat=${syncCat}`,
           { scroll: false },
@@ -738,6 +763,7 @@ export function ChatView() {
       setState("error");
     } finally {
       setInFlight(null);
+      sendingThreadRef.current = null;
     }
   }
 
@@ -922,9 +948,14 @@ export function ChatView() {
           onChange={setInput}
           onSend={() => send(input)}
           onStop={() => void stopStreaming(stopTarget)}
-          // Only offer stop when there is an answer we can actually cancel — a
-          // button that silently does nothing is worse than no button at all.
-          streaming={Boolean(stopTarget) && !stopping}
+          // Stop is offered only while an answer is genuinely in progress AND we
+          // hold a handle to cancel it. Keying off the target alone let a stale
+          // PENDING row keep the button up long after the answer had landed.
+          streaming={
+            (state === "processing" || state === "streaming") &&
+            Boolean(stopTarget) &&
+            !stopping
+          }
           disabled={state === "processing" || state === "streaming" || locked}
           aiEnabled={FEATURES.aiChat && !locked}
           creditCost={DEFAULTS.creditCostPerReading}

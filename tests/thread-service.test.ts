@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   count: vi.fn(),
   transaction: vi.fn(),
   messageCreate: vi.fn(),
+  messageUpdateMany: vi.fn(),
   conversationUpdate: vi.fn(),
 }));
 
@@ -28,6 +29,8 @@ vi.mock("@/server/db", () => ({
       findUnique: mocks.findUnique,
       create: mocks.messageCreate,
       count: mocks.count,
+      // getThreadDetail sweeps stranded PENDING turns before reading the thread.
+      updateMany: mocks.messageUpdateMany,
     },
     $transaction: mocks.transaction,
   },
