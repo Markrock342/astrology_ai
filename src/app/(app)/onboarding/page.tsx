@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { BirthForm } from "@/components/birth/birth-form";
+import { birthProfileToFormInitial } from "@/lib/birth-form";
 import {
   getBirthProfile,
   isStaffRole,
@@ -24,6 +25,7 @@ export default async function OnboardingPage() {
   }
 
   const { birthPrivacy, birthEditLimit } = await getConsentTexts();
+  const initial = profile ? birthProfileToFormInitial(profile) : undefined;
 
   return (
     <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-10">
@@ -46,6 +48,7 @@ export default async function OnboardingPage() {
       </div>
       <BirthForm
         editCount={profile?.editCount ?? 0}
+        initial={initial}
         consentBirthPrivacy={birthPrivacy.text}
         consentBirthEditLimit={
           staff

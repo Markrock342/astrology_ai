@@ -3,21 +3,13 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { COUNTRIES, DISTRICTS, PROVINCES } from "@/lib/th-geo";
+import {
+  THAI_BIRTH_MONTHS,
+  thaiMonthToNumber,
+  type BirthFormInitial,
+} from "@/lib/birth-form";
 
-const THAI_MONTHS = [
-  "มกราคม",
-  "กุมภาพันธ์",
-  "มีนาคม",
-  "เมษายน",
-  "พฤษภาคม",
-  "มิถุนายน",
-  "กรกฎาคม",
-  "สิงหาคม",
-  "กันยายน",
-  "ตุลาคม",
-  "พฤศจิกายน",
-  "ธันวาคม",
-];
+const THAI_MONTHS = [...THAI_BIRTH_MONTHS];
 
 type Era = "BE" | "CE"; // พ.ศ. / ค.ศ.
 
@@ -33,24 +25,27 @@ const CURRENT_CE = new Date().getFullYear();
  */
 export function BirthForm({
   editCount = 0,
+  initial,
   consentBirthPrivacy = "ฉันได้อ่านและยอมรับนโยบายความเป็นส่วนตัว",
   consentBirthEditLimit = "ฉันรับทราบว่าสามารถแก้ไขข้อมูลวันเกิดได้อีก 1 ครั้ง",
 }: {
   editCount?: number;
+  initial?: BirthFormInitial;
   consentBirthPrivacy?: string;
   consentBirthEditLimit?: string;
 }) {
   const router = useRouter();
+  const isEdit = Boolean(initial);
 
-  const [day, setDay] = useState("");
-  const [month, setMonth] = useState("");
-  const [era, setEra] = useState<Era>("BE");
-  const [year, setYear] = useState("");
-  const [hour, setHour] = useState("");
-  const [minute, setMinute] = useState("");
-  const [country, setCountry] = useState("ไทย");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
+  const [day, setDay] = useState(initial?.day ?? "");
+  const [month, setMonth] = useState(initial?.month ?? "");
+  const [era, setEra] = useState<Era>(initial?.era ?? "BE");
+  const [year, setYear] = useState(initial?.year ?? "");
+  const [hour, setHour] = useState(initial?.hour ?? "");
+  const [minute, setMinute] = useState(initial?.minute ?? "");
+  const [country, setCountry] = useState(initial?.country ?? "ไทย");
+  const [province, setProvince] = useState(initial?.province ?? "");
+  const [district, setDistrict] = useState(initial?.district ?? "");
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [acceptEditLimit, setAcceptEditLimit] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +75,11 @@ export function BirthForm({
       setError("กรุณาเลือกสถานที่เกิดให้ครบ");
       return;
     }
+    const monthNum = thaiMonthToNumber(month);
+    if (!monthNum) {
+      setError("กรุณาเลือกเดือนเกิดให้ถูกต้อง");
+      return;
+    }
     if (!acceptPrivacy || !acceptEditLimit) {
       setError("กรุณายอมรับเงื่อนไขทั้งสองข้อ");
       return;
@@ -89,7 +89,7 @@ export function BirthForm({
     // service normalizes พ.ศ. → ค.ศ. and stores the instant in UTC (rule 13).
     const payload = {
       year: Number(year),
-      month: THAI_MONTHS.indexOf(month) + 1,
+      month: monthNum,
       day: Number(day),
       yearEra: era,
       birthTimeKnown: true,
@@ -115,6 +115,7 @@ export function BirthForm({
         setSubmitting(false);
         return;
       }
+      router.refresh();
       router.push("/dashboard");
     } catch {
       setError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองใหม่");
@@ -128,10 +129,12 @@ export function BirthForm({
       className="animate-fade-up stagger-1 w-full max-w-2xl rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 shadow-2xl backdrop-blur"
     >
       <h2 className="text-lg font-semibold text-[var(--primary)]">
-        กรอกข้อมูลวันเกิด
+        {isEdit ? "แก้ไขข้อมูลวันเกิด" : "กรอกข้อมูลวันเกิด"}
       </h2>
       <p className="mt-1 text-xs text-[var(--muted)]">
-        สู่ฐานโหราศาสตร์ไทย สุริยคติ พิษณุโลกจันทรคติ ลงเลขศาสตร์ยูจิต แม่นระดับสั่งได้
+        {isEdit
+          ? "ตรวจสอบข้อมูลเดิมแล้วแก้ไข — บันทึกแล้วระบบจะคำนวณดวงใหม่"
+          : "สู่ฐานโหราศาสตร์ไทย สุริยคติ พิษณุโลกจันทรคติ ลงเลขศาสตร์ยูจิต แม่นระดับสั่งได้"}
       </p>
 
       {/* Date + time row */}
@@ -269,7 +272,7 @@ export function BirthForm({
         disabled={submitting}
         className="press-scale mt-6 self-start rounded-xl bg-[var(--primary)] px-10 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
       >
-        {submitting ? "กำลังบันทึก…" : "ทำนาย"}
+        {submitting ? "กำลังบันทึก…" : isEdit ? "บันทึกการแก้ไข" : "ทำนาย"}
       </button>
     </form>
   );
