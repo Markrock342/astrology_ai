@@ -17,14 +17,44 @@ function generatedClientMarker(): string {
   }
 }
 
-/** Serverless-friendly URL: one connection per lambda via PgBouncer. */
+function appendQueryParam(url: string, key: string, value: string): string {
+  if (new RegExp(`[?&]${key}=`).test(url)) return url;
+  return url.includes("?") ? `${url}&${key}=${value}` : `${url}?${key}=${value}`;
+}
+
+/**
+ * Serverless-friendly URL tuning for Supabase PgBouncer.
+ * Warm Vercel instances can serve concurrent requests — connection_limit=1
+ * caused pool timeouts when bootstrap, chat poll, and natal compute overlapped.
+ */
 function databaseUrl(): string | undefined {
   const raw = process.env.DATABASE_URL;
   if (!raw) return undefined;
-  if (/[?&]connection_limit=/.test(raw)) return raw;
-  return raw.includes("?")
-    ? `${raw}&connection_limit=1`
-    : `${raw}?connection_limit=1`;
+
+  let url = raw;
+
+  const limit =
+    process.env.PRISMA_CONNECTION_LIMIT ??
+    (process.env.NODE_ENV === "production" ? "5" : "3");
+  const timeout = process.env.PRISMA_POOL_TIMEOUT ?? "20";
+
+  if (!/[?&]connection_limit=/.test(url) && limit) {
+    url = appendQueryParam(url, "connection_limit", limit);
+  }
+  if (!/[?&]pool_timeout=/.test(url) && timeout) {
+    url = appendQueryParam(url, "pool_timeout", timeout);
+  }
+
+  const usesPooler =
+    /:6543[/?]/.test(url) ||
+    /[?&]pgbouncer=true/.test(url) ||
+    /pooler\.supabase\.com/i.test(url);
+
+  if (usesPooler && !/[?&]pgbouncer=/.test(url)) {
+    url = appendQueryParam(url, "pgbouncer", "true");
+  }
+
+  return url;
 }
 
 function createPrismaClient(): PrismaClient {

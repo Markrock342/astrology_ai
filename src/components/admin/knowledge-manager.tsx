@@ -20,17 +20,20 @@ import {
   Toggle,
 } from "./ui";
 
-type Category = { id: string; nameTh: string };
-type KnowledgeDoc = {
+type KnowledgeSummary = {
   id: string;
   title: string;
-  content: string;
-  draftTitle: string | null;
-  draftContent: string | null;
   categoryId: string | null;
   enabled: boolean;
   sortOrder: number;
+  draftUpdatedAt: string | null;
   category: { id: string; nameTh: string } | null;
+};
+
+type KnowledgeDoc = KnowledgeSummary & {
+  content: string;
+  draftTitle: string | null;
+  draftContent: string | null;
 };
 
 const EMPTY_FORM = {
@@ -41,8 +44,10 @@ const EMPTY_FORM = {
   sortOrder: 0,
 };
 
+type Category = { id: string; nameTh: string };
+
 export function KnowledgeManager() {
-  const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
+  const [docs, setDocs] = useState<KnowledgeSummary[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -64,7 +69,7 @@ export function KnowledgeManager() {
     try {
       setLoading(true);
       const [ds, cats] = await Promise.all([
-        adminFetch<KnowledgeDoc[]>("/api/admin/knowledge"),
+        adminFetch<KnowledgeSummary[]>("/api/admin/knowledge"),
         adminFetch<Category[]>("/api/admin/categories"),
       ]);
       setDocs(ds);
@@ -82,17 +87,28 @@ export function KnowledgeManager() {
     void load();
   }, [load]);
 
-  function startEdit(d: KnowledgeDoc) {
+  async function startEdit(d: KnowledgeSummary) {
     setEditingId(d.id);
-    setForm({
-      title: d.draftTitle ?? d.title,
-      content: d.draftContent ?? d.content,
-      categoryId: d.categoryId ?? "",
-      enabled: d.enabled,
-      sortOrder: d.sortOrder,
-    });
     setShowForm(true);
-    void loadRevisions(d.id);
+    setBusy(true);
+    setError(null);
+    try {
+      const full = await adminFetch<KnowledgeDoc>(`/api/admin/knowledge/${d.id}`);
+      setForm({
+        title: full.draftTitle ?? full.title,
+        content: full.draftContent ?? full.content,
+        categoryId: full.categoryId ?? "",
+        enabled: full.enabled,
+        sortOrder: full.sortOrder,
+      });
+      void loadRevisions(d.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "โหลดเนื้อหาไม่สำเร็จ");
+      setShowForm(false);
+      setEditingId(null);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveDraft() {
@@ -153,10 +169,14 @@ export function KnowledgeManager() {
         body: JSON.stringify({ mode }),
       });
       await load();
-      const d = (await adminFetch<KnowledgeDoc[]>("/api/admin/knowledge")).find(
-        (x) => x.id === editingId,
-      );
-      if (d) startEdit(d);
+      const full = await adminFetch<KnowledgeDoc>(`/api/admin/knowledge/${editingId}`);
+      setForm({
+        title: full.draftTitle ?? full.title,
+        content: full.draftContent ?? full.content,
+        categoryId: full.categoryId ?? "",
+        enabled: full.enabled,
+        sortOrder: full.sortOrder,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "กู้คืนไม่สำเร็จ");
     } finally {
@@ -178,7 +198,7 @@ export function KnowledgeManager() {
     }
   }
 
-  async function toggleEnabled(d: KnowledgeDoc) {
+  async function toggleEnabled(d: KnowledgeSummary) {
     try {
       await adminFetch(`/api/admin/knowledge/${d.id}`, {
         method: "PATCH",
@@ -226,10 +246,7 @@ export function KnowledgeManager() {
         <Card>
           {editingId && (
             <ContentEditorToolbar
-              hasDraft={
-                !!docs.find((d) => d.id === editingId)?.draftContent ||
-                !!docs.find((d) => d.id === editingId)?.draftTitle
-              }
+              hasDraft={Boolean(docs.find((d) => d.id === editingId)?.draftUpdatedAt)}
               busy={busy}
               onSaveDraft={() => void saveDraft()}
               onPublish={() => void publish()}
@@ -309,8 +326,8 @@ export function KnowledgeManager() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium text-[var(--foreground)]">{d.title}</span>
               <Badge tone="gold">{d.category?.nameTh ?? "ทุกหมวด"}</Badge>
-              <Badge>{d.content.length.toLocaleString()} ตัวอักษร</Badge>
               {!d.enabled && <Badge tone="red">ปิดอยู่</Badge>}
+              {d.draftUpdatedAt ? <Badge tone="gold">มีแบบร่าง</Badge> : null}
               <div className="ml-auto flex gap-2">
                 <Button variant="ghost" onClick={() => toggleEnabled(d)}>
                   {d.enabled ? "ปิด" : "เปิด"}
@@ -323,9 +340,6 @@ export function KnowledgeManager() {
                 </Button>
               </div>
             </div>
-            <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-[var(--muted)]">
-              {d.content.length > 240 ? `${d.content.slice(0, 240)}…` : d.content}
-            </p>
           </Card>
         ))}
         {docs.length === 0 && !showForm && (

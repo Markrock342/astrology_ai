@@ -219,6 +219,8 @@ const HEALTH_PROMPT = {
   userPrompt: "ทดสอบการเชื่อมต่อ: ทักทายเป็นภาษาไทยสั้นๆ",
 };
 
+const HEALTH_CHECK_MAX_CONFIGS = 3;
+
 export async function runConfigHealthChecks(force = false) {
   const now = Date.now();
   if (!force && healthCache && now - healthCache.at < HEALTH_CACHE_TTL_MS) {
@@ -232,40 +234,40 @@ export async function runConfigHealthChecks(force = false) {
   const configs = await prisma.aIProviderConfig.findMany({
     where: { enabled: true },
     orderBy: [{ provider: "asc" }, { displayName: "asc" }],
+    take: HEALTH_CHECK_MAX_CONFIGS,
     select: { id: true, displayName: true, modelId: true, provider: true },
   });
 
   const checkedAt = new Date().toISOString();
-  const results: ConfigHealthCheck[] = await Promise.all(
-    configs.map(async (cfg) => {
-      try {
-        const result = await generateWithFallback(cfg.id, HEALTH_PROMPT);
-        return {
-          configId: cfg.id,
-          displayName: cfg.displayName,
-          modelId: result.modelId || cfg.modelId,
-          provider: cfg.provider,
-          ok: result.ok,
-          latencyMs: result.latencyMs ?? 0,
-          errorCode: result.errorCode ?? null,
-          errorMessage: result.errorMessage ?? null,
-          checkedAt,
-        };
-      } catch (e) {
-        return {
-          configId: cfg.id,
-          displayName: cfg.displayName,
-          modelId: cfg.modelId,
-          provider: cfg.provider,
-          ok: false,
-          latencyMs: 0,
-          errorCode: "CHECK_FAILED",
-          errorMessage: e instanceof Error ? e.message : "health check failed",
-          checkedAt,
-        };
-      }
-    }),
-  );
+  const results: ConfigHealthCheck[] = [];
+  for (const cfg of configs) {
+    try {
+      const result = await generateWithFallback(cfg.id, HEALTH_PROMPT);
+      results.push({
+        configId: cfg.id,
+        displayName: cfg.displayName,
+        modelId: result.modelId || cfg.modelId,
+        provider: cfg.provider,
+        ok: result.ok,
+        latencyMs: result.latencyMs ?? 0,
+        errorCode: result.errorCode ?? null,
+        errorMessage: result.errorMessage ?? null,
+        checkedAt,
+      });
+    } catch (e) {
+      results.push({
+        configId: cfg.id,
+        displayName: cfg.displayName,
+        modelId: cfg.modelId,
+        provider: cfg.provider,
+        ok: false,
+        latencyMs: 0,
+        errorCode: "CHECK_FAILED",
+        errorMessage: e instanceof Error ? e.message : "health check failed",
+        checkedAt,
+      });
+    }
+  }
 
   healthCache = { at: Date.now(), results };
   return { checkedAt, stale: false, results };

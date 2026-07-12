@@ -7,7 +7,7 @@ import {
   getCachedMaintenanceMode,
   requireSessionUserId,
 } from "@/server/auth/session-guard";
-import { getAppBootstrap, serializeAppBootstrap } from "@/server/app/bootstrap-service";
+import { getCachedAppBootstrap, serializeAppBootstrap } from "@/server/app/bootstrap-service";
 import { AppError } from "@/lib/errors";
 import { redirect } from "next/navigation";
 
@@ -23,15 +23,21 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const userId = await requireSessionUserId();
-  let bootstrap;
+
+  let bootstrap: ReturnType<typeof serializeAppBootstrap>;
+  let maintenance: Awaited<ReturnType<typeof getCachedMaintenanceMode>>;
   try {
-    bootstrap = serializeAppBootstrap(await getAppBootstrap(userId));
+    const [bootstrapRaw, maintenanceMode] = await Promise.all([
+      getCachedAppBootstrap(userId),
+      getCachedMaintenanceMode(),
+    ]);
+    bootstrap = serializeAppBootstrap(bootstrapRaw);
+    maintenance = maintenanceMode;
   } catch (err) {
     if (err instanceof AppError && err.code === "NOT_FOUND") redirect("/login");
     throw err;
   }
 
-  const maintenance = await getCachedMaintenanceMode();
   const isAdmin =
     bootstrap.me.role === "ADMIN" || bootstrap.me.role === "SUPER_ADMIN";
 

@@ -17,7 +17,8 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 
 **M3 รอ/ค้าง:** [backend_m3_waitlist.md](./backend_m3_waitlist.md)  
 **M4 deploy/waitlist:** [backend_m4_deploy.md](./backend_m4_deploy.md) · [backend_m4_waitlist.md](./backend_m4_waitlist.md)  
-**Wave E (BN handoff):** [backend_wave_e.md](./backend_wave_e.md)
+**Wave E (BN handoff):** [backend_wave_e.md](./backend_wave_e.md)  
+**Performance:** [backend_performance.md](./backend_performance.md)
 
 ## Milestone ปัจจุบัน
 
@@ -49,7 +50,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 | Payment + dashboard (M4) + Wave E notify/top-up | ✅ | [backend_m4_payment.md](./backend_m4_payment.md) · [backend_wave_e.md](./backend_wave_e.md) | `payment-service.ts`, `payment-notify.ts` |
 | M4 deploy / go-live | 🟡 manual smoke | [backend_m4_deploy.md](./backend_m4_deploy.md) | `scripts/smoke-public-api.mjs` |
 | Quota atomic + RESERVED + `QUOTA_EXCEEDED` | ✅ Wave E hardened | [backend_wave_e.md](./backend_wave_e.md) | `quota-service.ts`, `reading-service.ts` |
-| PDPA account deletion | ✅ Wave E | [backend_wave_e.md](./backend_wave_e.md) | `account-deletion-service.ts` |
+| Performance (poll, light bootstrap, pool fix) | ✅ Wave 3 | [backend_performance.md](./backend_performance.md) | `db.ts`, `natal-chart-service.ts`, `bootstrap-service.ts` |
 
 ## โมดูล Frontend
 

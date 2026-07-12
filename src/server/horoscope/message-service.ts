@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
+import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 import { getEffectivePlan } from "@/server/user/account-service";
 import { createReading } from "@/server/horoscope/reading-service";
 import {
@@ -269,7 +270,7 @@ export async function createConversation(input: CreateConversationInput) {
         })}`
       : null;
 
-  return prisma.conversation.create({
+  const conversation = await prisma.conversation.create({
     data: {
       userId: input.userId,
       categoryId: category.id,
@@ -283,4 +284,6 @@ export async function createConversation(input: CreateConversationInput) {
     },
     include: { category: true },
   });
+  invalidateUserBootstrap(input.userId);
+  return conversation;
 }

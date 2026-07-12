@@ -77,6 +77,7 @@ export async function getUserDetail(userId: string) {
       creditWallet: { select: { balance: true, version: true } },
       subscriptions: {
         orderBy: { createdAt: "desc" },
+        take: 10,
         select: {
           id: true,
           status: true,

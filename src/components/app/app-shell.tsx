@@ -51,6 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const {
     user,
     refresh,
+    refreshLight,
     filteredCategories,
     filteredNatalThreads,
     filteredTransitThreads,
@@ -74,7 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (activeThread === threadId) {
         router.push("/dashboard");
       }
-      await refresh();
+      await refreshLight();
     } catch {
       window.alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
     }
@@ -512,7 +513,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <CancelMembershipModal
           isPro={user?.plan === "PRO"}
           onClose={() => setActiveModal(null)}
-          onCancelled={() => refresh()}
+          onCancelled={() => refreshLight()}
         />
       )}
       {transitOpen && <TransitFormModal onClose={() => setTransitOpen(false)} />}

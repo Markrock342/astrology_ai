@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fieldDiff } from "./form-utils";
 import { Badge, Button, ConfirmDialog } from "./ui";
 
@@ -57,13 +57,33 @@ export function ContentEditorToolbar({
     mode: "draft" | "publish";
   } | null>(null);
   const [diffRevId, setDiffRevId] = useState<string | null>(null);
+  const [diffSnapshot, setDiffSnapshot] = useState<Record<string, unknown> | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
 
-  const diffRev = revisions?.find((r) => r.id === diffRevId);
+  useEffect(() => {
+    if (!diffRevId) return;
+    let alive = true;
+    fetch(`/api/admin/revisions/${diffRevId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!alive || !json?.ok) return;
+        const snap = json.data?.snapshotJson;
+        setDiffSnapshot(
+          snap && typeof snap === "object" ? (snap as Record<string, unknown>) : null,
+        );
+      })
+      .catch(() => {
+        if (alive) setDiffSnapshot(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [diffRevId]);
+
   const diffs = useMemo(() => {
-    if (!diffRev?.snapshotJson) return [];
-    return fieldDiff(currentSnapshot ?? null, diffRev.snapshotJson);
-  }, [currentSnapshot, diffRev]);
+    if (!diffRevId || !diffSnapshot) return [];
+    return fieldDiff(currentSnapshot ?? null, diffSnapshot);
+  }, [currentSnapshot, diffSnapshot, diffRevId]);
 
   async function handlePreview() {
     if (!previewHref) return;
