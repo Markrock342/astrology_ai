@@ -15,6 +15,7 @@ export type ThreadMessage = {
   role: "user" | "assistant";
   content: string;
   modelId?: string;
+  status?: "SUCCESS" | "FAILED" | "TIMEOUT" | "PENDING";
 };
 
 export type ThreadDetail = {
@@ -96,6 +97,7 @@ export async function getThreadDetail(
           role: true,
           content: true,
           modelId: true,
+          status: true,
         },
       },
     },
@@ -118,6 +120,7 @@ export async function getThreadDetail(
         role: m.role === "USER" ? "user" : "assistant",
         content: m.content,
         modelId: m.modelId ?? undefined,
+        status: m.status,
       })),
     };
   }
@@ -169,6 +172,103 @@ export type AppendExchangeInput = {
   creditCost: number;
   status: ReadingStatus;
 };
+
+/** Delete a conversation owned by the user (messages cascade). */
+export async function deleteConversation(userId: string, threadId: string) {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: threadId, userId },
+    select: { id: true },
+  });
+  if (!conversation) throw new AppError("NOT_FOUND", "ไม่พบประวัติการสนทนานี้");
+  await prisma.conversation.delete({ where: { id: conversation.id } });
+  return { id: conversation.id };
+}
+
+/** Persist only the user turn (before background AI). */
+export async function appendUserMessage(input: {
+  conversationId: string;
+  userId: string;
+  userContent: string;
+}) {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: input.conversationId, userId: input.userId },
+    select: { id: true, title: true },
+  });
+  if (!conversation) throw new AppError("NOT_FOUND", "Conversation not found");
+
+  const title = conversation.title?.trim() || truncateTitle(input.userContent);
+
+  await prisma.$transaction([
+    prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: "USER",
+        content: input.userContent,
+      },
+    }),
+    prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        updatedAt: new Date(),
+        ...(conversation.title ? {} : { title }),
+      },
+    }),
+  ]);
+}
+
+/** Placeholder assistant row while AI runs in `after()`. */
+export async function createPendingAssistant(input: {
+  conversationId: string;
+  userId: string;
+  idempotencyKey: string;
+}) {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: input.conversationId, userId: input.userId },
+    select: { id: true },
+  });
+  if (!conversation) throw new AppError("NOT_FOUND", "Conversation not found");
+
+  return prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      role: "ASSISTANT",
+      content: "",
+      idempotencyKey: input.idempotencyKey,
+      status: "PENDING",
+      creditCost: 0,
+    },
+  });
+}
+
+/** Fill in the pending assistant after AI succeeds or fails. */
+export async function finalizeAssistantMessage(input: {
+  conversationId: string;
+  idempotencyKey: string;
+  content: string;
+  status: ReadingStatus;
+  provider?: AIProvider;
+  modelId?: string | null;
+  creditCost?: number;
+}) {
+  await prisma.message.updateMany({
+    where: {
+      conversationId: input.conversationId,
+      idempotencyKey: input.idempotencyKey,
+      role: "ASSISTANT",
+    },
+    data: {
+      content: input.content,
+      status: input.status,
+      provider: input.provider,
+      modelId: input.modelId ?? undefined,
+      creditCost: input.creditCost ?? 0,
+    },
+  });
+  await prisma.conversation.update({
+    where: { id: input.conversationId },
+    data: { updatedAt: new Date() },
+  });
+}
 
 /** Persist a user question + assistant answer on an existing conversation thread. */
 export async function appendExchangeToConversation(input: AppendExchangeInput) {
@@ -231,7 +331,13 @@ export async function loadPriorMessages(conversationId: string, userId: string) 
   if (!conversation) throw new AppError("NOT_FOUND", "Conversation not found");
 
   return prisma.message.findMany({
-    where: { conversationId },
+    where: {
+      conversationId,
+      OR: [
+        { role: "USER" },
+        { role: "ASSISTANT", status: { not: "PENDING" }, NOT: { content: "" } },
+      ],
+    },
     orderBy: { createdAt: "asc" },
     select: { role: true, content: true },
   });

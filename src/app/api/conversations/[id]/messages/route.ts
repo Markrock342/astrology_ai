@@ -1,15 +1,21 @@
+import { after } from "next/server";
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
 import { handle, ok } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { requireUser } from "@/server/auth/rbac";
-import { sendMessage } from "@/server/horoscope/message-service";
+import {
+  acceptMessage,
+  completePendingMessage,
+} from "@/server/horoscope/message-service";
+
+export const maxDuration = 60;
 
 const bodySchema = z.object({
   content: z.string().min(1),
 });
 
-/** Send a user message in a conversation thread (Pro-only). */
+/** Accept a user message; AI completes in background via `after()`. */
 export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
@@ -23,12 +29,36 @@ export async function POST(
       throw new AppError("VALIDATION", "Idempotency-Key header is required");
     }
     const { content } = bodySchema.parse(await req.json());
-    const reading = await sendMessage({
+
+    const accepted = await acceptMessage({
       conversationId: id,
       userId: user.id,
       content,
       idempotencyKey,
     });
-    return ok(reading);
+
+    if (accepted.status === "ready") {
+      return ok(accepted.reading);
+    }
+
+    after(() => {
+      void completePendingMessage({
+        conversationId: id,
+        userId: user.id,
+        content,
+        idempotencyKey,
+      }).catch((err) => {
+        console.error("[chat-after]", err);
+      });
+    });
+
+    return ok(
+      {
+        status: "pending",
+        conversationId: id,
+        idempotencyKey,
+      },
+      { status: 202 },
+    );
   });
 }

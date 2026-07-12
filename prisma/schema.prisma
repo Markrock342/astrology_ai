@@ -83,6 +83,8 @@ enum ReadingStatus {
   SUCCESS
   FAILED
   TIMEOUT
+  /// Assistant reply accepted; AI still running in background.
+  PENDING
 }
 
 // Chat thread mode. NATAL = natal chart (Free/Pro categories); TRANSIT = ดวงจร
