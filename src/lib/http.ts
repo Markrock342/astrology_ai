@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AppError } from "./errors";
+import { isPrismaPoolError } from "@/server/prisma-utils";
 
 /** Attach a request id for tracing (spec 11). */
 export function requestId(): string {
@@ -30,6 +31,9 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
       return fail("VALIDATION", "Invalid input", 422, err.flatten());
     }
     console.error("Unhandled error:", err);
-    return fail("INTERNAL", "Something went wrong", 500);
+    const message = isPrismaPoolError(err)
+      ? "ระบบฐานข้อมูลไม่ว่างชั่วคราว กรุณารอสักครู่แล้วลองใหม่"
+      : "เกิดข้อผิดพลาดชั่วคราว กรุณาลองใหม่อีกครั้ง";
+    return fail("INTERNAL", message, 500);
   }
 }

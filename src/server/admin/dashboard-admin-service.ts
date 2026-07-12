@@ -101,9 +101,9 @@ async function loadDashboardStats() {
   };
 }
 
-/** Cached ~30s — dashboard is a summary, not live tick. */
+/** Cached ~60s — dashboard is a summary, not live tick. */
 export const getDashboardStats = unstable_cache(
   loadDashboardStats,
   ["admin-dashboard-stats"],
-  { revalidate: 30 },
+  { revalidate: 60 },
 );

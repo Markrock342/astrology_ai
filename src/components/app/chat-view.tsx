@@ -104,6 +104,19 @@ async function parseApiJson(res: Response) {
   }
 }
 
+function localizeApiError(message: string | undefined, fallback: string): string {
+  if (!message?.trim()) return fallback;
+  const trimmed = message.trim();
+  if (
+    trimmed === "Something went wrong" ||
+    trimmed.includes("connection pool") ||
+    trimmed.includes("Timed out fetching a new connection")
+  ) {
+    return "ระบบฐานข้อมูลไม่ว่างชั่วคราว กรุณารอสักครู่แล้วลองใหม่";
+  }
+  return trimmed;
+}
+
 function applyApiError(
   code: string,
   message: string | undefined,
@@ -128,9 +141,7 @@ function applyApiError(
       : null;
   setters.setErrorText(
     pendingChatMsg ??
-      message?.trim() ??
-      ERROR_MESSAGES[code] ??
-      "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
+      localizeApiError(message, ERROR_MESSAGES[code] ?? "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง"),
   );
   setters.setState(
     code === "NO_QUOTA" || code === "QUOTA_EXCEEDED" ? "no-quota" : "error",
@@ -147,7 +158,7 @@ export function ChatView() {
   const searchParams = useSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
-  const { user, refresh, pendingPayment } = useAppData();
+  const { user, refreshLight, pendingPayment } = useAppData();
   const category = useCategory(catSlug);
   const locked = isCategoryLocked(category, user?.plan ?? "FREE");
   const hasPendingPayment = Boolean(pendingPayment);
@@ -305,20 +316,24 @@ export function ChatView() {
           );
           return;
         }
-        const res = await fetch(`/api/conversations/${threadId}`);
+        const res = await fetch(`/api/conversations/${threadId}/poll`);
         const json = await parseApiJson(res);
         if (!alive || !res.ok || !json?.ok) return;
-        const next = json.data.messages as Message[];
-        setMessages(next);
-        const stillPending = next.some(
-          (m) => m.role === "assistant" && m.status === "PENDING",
-        );
-        if (stillPending) {
+        const poll = json.data as {
+          hasPending: boolean;
+          messages: Message[] | null;
+        };
+
+        if (poll.hasPending) {
           setState("processing");
           return;
         }
 
-        const lastFailed = [...next]
+        if (poll.messages) {
+          setMessages(poll.messages);
+        }
+
+        const lastFailed = [...(poll.messages ?? [])]
           .reverse()
           .find((m) => m.role === "assistant" && m.status === "FAILED");
         if (lastFailed) {
@@ -332,7 +347,7 @@ export function ChatView() {
         setErrorText(null);
         setErrorCode(null);
         setPendingRetry(null);
-        void refresh();
+        void refreshLight();
         usageRefreshRef.current?.();
       } catch {
         /* keep polling */
@@ -347,7 +362,7 @@ export function ChatView() {
       alive = false;
       window.clearInterval(id);
     };
-  }, [threadId, pendingAssistantIds, refresh]);
+  }, [threadId, pendingAssistantIds, refreshLight]);
 
   // Reset the thread when the selected category changes (new chat).
   useEffect(() => {
@@ -526,7 +541,7 @@ export function ChatView() {
           (json.data as { status?: string } | undefined)?.status === "pending"
         ) {
           setState("processing");
-          void refresh();
+          void refreshLight();
           return;
         }
         const reading = json.data as {
@@ -551,7 +566,7 @@ export function ChatView() {
         );
         setState("idle");
         setPendingRetry(null);
-        void refresh();
+        void refreshLight();
         usageRefreshRef.current?.();
         return;
       }
@@ -636,7 +651,7 @@ export function ChatView() {
             setErrorText(null);
             setErrorCode(null);
             setPendingRetry(null);
-            void refresh();
+            void refreshLight();
             usageRefreshRef.current?.();
           } else if (event.type === "error") {
             finished = true;
@@ -694,7 +709,7 @@ export function ChatView() {
         setState("idle");
         setErrorText(null);
         setErrorCode(null);
-        void refresh();
+        void refreshLight();
         usageRefreshRef.current?.();
         return;
       }

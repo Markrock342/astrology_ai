@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { getMaintenanceMode } from "@/server/settings/settings-service";
+import { getCachedMaintenanceMode } from "@/server/auth/session-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default async function AdminLayout({
   if (!session?.user) redirect("/login");
   if (role !== "ADMIN" && role !== "SUPER_ADMIN") redirect("/dashboard");
 
-  const maintenance = await getMaintenanceMode().catch(() => ({
+  const maintenance = await getCachedMaintenanceMode().catch(() => ({
     enabled: false,
     message: "",
   }));

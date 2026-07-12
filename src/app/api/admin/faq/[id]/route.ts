@@ -3,10 +3,20 @@ import { requireAdmin } from "@/server/auth/rbac";
 import { faqItemSchema } from "@/lib/admin-schemas";
 import {
   deleteFaqItem,
+  getFaqItemById,
   publishFaqItem,
   saveFaqDraft,
   updateFaqMeta,
 } from "@/server/admin/cms-content-admin-service";
+
+/** GET /api/admin/faq/:id — full Q/A for editor. */
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return handle(async () => {
+    await requireAdmin();
+    const { id } = await ctx.params;
+    return ok(await getFaqItemById(id));
+  });
+}
 
 /** PATCH /api/admin/faq/:id — meta only (enabled, category, sortOrder) */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
