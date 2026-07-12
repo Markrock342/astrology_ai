@@ -189,6 +189,7 @@ model User {
 
   @@index([role])
   @@index([status])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -448,6 +449,7 @@ model CreditTransaction {
 
   @@index([userId, createdAt])
   @@index([referenceType, referenceId])
+  @@index([type, createdAt])
   @@map("credit_transactions")
 }
 
@@ -580,6 +582,7 @@ model AIUsageLog {
   @@index([userId, createdAt])
   @@index([userId, status, createdAt])
   @@index([status])
+  @@index([createdAt])
   @@map("ai_usage_logs")
 }
 
@@ -609,6 +612,7 @@ model Conversation {
   messages Message[]
 
   @@index([userId, createdAt])
+  @@index([userId, mode, updatedAt])
   @@index([categoryId])
   @@map("conversations")
 }
@@ -636,6 +640,7 @@ model Message {
 
   @@unique([conversationId, idempotencyKey])
   @@index([conversationId, createdAt])
+  @@index([conversationId, status])
   @@map("messages")
 }
 
@@ -669,6 +674,7 @@ model Payment {
   reviewer User? @relation("PaymentReviewer", fields: [reviewedByAdminId], references: [id])
 
   @@index([userId, status])
+  @@index([status, createdAt])
   @@map("payments")
 }
 
@@ -703,6 +709,7 @@ model AdminAuditLog {
 
   @@index([entityType, entityId])
   @@index([adminUserId, createdAt])
+  @@index([createdAt])
   @@map("admin_audit_logs")
 }
 

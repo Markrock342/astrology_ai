@@ -4,8 +4,22 @@ import { promptUpdateSchema } from "@/lib/admin-schemas";
 import {
   updatePrompt,
   deletePrompt,
+  getPromptById,
   assertAiAdminEnabled,
 } from "@/server/admin/ai-admin-service";
+import { AppError } from "@/lib/errors";
+
+/** GET /api/admin/prompts/:id — full body for editor. */
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  return handle(async () => {
+    assertAiAdminEnabled();
+    await requireAdmin();
+    const { id } = await ctx.params;
+    const row = await getPromptById(id);
+    if (!row) throw new AppError("NOT_FOUND", "Prompt template not found");
+    return ok(row);
+  });
+}
 
 /** PATCH /api/admin/prompts/:id — edit (content change bumps version). */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {

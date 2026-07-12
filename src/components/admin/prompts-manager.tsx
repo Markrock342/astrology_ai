@@ -20,15 +20,19 @@ import {
   Toggle,
 } from "./ui";
 
-type Prompt = {
+type PromptSummary = {
   id: string;
   code: string;
   name: string;
   type: "SYSTEM" | "PERSONA" | "CATEGORY" | "FORMAT";
-  content: string;
-  draftContent: string | null;
   version: number;
   enabled: boolean;
+  draftUpdatedAt: string | null;
+};
+
+type Prompt = PromptSummary & {
+  content: string;
+  draftContent: string | null;
 };
 
 const TYPE_LABEL: Record<Prompt["type"], string> = {
@@ -47,7 +51,7 @@ const EMPTY_FORM = {
 };
 
 export function PromptsManager() {
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
+  const [prompts, setPrompts] = useState<PromptSummary[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -67,7 +71,7 @@ export function PromptsManager() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      setPrompts(await adminFetch<Prompt[]>("/api/admin/prompts"));
+      setPrompts(await adminFetch<PromptSummary[]>("/api/admin/prompts"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดข้อมูลไม่สำเร็จ");
     } finally {
@@ -81,17 +85,28 @@ export function PromptsManager() {
     void load();
   }, [load]);
 
-  function startEdit(p: Prompt) {
+  async function startEdit(p: PromptSummary) {
     setEditingId(p.id);
-    setForm({
-      code: p.code,
-      name: p.name,
-      type: p.type,
-      content: p.draftContent ?? p.content,
-      enabled: p.enabled,
-    });
     setShowForm(true);
-    void loadRevisions(p.id);
+    setBusy(true);
+    setError(null);
+    try {
+      const full = await adminFetch<Prompt>(`/api/admin/prompts/${p.id}`);
+      setForm({
+        code: full.code,
+        name: full.name,
+        type: full.type,
+        content: full.draftContent ?? full.content,
+        enabled: full.enabled,
+      });
+      void loadRevisions(p.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "โหลดเนื้อหาไม่สำเร็จ");
+      setShowForm(false);
+      setEditingId(null);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveDraft() {
@@ -158,8 +173,14 @@ export function PromptsManager() {
         body: JSON.stringify({ mode }),
       });
       await load();
-      const p = (await adminFetch<Prompt[]>("/api/admin/prompts")).find((x) => x.id === editingId);
-      if (p) startEdit(p);
+      const full = await adminFetch<Prompt>(`/api/admin/prompts/${editingId}`);
+      setForm({
+        code: full.code,
+        name: full.name,
+        type: full.type,
+        content: full.draftContent ?? full.content,
+        enabled: full.enabled,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "กู้คืนไม่สำเร็จ");
     } finally {
@@ -181,7 +202,7 @@ export function PromptsManager() {
     }
   }
 
-  async function toggleEnabled(p: Prompt) {
+  async function toggleEnabled(p: PromptSummary) {
     try {
       await adminFetch(`/api/admin/prompts/${p.id}`, {
         method: "PATCH",
@@ -217,7 +238,7 @@ export function PromptsManager() {
         <Card>
           {editingId && (
             <ContentEditorToolbar
-              hasDraft={!!prompts.find((p) => p.id === editingId)?.draftContent}
+              hasDraft={Boolean(prompts.find((p) => p.id === editingId)?.draftUpdatedAt)}
               busy={busy}
               onSaveDraft={() => void saveDraft()}
               onPublish={() => void publish()}
@@ -302,6 +323,7 @@ export function PromptsManager() {
               <Badge>v{p.version}</Badge>
               <Badge>{p.code}</Badge>
               {!p.enabled && <Badge tone="red">ปิดอยู่</Badge>}
+              {p.draftUpdatedAt ? <Badge tone="gold">มีแบบร่าง</Badge> : null}
               <div className="ml-auto flex gap-2">
                 <Button variant="ghost" onClick={() => toggleEnabled(p)}>
                   {p.enabled ? "ปิด" : "เปิด"}
@@ -314,9 +336,6 @@ export function PromptsManager() {
                 </Button>
               </div>
             </div>
-            <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-[var(--muted)]">
-              {p.content.length > 300 ? `${p.content.slice(0, 300)}…` : p.content}
-            </p>
           </Card>
         ))}
         {prompts.length === 0 && !showForm && (

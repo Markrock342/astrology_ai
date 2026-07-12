@@ -17,13 +17,10 @@ export async function notifyAdminsNewPayment(input: {
   amount: number;
   userEmail: string;
   userName?: string | null;
-  reference?: string | null;
 }): Promise<void> {
   const link = `${appBaseUrl()}/admin/payments`;
   const title = `สลิปใหม่รอตรวจ — ฿${input.amount}`;
-  const body =
-    `${input.userName ?? input.userEmail} ส่งหลักฐานโอน ฿${input.amount}` +
-    (input.reference ? ` (อ้างอิง ${input.reference})` : "");
+  const body = `${input.userName ?? input.userEmail} ส่งหลักฐานโอน ฿${input.amount}`;
 
   const text = [
     title,

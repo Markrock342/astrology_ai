@@ -16,8 +16,6 @@ type Actor = { id: string; ip?: string };
 
 export type SubmitPaymentInput = {
   amount: number;
-  reference?: string;
-  note?: string;
   proofPath: string;
   packageCode?: string;
 };
@@ -74,8 +72,6 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
     data: {
       userId,
       amount: input.amount,
-      reference: input.reference,
-      note: input.note,
       packageCode: input.packageCode,
       proofUrl: proofPath,
       status: "PENDING",
@@ -84,7 +80,6 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
       id: true,
       amount: true,
       status: true,
-      reference: true,
       packageCode: true,
       proofUrl: true,
       createdAt: true,
@@ -96,7 +91,6 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
     amount: payment.amount,
     userEmail: user.email,
     userName: user.name,
-    reference: payment.reference,
   }).catch((err) => console.error("[payment-notify]", err));
 
   return payment;

@@ -21,7 +21,6 @@ type Payment = {
   id: string;
   amount: number;
   status: "PENDING" | "APPROVED" | "REJECTED";
-  reference: string | null;
   note: string | null;
   proofUrl: string | null;
   reviewedAt: string | null;
@@ -196,7 +195,7 @@ export function PaymentsPanel() {
             <Th>วันที่</Th>
             <Th>ผู้ใช้</Th>
             <Th>จำนวน</Th>
-            <Th>อ้างอิง</Th>
+            <Th>สลิป</Th>
             <Th>สถานะ</Th>
             <Th>ดำเนินการ</Th>
           </tr>
@@ -228,46 +227,24 @@ export function PaymentsPanel() {
               </Td>
               <Td className="text-sm font-medium">฿{p.amount}</Td>
               <Td className="text-xs text-[var(--muted)]">
-                {p.reference ?? "—"}
-                {p.proofUrl && (
-                  <>
-                    <br />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const src = slipSrc(p);
-                        if (src) {
-                          setZoomSlip({
-                            src,
-                            alt: `สลิป ${p.user.email}`,
-                          });
-                        }
-                      }}
-                      className="text-[var(--primary)] underline"
-                    >
-                      ดูสลิป (ซูม)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const src = slipSrc(p);
-                        if (src) {
-                          setZoomSlip({
-                            src,
-                            alt: `สลิป ${p.user.email}`,
-                          });
-                        }
-                      }}
-                      className="mt-1 block overflow-hidden rounded-md border border-[var(--border)]"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={slipSrc(p) ?? undefined}
-                        alt="สลิป"
-                        className="max-h-24 max-w-[140px] cursor-zoom-in object-contain"
-                      />
-                    </button>
-                  </>
+                {p.proofUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const src = slipSrc(p);
+                      if (src) {
+                        setZoomSlip({
+                          src,
+                          alt: `สลิป ${p.user.email}`,
+                        });
+                      }
+                    }}
+                    className="text-[var(--primary)] underline"
+                  >
+                    ดูสลิป
+                  </button>
+                ) : (
+                  "—"
                 )}
               </Td>
               <Td>

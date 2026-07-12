@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getMyUsage } from "@/server/account/usage-service";
+import { getMyUsage, getMyUsageSummary } from "@/server/account/usage-service";
 
 const mocks = vi.hoisted(() => ({
   getBalance: vi.fn(),
@@ -73,5 +73,15 @@ describe("getMyUsage (BE-E1.3)", () => {
         skip: 1,
       }),
     );
+  });
+
+  it("getMyUsageSummary skips credit history query", async () => {
+    const result = await getMyUsageSummary("user-1");
+    expect(result).toMatchObject({
+      balance: 12,
+      usedToday: 3,
+      usedThisMonth: 41,
+    });
+    expect(mocks.findMany).not.toHaveBeenCalled();
   });
 });

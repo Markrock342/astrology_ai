@@ -8,7 +8,7 @@ export type RevisionRow = {
   entityType: ContentEntityType;
   entityId: string;
   version: number;
-  snapshotJson: unknown;
+  snapshotJson?: unknown;
   action: RevisionAction;
   note: string | null;
   createdAt: Date;
@@ -60,13 +60,12 @@ export async function listRevisions(
       entityType: true,
       entityId: true,
       version: true,
-      snapshotJson: true,
       action: true,
       note: true,
       createdAt: true,
       admin: { select: { email: true, name: true } },
     },
-  });
+  }) as Promise<RevisionRow[]>;
 }
 
 export async function getRevision(id: string) {

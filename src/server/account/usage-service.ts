@@ -24,7 +24,30 @@ export type MyUsageResult = {
   };
 };
 
+export type MyUsageSummary = {
+  balance: number;
+  dailyLimit: number | null;
+  monthlyLimit: number | null;
+  usedToday: number;
+  usedThisMonth: number;
+};
+
 const HISTORY_PAGE_SIZE = 20;
+
+/** Balance + quota counts only (chat bar / header). */
+export async function getMyUsageSummary(userId: string): Promise<MyUsageSummary> {
+  const [balance, usage] = await Promise.all([
+    getBalance(userId),
+    getUsageCounts(userId),
+  ]);
+  return {
+    balance,
+    dailyLimit: usage.dailyLimit,
+    monthlyLimit: usage.monthlyLimit,
+    usedToday: usage.usedToday,
+    usedThisMonth: usage.usedThisMonth,
+  };
+}
 
 /** GET /api/me/usage — balance, plan limits, and paginated credit ledger. */
 export async function getMyUsage(
