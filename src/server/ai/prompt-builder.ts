@@ -35,6 +35,19 @@ export const ENGINE_CHART_RULE =
   "ถ้าคำถามเกี่ยวกับดวงจรแต่ไม่มีบล็อก [transit] ให้แนะนำให้ผู้ใช้เลือกเมนู「เริ่มดวงจร」ในแถบข้าง " +
   "ถ้าคำถามต้องการข้อมูลนอกบล็อกที่ให้มา ให้บอกข้อจำกัดอย่างสุภาพ อย่า invent";
 
+/**
+ * Always-on layout rule so replies render like ChatGPT/Grok/Gemini
+ * even if Admin `format.*` templates are outdated.
+ */
+export const RESPONSE_LAYOUT_RULE =
+  "รูปแบบคำตอบ (บังคับ): เขียน Markdown ที่อ่านง่ายเหมือนแชท AI จริง " +
+  "ใช้ ## หรือ ### เป็นหัวข้อย่อย (ใช้ # ได้เมื่อเป็นหัวข้อหลักของคำตอบยาว) " +
+  "ใช้รายการ `-` / `1.` เมื่อมีหลายประเด็น " +
+  "ใช้ตาราง Markdown (| คอลัมน์ |) เมื่อสรุปดาว/เรือน/จังหวะหลายรายการ " +
+  "ใช้ **ตัวหนา** เน้นคำสำคัญ เว้นย่อหน้าสั้น ๆ อ่านสบาย " +
+  "ห้ามห่อคำตอบทั้งก้อนด้วย code fence " +
+  "รักษาบุคลิกและน้ำเสียงจากบล็อก persona ตลอดการสนทนา — อย่าเปลี่ยนเป็นโทนหุ่นยนต์หรือเลิกเป็นตัวละครนั้น";
+
 export function buildSystemPrompt(parts: PromptParts): string {
   return [
     parts.safety,
@@ -44,6 +57,8 @@ export function buildSystemPrompt(parts: PromptParts): string {
     parts.category,
     parts.knowledge,
     parts.outputFormat,
+    // Layout last so it overrides outdated Admin format templates that banned headings.
+    RESPONSE_LAYOUT_RULE,
   ]
     .filter(Boolean)
     .join("\n\n");

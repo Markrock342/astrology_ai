@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DEFAULTS } from "@/config/constants";
+import { APP_NAME, DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
 import { ChatThreadSkeleton } from "@/components/app/content-skeleton";
 import {
@@ -13,7 +13,9 @@ import {
 
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
+import { ChatMarkdown } from "./chat-markdown";
 import { ChatUsageBar } from "./chat-usage-bar";
+import { CopyMessageButton } from "./copy-message-button";
 import { NatalChartBanner } from "./natal-chart-banner";
 import type { ChartJson } from "@/types/chart";
 import {
@@ -732,76 +734,90 @@ export function ChatView() {
         ) : state === "locked" && messages.length === 0 ? (
           <LockedState category={category?.label} />
         ) : (
-          <div className="mx-auto flex max-w-3xl flex-col gap-6">
-            {messages
-              .filter(
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-2">
+            {(() => {
+              const visibleMessages = messages.filter(
                 (m) =>
                   !(
                     m.role === "assistant" &&
                     m.status === "PENDING" &&
                     !m.content
                   ),
-              )
-              .map((m, idx) =>
-              m.role === "user" ? (
+              );
+              return visibleMessages.map((m, idx) => {
+              const isStreamingTurn =
+                state === "streaming" &&
+                m.role === "assistant" &&
+                idx === visibleMessages.length - 1;
+              return m.role === "user" ? (
                 <div key={m.id} className="animate-msg-in flex justify-end">
-                  <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl bg-[var(--surface-3)] px-4 py-2.5 text-sm text-[var(--foreground)]">
+                  <div className="max-w-[min(85%,42rem)] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[var(--surface-3)] px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]">
                     {m.content}
                   </div>
                 </div>
               ) : (
-                <div key={m.id} className="animate-msg-in max-w-[85%]">
-                  {(m.chartSnapshot || m.transitSnapshot) && (
-                    <div className="mb-3 flex flex-col gap-2">
-                      <div className="flex flex-wrap items-start gap-3">
+                <div key={m.id} className="animate-msg-in group flex gap-3 sm:gap-4">
+                  <div
+                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--primary)]/35 bg-[var(--surface-2)] text-[var(--primary)]"
+                    aria-hidden
+                  >
+                    <SparkleIcon />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-2 text-xs font-semibold tracking-wide text-[var(--primary)]">
+                      {APP_NAME}
+                    </p>
+                    {(m.chartSnapshot || m.transitSnapshot) && (
+                      <div className="mb-4 flex flex-col gap-2">
+                        <div className="flex flex-wrap items-start gap-3">
+                          {m.chartSnapshot && (
+                            <ExpandableRasiWheel
+                              chart={m.chartSnapshot}
+                              size={168}
+                              label="พื้นดวงเดิม"
+                            />
+                          )}
+                          {m.transitSnapshot && (
+                            <ExpandableRasiWheel
+                              chart={m.transitSnapshot}
+                              size={168}
+                              label="ดวงจร"
+                            />
+                          )}
+                        </div>
                         {m.chartSnapshot && (
-                          <ExpandableRasiWheel
-                            chart={m.chartSnapshot}
-                            size={168}
-                            label="พื้นดวงเดิม"
-                          />
+                          <ChartEvidenceTable chart={m.chartSnapshot} mode="natal" />
                         )}
                         {m.transitSnapshot && (
-                          <ExpandableRasiWheel
+                          <ChartEvidenceTable
                             chart={m.transitSnapshot}
-                            size={168}
-                            label="ดวงจร"
+                            mode="transit"
                           />
                         )}
                       </div>
-                      {m.chartSnapshot && (
-                        <ChartEvidenceTable chart={m.chartSnapshot} mode="natal" />
-                      )}
-                      {m.transitSnapshot && (
-                        <ChartEvidenceTable chart={m.transitSnapshot} mode="transit" />
-                      )}
-                    </div>
-                  )}
-                  <div
-                    className={`whitespace-pre-wrap text-sm leading-7 text-[var(--foreground)] ${
-                      state === "streaming" && idx === messages.length - 1
-                        ? "stream-caret"
-                        : ""
-                    }`}
-                  >
-                    {m.content}
-                  </div>
-                  {m.modelId &&
-                    !(state === "streaming" && idx === messages.length - 1) && (
-                      <p className="animate-fade-in mt-2 flex items-center gap-1.5 text-[10px] text-[var(--muted-2)]">
-                        <SparkleIcon />
-                        ตอบโดย {modelLabel(m.modelId)}
+                    )}
+                    <ChatMarkdown content={m.content} streaming={isStreamingTurn} />
+                    {!isStreamingTurn && m.content && (
+                      <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-[var(--border)]/70 pt-2">
+                        <CopyMessageButton text={m.content} />
+                        {m.modelId && (
+                          <span className="ml-1 inline-flex items-center gap-1 text-[10px] text-[var(--muted-2)]">
+                            ตอบโดย {modelLabel(m.modelId)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {!isStreamingTurn && (
+                      <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted-2)]">
+                        คำทำนายนี้มีไว้เพื่อความบันเทิงและเป็นแนวทางเท่านั้น
+                        ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์
                       </p>
                     )}
-                  {!(state === "streaming" && idx === messages.length - 1) && (
-                    <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted-2)]">
-                      คำทำนายนี้มีไว้เพื่อความบันเทิงและเป็นแนวทางเท่านั้น
-                      ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์
-                    </p>
-                  )}
+                  </div>
                 </div>
-              )
-            )}
+              );
+            });
+            })()}
             {state === "processing" && <ThinkingIndicator />}
             {state === "streaming" &&
               messages[messages.length - 1]?.role === "assistant" &&
