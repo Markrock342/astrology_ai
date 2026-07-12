@@ -29,7 +29,7 @@ import {
 } from "@/server/settings/settings-service";
 import { getMe } from "@/server/user/account-service";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata(): Promise<Metadata> {
   const seo =

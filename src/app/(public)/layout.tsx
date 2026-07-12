@@ -9,7 +9,7 @@ import {
   getPublishedSetting,
 } from "@/server/settings/settings-service";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function PublicLayout({
   children,

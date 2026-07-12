@@ -443,14 +443,14 @@ export function ChatView() {
     !threadId;
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <ChatUsageBar registerRefresh={registerUsageRefresh} />
       {threadMode === "TRANSIT" && threadTransitLabel ? (
-        <div className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-center text-xs text-[var(--muted)] md:px-8">
+        <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-center text-xs text-[var(--muted)] md:px-8">
           โหมดดวงจร · {threadTransitLabel}
         </div>
       ) : null}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 md:px-8">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8">
         {!FEATURES.aiChat && (
           <div className="animate-fade-in mx-auto mb-6 max-w-3xl rounded-xl border border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 text-center text-xs text-[var(--muted)]">
             ตัวอย่างระบบ (เฟสนี้) — ระบบดูดวงด้วย AI จะเปิดให้ใช้งานจริงในเฟสถัดไป
@@ -513,19 +513,19 @@ export function ChatView() {
               ) : (
                 <div key={m.id} className="animate-msg-in max-w-[85%]">
                   {(m.chartSnapshot || m.transitSnapshot) && (
-                    <div className="mb-3 flex flex-col gap-3">
+                    <div className="mb-3 flex flex-col gap-2">
                       <div className="flex flex-wrap items-start gap-3">
                         {m.chartSnapshot && (
                           <ExpandableRasiWheel
                             chart={m.chartSnapshot}
-                            size={132}
+                            size={96}
                             label="พื้นดวงเดิม"
                           />
                         )}
                         {m.transitSnapshot && (
                           <ExpandableRasiWheel
                             chart={m.transitSnapshot}
-                            size={132}
+                            size={96}
                             label="ดวงจร"
                           />
                         )}
@@ -582,14 +582,16 @@ export function ChatView() {
         )}
       </div>
 
-      <Composer
-        value={input}
-        onChange={setInput}
-        onSend={() => send(input)}
-        disabled={state === "processing" || state === "streaming" || locked}
-        aiEnabled={FEATURES.aiChat && !locked}
-        creditCost={DEFAULTS.creditCostPerReading}
-      />
+      <div className="shrink-0">
+        <Composer
+          value={input}
+          onChange={setInput}
+          onSend={() => send(input)}
+          disabled={state === "processing" || state === "streaming" || locked}
+          aiEnabled={FEATURES.aiChat && !locked}
+          creditCost={DEFAULTS.creditCostPerReading}
+        />
+      </div>
     </div>
   );
 }

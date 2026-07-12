@@ -5,7 +5,7 @@ import { CMS_KEYS, type CmsSeo } from "@/lib/cms-keys";
 import { metadataFromSeo } from "@/lib/seo";
 import { getPrivacyDocument, getPublishedSetting } from "@/server/settings/settings-service";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata() {
   const seo = (await getPublishedSetting(CMS_KEYS.seoPrivacy)) as CmsSeo;
