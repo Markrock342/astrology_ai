@@ -4,9 +4,9 @@
 และ **`PROJECT_STRUCTURE.md`** (โครงสร้างโปรเจกต์ / ความจำกลางของทีม)
 ฝั่ง Frontend อยู่ในไฟล์ `FRONTEND_TASKS.md`
 
-**อ้างอิงสถานะจริง:** `main` หลัง merge PR #7 (B1+B2) · เอกสาร sync ก.ค. 2026
+**อ้างอิงสถานะจริง:** `main` + branch `be/wave-e-handoff` · เอกสาร sync ก.ค. 2026
 
-> **งานรอบนี้ (อ่านก่อน):** [`BE_ASSIGN.md`](./BE_ASSIGN.md) — thread API + B4 go-live
+> **งานรอบนี้:** [`HANDOFF_BE.md`](./HANDOFF_BE.md) · [`BE_ASSIGN.md`](./BE_ASSIGN.md) · [`docs/backend_wave_e.md`](./docs/backend_wave_e.md)
 
 **ขอบเขตของคุณ:** service layer + API + ฐานข้อมูล + AI integration
 **โฟลเดอร์ที่ดูแล:** `src/server/`, `src/app/api/`, `prisma/`
@@ -102,32 +102,30 @@ git merge main    # ไม่แน่ใจให้ถาม PM ก่อน
 
 ---
 
-### 🎯 Milestone 4 — Payment, Package, Dashboard, Deploy 🟢 ~80%
+### 🎯 Milestone 4 — Payment, Package, Dashboard, Deploy ✅ ปิด BN
 
 **เสร็จแล้ว (อย่าทำซ้ำ):**
 
-- [x] Manual payment: `POST /api/payments/manual` + admin review + เปิดแพ็กเกจ (+ audit)
-- [x] `GET /api/payments/me`
-- [x] ยกเลิกสมาชิก: `POST /api/me/subscription/cancel`
-- [x] `GET /api/admin/dashboard` (KPIs + ต้นทุน AI โดยประมาณ)
-- [x] หน้า legal scaffold + CMS settings (`privacy`/`terms`/`disclaimer` — F4 FE merged)
-- [x] Email: `mailer.ts` — Resend เมื่อมี `RESEND_API_KEY` / dev-console fallback
+- [x] Manual payment + admin review + subscription cancel + dashboard
+- [x] B3 Upstash rate-limit + smoke scripts
+- [x] Merge engine + F2 → `main` (PR #9)
 
-**เสร็จแล้ว (M4 BN code):**
+**ค้างมือ (ไม่ใช่โค้ด):** Google OAuth redirect · manual E2E smoke · optional Upstash
 
-- [x] B3 Upstash rate-limit + in-memory fallback
-- [x] Payment + dashboard code
-- [x] `tests/payment-service.test.ts`, `tests/rate-limit.test.ts`, `tests/thread-service.test.ts`
-- [x] `npm run smoke:public` script
+---
 
-**ค้างจริง (manual — ไม่ใช่โค้ด):**
+### 🎯 Wave E — HANDOFF_BE ✅ ครบบน `be/wave-e-handoff`
 
-- [ ] Google OAuth redirect URI สำหรับ production (โดเมนจริง)
-- [ ] Manual smoke: sign-in → birth → payment → แชท Gemini + ดวงจร (ตารางหลักฐาน)
-- [x] Merge engine + F2 + thread/rate-limit → `main` ([PR #9](https://github.com/Markrock342/astrology_ai/pull/9))
-- [x] Wave D transit create UI (FE) + empty thread detail (BE)
-- [ ] (Optional) Resend / Upstash / Turnstile ครบบน Vercel — Resend+Turnstile มีแล้ว · Upstash optional
-- [ ] Preview env มี `DATABASE_URL` + `AUTH_SECRET` (กัน Vercel PR build fail)
+- [x] **BE-E0.3** — `notifiedAt` / `notifyError` บน Payment
+- [x] **BE-E1.2** — quota atomic ใน transaction
+- [x] **BE-E1.3** — `GET /api/me/usage`
+- [x] **BE-E1.4** — `CREDIT_TOPUP` (`creditOnly`)
+- [x] **BE-E1.5** — `QUOTA_EXCEEDED`
+- [x] **BE-E1.6** — `DELETE /api/me/account` + admin user delete
+- [x] Tests: `payment-notify`, `usage-service`, `account-deletion`, อัปเดต payment/quota/reading
+- [ ] Merge → `main` · seed `CREDIT_TOPUP` · แจ้ง FE
+
+**ถัดไป:** Wave E2 ใน `BE_ASSIGN.md` § E2
 
 ---
 

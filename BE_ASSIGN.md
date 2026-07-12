@@ -2,11 +2,11 @@
 
 **ส่งเพื่อน A:** [HANDOFF_BE.md](./HANDOFF_BE.md) — https://github.com/Markrock342/astrology_ai/blob/main/HANDOFF_BE.md
 
-**สถานะ:** โค้ด M4 ครบบน `main` · เหลือ manual go-live เท่านั้น
+**สถานะ:** M4 ปิดบน `main` · **Wave E handoff (BE-E0.3–E1.6) ครบบน `be/wave-e-handoff`** — รอ merge
 
-อ่านคู่กับ `M4_HANDOFF.md` · `BACKEND_TASKS.md` · `docs/backend_m4_deploy.md`
+อ่านคู่กับ `M4_HANDOFF.md` · `BACKEND_TASKS.md` · `docs/backend_m4_deploy.md` · **`docs/backend_wave_e.md`**
 
-## ปิดแล้ว
+## ปิดแล้ว (M4 + engine)
 - [x] Thread API + multi-turn (B1)
 - [x] Tests credit/lock/idempotency/payment/rate-limit (B2)
 - [x] Upstash rate-limit + in-memory fallback (B3)
@@ -19,6 +19,14 @@
 - [ ] Manual smoke production (รวมแก้บุคลิก/ความรู้แล้วถามแชท)
 - [ ] Google OAuth redirect URI ตรงโดเมนจริง
 - [ ] (Optional) `UPSTASH_*` บน Vercel
+
+## ปิดแล้ว (Wave E handoff — branch `be/wave-e-handoff`)
+- [x] BE-E0.3 — `Payment.notifiedAt` / `notifyError` + admin list API
+- [x] BE-E1.2 — quota atomic (`lockWalletForUpdate` + in-tx re-check)
+- [x] BE-E1.3 — `GET /api/me/usage` + credit history pagination
+- [x] BE-E1.4 — `CREDIT_TOPUP` (`creditOnly`) + review branch
+- [x] BE-E1.5 — `QUOTA_EXCEEDED` แยกจาก `RATE_LIMITED`
+- [x] BE-E1.6 — `DELETE /api/me/account` + `DELETE /api/admin/users/[id]`
 
 ---
 
@@ -44,10 +52,9 @@
 - [x] **test:** concurrent second approve loses CAS · **S** ✅
 
 ### BE-E0.3 · [P1] Email — blast radius กว้างกว่าที่คิด: **password reset ตายทั้งระบบ**
-- [ ] (ops) verify domain Resend → ตั้ง `EMAIL_FROM` → `npm run deploy:env`
-- [x] mailer.ts: production without Resend → `{ok:false}` (ไม่ fake-send) + warn sandbox FROM
 - [x] password-reset: ลบ token ถ้าส่งอีเมลไม่สำเร็จ
-- [ ] persist `notifiedAt`/`notifyError` บน `Payment` 🔗 (FE โชว์ badge) · **S** + ops
+- [x] persist `notifiedAt`/`notifyError` บน `Payment` 🔗 (FE โชว์ badge) · **S** ✅
+- [ ] (ops) verify domain Resend → ตั้ง `EMAIL_FROM` → `npm run deploy:env` — งาน PM
 
 ### BE-E0.4 · [P1] เปิด Upstash rate-limit จริง + auth fail-closed
 - [ ] (ops) สร้าง Upstash → `UPSTASH_*` → deploy:env → redeploy
@@ -71,31 +78,27 @@
 - [x] แนบ chart เข้ากับ **current userPrompt ทุกครั้ง** แทน pin ที่ history
 - [x] test: long thread ยังมี `[natal]` ใน userPrompt · **S** ✅
 
-### BE-E1.2 · [P1] Quota enforcement ให้ atomic (comment โกหกว่า atomic)
-`quota-service.ts:53` — pre-check count นอก tx → ยิงพร้อมกันทะลุ cap
-- [ ] re-run count **ใน** `$transaction` (reading-service.ts:210) ก่อน deductCredits, throw RATE_LIMITED เพื่อ rollback
-- [ ] `SELECT ... FROM credit_wallets WHERE userId=$1 FOR UPDATE` ต้น tx (serialize ต่อ user)
-- [ ] test: ยิง N พร้อมกัน dailyLimit=1 → SUCCESS 1 · **M**
+### BE-E1.2 · [P1] Quota enforcement ให้ atomic
+- [x] re-run count **ใน** `$transaction` ก่อน deductCredits, throw `QUOTA_EXCEEDED` เพื่อ rollback
+- [x] `FOR UPDATE` บน `credit_wallets` ต้น tx (`lockWalletForUpdate`)
+- [x] test: quota-service + reading-service mocks · **M** ✅
 
 ### BE-E1.3 · [P1] 🔗 API ให้ user เห็น usage (คู่ FE-E1.1)
-`/account` มีแค่ยอดเครดิต — limit fetch แล้วทิ้ง (`account-service.ts:76`)
-- [ ] `GET /api/me/usage` → `{ balance, dailyLimit, monthlyLimit, usedToday, usedThisMonth }` (export+reuse `bangkokBoundaries`+counts จาก quota-service)
-- [ ] + paginated history (CreditTransaction/reading)
-- [ ] **คุย contract กับ FE ก่อน** (field names + pagination) · **M**
+- [x] `GET /api/me/usage` → balance, limits, usedToday/usedThisMonth
+- [x] paginated history จาก `CreditTransaction`
+- [x] contract ตาม `docs/backend_wave_e.md` · **M** ✅
 
 ### BE-E1.4 · [P1] 🔗 ปิดทางตันซื้อซ้ำ (Pro เครดิตหมดซื้อไม่ได้)
-- [ ] product credit-only top-up (reviewPayment เติมเครดิตไม่แตะ subscription)
-- [ ] reviewPayment แยก branch: top-up vs package · 🔗 FE ทำฟอร์ม · **M**
+- [x] product credit-only top-up (`Package.creditOnly`, seed `CREDIT_TOPUP`)
+- [x] `reviewPayment` แยก branch: top-up vs package · 🔗 FE ทำฟอร์ม · **M** ✅
 
 ### BE-E1.5 · [P2] แยก QUOTA_EXCEEDED จาก RATE_LIMITED
-โควต้าหมดโชว์เป็น "ถามเร็วไป" + Retry ที่ไม่มีวันได้ผล
-- [ ] throw `QUOTA_EXCEEDED` จาก quota-service — เก็บ `RATE_LIMITED` เฉพาะ rate-limit.ts · 🔗 FE-E1.4 · **S**
+- [x] throw `QUOTA_EXCEEDED` จาก quota-service — `RATE_LIMITED` เฉพาะ rate-limit.ts · 🔗 FE-E1.4 · **S** ✅
 
-### BE-E1.6 · [P1] ⚖️ PDPA — เราสัญญาว่าลบข้อมูลได้ แต่ทำไม่ได้จริง
-privacy policy + terms (`cms-keys.ts:184/186/258`) เขียนไว้ว่า *"ขอเข้าถึง แก้ไข หรือลบข้อมูลส่วนบุคคลของคุณได้"* และ *"การลบบัญชีจะเป็นการลบข้อมูลถาวร"* — แต่ **ทั้ง codebase ไม่มี user deletion เลย** (`api/admin/users/[id]/route.ts` มีแต่ GET, ไม่มี DELETE route, ไม่มี self-serve delete) + สลิปเป็น public blob ถาวรที่ไม่มี path ลบ → ธุรกิจไทยที่อยู่ใต้ PDPA §33 ทำตามคำสัญญาตัวเองได้แค่ผ่าน `psql`
-- [ ] `DELETE /api/me/account` (self-serve) — soft delete หรือ anonymize + ลบ slip blobs
-- [ ] `DELETE /api/admin/users/[id]` (admin, requireSuperAdmin) + audit
-- [ ] slip retention: ลบ blob N วันหลัง review (ต้องมี cron — ดู BE-E2.10) · **M**
+### BE-E1.6 · [P1] ⚖️ PDPA — ลบบัญชี
+- [x] `DELETE /api/me/account` (self-serve USER) + ลบ slip blobs
+- [x] `DELETE /api/admin/users/[id]` (requireSuperAdmin) + audit
+- [ ] slip retention cron N วันหลัง review (คู่ BE-E2.10) · **M**
 
 ## 🟡 E2 — เดือนแรก
 

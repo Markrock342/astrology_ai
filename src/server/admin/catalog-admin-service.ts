@@ -156,6 +156,7 @@ export function listPublicPackages() {
       description: true,
       features: true,
       upgradeSteps: true,
+      creditOnly: true,
     },
   });
 }

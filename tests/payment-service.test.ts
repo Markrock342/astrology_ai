@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   findUnique: vi.fn(),
   findPackage: vi.fn(),
+  findFirstPackage: vi.fn(),
   update: vi.fn(),
   updateMany: vi.fn(),
   findUniqueOrThrow: vi.fn(),
@@ -28,7 +29,7 @@ vi.mock("@/server/db", () => ({
       findUnique: mocks.findUnique,
       update: mocks.update,
     },
-    package: { findUnique: mocks.findPackage },
+    package: { findUnique: mocks.findPackage, findFirst: mocks.findFirstPackage },
     user: { findUnique: mocks.userFindUnique },
     userSubscription: {
       updateMany: mocks.updateMany,
@@ -46,9 +47,24 @@ vi.mock("@/server/audit/audit-service", () => ({
   writeAudit: mocks.writeAudit,
 }));
 
+vi.mock("@/server/payment/payment-proof", async () => {
+  const { AppError } = await import("@/lib/errors");
+  return {
+    assertOwnedProofPath: (userId: string, path: string) => {
+      const prefix = `payment-slips/${userId}/`;
+      if (!path.startsWith(prefix)) {
+        throw new AppError("VALIDATION", "พาธสลิปไม่ถูกต้อง");
+      }
+      return path;
+    },
+    deletePaymentProofBlob: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 vi.mock("@/server/payment/payment-notify", () => ({
   notifyAdminsNewPayment: vi.fn().mockResolvedValue(undefined),
-  notifyUserPaymentReviewed: vi.fn().mockResolvedValue(undefined),
+  notifyUserPaymentReviewed: vi.fn().mockResolvedValue({ ok: true, via: "dev" }),
+  persistPaymentNotifyResult: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("payment-service (M4)", () => {
@@ -94,6 +110,18 @@ describe("payment-service (M4)", () => {
     ).rejects.toMatchObject({ code: "VALIDATION" });
   });
 
+  it("submitManualPayment rejects amount mismatch when packageCode is set", async () => {
+    mocks.findFirstPackage.mockResolvedValue({ id: "pkg-pro", price: 199 });
+    await expect(
+      submitManualPayment("user-1", {
+        amount: 150,
+        proofPath: "payment-slips/user-1/1.jpg",
+        packageCode: "PRO",
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
   it("reviewPayment approve creates subscription and adds credits", async () => {
     const payment = {
       id: "pay-1",
@@ -103,7 +131,7 @@ describe("payment-service (M4)", () => {
       note: null,
       user: { id: "user-1", email: "u@test.com" },
     };
-    const pkg = { id: "pkg-pro", code: "PRO", creditQuota: 100 };
+    const pkg = { id: "pkg-pro", code: "PRO", creditQuota: 100, creditOnly: false };
     const updated = {
       id: "pay-1",
       status: "APPROVED",
@@ -198,6 +226,7 @@ describe("payment-service (M4)", () => {
       id: "pkg-pro",
       code: "PRO",
       creditQuota: 100,
+      creditOnly: false,
     });
 
     const tx = {
@@ -223,5 +252,58 @@ describe("payment-service (M4)", () => {
     expect(mocks.addCredits).not.toHaveBeenCalled();
     expect(mocks.subscriptionCreate).not.toHaveBeenCalled();
     expect(tx.payment.findUniqueOrThrow).not.toHaveBeenCalled();
+  });
+
+  it("reviewPayment approve credit-only top-up adds credits without subscription", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "pay-topup",
+      userId: "user-1",
+      amount: 99,
+      status: "PENDING",
+      note: null,
+      packageCode: "CREDIT_TOPUP",
+      user: { id: "user-1", email: "u@test.com" },
+    });
+    mocks.findPackage.mockResolvedValue({
+      id: "pkg-topup",
+      code: "CREDIT_TOPUP",
+      creditQuota: 50,
+      creditOnly: true,
+    });
+
+    const updated = {
+      id: "pay-topup",
+      status: "APPROVED",
+      amount: 99,
+      reviewedAt: new Date(),
+      userId: "user-1",
+      packageCode: "CREDIT_TOPUP",
+    };
+    const tx = {
+      payment: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(updated),
+      },
+      userSubscription: {
+        updateMany: mocks.updateMany,
+        create: mocks.subscriptionCreate,
+      },
+    };
+    mocks.transaction.mockImplementation(async (fn) => fn(tx));
+
+    await reviewPayment(
+      "pay-topup",
+      { status: "APPROVED", packageCode: "CREDIT_TOPUP" },
+      { id: "admin-1" },
+    );
+
+    expect(mocks.addCredits).toHaveBeenCalledWith(
+      "user-1",
+      50,
+      expect.objectContaining({ type: "PROMOTION" }),
+      tx,
+    );
+    expect(mocks.subscriptionCreate).not.toHaveBeenCalled();
+    expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 });
