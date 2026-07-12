@@ -137,6 +137,38 @@ async function main() {
     },
   });
 
+  await prisma.package.upsert({
+    where: { code: "CREDIT_TOPUP" },
+    update: {
+      creditOnly: true,
+      features: [
+        "เติมเครดิต 50 ครั้ง",
+        "สำหรับสมาชิก Pro ที่เครดิตหมด",
+        "ไม่เปลี่ยนแพ็กเกจหรือวันหมดอายุ",
+      ],
+    },
+    create: {
+      code: "CREDIT_TOPUP",
+      name: "เติมเครดิต",
+      type: "PRO",
+      creditOnly: true,
+      price: 99,
+      billingLabel: "ครั้งเดียว",
+      creditQuota: 50,
+      description: "เติมเครดิตเพิ่มสำหรับสมาชิก Pro (ไม่ต่ออายุแพ็กเกจ)",
+      features: [
+        "เติมเครดิต 50 ครั้ง",
+        "สำหรับสมาชิก Pro ที่เครดิตหมด",
+        "ไม่เปลี่ยนแพ็กเกจหรือวันหมดอายุ",
+      ],
+      upgradeSteps: [
+        "โอนเงินตามยอดเติมเครดิต (99 บาท)",
+        "เลือกแพ็กเกจ \"เติมเครดิต\" ตอนส่งสลิป",
+        "แอดมินตรวจสอบและเติมเครดิตให้บัญชีของคุณ",
+      ],
+    },
+  });
+
   // ---- Gemini AI configs (key referenced by env NAME only) ----
   // Free/Pro use different models: Free gets flash-lite, Pro gets 3.5 flash.
   // Both editable from Admin CMS (/admin/ai-configs).

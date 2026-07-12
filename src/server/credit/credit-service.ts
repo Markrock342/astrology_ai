@@ -113,3 +113,13 @@ export async function getBalance(userId: string): Promise<number> {
   const wallet = await prisma.creditWallet.findUnique({ where: { userId } });
   return wallet?.balance ?? 0;
 }
+
+/** Serialize credit mutations per user inside a transaction (FOR UPDATE). */
+export async function lockWalletForUpdate(
+  userId: string,
+  tx: Prisma.TransactionClient,
+): Promise<{ balance: number; version: number }> {
+  const wallet = await ensureWallet(userId, tx);
+  await tx.$executeRaw`SELECT id FROM credit_wallets WHERE "userId" = ${userId} FOR UPDATE`;
+  return { balance: wallet.balance, version: wallet.version };
+}

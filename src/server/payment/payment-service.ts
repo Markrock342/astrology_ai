@@ -5,6 +5,7 @@ import { writeAudit } from "@/server/audit/audit-service";
 import {
   notifyAdminsNewPayment,
   notifyUserPaymentReviewed,
+  persistPaymentNotifyResult,
 } from "@/server/payment/payment-notify";
 import {
   assertOwnedProofPath,
@@ -18,7 +19,22 @@ export type SubmitPaymentInput = {
   reference?: string;
   note?: string;
   proofPath: string;
+  packageCode?: string;
 };
+
+const paymentListSelect = {
+  id: true,
+  amount: true,
+  status: true,
+  reference: true,
+  note: true,
+  proofUrl: true,
+  packageCode: true,
+  reviewedAt: true,
+  notifiedAt: true,
+  notifyError: true,
+  createdAt: true,
+} as const;
 
 /** User submits a manual payment request (POST /api/payments/manual). */
 export async function submitManualPayment(userId: string, input: SubmitPaymentInput) {
@@ -34,6 +50,20 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
     throw new AppError("DUPLICATE_REQUEST", "มีคำขอชำระเงินรอตรวจสอบอยู่แล้ว");
   }
 
+  if (input.packageCode) {
+    const pkg = await prisma.package.findFirst({
+      where: { code: input.packageCode, enabled: true },
+      select: { id: true, price: true },
+    });
+    if (!pkg) throw new AppError("NOT_FOUND", "ไม่พบแพ็กเกจที่เลือก");
+    if (input.amount !== pkg.price) {
+      throw new AppError(
+        "VALIDATION",
+        `จำนวนเงินต้องตรงกับราคาแพ็กเกจ (${pkg.price} บาท)`,
+      );
+    }
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { email: true, name: true },
@@ -46,6 +76,7 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
       amount: input.amount,
       reference: input.reference,
       note: input.note,
+      packageCode: input.packageCode,
       proofUrl: proofPath,
       status: "PENDING",
     },
@@ -54,6 +85,7 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
       amount: true,
       status: true,
       reference: true,
+      packageCode: true,
       proofUrl: true,
       createdAt: true,
     },
@@ -75,16 +107,7 @@ export async function listMyPayments(userId: string) {
     where: { userId },
     orderBy: { createdAt: "desc" },
     take: 20,
-    select: {
-      id: true,
-      amount: true,
-      status: true,
-      reference: true,
-      note: true,
-      proofUrl: true,
-      reviewedAt: true,
-      createdAt: true,
-    },
+    select: paymentListSelect,
   });
 }
 
@@ -104,14 +127,7 @@ export async function listPayments(args: ListPaymentsArgs) {
       skip: (args.page - 1) * args.pageSize,
       take: args.pageSize,
       select: {
-        id: true,
-        amount: true,
-        status: true,
-        reference: true,
-        note: true,
-        proofUrl: true,
-        reviewedAt: true,
-        createdAt: true,
+        ...paymentListSelect,
         user: { select: { id: true, email: true, name: true } },
         reviewer: { select: { email: true, name: true } },
       },
@@ -134,22 +150,30 @@ export async function reviewPayment(
     throw new AppError("VALIDATION", "คำขอนี้ถูกตรวจสอบแล้ว");
   }
 
-  const packageCode = input.packageCode ?? "PRO";
+  const packageCode =
+    input.packageCode ?? payment.packageCode ?? "PRO";
   const pkg = input.status === "APPROVED"
-    ? await prisma.package.findUnique({ where: { code: packageCode } })
+    ? await prisma.package.findUnique({
+        where: { code: packageCode },
+        select: {
+          id: true,
+          code: true,
+          creditQuota: true,
+          creditOnly: true,
+        },
+      })
     : null;
   if (input.status === "APPROVED" && !pkg) {
     throw new AppError("NOT_FOUND", "Package not found");
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    // Compare-and-swap: only the first reviewer wins. Prevents double credit
-    // / double subscription when two admins approve the same PENDING row.
     const cas = await tx.payment.updateMany({
       where: { id: paymentId, status: "PENDING" },
       data: {
         status: input.status,
         note: input.note ?? payment.note,
+        packageCode,
         reviewedByAdminId: actor.id,
         reviewedAt: new Date(),
         paidAt: input.status === "APPROVED" ? new Date() : null,
@@ -167,39 +191,57 @@ export async function reviewPayment(
         amount: true,
         reviewedAt: true,
         userId: true,
+        packageCode: true,
       },
     });
 
     let subscription = null;
     if (input.status === "APPROVED" && pkg) {
-      await tx.userSubscription.updateMany({
-        where: { userId: payment.userId, status: "ACTIVE" },
-        data: { status: "CANCELLED" },
-      });
+      if (pkg.creditOnly) {
+        if (pkg.creditQuota > 0) {
+          await addCredits(
+            payment.userId,
+            pkg.creditQuota,
+            {
+              type: "PROMOTION",
+              referenceType: "payment",
+              referenceId: paymentId,
+              note: `เติมเครดิตจากการชำระเงิน ${payment.amount} บาท (${pkg.code})`,
+              createdByAdminId: actor.id,
+            },
+            tx,
+          );
+        }
+      } else {
+        await tx.userSubscription.updateMany({
+          where: { userId: payment.userId, status: "ACTIVE" },
+          data: { status: "CANCELLED" },
+        });
 
-      subscription = await tx.userSubscription.create({
-        data: {
-          userId: payment.userId,
-          packageId: pkg.id,
-          status: "ACTIVE",
-          activationSource: "PAYMENT",
-        },
-        select: { id: true, package: { select: { code: true, creditQuota: true } } },
-      });
-
-      if (pkg.creditQuota > 0) {
-        await addCredits(
-          payment.userId,
-          pkg.creditQuota,
-          {
-            type: "PACKAGE_RENEWAL",
-            referenceType: "payment",
-            referenceId: paymentId,
-            note: `อนุมัติชำระเงิน ${payment.amount} บาท`,
-            createdByAdminId: actor.id,
+        subscription = await tx.userSubscription.create({
+          data: {
+            userId: payment.userId,
+            packageId: pkg.id,
+            status: "ACTIVE",
+            activationSource: "PAYMENT",
           },
-          tx,
-        );
+          select: { id: true, package: { select: { code: true, creditQuota: true } } },
+        });
+
+        if (pkg.creditQuota > 0) {
+          await addCredits(
+            payment.userId,
+            pkg.creditQuota,
+            {
+              type: "PACKAGE_RENEWAL",
+              referenceType: "payment",
+              referenceId: paymentId,
+              note: `อนุมัติชำระเงิน ${payment.amount} บาท`,
+              createdByAdminId: actor.id,
+            },
+            tx,
+          );
+        }
       }
     }
 
@@ -210,7 +252,7 @@ export async function reviewPayment(
         entityType: "payment",
         entityId: paymentId,
         before: { status: payment.status, userId: payment.userId },
-        after: { ...updated, subscription, packageCode },
+        after: { ...updated, subscription, packageCode, creditOnly: pkg?.creditOnly ?? false },
         ipAddress: actor.ip,
       },
       tx,
@@ -223,12 +265,19 @@ export async function reviewPayment(
     void deletePaymentProofBlob(payment.proofUrl);
   }
 
-  void notifyUserPaymentReviewed({
-    userEmail: payment.user.email,
-    approved: input.status === "APPROVED",
-    amount: payment.amount,
-    note: input.note ?? payment.note,
-  }).catch((err) => console.error("[payment-user-notify]", err));
+  try {
+    const notifyResult = await notifyUserPaymentReviewed({
+      userEmail: payment.user.email,
+      approved: input.status === "APPROVED",
+      amount: payment.amount,
+      note: input.note ?? payment.note,
+    });
+    await persistPaymentNotifyResult(paymentId, notifyResult);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "notify failed";
+    await persistPaymentNotifyResult(paymentId, { ok: false, error: message });
+    console.error("[payment-user-notify]", err);
+  }
 
   return result;
 }

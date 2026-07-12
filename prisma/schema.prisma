@@ -107,6 +107,8 @@ enum UsageStatus {
   SUCCESS
   FAILED
   TIMEOUT
+  /// In-flight slot counted toward package quota until charge completes or release.
+  RESERVED
 }
 
 enum PaymentStatus {
@@ -344,6 +346,8 @@ model Package {
   features     String[]    @default([])
   /// Steps for manual Pro upgrade (read from the PRO package row).
   upgradeSteps String[]    @default([])
+  /// When true, approving a payment only adds credits — no subscription change.
+  creditOnly   Boolean     @default(false)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -535,6 +539,7 @@ model AIUsageLog {
   user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([userId, status, createdAt])
   @@index([status])
   @@map("ai_usage_logs")
 }
@@ -610,8 +615,14 @@ model Payment {
   proofUrl          String?
   reference         String?
   note              String?
+  /// Package the user intended to purchase (e.g. PRO or CREDIT_TOPUP).
+  packageCode       String?
   reviewedByAdminId String?
   reviewedAt        DateTime?
+  /// When the post-review customer email was sent successfully.
+  notifiedAt        DateTime?
+  /// Last email delivery error (admin can retry manually).
+  notifyError       String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
