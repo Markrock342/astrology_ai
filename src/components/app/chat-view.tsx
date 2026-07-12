@@ -57,6 +57,8 @@ const RETRYABLE_ERRORS = new Set([
 const UPGRADE_ERRORS = new Set([
   "CHAT_REQUIRES_PRO",
   "TRANSIT_REQUIRES_PRO",
+  "FOLLOWUP_REQUIRES_PRO",
+  "CATEGORY_LOCKED",
   "QUOTA_EXCEEDED",
 ]);
 
@@ -68,6 +70,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   CHAT_REQUIRES_PRO_PENDING:
     "สลิปของคุณอยู่ระหว่างตรวจสอบ ปกติภายใน 1–2 วันทำการ — หลังอนุมัติจะแชทได้ทันที",
   TRANSIT_REQUIRES_PRO: "โหมดดวงจรสำหรับสมาชิก Pro เท่านั้น อัปเกรดเพื่อใช้งาน",
+  FOLLOWUP_REQUIRES_PRO:
+    "ถามต่อในบทสนทนาเดิมสำหรับสมาชิก Pro — เริ่มคำถามใหม่ได้ตราบใดที่ยังมีเครดิต",
+  EMAIL_NOT_VERIFIED:
+    "ยืนยันอีเมลก่อนใช้เครดิตทดลองฟรี — เช็กกล่องจดหมายของคุณได้เลย",
   CHART_NOT_READY:
     "ยังคำนวณพื้นดวงไม่สำเร็จ กรุณาตรวจสอบข้อมูลวันเกิดแล้วลองใหม่",
   AI_TIMEOUT: "หมอดูใช้เวลานานเกินไป ลองถามใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",

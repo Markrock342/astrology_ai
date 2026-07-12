@@ -1,7 +1,7 @@
 import type { ConversationMode } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
-import { getEffectivePlan } from "@/server/user/account-service";
+import { assertCanRequestReading } from "@/server/horoscope/access-policy";
 import { deductCredits, lockWalletForUpdate } from "@/server/credit/credit-service";
 import {
   assertWithinUsageLimits,
@@ -111,22 +111,13 @@ async function runReading(
     throw new AppError("NOT_FOUND", "Category not available");
   }
 
-  // 3. Flowchart: Free users cannot chat at all; Pro-only categories stay locked for Free.
-  const plan = await getEffectivePlan(userId);
-  if (plan !== "PRO") {
-    throw new AppError(
-      "CHAT_REQUIRES_PRO",
-      "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
-    );
-  }
-
-  if (category.accessLevel === "PRO" && plan !== "PRO") {
-    throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
-  }
-
-  if (mode === "TRANSIT" && plan !== "PRO") {
-    throw new AppError("TRANSIT_REQUIRES_PRO", "โหมดดวงจรสำหรับสมาชิก Pro");
-  }
+  // 3. Free may spend its trial credits, within the walls in access-policy.
+  const plan = await assertCanRequestReading({
+    userId,
+    categoryAccessLevel: category.accessLevel,
+    mode,
+    isFollowUp: (priorMessages?.length ?? 0) > 0,
+  });
 
   // 4. Fast-fail balance (authoritative check at reserveUsageSlot).
   const wallet = await prisma.creditWallet.findUnique({ where: { userId } });

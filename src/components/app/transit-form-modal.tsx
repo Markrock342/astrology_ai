@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useChatNav } from "./chat-nav";
 import { COUNTRIES, DISTRICTS, PROVINCES } from "@/lib/th-geo";
 import { useAppData } from "./app-data-provider";
 
@@ -40,7 +40,7 @@ function todayParts() {
  * Pro-only; Free users see upgrade CTA.
  */
 export function TransitFormModal({ onClose }: { onClose: () => void }) {
-  const router = useRouter();
+  const chatNav = useChatNav();
   const { user, categories, refresh } = useAppData();
   const isPro = user?.plan === "PRO";
   const initial = todayParts();
@@ -125,7 +125,8 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
 
       await refresh();
       onClose();
-      router.push(`/dashboard?thread=${json.data.id}&cat=${categorySlug}`);
+      // Opening the new transit thread must not remount ChatView — see chat-nav.
+      chatNav(`/dashboard?thread=${json.data.id}&cat=${categorySlug}`);
     } catch {
       setError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
     } finally {
