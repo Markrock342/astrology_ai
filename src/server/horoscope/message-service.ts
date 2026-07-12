@@ -181,7 +181,7 @@ export async function requestStopGeneration(input: {
   userId: string;
   idempotencyKey: string;
 }): Promise<boolean> {
-  const { count } = await prisma.message.updateMany({
+  const pending = await prisma.message.findFirst({
     where: {
       conversationId: input.conversationId,
       idempotencyKey: input.idempotencyKey,
@@ -189,9 +189,34 @@ export async function requestStopGeneration(input: {
       status: "PENDING",
       conversation: { userId: input.userId },
     },
+    select: { id: true, createdAt: true, content: true },
+  });
+  if (!pending) return false;
+
+  // Past the AI's own ~30s cap there is no generation left to receive the flag,
+  // so the row would sit PENDING forever. Close it out here instead — otherwise
+  // pressing stop on a stranded turn does nothing, which is what it looked like.
+  const stranded = Date.now() - pending.createdAt.getTime() > 90_000;
+  if (stranded) {
+    await prisma.message.update({
+      where: { id: pending.id },
+      data: {
+        stopRequested: true,
+        status: "FAILED",
+        content:
+          pending.content ||
+          "หยุดการทำนายแล้ว (ไม่ถูกหักเครดิตเพราะยังไม่มีคำตอบ)",
+        creditCost: 0,
+      },
+    });
+    return true;
+  }
+
+  await prisma.message.update({
+    where: { id: pending.id },
     data: { stopRequested: true },
   });
-  return count > 0;
+  return true;
 }
 
 /** True once the user has pressed stop for this answer. Polled while streaming. */

@@ -82,6 +82,10 @@ export async function getThreadDetail(
   userId: string,
   threadId: string,
 ): Promise<ThreadDetail> {
+  // Opening a thread is the moment a stranded turn is visible, so clear it here
+  // too — waiting for the user's next message left the old one "generating".
+  await sweepStalePendingAssistants(threadId);
+
   const conversation = await prisma.conversation.findFirst({
     where: { id: threadId, userId },
     select: {
@@ -381,5 +385,28 @@ export async function loadPriorMessages(conversationId: string, userId: string) 
     },
     orderBy: { createdAt: "asc" },
     select: { role: true, content: true },
+  });
+}
+
+/**
+ * Fail assistant turns that have been PENDING far longer than a generation can
+ * take. They are left behind when the serverless instance is torn down mid-AI,
+ * and a row nobody will ever finalize renders as "generating" forever.
+ *
+ * The AI itself is capped at ~30s, so anything past two minutes is dead.
+ */
+export async function sweepStalePendingAssistants(conversationId: string) {
+  await prisma.message.updateMany({
+    where: {
+      conversationId,
+      role: "ASSISTANT",
+      status: "PENDING",
+      createdAt: { lt: new Date(Date.now() - 2 * 60_000) },
+    },
+    data: {
+      status: "FAILED",
+      content:
+        "ระบบใช้เวลานานเกินไปหรือถูกตัดการเชื่อมต่อ กรุณาลองถามใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
+    },
   });
 }
