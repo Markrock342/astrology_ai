@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { APP_NAME, DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
 import { ChatThreadSkeleton } from "@/components/app/content-skeleton";
@@ -159,7 +159,6 @@ function applyApiError(
 }
 
 export function ChatView() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
@@ -533,9 +532,15 @@ export function ChatView() {
         setThreadMode("NATAL");
         setThreadLoadError(null);
         setLoadingThread(false);
-        router.replace(
+        // Native history over router.replace: this only needs the URL to carry
+        // the new thread id. router.replace would run a real navigation — a
+        // fresh RSC request that re-renders the route mid-answer, which is the
+        // "the page refreshed while it was typing" flash. replaceState still
+        // syncs useSearchParams, so threadId lands without any of that.
+        window.history.replaceState(
+          null,
+          "",
           `/dashboard?thread=${conversationId}&cat=${syncCat}`,
-          { scroll: false },
         );
       }
 
