@@ -5,45 +5,32 @@ import { AppDataProvider } from "@/components/app/app-data-provider";
 import { BirthProfileGate } from "@/components/app/birth-profile-gate";
 import {
   getCachedMaintenanceMode,
-  requireSessionUserId,
+  requireSessionShell,
 } from "@/server/auth/session-guard";
-import { getAppBootstrap, serializeAppBootstrap } from "@/server/app/bootstrap-service";
-import { AppError } from "@/lib/errors";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Authenticated user shell (sidebar + chat area).
- * Loads bootstrap on the server so the sidebar is not blank until a client fetch.
+ * Session + birth-profile gate only on the server; full bootstrap
+ * (me/threads/categories) loads on the client so navigation paints fast.
  */
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const userId = await requireSessionUserId();
-  let bootstrap;
-  try {
-    bootstrap = serializeAppBootstrap(await getAppBootstrap(userId));
-  } catch (err) {
-    if (err instanceof AppError && err.code === "NOT_FOUND") redirect("/login");
-    throw err;
-  }
-
+  const shell = await requireSessionShell();
   const maintenance = await getCachedMaintenanceMode();
-  const isAdmin =
-    bootstrap.me.role === "ADMIN" || bootstrap.me.role === "SUPER_ADMIN";
+  const isAdmin = shell.role === "ADMIN" || shell.role === "SUPER_ADMIN";
 
   if (maintenance.enabled && !isAdmin) {
     return <MaintenanceView message={maintenance.message} />;
   }
 
-  if (bootstrap.me.status === "DISABLED") redirect("/login");
-
   return (
-    <AppDataProvider initialData={bootstrap}>
-      <BirthProfileGate hasBirthProfile={bootstrap.me.hasBirthProfile}>
+    <AppDataProvider initialData={null}>
+      <BirthProfileGate hasBirthProfile={shell.hasBirthProfile}>
         <Suspense fallback={null}>
           <AppShell>{children}</AppShell>
         </Suspense>
