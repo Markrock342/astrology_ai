@@ -20,16 +20,20 @@ import {
   adminFetch,
 } from "./ui";
 
-type FaqItem = {
+type FaqSummary = {
   id: string;
   question: string;
-  answer: string;
   category: string;
   enabled: boolean;
   sortOrder: number;
+  draftUpdatedAt: string | null;
+  hasDraft: boolean;
+};
+
+type FaqItem = FaqSummary & {
+  answer: string;
   draftQuestion: string | null;
   draftAnswer: string | null;
-  hasDraft: boolean;
 };
 
 const CATEGORIES = [
@@ -42,8 +46,8 @@ const CATEGORIES = [
 
 const EMPTY = { question: "", answer: "", category: "general", enabled: true, sortOrder: 0 };
 
-export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }) {
-  const [items, setItems] = useState<FaqItem[]>(initialItems ?? []);
+export function FaqManager({ initialItems }: { initialItems?: FaqSummary[] | null }) {
+  const [items, setItems] = useState<FaqSummary[]>(initialItems ?? []);
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -56,7 +60,7 @@ export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      setItems(await adminFetch<FaqItem[]>("/api/admin/faq"));
+      setItems(await adminFetch<FaqSummary[]>("/api/admin/faq"));
     } finally {
       setLoading(false);
     }
@@ -74,17 +78,28 @@ export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }
     void load().catch((e) => setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ"));
   }, [initialItems, load]);
 
-  function startEdit(item: FaqItem) {
+  async function startEdit(item: FaqSummary) {
     setEditingId(item.id);
-    setForm({
-      question: item.draftQuestion ?? item.question,
-      answer: item.draftAnswer ?? item.answer,
-      category: item.category,
-      enabled: item.enabled,
-      sortOrder: item.sortOrder,
-    });
     setShowForm(true);
-    void loadRevisions(item.id);
+    setBusy(true);
+    setError(null);
+    try {
+      const full = await adminFetch<FaqItem>(`/api/admin/faq/${item.id}`);
+      setForm({
+        question: full.draftQuestion ?? full.question,
+        answer: full.draftAnswer ?? full.answer,
+        category: full.category,
+        enabled: full.enabled,
+        sortOrder: full.sortOrder,
+      });
+      void loadRevisions(item.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "โหลดเนื้อหาไม่สำเร็จ");
+      setShowForm(false);
+      setEditingId(null);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function startNew() {
@@ -140,18 +155,14 @@ export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }
         method: "POST",
         body: JSON.stringify({ mode }),
       });
-      const fresh = await adminFetch<FaqItem[]>("/api/admin/faq");
-      setItems(fresh);
-      const item = fresh.find((x) => x.id === editingId);
-      if (item) {
-        setForm({
-          question: item.draftQuestion ?? item.question,
-          answer: item.draftAnswer ?? item.answer,
-          category: item.category,
-          enabled: item.enabled,
-          sortOrder: item.sortOrder,
-        });
-      }
+      const full = await adminFetch<FaqItem>(`/api/admin/faq/${editingId}`);
+      setForm({
+        question: full.draftQuestion ?? full.question,
+        answer: full.draftAnswer ?? full.answer,
+        category: full.category,
+        enabled: full.enabled,
+        sortOrder: full.sortOrder,
+      });
       await loadRevisions(editingId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "กู้คืนไม่สำเร็จ");
@@ -171,10 +182,11 @@ export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return items;
+    // The list payload no longer carries the answer body (fetched only when an
+    // item is opened), so search matches on question and category.
     return items.filter(
       (i) =>
         i.question.toLowerCase().includes(q) ||
-        i.answer.toLowerCase().includes(q) ||
         i.category.toLowerCase().includes(q),
     );
   }, [items, search]);
@@ -263,7 +275,7 @@ export function FaqManager({ initialItems }: { initialItems?: FaqItem[] | null }
           <Card key={item.id}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium">{item.question}</span>
-              {item.hasDraft && <Badge tone="gold">แบบร่าง</Badge>}
+              {item.draftUpdatedAt ? <Badge tone="gold">แบบร่าง</Badge> : null}
               {!item.enabled && <Badge tone="muted">ปิด</Badge>}
               <div className="ml-auto flex gap-2">
                 <Button variant="ghost" onClick={() => startEdit(item)}>

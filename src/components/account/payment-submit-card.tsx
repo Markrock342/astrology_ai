@@ -10,7 +10,6 @@ type PaymentRow = {
   id: string;
   amount: number;
   status: "PENDING" | "APPROVED" | "REJECTED";
-  reference: string | null;
   /** User note on submit; for REJECTED rows may hold admin review reason until BE-E2.3 adds reviewNote. */
   note: string | null;
   /** Optional admin review reason (BE-E2.3). */
@@ -59,7 +58,6 @@ function RejectedPaymentCard({
         {payment.reviewedAt
           ? ` · ตรวจเมื่อ ${new Date(payment.reviewedAt).toLocaleString("th-TH")}`
           : ""}
-        {payment.reference ? ` · อ้างอิง ${payment.reference}` : ""}
       </p>
       {reason ? (
         <p className="mt-3 rounded-lg bg-[var(--surface)]/80 px-3 py-2 text-sm text-[var(--foreground)]">
@@ -118,8 +116,6 @@ export function PaymentSubmitCard({
 }) {
   const { refresh } = useAppData();
   const [amount, setAmount] = useState(proPrice);
-  const [reference, setReference] = useState("");
-  const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -157,6 +153,8 @@ export function PaymentSubmitCard({
     window.setTimeout(() => inputRef.current?.focus(), 300);
   }
 
+  const isTopUp = variant === "topup";
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!file) {
@@ -176,28 +174,18 @@ export function PaymentSubmitCard({
       }
       const proofPath = upJson.data.pathname as string;
 
-      const paymentNote = [
-        isTopUp ? "[เติมเครดิต]" : null,
-        note.trim() || null,
-      ]
-        .filter(Boolean)
-        .join(" ");
-
       const res = await fetch("/api/payments/manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount,
-          reference: reference || undefined,
-          note: paymentNote || undefined,
+          packageCode: isTopUp ? "CREDIT_TOPUP" : "PRO",
           proofPath,
         }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error?.message ?? "ส่งไม่สำเร็จ");
       setSuccess(true);
-      setReference("");
-      setNote("");
       onPickFile(null);
       if (inputRef.current) inputRef.current.value = "";
       await loadHistory();
@@ -213,7 +201,6 @@ export function PaymentSubmitCard({
   const latestRejected = !pending
     ? history.find((p) => p.status === "REJECTED")
     : undefined;
-  const isTopUp = variant === "topup";
   const cardTitle = isTopUp ? "เติมเครดิตเพิ่ม" : paymentInfo.title;
   const submitLabel = busy
     ? "กำลังส่ง…"
@@ -263,7 +250,6 @@ export function PaymentSubmitCard({
           <p className="mt-1 text-xs text-[var(--muted)]">
             จำนวน ฿{pending.amount} · ส่งเมื่อ{" "}
             {new Date(pending.createdAt).toLocaleString("th-TH")}
-            {pending.reference ? ` · อ้างอิง ${pending.reference}` : ""}
           </p>
           {pending.proofUrl ? (
             <a
@@ -296,7 +282,7 @@ export function PaymentSubmitCard({
             id="payment-form"
             ref={formRef}
             onSubmit={submit}
-            className="mt-4 grid gap-3 sm:grid-cols-2"
+            className="mt-4 grid gap-3"
           >
             <Field label="จำนวนเงิน (บาท)">
               <TextInput
@@ -306,36 +292,24 @@ export function PaymentSubmitCard({
                 onChange={(e) => setAmount(Number(e.target.value))}
               />
             </Field>
-            <Field label="เลขอ้างอิง / เลขที่สลิป">
-              <TextInput
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder="REF123456"
+            <Field label="อัปโหลดสลิปจากเครื่อง" hint="JPG / PNG / WebP สูงสุด 2 MB">
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="block w-full text-xs text-[var(--muted)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-3)] file:px-3 file:py-2 file:text-xs file:font-medium file:text-[var(--foreground)]"
+                onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
               />
             </Field>
-            <div className="sm:col-span-2">
-              <Field label="อัปโหลดสลิปจากเครื่อง" hint="JPG / PNG / WebP สูงสุด 2 MB">
-                <input
-                  ref={inputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="block w-full text-xs text-[var(--muted)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--surface-3)] file:px-3 file:py-2 file:text-xs file:font-medium file:text-[var(--foreground)]"
-                  onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-                />
-              </Field>
-              {preview ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={preview}
-                  alt="ตัวอย่างสลิป"
-                  className="mt-2 max-h-48 rounded-lg border border-[var(--border)] object-contain"
-                />
-              ) : null}
-            </div>
-            <Field label="หมายเหตุ">
-              <TextInput value={note} onChange={(e) => setNote(e.target.value)} />
-            </Field>
-            <div className="sm:col-span-2">
+            {preview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={preview}
+                alt="ตัวอย่างสลิป"
+                className="max-h-48 rounded-lg border border-[var(--border)] object-contain"
+              />
+            ) : null}
+            <div>
               {error && <p className="mb-2 text-xs text-[var(--danger)]">{error}</p>}
               {success && (
                 <p className="mb-2 text-xs text-[var(--secondary-active)]">
@@ -357,7 +331,6 @@ export function PaymentSubmitCard({
               <div className="flex justify-between gap-2">
                 <span>
                   ฿{p.amount} · {STATUS_TH[p.status]}
-                  {p.reference ? ` · ${p.reference}` : ""}
                 </span>
                 <span className="shrink-0">
                   {new Date(p.createdAt).toLocaleDateString("th-TH")}

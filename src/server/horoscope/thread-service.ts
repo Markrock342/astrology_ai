@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
+import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 import type { AIProvider, ConversationMode, ReadingStatus } from "@prisma/client";
 
 export type ThreadSummary = {
@@ -92,6 +93,7 @@ export async function getThreadDetail(
       category: { select: { slug: true, nameTh: true } },
       messages: {
         orderBy: { createdAt: "asc" },
+        take: 200,
         select: {
           id: true,
           role: true,
@@ -161,6 +163,38 @@ export async function getThreadDetail(
   };
 }
 
+export type ThreadPollResult = {
+  hasPending: boolean;
+  messages: ThreadMessage[] | null;
+};
+
+/**
+ * Lightweight poll while AI runs — skips full message history until PENDING clears.
+ */
+export async function pollThreadForUser(
+  userId: string,
+  threadId: string,
+): Promise<ThreadPollResult> {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: threadId, userId },
+    select: { id: true },
+  });
+  if (!conversation) {
+    throw new AppError("NOT_FOUND", "ไม่พบประวัติการสนทนานี้");
+  }
+
+  const pendingCount = await prisma.message.count({
+    where: { conversationId: threadId, status: "PENDING" },
+  });
+
+  if (pendingCount > 0) {
+    return { hasPending: true, messages: null };
+  }
+
+  const detail = await getThreadDetail(userId, threadId);
+  return { hasPending: false, messages: detail.messages };
+}
+
 export type AppendExchangeInput = {
   conversationId: string;
   userId: string;
@@ -181,6 +215,7 @@ export async function deleteConversation(userId: string, threadId: string) {
   });
   if (!conversation) throw new AppError("NOT_FOUND", "ไม่พบประวัติการสนทนานี้");
   await prisma.conversation.delete({ where: { id: conversation.id } });
+  invalidateUserBootstrap(userId);
   return { id: conversation.id };
 }
 

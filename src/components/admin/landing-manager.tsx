@@ -52,23 +52,77 @@ const TABS = LANDING_CMS_KEYS.map((key) => ({
   label: CMS_LABELS[key].replace(/^หน้าแรก — /, "").replace("ส่วนท้ายเว็บ (Footer)", "Footer"),
 }));
 
+function cloneDraft(value: unknown): unknown {
+  if (value == null) return value;
+  try {
+    return structuredClone(value);
+  } catch {
+    return JSON.parse(JSON.stringify(value));
+  }
+}
+
 function asHero(v: unknown): CmsLandingHero {
-  return (v ?? CMS_DEFAULTS[CMS_KEYS.landingHero]) as CmsLandingHero;
+  const defaults = CMS_DEFAULTS[CMS_KEYS.landingHero] as CmsLandingHero;
+  const raw = (v && typeof v === "object" ? v : {}) as Partial<CmsLandingHero>;
+  return {
+    eyebrow: raw.eyebrow ?? defaults.eyebrow,
+    headline: raw.headline ?? defaults.headline,
+    subheadline: raw.subheadline ?? defaults.subheadline,
+    primaryCta: { ...defaults.primaryCta, ...raw.primaryCta },
+    secondaryCta: { ...defaults.secondaryCta, ...raw.secondaryCta },
+    imageUrl: raw.imageUrl ?? defaults.imageUrl,
+  };
 }
 function asFeatures(v: unknown): CmsLandingFeatures {
-  return (v ?? CMS_DEFAULTS[CMS_KEYS.landingFeatures]) as CmsLandingFeatures;
+  const defaults = CMS_DEFAULTS[CMS_KEYS.landingFeatures] as CmsLandingFeatures;
+  const raw = (v && typeof v === "object" ? v : {}) as Partial<CmsLandingFeatures>;
+  return {
+    title: raw.title ?? defaults.title,
+    subtitle: raw.subtitle ?? defaults.subtitle,
+    items: Array.isArray(raw.items) ? raw.items : defaults.items,
+  };
 }
 function asHow(v: unknown): CmsLandingHowItWorks {
-  return (v ?? CMS_DEFAULTS[CMS_KEYS.landingHowItWorks]) as CmsLandingHowItWorks;
+  const defaults = CMS_DEFAULTS[CMS_KEYS.landingHowItWorks] as CmsLandingHowItWorks;
+  const raw = (v && typeof v === "object" ? v : {}) as Partial<CmsLandingHowItWorks>;
+  return {
+    title: raw.title ?? defaults.title,
+    subtitle: raw.subtitle ?? defaults.subtitle,
+    steps: Array.isArray(raw.steps) ? raw.steps : defaults.steps,
+  };
 }
 function asPricing(v: unknown): CmsLandingPricingSection {
-  return (v ?? CMS_DEFAULTS[CMS_KEYS.landingPricingSection]) as CmsLandingPricingSection;
+  const defaults = CMS_DEFAULTS[
+    CMS_KEYS.landingPricingSection
+  ] as CmsLandingPricingSection;
+  const raw = (v && typeof v === "object" ? v : {}) as Partial<CmsLandingPricingSection>;
+  return {
+    title: raw.title ?? defaults.title,
+    subtitle: raw.subtitle ?? defaults.subtitle,
+    enabled: raw.enabled ?? defaults.enabled,
+  };
 }
 function asTestimonials(v: unknown): CmsLandingTestimonials {
-  return (v ?? CMS_DEFAULTS[CMS_KEYS.landingTestimonials]) as CmsLandingTestimonials;
+  const defaults = CMS_DEFAULTS[
+    CMS_KEYS.landingTestimonials
+  ] as CmsLandingTestimonials;
+  const raw = (v && typeof v === "object" ? v : {}) as Partial<CmsLandingTestimonials>;
+  return {
+    title: raw.title ?? defaults.title,
+    subtitle: raw.subtitle ?? defaults.subtitle,
+    enabled: raw.enabled ?? defaults.enabled,
+    items: Array.isArray(raw.items) ? raw.items : defaults.items,
+  };
 }
 function asFooter(v: unknown): CmsSiteFooter {
-  return (v ?? CMS_DEFAULTS[CMS_KEYS.siteFooter]) as CmsSiteFooter;
+  const defaults = CMS_DEFAULTS[CMS_KEYS.siteFooter] as CmsSiteFooter;
+  const raw = (v && typeof v === "object" ? v : {}) as Partial<CmsSiteFooter>;
+  return {
+    brandBlurb: raw.brandBlurb ?? defaults.brandBlurb,
+    copyright: raw.copyright ?? defaults.copyright,
+    links: Array.isArray(raw.links) ? raw.links : defaults.links,
+    socialLinks: Array.isArray(raw.socialLinks) ? raw.socialLinks : defaults.socialLinks,
+  };
 }
 
 export function LandingManager({
@@ -81,7 +135,7 @@ export function LandingManager({
   const [activeKey, setActiveKey] = useState<CmsKey>(CMS_KEYS.landingHero);
   const [draft, setDraft] = useState<unknown>(() => {
     const row = initialRows?.find((r) => r.key === CMS_KEYS.landingHero);
-    return structuredClone(row?.draft ?? row?.published ?? CMS_DEFAULTS[CMS_KEYS.landingHero]);
+    return cloneDraft(row?.draft ?? row?.published ?? CMS_DEFAULTS[CMS_KEYS.landingHero]);
   });
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(!initialRows);
@@ -124,7 +178,7 @@ export function LandingManager({
     const row = rows.find((r) => r.key === activeKey);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset editor when switching CMS key
     setDraft(
-      structuredClone(row ? (row.draft ?? row.published) : CMS_DEFAULTS[activeKey]),
+      cloneDraft(row ? (row.draft ?? row.published) : CMS_DEFAULTS[activeKey]),
     );
     void loadRevisions(activeKey).catch(() => setRevisions([]));
   }, [activeKey, rows, loadRevisions]);

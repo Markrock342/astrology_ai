@@ -19,7 +19,10 @@ export async function GET() {
         draftUpdatedAt: r.draftUpdatedAt?.toISOString() ?? null,
         createdAt: r.createdAt.toISOString(),
         updatedAt: r.updatedAt.toISOString(),
-        hasDraft: r.draftQuestion != null || r.draftAnswer != null,
+        // The list query no longer selects the draft bodies (they are large);
+        // draftUpdatedAt is set on save and cleared on publish, so it is the
+        // cheap equivalent of "a draft exists".
+        hasDraft: r.draftUpdatedAt != null,
       })),
     );
   });

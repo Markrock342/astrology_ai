@@ -56,6 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     user,
     refresh,
     removeThreadLocal,
+    refreshLight,
     filteredCategories,
     filteredNatalThreads,
     filteredTransitThreads,
@@ -90,7 +91,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         void refresh();
         return;
       }
-      void refresh();
+      // The active thread was already redirected away above, before the DELETE.
+      await refreshLight();
     } catch {
       window.alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
       void refresh();
@@ -535,7 +537,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <CancelMembershipModal
           isPro={user?.plan === "PRO"}
           onClose={() => setActiveModal(null)}
-          onCancelled={() => refresh()}
+          onCancelled={() => refreshLight()}
         />
       )}
       {transitOpen && <TransitFormModal onClose={() => setTransitOpen(false)} />}

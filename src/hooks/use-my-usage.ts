@@ -32,13 +32,21 @@ export function useMyUsage(fallbackLimits?: UsageLimitsFallback) {
     const balance = user?.creditBalance ?? 0;
     setLoading(true);
     try {
-      const res = await fetch("/api/me/usage");
+      const res = await fetch("/api/me/usage?view=summary");
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
         data?: MyUsage;
       } | null;
       if (res.ok && json?.ok && json.data) {
-        setUsage(json.data);
+        const data = json.data as Partial<MyUsage>;
+        setUsage({
+          balance: data.balance ?? balance,
+          dailyLimit: data.dailyLimit ?? null,
+          monthlyLimit: data.monthlyLimit ?? null,
+          usedToday: data.usedToday ?? null,
+          usedThisMonth: data.usedThisMonth ?? null,
+          history: data.history ?? { items: [], nextCursor: null },
+        });
         setApiReady(true);
         return;
       }

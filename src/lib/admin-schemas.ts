@@ -213,8 +213,6 @@ export const faqItemSchema = z.object({
 
 export const submitPaymentSchema = z.object({
   amount: z.number().int().positive(),
-  reference: z.string().max(120).optional(),
-  note: z.string().max(300).optional(),
   /** Target package code (PRO, CREDIT_TOPUP, …). */
   packageCode: z.string().min(1).max(40).optional(),
   /** Private blob pathname from POST /api/payments/proof (preferred). */

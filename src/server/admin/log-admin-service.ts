@@ -1,7 +1,21 @@
+import { unstable_cache } from "next/cache";
 import type { Prisma, UsageStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 
 /** Read-only admin viewers for audit logs and AI usage logs. */
+
+const getCachedAuditEntityTypes = unstable_cache(
+  async () => {
+    const rows = await prisma.adminAuditLog.findMany({
+      distinct: ["entityType"],
+      select: { entityType: true },
+      orderBy: { entityType: "asc" },
+    });
+    return rows.map((e) => e.entityType);
+  },
+  ["admin-audit-entity-types"],
+  { revalidate: 300 },
+);
 
 export type ListAuditLogsArgs = {
   page: number;
@@ -41,11 +55,7 @@ export async function listAuditLogs(args: ListAuditLogsArgs) {
         admin: { select: { email: true, name: true } },
       },
     }),
-    prisma.adminAuditLog.findMany({
-      distinct: ["entityType"],
-      select: { entityType: true },
-      orderBy: { entityType: "asc" },
-    }),
+    getCachedAuditEntityTypes(),
   ]);
 
   return {
@@ -53,7 +63,7 @@ export async function listAuditLogs(args: ListAuditLogsArgs) {
     page: args.page,
     pageSize: args.pageSize,
     items,
-    entityTypes: entityTypes.map((e) => e.entityType),
+    entityTypes,
   };
 }
 

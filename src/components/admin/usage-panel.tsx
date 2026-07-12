@@ -44,7 +44,13 @@ export function UsagePanel() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search), 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   const load = useCallback(async () => {
     try {
@@ -53,7 +59,7 @@ export function UsagePanel() {
         page: String(page),
         pageSize: String(PAGE_SIZE),
       });
-      if (search) params.set("search", search);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       if (status) params.set("status", status);
       setData(await adminFetch<UsageList>(`/api/admin/ai-usage?${params}`));
       setError(null);
@@ -62,7 +68,7 @@ export function UsagePanel() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, status]);
+  }, [page, debouncedSearch, status]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
