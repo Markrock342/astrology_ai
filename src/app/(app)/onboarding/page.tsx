@@ -7,7 +7,10 @@ import {
   MAX_BIRTH_EDITS,
 } from "@/server/user/birth-profile-service";
 import { requireSessionUserId } from "@/server/auth/session-guard";
-import { getConsentTexts } from "@/server/settings/settings-service";
+import {
+  getConsentTexts,
+  getPrivacyDocument,
+} from "@/server/settings/settings-service";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +26,10 @@ export default async function OnboardingPage() {
     redirect("/dashboard");
   }
 
-  const { birthPrivacy, birthEditLimit } = await getConsentTexts();
+  const [{ birthPrivacy, birthEditLimit }, privacyPolicy] = await Promise.all([
+    getConsentTexts(),
+    getPrivacyDocument(),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-10">
@@ -52,6 +58,7 @@ export default async function OnboardingPage() {
             ? "บัญชีแอดมินแก้ไขวันเกิดได้ไม่จำกัด"
             : birthEditLimit.text
         }
+        privacyPolicy={privacyPolicy}
       />
     </div>
   );

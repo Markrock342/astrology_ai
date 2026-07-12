@@ -112,7 +112,8 @@ export async function upsertBirthProfile(
     const profile = await prisma.birthProfile.create({
       data: { userId, ...data, editCount: 0 },
     });
-    await queueNatalChart(userId, profile.id);
+    // Do not await scrape/compute — it can take 10–60s and freezes the form.
+    void queueNatalChart(userId, profile.id);
     return profile;
   }
 
@@ -123,7 +124,7 @@ export async function upsertBirthProfile(
       ? { ...data }
       : { ...data, editCount: { increment: 1 } },
   });
-  await queueNatalChart(userId, profile.id);
+  void queueNatalChart(userId, profile.id);
   return profile;
 }
 
