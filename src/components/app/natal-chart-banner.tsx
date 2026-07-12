@@ -38,7 +38,7 @@ export function NatalChartBanner() {
       <div className="animate-fade-in mb-6 flex justify-center">
         <ExpandableRasiWheel
           chart={chart.chartJson}
-          size={120}
+          size={160}
           label="พื้นดวงเดิม"
         />
       </div>

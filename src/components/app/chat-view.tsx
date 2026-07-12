@@ -518,14 +518,14 @@ export function ChatView() {
                         {m.chartSnapshot && (
                           <ExpandableRasiWheel
                             chart={m.chartSnapshot}
-                            size={96}
+                            size={168}
                             label="พื้นดวงเดิม"
                           />
                         )}
                         {m.transitSnapshot && (
                           <ExpandableRasiWheel
                             chart={m.transitSnapshot}
-                            size={96}
+                            size={168}
                             label="ดวงจร"
                           />
                         )}
