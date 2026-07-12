@@ -226,9 +226,20 @@ async function main() {
   });
 
   // ---- Admin user + wallet + default Free subscription ----
+  const WEAK_ADMIN_PASSWORDS = new Set(["ChangeMe123!", "changeme", "password", "admin"]);
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@horasard.local";
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!";
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPassword || adminPassword.length < 12) {
+    throw new Error(
+      "SEED_ADMIN_PASSWORD is required (min 12 chars). Refusing to seed a weak/missing admin password.",
+    );
+  }
+  if (WEAK_ADMIN_PASSWORDS.has(adminPassword)) {
+    throw new Error(
+      "SEED_ADMIN_PASSWORD matches a known published default. Set a unique strong password before seeding.",
+    );
+  }
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
 
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
