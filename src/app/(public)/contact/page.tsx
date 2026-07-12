@@ -15,7 +15,7 @@ import {
   getSeoForPath,
 } from "@/server/settings/settings-service";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata(): Promise<Metadata> {
   const seo =
