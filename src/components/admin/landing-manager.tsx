@@ -115,16 +115,17 @@ export function LandingManager({
 
   useEffect(() => {
     if (initialRows) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial client fetch when SSR rows absent
     void load();
   }, [initialRows, load]);
 
+  // Sync draft when CMS tab / rows change (intentional controlled reset).
   useEffect(() => {
     const row = rows.find((r) => r.key === activeKey);
-    if (row) {
-      setDraft(structuredClone(row.draft ?? row.published));
-    } else {
-      setDraft(structuredClone(CMS_DEFAULTS[activeKey]));
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset editor when switching CMS key
+    setDraft(
+      structuredClone(row ? (row.draft ?? row.published) : CMS_DEFAULTS[activeKey]),
+    );
     void loadRevisions(activeKey).catch(() => setRevisions([]));
   }, [activeKey, rows, loadRevisions]);
 

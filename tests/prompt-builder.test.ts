@@ -4,6 +4,7 @@ import {
   trimConversationHistory,
 } from "@/server/ai/prompt-builder";
 import type { BirthProfileSnapshot } from "@/types";
+import type { ChartJson } from "@/types/chart";
 
 const profile: BirthProfileSnapshot = {
   nickname: "ทดสอบ",
@@ -14,6 +15,12 @@ const profile: BirthProfileSnapshot = {
   birthLocation: "กรุงเทพฯ",
   additionalInfo: null,
 };
+
+const chart = {
+  meta: { calculationSource: "formula-pipeline", lagna: "เมษ" },
+  planets: [{ planet: "อาทิตย์", siderealSign: "เมษ" }],
+  chart: { lagna: "เมษ", taksa: [] },
+} as unknown as ChartJson;
 
 describe("buildConversationHistory (M3 B1)", () => {
   it("returns full user prompt when thread is empty", () => {
@@ -29,44 +36,46 @@ describe("buildConversationHistory (M3 B1)", () => {
     expect(userPrompt).toContain("คำถาม:");
   });
 
-  it("enriches only the first user turn with birth profile", () => {
+  it("attaches profile+chart to every current userPrompt (not only first turn)", () => {
     const { conversationHistory, userPrompt } = buildConversationHistory(
       [
         { role: "USER", content: "เรื่องงานเป็นอย่างไร" },
         { role: "ASSISTANT", content: "งานของคุณมีโอกาสดี" },
       ],
       profile,
-      null,
+      chart,
       "แล้วเรื่องความรักล่ะ",
     );
-    expect(userPrompt).toBe("แล้วเรื่องความรักล่ะ");
+    expect(userPrompt).toContain("แล้วเรื่องความรักล่ะ");
+    expect(userPrompt).toContain("ทดสอบ");
+    expect(userPrompt).toContain("[natal]");
     expect(conversationHistory).toHaveLength(2);
-    expect(conversationHistory[0].role).toBe("user");
-    expect(conversationHistory[0].content).toContain("เรื่องงานเป็นอย่างไร");
-    expect(conversationHistory[0].content).toContain("ทดสอบ");
+    expect(conversationHistory[0]).toEqual({
+      role: "user",
+      content: "เรื่องงานเป็นอย่างไร",
+    });
     expect(conversationHistory[1]).toEqual({
       role: "assistant",
       content: "งานของคุณมีโอกาสดี",
     });
   });
 
-  it("keeps follow-up user turns as plain text", () => {
-    const { conversationHistory } = buildConversationHistory(
-      [
-        { role: "USER", content: "คำถามแรก" },
-        { role: "ASSISTANT", content: "คำตอบแรก" },
-        { role: "USER", content: "คำถามที่สอง" },
-        { role: "ASSISTANT", content: "คำตอบที่สอง" },
-      ],
-      profile,
-      null,
-      "คำถามที่สาม",
+  it("keeps prior user turns as plain text so trim cannot drop natal from current turn", () => {
+    const prior = Array.from({ length: 24 }, (_, i) =>
+      i % 2 === 0
+        ? { role: "USER" as const, content: `คำถาม-${i}` }
+        : { role: "ASSISTANT" as const, content: `คำตอบ-${i}` },
     );
-    expect(conversationHistory[2]).toEqual({
-      role: "user",
-      content: "คำถามที่สอง",
-    });
-    expect(conversationHistory[2].content).not.toContain("ข้อมูลผู้ถาม");
+    const { conversationHistory, userPrompt } = buildConversationHistory(
+      prior,
+      profile,
+      chart,
+      "คำถามล่าสุด",
+    );
+    expect(conversationHistory).toHaveLength(20);
+    expect(userPrompt).toContain("คำถามล่าสุด");
+    expect(userPrompt).toContain("[natal]");
+    expect(userPrompt).toContain("ทดสอบ");
   });
 });
 

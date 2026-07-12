@@ -37,6 +37,7 @@ const RETRYABLE_ERRORS = new Set([
   "AI_PROVIDER_ERROR",
   "RATE_LIMITED",
   "NETWORK",
+  "INTERNAL",
 ]);
 
 /** Errors that should offer an upgrade-to-Pro CTA. */
@@ -79,11 +80,6 @@ type PendingRetry = {
   idempotencyKey: string;
 };
 
-type ApiReading = {
-  responseText: string;
-  modelId: string | null;
-};
-
 async function parseApiJson(res: Response) {
   try {
     return await res.json();
@@ -110,7 +106,7 @@ function applyApiError(
     return;
   }
   setters.setErrorText(
-    ERROR_MESSAGES[code] ?? message ?? "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
+    message?.trim() || ERROR_MESSAGES[code] || "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
   );
   setters.setState(code === "NO_QUOTA" ? "no-quota" : "error");
   if (!RETRYABLE_ERRORS.has(code)) {

@@ -101,6 +101,7 @@ export function SettingsManager({
   useEffect(() => {
     const current = rows.find((r) => r.key === activeKey);
     if (current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset editor when switching CMS key
       setDraft(structuredClone(current.draft ?? current.published));
     }
     void loadRevisions(activeKey).catch(() => setRevisions([]));

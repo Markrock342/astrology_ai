@@ -23,7 +23,10 @@ export function useContentEditor<T>(opts: {
   const equal = opts.isEqual ?? ((a, b) => JSON.stringify(a) === JSON.stringify(b));
   const dirty = !equal(draft, baseline);
   const autosaveRef = useRef(opts.onAutosave);
-  autosaveRef.current = opts.onAutosave;
+
+  useEffect(() => {
+    autosaveRef.current = opts.onAutosave;
+  }, [opts.onAutosave]);
 
   const reset = useCallback((next: T) => {
     setDraft(next);

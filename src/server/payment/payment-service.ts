@@ -138,8 +138,10 @@ export async function reviewPayment(
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    const updated = await tx.payment.update({
-      where: { id: paymentId },
+    // Compare-and-swap: only the first reviewer wins. Prevents double credit
+    // / double subscription when two admins approve the same PENDING row.
+    const cas = await tx.payment.updateMany({
+      where: { id: paymentId, status: "PENDING" },
       data: {
         status: input.status,
         note: input.note ?? payment.note,
@@ -147,6 +149,13 @@ export async function reviewPayment(
         reviewedAt: new Date(),
         paidAt: input.status === "APPROVED" ? new Date() : null,
       },
+    });
+    if (cas.count === 0) {
+      throw new AppError("VALIDATION", "คำขอนี้ถูกตรวจสอบแล้ว");
+    }
+
+    const updated = await tx.payment.findUniqueOrThrow({
+      where: { id: paymentId },
       select: {
         id: true,
         status: true,

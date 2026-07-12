@@ -541,7 +541,11 @@ export function SearchInput({
   className?: string;
 }) {
   const [local, setLocal] = useState(value);
-  useEffect(() => setLocal(value), [value]);
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setLocal(value);
+  }
   useEffect(() => {
     const t = window.setTimeout(() => {
       if (local !== value) onChange(local);

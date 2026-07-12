@@ -35,30 +35,6 @@ function truncateTitle(text: string, max = 48): string {
   return trimmed.length > max ? `${trimmed.slice(0, max)}…` : trimmed;
 }
 
-function mapConversationRows(
-  rows: Array<{
-    id: string;
-    title: string | null;
-    updatedAt: Date;
-    category: { slug: string; nameTh: string };
-    messages: Array<{ content: string }>;
-  }>,
-): ThreadSummary[] {
-  return rows.map((c) => {
-    const firstUser = c.messages[0]?.content;
-    const title =
-      c.title?.trim() ||
-      (firstUser ? truncateTitle(firstUser) : c.category.nameTh);
-    return {
-      id: c.id,
-      title,
-      categorySlug: c.category.slug,
-      categoryLabel: c.category.nameTh,
-      createdAt: c.updatedAt.toISOString(),
-    };
-  });
-}
-
 /** List conversation threads for sidebar/history (natal or transit). */
 export async function listConversationThreads(
   userId: string,

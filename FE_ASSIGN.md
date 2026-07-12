@@ -27,9 +27,8 @@
 ## 🔴 E0 — ต้องเสร็จก่อนเปิดรับเงินจริง (เริ่มได้เลย ไม่รอ BE)
 
 ### FE-E0.1 · [P1] แก้ ETA เพี้ยน "รอแอดมินตรวจสอบ (ภายใน 199–2 วันทำการ)"
-`payment-submit-card.tsx:126` — `.replace()` ไปโดนเลขในข้อความ
-- [ ] ลบ `.replace()` มั่ว → เก็บ step CMS เป็น `"...({price} บาท)"` แล้ว `step.replaceAll("{price}", String(proPrice))`
-- [ ] เพิ่ม ETA "ปกติภายใน 1–2 วันทำการ" + ช่องทางติดต่อ ในการ์ด PENDING (`payment-submit-card.tsx:159`) · **S**
+- [x] `replaceAll("{price}", …)` + CMS steps ใช้ `{price}`
+- [x] ETA "ปกติภายใน 1–2 วันทำการ" บนการ์ด PENDING · **S** ✅
 
 ### FE-E0.2 · [P2→สำคัญ] Banner "รออนุมัติ" ให้เด่นบน app shell
 `account-view.tsx:112` — pending อยู่แค่ /account ผ่าน popover → ลูกค้าจ่ายแล้วไม่เห็นอะไร = เปิด ticket
@@ -38,16 +37,11 @@
 - [ ] special-case `CHAT_REQUIRES_PRO` ใน chat-view ให้พูด "สลิปอยู่ระหว่างตรวจสอบ" · **M**
 
 ### FE-E0.3 · [P2] INTERNAL retryable (ตัดเครดิตแต่ข้อความไม่ขึ้น)
-`chat-view.tsx:35`
-- [ ] เพิ่ม `"INTERNAL"` เข้า `RETRYABLE_ERRORS` → retry reuse Idempotency-Key เดิม (server idempotency กัน double-charge) · คู่ BE-E2.8 · **S**
+- [x] เพิ่ม `"INTERNAL"` เข้า `RETRYABLE_ERRORS` + prefer server message · **S** ✅
 
 ### FE-E0.4 · [P1] 🚨 `npm run lint` แดงอยู่ — 8 errors, 4 warnings
-quality gate ที่ทีมเขียนไว้เองคือ `typecheck && lint && test` (`FRONTEND_TASKS.md:63`) — typecheck ผ่าน, 73 tests ผ่าน, **แต่ lint พัง** (Next 16 ไม่รัน ESLint ตอน build แล้ว เลยไม่ block deploy — แต่ gate ของทีมแดงอยู่)
-2 error หลักเป็น React 19 `react-hooks/set-state-in-effect` ใน component ที่แบกทั้งแอป:
-- [ ] `src/components/theme-provider.tsx:42` — `setThemeState(initial)` ใน effect body (ครอบทั้งแอป)
-- [ ] `src/components/app/nav-progress.tsx:20` — `setVisible(false)` ใน effect body
-- [ ] warnings: unused `mapConversationRows` (`thread-service.ts:38`), unused `_w`/`_s` (`account-service.ts:58`) ← 2 อันนี้ฝั่ง BE
-- **เสร็จเมื่อ:** `npm run lint` exit 0 · **S**
+- [x] theme-provider / nav-progress / admin lint fixed
+- **เสร็จเมื่อ:** `npm run lint` exit 0 · **S** ✅
 
 ## 🟠 E1 — สัปดาห์แรก
 

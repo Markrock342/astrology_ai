@@ -55,7 +55,10 @@ export async function getMe(userId: string) {
       ? Math.max(0, MAX_BIRTH_EDITS - user.birthProfile.editCount)
       : MAX_BIRTH_EDITS;
 
-  const { passwordHash, creditWallet: _w, subscriptions: _s, ...profile } = user;
+  const { passwordHash, ...profile } = user;
+  // Drop relation bags that are not part of the public profile payload.
+  delete (profile as { creditWallet?: unknown }).creditWallet;
+  delete (profile as { subscriptions?: unknown }).subscriptions;
 
   return {
     ...profile,
