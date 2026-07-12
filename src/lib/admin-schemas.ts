@@ -215,7 +215,12 @@ export const submitPaymentSchema = z.object({
   amount: z.number().int().positive(),
   reference: z.string().max(120).optional(),
   note: z.string().max(300).optional(),
-  proofUrl: z.string().url().max(2000),
+  /** Private blob pathname from POST /api/payments/proof (preferred). */
+  proofPath: z
+    .string()
+    .min(8)
+    .max(300)
+    .regex(/^payment-slips\//, "proofPath ต้องขึ้นต้นด้วย payment-slips/"),
 });
 
 export const paymentListQuerySchema = listQuerySchema.extend({

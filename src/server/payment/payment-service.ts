@@ -6,6 +6,10 @@ import {
   notifyAdminsNewPayment,
   notifyUserPaymentReviewed,
 } from "@/server/payment/payment-notify";
+import {
+  assertOwnedProofPath,
+  deletePaymentProofBlob,
+} from "@/server/payment/payment-proof";
 
 type Actor = { id: string; ip?: string };
 
@@ -13,14 +17,15 @@ export type SubmitPaymentInput = {
   amount: number;
   reference?: string;
   note?: string;
-  proofUrl: string;
+  proofPath: string;
 };
 
 /** User submits a manual payment request (POST /api/payments/manual). */
 export async function submitManualPayment(userId: string, input: SubmitPaymentInput) {
-  if (!input.proofUrl?.trim()) {
+  if (!input.proofPath?.trim()) {
     throw new AppError("VALIDATION", "กรุณาอัปโหลดสลิปการโอนเงิน");
   }
+  const proofPath = assertOwnedProofPath(userId, input.proofPath);
 
   const pending = await prisma.payment.count({
     where: { userId, status: "PENDING" },
@@ -41,7 +46,7 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
       amount: input.amount,
       reference: input.reference,
       note: input.note,
-      proofUrl: input.proofUrl.trim(),
+      proofUrl: proofPath,
       status: "PENDING",
     },
     select: {
@@ -213,6 +218,10 @@ export async function reviewPayment(
 
     return { payment: updated, subscription };
   });
+
+  if (input.status === "REJECTED") {
+    void deletePaymentProofBlob(payment.proofUrl);
+  }
 
   void notifyUserPaymentReviewed({
     userEmail: payment.user.email,

@@ -38,6 +38,13 @@ export type AppAnnouncement = {
   linkLabel: string | null;
 };
 
+export type AppPendingPayment = {
+  id: string;
+  amount: number;
+  status: "PENDING";
+  createdAt: string;
+};
+
 /** Serializable bootstrap payload (mirrors server getAppBootstrap). */
 export type AppBootstrapPayload = {
   me: Record<string, unknown>;
@@ -50,6 +57,7 @@ export type AppBootstrapPayload = {
   natalThreads: Thread[];
   transitThreads: Thread[];
   announcements: AppAnnouncement[];
+  pendingPayment?: AppPendingPayment | null;
 };
 
 type AppDataContextValue = {
@@ -58,6 +66,7 @@ type AppDataContextValue = {
   natalThreads: Thread[];
   transitThreads: Thread[];
   announcements: AppAnnouncement[];
+  pendingPayment: AppPendingPayment | null;
   loading: boolean;
   loadError: string | null;
   searchQuery: string;
@@ -100,6 +109,7 @@ function applyBootstrap(
     setNatalThreads: (t: Thread[]) => void;
     setTransitThreads: (t: Thread[]) => void;
     setAnnouncements: (a: AppAnnouncement[]) => void;
+    setPendingPayment: (p: AppPendingPayment | null) => void;
   },
 ) {
   setters.setUser(mapMe(data.me));
@@ -113,6 +123,16 @@ function applyBootstrap(
   if (Array.isArray(data.announcements)) {
     setters.setAnnouncements(data.announcements);
   }
+  setters.setPendingPayment(
+    data.pendingPayment
+      ? {
+          id: data.pendingPayment.id,
+          amount: data.pendingPayment.amount,
+          status: "PENDING",
+          createdAt: String(data.pendingPayment.createdAt),
+        }
+      : null,
+  );
 }
 
 export function AppDataProvider({
@@ -138,6 +158,17 @@ export function AppDataProvider({
   );
   const [announcements, setAnnouncements] = useState<AppAnnouncement[]>(
     () => initialData?.announcements ?? [],
+  );
+  const [pendingPayment, setPendingPayment] = useState<AppPendingPayment | null>(
+    () =>
+      initialData?.pendingPayment
+        ? {
+            id: initialData.pendingPayment.id,
+            amount: initialData.pendingPayment.amount,
+            status: "PENDING",
+            createdAt: String(initialData.pendingPayment.createdAt),
+          }
+        : null,
   );
   const [loading, setLoading] = useState(!initialData);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -166,6 +197,7 @@ export function AppDataProvider({
         setNatalThreads,
         setTransitThreads,
         setAnnouncements,
+        setPendingPayment,
       });
     } catch (err) {
       if ((err as Error)?.name === "AbortError") {
@@ -227,6 +259,7 @@ export function AppDataProvider({
       natalThreads,
       transitThreads,
       announcements,
+      pendingPayment,
       loading,
       loadError,
       searchQuery,
@@ -244,6 +277,7 @@ export function AppDataProvider({
       natalThreads,
       transitThreads,
       announcements,
+      pendingPayment,
       loading,
       loadError,
       searchQuery,

@@ -5,16 +5,27 @@ import {
   listTransitThreads,
 } from "@/server/horoscope/thread-service";
 import { getActiveAnnouncements } from "@/server/settings/settings-service";
+import { prisma } from "@/server/db";
 
 /** One round-trip payload for the authenticated app shell. */
 export async function getAppBootstrap(userId: string) {
-  const [me, categories, natalThreads, transitThreads, announcements] =
+  const [me, categories, natalThreads, transitThreads, announcements, pendingPayment] =
     await Promise.all([
       getMe(userId),
       listPublicCategories(),
       listNatalThreads(userId),
       listTransitThreads(userId),
       getActiveAnnouncements().catch(() => []),
+      prisma.payment.findFirst({
+        where: { userId, status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
     ]);
 
   return {
@@ -30,6 +41,14 @@ export async function getAppBootstrap(userId: string) {
       linkUrl: a.linkUrl,
       linkLabel: a.linkLabel,
     })),
+    pendingPayment: pendingPayment
+      ? {
+          id: pendingPayment.id,
+          amount: pendingPayment.amount,
+          status: "PENDING" as const,
+          createdAt: pendingPayment.createdAt.toISOString(),
+        }
+      : null,
   };
 }
 

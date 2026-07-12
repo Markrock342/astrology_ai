@@ -1,16 +1,16 @@
-import { put } from "@vercel/blob";
 import { handle, ok } from "@/lib/http";
 import { AppError } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";
 import { requireUser } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
+import { uploadPrivatePaymentSlip } from "@/server/payment/payment-proof";
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 /**
- * POST /api/payments/proof — upload a payment slip image to Vercel Blob.
- * Returns { url } for use as Payment.proofUrl.
+ * POST /api/payments/proof — upload a private payment slip to Vercel Blob.
+ * Returns { pathname } (not a public URL) for Payment.proofUrl.
  */
 export async function POST(req: Request) {
   return handle(async () => {
@@ -48,15 +48,7 @@ export async function POST(req: Request) {
       throw new AppError("VALIDATION", "ขนาดไฟล์ต้องไม่เกิน 2 MB");
     }
 
-    const ext =
-      file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-    const pathname = `payment-slips/${user.id}/${Date.now()}.${ext}`;
-    const blob = await put(pathname, file, {
-      access: "public",
-      token,
-      contentType: file.type,
-    });
-
-    return ok({ url: blob.url }, { status: 201 });
+    const { pathname } = await uploadPrivatePaymentSlip(user.id, file, token);
+    return ok({ pathname }, { status: 201 });
   });
 }
