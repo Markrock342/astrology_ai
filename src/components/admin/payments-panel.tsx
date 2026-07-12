@@ -30,6 +30,12 @@ type Payment = {
   reviewer: { email: string; name: string | null } | null;
 };
 
+function slipSrc(p: Payment): string | null {
+  if (!p.proofUrl) return null;
+  if (/^https?:\/\//i.test(p.proofUrl)) return p.proofUrl;
+  return `/api/payments/proof/${p.id}`;
+}
+
 type PaymentList = {
   total: number;
   page: number;
@@ -181,7 +187,7 @@ export function PaymentsPanel() {
                   <>
                     <br />
                     <a
-                      href={p.proofUrl}
+                      href={slipSrc(p) ?? "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-[var(--primary)] underline"
@@ -189,14 +195,14 @@ export function PaymentsPanel() {
                       ดูสลิป
                     </a>
                     <a
-                      href={p.proofUrl}
+                      href={slipSrc(p) ?? "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-1 block overflow-hidden rounded-md border border-[var(--border)]"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={p.proofUrl}
+                        src={slipSrc(p) ?? undefined}
                         alt="สลิป"
                         className="max-h-24 max-w-[140px] object-contain"
                       />

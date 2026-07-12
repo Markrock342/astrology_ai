@@ -55,13 +55,13 @@
 ### BE-E0.5 · [P1] Slip upload — rate limit + กัน storage abuse
 - [x] `rateLimit(proof:user)` 5/min + 20/day · manual 5/min
 - [x] gate proof ด้วย "ไม่มี PENDING payment"
-- [ ] ลบ blob เมื่อ REJECTED ใน reviewPayment · **S**
+- [x] ลบ blob เมื่อ REJECTED ใน reviewPayment · **S** ✅
 
 ### BE-E0.6 · [P1] Slip เป็น PII — private blob + validate path (PDPA)
-- [ ] proof endpoint return **pathname** ไม่ใช่ public URL
-- [ ] `submitPaymentSchema` → `proofPath` validate prefix
-- [ ] blob → private + authenticated stream 🔗
-- [ ] retention job · **M**
+- [x] proof upload `access: "private"` + return `{ pathname }`
+- [x] `submitPaymentSchema.proofPath` + validate `payment-slips/${userId}/`
+- [x] `GET /api/payments/proof/[id]` owner-or-admin stream
+- [ ] retention job ลบสลิป N วันหลัง review · **M**
 
 ## 🟠 E1 — สัปดาห์แรก
 

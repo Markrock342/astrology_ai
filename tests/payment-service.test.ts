@@ -74,14 +74,23 @@ describe("payment-service (M4)", () => {
     await expect(
       submitManualPayment("user-1", {
         amount: 199,
-        proofUrl: "https://blob.example/slip.jpg",
+        proofPath: "payment-slips/user-1/1.jpg",
       }),
     ).rejects.toMatchObject({ code: "DUPLICATE_REQUEST" });
   });
 
-  it("submitManualPayment requires proofUrl", async () => {
+  it("submitManualPayment requires proofPath", async () => {
     await expect(
-      submitManualPayment("user-1", { amount: 199, proofUrl: "" }),
+      submitManualPayment("user-1", { amount: 199, proofPath: "" }),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+  });
+
+  it("submitManualPayment rejects proofPath for another user", async () => {
+    await expect(
+      submitManualPayment("user-1", {
+        amount: 199,
+        proofPath: "payment-slips/other-user/1.jpg",
+      }),
     ).rejects.toMatchObject({ code: "VALIDATION" });
   });
 

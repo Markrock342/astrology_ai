@@ -51,6 +51,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_QUOTA: "เครดิตหมดแล้ว เติมเครดิตหรืออัปเกรดเป็น Pro เพื่อถามต่อ",
   CATEGORY_LOCKED: "หมวดนี้สำหรับสมาชิก Pro",
   CHAT_REQUIRES_PRO: "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
+  CHAT_REQUIRES_PRO_PENDING:
+    "สลิปของคุณอยู่ระหว่างตรวจสอบ ปกติภายใน 1–2 วันทำการ — หลังอนุมัติจะแชทได้ทันที",
   TRANSIT_REQUIRES_PRO: "โหมดดวงจรสำหรับสมาชิก Pro เท่านั้น อัปเกรดเพื่อใช้งาน",
   CHART_NOT_READY:
     "ยังคำนวณพื้นดวงไม่สำเร็จ กรุณาตรวจสอบข้อมูลวันเกิดแล้วลองใหม่",
@@ -98,6 +100,7 @@ function applyApiError(
     setPendingRetry: (retry: PendingRetry | null) => void;
   },
   retry: PendingRetry | null,
+  opts?: { hasPendingPayment?: boolean },
 ) {
   setters.setErrorCode(code);
   if (code === "CATEGORY_LOCKED") {
@@ -105,8 +108,15 @@ function applyApiError(
     setters.setPendingRetry(null);
     return;
   }
+  const pendingChatMsg =
+    code === "CHAT_REQUIRES_PRO" && opts?.hasPendingPayment
+      ? ERROR_MESSAGES.CHAT_REQUIRES_PRO_PENDING
+      : null;
   setters.setErrorText(
-    message?.trim() || ERROR_MESSAGES[code] || "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
+    pendingChatMsg ||
+      message?.trim() ||
+      ERROR_MESSAGES[code] ||
+      "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
   );
   setters.setState(code === "NO_QUOTA" ? "no-quota" : "error");
   if (!RETRYABLE_ERRORS.has(code)) {
@@ -121,9 +131,10 @@ export function ChatView() {
   const searchParams = useSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
-  const { user, refresh } = useAppData();
+  const { user, refresh, pendingPayment } = useAppData();
   const category = useCategory(catSlug);
   const locked = isCategoryLocked(category, user?.plan ?? "FREE");
+  const hasPendingPayment = Boolean(pendingPayment);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -296,6 +307,7 @@ export function ChatView() {
         json?.error?.message,
         { setErrorCode, setErrorText, setState, setPendingRetry },
         { question: content, idempotencyKey },
+        { hasPendingPayment },
       );
       return null;
     }
@@ -373,6 +385,7 @@ export function ChatView() {
           json?.error?.message,
           { setErrorCode, setErrorText, setState, setPendingRetry },
           { question: content, idempotencyKey },
+          { hasPendingPayment },
         );
         return;
       }

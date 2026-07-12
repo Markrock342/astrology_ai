@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CmsPaymentInfo } from "@/lib/cms-keys";
 import { Button, Field, TextInput } from "@/components/admin/ui";
+import { useAppData } from "@/components/app/app-data-provider";
 
 type PaymentRow = {
   id: string;
@@ -14,6 +15,12 @@ type PaymentRow = {
   reviewedAt: string | null;
   createdAt: string;
 };
+
+function slipSrc(p: PaymentRow): string | null {
+  if (!p.proofUrl) return null;
+  if (/^https?:\/\//i.test(p.proofUrl)) return p.proofUrl;
+  return `/api/payments/proof/${p.id}`;
+}
 
 const STATUS_TH: Record<PaymentRow["status"], string> = {
   PENDING: "รออนุมัติ",
@@ -28,6 +35,7 @@ export function PaymentSubmitCard({
   proPrice: number;
   paymentInfo: CmsPaymentInfo;
 }) {
+  const { refresh } = useAppData();
   const [amount, setAmount] = useState(proPrice);
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
@@ -79,7 +87,7 @@ export function PaymentSubmitCard({
       if (!up.ok || !upJson?.ok) {
         throw new Error(upJson?.error?.message ?? "อัปโหลดสลิปไม่สำเร็จ");
       }
-      const proofUrl = upJson.data.url as string;
+      const proofPath = upJson.data.pathname as string;
 
       const res = await fetch("/api/payments/manual", {
         method: "POST",
@@ -88,7 +96,7 @@ export function PaymentSubmitCard({
           amount,
           reference: reference || undefined,
           note: note || undefined,
-          proofUrl,
+          proofPath,
         }),
       });
       const json = await res.json();
@@ -99,6 +107,7 @@ export function PaymentSubmitCard({
       onPickFile(null);
       if (inputRef.current) inputRef.current.value = "";
       await loadHistory();
+      refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "ส่งไม่สำเร็จ");
     } finally {
@@ -143,14 +152,14 @@ export function PaymentSubmitCard({
           </p>
           {pending.proofUrl ? (
             <a
-              href={pending.proofUrl}
+              href={slipSrc(pending) ?? "#"}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-block overflow-hidden rounded-lg border border-[var(--border)]"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={pending.proofUrl}
+                src={slipSrc(pending) ?? undefined}
                 alt="สลิปที่ส่งแล้ว"
                 className="max-h-40 max-w-full object-contain"
               />

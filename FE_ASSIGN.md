@@ -31,10 +31,8 @@
 - [x] ETA "ปกติภายใน 1–2 วันทำการ" บนการ์ด PENDING · **S** ✅
 
 ### FE-E0.2 · [P2→สำคัญ] Banner "รออนุมัติ" ให้เด่นบน app shell
-`account-view.tsx:112` — pending อยู่แค่ /account ผ่าน popover → ลูกค้าจ่ายแล้วไม่เห็นอะไร = เปิด ticket
-- [ ] 🔗 BE ใส่ `pendingPayment` ใน bootstrap payload (`bootstrap-service.ts`) — คุยก่อน
-- [ ] banner ถาวรใน `app-shell.tsx:44`: "รอแอดมินตรวจสอบการชำระเงิน ฿199 · ปกติภายใน 1–2 วันทำการ" ลิงก์ /account
-- [ ] special-case `CHAT_REQUIRES_PRO` ใน chat-view ให้พูด "สลิปอยู่ระหว่างตรวจสอบ" · **M**
+- [x] bootstrap `pendingPayment` + `PendingPaymentBanner` ใน app-shell
+- [x] `CHAT_REQUIRES_PRO` บอกว่าสลิปอยู่ระหว่างตรวจสอบเมื่อมี pending · **M** ✅
 
 ### FE-E0.3 · [P2] INTERNAL retryable (ตัดเครดิตแต่ข้อความไม่ขึ้น)
 - [x] เพิ่ม `"INTERNAL"` เข้า `RETRYABLE_ERRORS` + prefer server message · **S** ✅

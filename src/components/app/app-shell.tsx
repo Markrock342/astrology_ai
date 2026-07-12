@@ -24,6 +24,7 @@ import {
 } from "./sidebar-icons";
 import { useAppData, isCategoryLocked } from "./app-data-provider";
 import { VerifyEmailBanner } from "./verify-email-banner";
+import { PendingPaymentBanner } from "./pending-payment-banner";
 import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banner";
 import { UserAvatar } from "./user-avatar";
 import { useTheme } from "@/components/theme-provider";
@@ -389,6 +390,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
         <div className="flex min-h-0 flex-1 flex-col">
           <SiteAnnouncementBanner />
+          <PendingPaymentBanner />
           <VerifyEmailBanner />
           {children}
         </div>
