@@ -56,6 +56,28 @@ type RunInput = Omit<
   conversationHistory?: GenerateAIInput["conversationHistory"];
 };
 
+function toGenerateInput(
+  cfg: {
+    modelId: string;
+    temperature: number;
+    maxOutputTokens: number;
+    timeoutMs: number;
+    secretReference: string;
+  },
+  base: RunInput,
+): GenerateAIInput {
+  return {
+    modelId: cfg.modelId,
+    systemPrompt: base.systemPrompt,
+    userPrompt: base.userPrompt,
+    conversationHistory: base.conversationHistory,
+    temperature: cfg.temperature,
+    maxOutputTokens: cfg.maxOutputTokens,
+    timeoutMs: cfg.timeoutMs,
+    secretReference: cfg.secretReference,
+  };
+}
+
 /**
  * Generate using a config, trying its fallback once on failure. Returns the
  * result of whichever attempt succeeded, or the last failure.
@@ -69,17 +91,41 @@ export async function generateWithFallback(
 
   const attempt = async (cfg: NonNullable<typeof config>) => {
     const adapter = adapterFor(cfg.provider);
-    const input: GenerateAIInput = {
-      modelId: cfg.modelId,
-      systemPrompt: base.systemPrompt,
-      userPrompt: base.userPrompt,
-      conversationHistory: base.conversationHistory,
-      temperature: cfg.temperature,
-      maxOutputTokens: cfg.maxOutputTokens,
-      timeoutMs: cfg.timeoutMs,
-      secretReference: cfg.secretReference,
-    };
-    return adapter.generate(input);
+    return adapter.generate(toGenerateInput(cfg, base));
+  };
+
+  const primary = await attempt(config);
+  if (primary.ok || !config.fallbackConfigId) return primary;
+
+  const fallback = await prisma.aIProviderConfig.findUnique({
+    where: { id: config.fallbackConfigId },
+  });
+  if (!fallback || !fallback.enabled) return primary;
+
+  return attempt(fallback);
+}
+
+/**
+ * Stream generation with the same fallback rules as generateWithFallback.
+ * Gemini streams tokens; other providers fall back to one-shot then one delta.
+ */
+export async function streamWithFallback(
+  configId: string,
+  base: RunInput,
+  onDelta: (chunk: string) => void,
+): Promise<GenerateAIResult> {
+  const config = await prisma.aIProviderConfig.findUnique({ where: { id: configId } });
+  if (!config) throw new AppError("AI_PROVIDER_ERROR", "AI config not found");
+
+  const attempt = async (cfg: NonNullable<typeof config>) => {
+    const adapter = adapterFor(cfg.provider);
+    const input = toGenerateInput(cfg, base);
+    if (adapter instanceof GeminiAdapter) {
+      return adapter.streamGenerate(input, onDelta);
+    }
+    const result = await adapter.generate(input);
+    if (result.ok && result.rawText) onDelta(result.rawText);
+    return result;
   };
 
   const primary = await attempt(config);

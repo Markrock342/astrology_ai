@@ -97,6 +97,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 ## งานที่เสร็จแล้ว (อย่าทำซ้ำ)
 
 - [x] Unit tests พื้นฐาน M2 (`date`, `birth-profile-rules`, `password-reset`, `chart-engine`)
+- [x] HoraSard Standard v1 + 20 golden cases — [HORASARD_STANDARD_V1.md](./HORASARD_STANDARD_V1.md) · `tests/horasard-standard-v1.test.ts`
 - [x] Migrations บน Supabase (รวม `knowledge_docs`, `password_reset_token`, CMS revisions)
 - [x] Conversations API + Gemini จริง + Admin AI CMS + payment + dashboard
 - [x] `suggestedQuestions` ใน categories API

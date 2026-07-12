@@ -29,6 +29,10 @@ import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banne
 import { UserAvatar } from "./user-avatar";
 import { useTheme } from "@/components/theme-provider";
 import { TransitFormModal } from "./transit-form-modal";
+import {
+  invalidateCachedThread,
+  prefetchThread,
+} from "./thread-cache";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -51,6 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const {
     user,
     refresh,
+    removeThreadLocal,
     filteredCategories,
     filteredNatalThreads,
     filteredTransitThreads,
@@ -60,8 +65,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     loadError,
   } = useAppData();
 
+  function openThread(threadId: string, categorySlug?: string | null) {
+    closeMobile();
+    void prefetchThread(threadId);
+    const cat = categorySlug ? `&cat=${categorySlug}` : "";
+    router.replace(`/dashboard?thread=${threadId}${cat}`, { scroll: false });
+  }
+
   async function deleteThread(threadId: string) {
     if (!window.confirm("ลบแชทนี้ทั้งหมด? กู้คืนไม่ได้")) return;
+    // Optimistic: disappear from sidebar immediately.
+    removeThreadLocal(threadId);
+    invalidateCachedThread(threadId);
+    if (activeThread === threadId) {
+      router.replace("/dashboard", { scroll: false });
+    }
     try {
       const res = await fetch(`/api/conversations/${threadId}`, {
         method: "DELETE",
@@ -69,14 +87,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (!res.ok) {
         const json = await res.json().catch(() => null);
         window.alert(json?.error?.message ?? "ลบแชทไม่สำเร็จ");
+        void refresh();
         return;
       }
-      if (activeThread === threadId) {
-        router.push("/dashboard");
-      }
-      await refresh();
+      void refresh();
     } catch {
       window.alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+      void refresh();
     }
   }
 
@@ -270,10 +287,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   activeThread === t.id ? "bg-[var(--surface-3)]" : ""
                 }`}
               >
-                <Link
-                  href={`/dashboard?thread=${t.id}${t.categorySlug ? `&cat=${t.categorySlug}` : ""}`}
-                  onClick={closeMobile}
-                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-xs transition hover:text-[var(--foreground)] ${
+                <button
+                  type="button"
+                  onClick={() => openThread(t.id, t.categorySlug)}
+                  onMouseEnter={() => {
+                    void prefetchThread(t.id);
+                  }}
+                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-left text-xs transition hover:text-[var(--foreground)] ${
                     activeThread === t.id
                       ? "text-[var(--foreground)]"
                       : "text-[var(--muted)]"
@@ -285,7 +305,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </span>
                   ) : null}
                   <span className="truncate">{t.title}</span>
-                </Link>
+                </button>
                 <button
                   type="button"
                   title="ลบแชท"
@@ -331,10 +351,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   activeThread === t.id ? "bg-[var(--surface-3)]" : ""
                 }`}
               >
-                <Link
-                  href={`/dashboard?thread=${t.id}${t.categorySlug ? `&cat=${t.categorySlug}` : ""}`}
-                  onClick={closeMobile}
-                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-xs transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] ${
+                <button
+                  type="button"
+                  onClick={() => openThread(t.id, t.categorySlug)}
+                  onMouseEnter={() => {
+                    void prefetchThread(t.id);
+                  }}
+                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-left text-xs transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] ${
                     activeThread === t.id
                       ? "text-[var(--foreground)]"
                       : "text-[var(--muted)]"
@@ -344,7 +367,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <TransitIcon />
                   </span>
                   <span className="truncate">{t.title}</span>
-                </Link>
+                </button>
                 <button
                   type="button"
                   title="ลบแชท"

@@ -118,7 +118,7 @@ describe("engine-first prompts", () => {
       },
       "ดวงจรวันนี้",
       natal,
-      transit,
+      { transitChartJson: transit },
     );
     expect(user).toContain("[transit]");
     expect(user.indexOf("[natal]")).toBeLessThan(user.indexOf("[transit]"));

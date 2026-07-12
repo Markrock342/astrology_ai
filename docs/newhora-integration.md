@@ -67,3 +67,13 @@ Type: `src/types/chart.ts` (`ChartJson`).
 - myhora HTML changes break parsers → formula fallback still serves chat
 - Recompute is rate-limited (`natal-recompute:{userId}`, 5/min)
 - Treat myhora as a brittle third party; prefer caching birth charts
+
+## Own-engine correctness (Standard v1)
+
+Local formula / suryayat path is locked by **HoraSard Standard v1** + 20 golden cases:
+
+- Spec: [HORASARD_STANDARD_V1.md](./HORASARD_STANDARD_V1.md)
+- Fixtures: `tests/fixtures/horasard-golden-v1.json`
+- Test: `npm test -- tests/horasard-standard-v1.test.ts`
+
+Scrape remains runtime evidence / parity only — golden tests never call myhora.

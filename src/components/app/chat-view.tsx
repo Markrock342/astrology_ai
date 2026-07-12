@@ -16,6 +16,12 @@ import { ChartEvidenceTable } from "./chart-evidence-table";
 import { ChatUsageBar } from "./chat-usage-bar";
 import { NatalChartBanner } from "./natal-chart-banner";
 import type { ChartJson } from "@/types/chart";
+import {
+  getCachedThread,
+  prefetchThread,
+  setCachedThread,
+  type CachedChatMessage,
+} from "./thread-cache";
 
 type Message = {
   id: string;
@@ -173,79 +179,95 @@ export function ChatView() {
     conversationIdRef.current = threadId;
   }, [threadId]);
 
-  // Load past thread when ?thread= is set.
+  // Load past thread when ?thread= is set — soft switch from cache first.
   useEffect(() => {
     if (!threadId) return;
     let alive = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingThread(true);
-    setThreadLoadError(null);
-    fetch(`/api/conversations/${threadId}`)
-      .then((r) => parseApiJson(r).then((json) => ({ res: r, json })))
-      .then(({ res, json }) => {
+
+    const cached = getCachedThread(threadId);
+    if (cached?.messages?.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMessages(cached.messages as Message[]);
+      setThreadCategorySlug(cached.categorySlug ?? null);
+      setThreadMode(cached.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
+      setLoadingThread(false);
+      setThreadLoadError(null);
+      const pending = cached.messages.some(
+        (m) => m.role === "assistant" && m.status === "PENDING",
+      );
+      setState(pending ? "processing" : "idle");
+    } else {
+      setLoadingThread(true);
+      setThreadLoadError(null);
+    }
+
+    void prefetchThread(threadId).then((payload) => {
+      if (!alive || !payload) {
         if (!alive) return;
-        if (!res.ok || !json?.ok) {
-          setThreadLoadError(
-            json?.error?.message ?? "โหลดประวัติการสนทนาไม่สำเร็จ",
-          );
+        if (!cached) {
+          setThreadLoadError("โหลดประวัติการสนทนาไม่สำเร็จ");
           setMessages([]);
           setState("error");
-          return;
+          setLoadingThread(false);
         }
-        setMessages(json.data.messages);
-        setThreadCategorySlug(json.data.categorySlug ?? null);
-        setThreadMode(json.data.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
-        if (json.data.mode === "TRANSIT" && json.data.transitDate) {
-          const d = new Date(json.data.transitDate);
-          const dateLabel = Number.isNaN(d.getTime())
-            ? null
-            : d.toLocaleDateString("th-TH", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-                timeZone: "UTC",
-              });
-          const time = json.data.transitTime
-            ? ` · ${json.data.transitTime}`
-            : "";
-          setThreadTransitLabel(dateLabel ? `${dateLabel}${time}` : null);
-        } else {
-          setThreadTransitLabel(null);
-        }
-        const msgs = json.data.messages as Message[];
-        const pending = msgs.some(
-          (m) => m.role === "assistant" && m.status === "PENDING",
-        );
-        const failed = [...msgs]
-          .reverse()
-          .find((m) => m.role === "assistant" && m.status === "FAILED");
-        if (pending) {
-          setState("processing");
-          setErrorText(null);
-          setErrorCode(null);
-        } else if (failed) {
-          setState("error");
-          setErrorText(failed.content || ERROR_MESSAGES.AI_PROVIDER_ERROR);
-          setErrorCode("AI_PROVIDER_ERROR");
-        } else {
-          setState("idle");
-          setErrorText(null);
-          setErrorCode(null);
-          setPendingRetry(null);
-        }
-      })
-      .catch(() => {
-        if (!alive) return;
-        setThreadLoadError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+        return;
+      }
+      setMessages(payload.messages as Message[]);
+      setThreadCategorySlug(payload.categorySlug ?? null);
+      setThreadMode(payload.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
+      if (payload.mode === "TRANSIT" && payload.transitDate) {
+        const d = new Date(payload.transitDate);
+        const dateLabel = Number.isNaN(d.getTime())
+          ? null
+          : d.toLocaleDateString("th-TH", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+              timeZone: "UTC",
+            });
+        const time = payload.transitTime ? ` · ${payload.transitTime}` : "";
+        setThreadTransitLabel(dateLabel ? `${dateLabel}${time}` : null);
+      } else {
+        setThreadTransitLabel(null);
+      }
+      const msgs = payload.messages as Message[];
+      const pending = msgs.some(
+        (m) => m.role === "assistant" && m.status === "PENDING",
+      );
+      const failed = [...msgs]
+        .reverse()
+        .find((m) => m.role === "assistant" && m.status === "FAILED");
+      if (pending) {
+        setState("processing");
+        setErrorText(null);
+        setErrorCode(null);
+      } else if (failed) {
         setState("error");
-      })
-      .finally(() => {
-        if (alive) setLoadingThread(false);
-      });
+        setErrorText(failed.content || ERROR_MESSAGES.AI_PROVIDER_ERROR);
+        setErrorCode("AI_PROVIDER_ERROR");
+      } else {
+        setState("idle");
+        setErrorText(null);
+        setErrorCode(null);
+        setPendingRetry(null);
+      }
+      setLoadingThread(false);
+    });
+
     return () => {
       alive = false;
     };
   }, [threadId]);
+
+  // Keep cache warm while chatting.
+  useEffect(() => {
+    if (!threadId || messages.length === 0) return;
+    setCachedThread(threadId, {
+      messages: messages as CachedChatMessage[],
+      categorySlug: threadCategorySlug,
+      mode: threadMode,
+    });
+  }, [threadId, messages, threadCategorySlug, threadMode]);
 
   // Poll while a background reply is still PENDING (leave/return safe).
   const pendingAssistantIds = messages
@@ -257,8 +279,18 @@ export function ChatView() {
     if (!threadId || !pendingAssistantIds) return;
 
     let alive = true;
+    const pollStarted = Date.now();
     const tick = async () => {
       try {
+        if (Date.now() - pollStarted > 120_000) {
+          if (!alive) return;
+          setState("error");
+          setErrorCode("AI_TIMEOUT");
+          setErrorText(
+            "ใช้เวลานานเกินไป — ลองถามใหม่อีกครั้ง (ยังไม่หักเครดิตถ้ายังไม่มีคำตอบ)",
+          );
+          return;
+        }
         const res = await fetch(`/api/conversations/${threadId}`);
         const json = await parseApiJson(res);
         if (!alive || !res.ok || !json?.ok) return;
@@ -329,48 +361,11 @@ export function ChatView() {
   }, [messages, state]);
 
   useEffect(() => {
+    const timer = streamTimer;
     return () => {
-      if (streamTimer.current) window.clearInterval(streamTimer.current);
+      if (timer.current) window.clearInterval(timer.current);
     };
   }, []);
-
-  function streamReply(
-    full: string,
-    modelId: string,
-    charts?: { natal?: ChartJson | null; transit?: ChartJson | null },
-    onDone?: () => void,
-  ) {
-    const id = crypto.randomUUID();
-    setMessages((m) => [
-      ...m,
-      {
-        id,
-        role: "assistant",
-        content: "",
-        modelId,
-        chartSnapshot: charts?.natal ?? null,
-        transitSnapshot: charts?.transit ?? null,
-      },
-    ]);
-    setState("streaming");
-
-    let i = 0;
-    streamTimer.current = window.setInterval(() => {
-      i = Math.min(full.length, i + 3);
-      const slice = full.slice(0, i);
-      setMessages((m) =>
-        m.map((msg) => (msg.id === id ? { ...msg, content: slice } : msg)),
-      );
-      if (i >= full.length) {
-        if (streamTimer.current) window.clearInterval(streamTimer.current);
-        streamTimer.current = null;
-        setState("idle");
-        refresh();
-        usageRefreshRef.current?.();
-        onDone?.();
-      }
-    }, 24);
-  }
 
   async function ensureConversation(
     categorySlug: string,
@@ -445,11 +440,35 @@ export function ChatView() {
       setPendingRetry({ question: content, idempotencyKey });
     }
 
+    const assistantId = `stream-${idempotencyKey}`;
+
     try {
       const conversationId = categorySlug
         ? await ensureConversation(categorySlug, content, idempotencyKey)
         : (threadId ?? conversationIdRef.current);
       if (!conversationId) return;
+
+      const syncCat = categorySlug ?? catSlug;
+      if (!threadId && syncCat) {
+        router.replace(
+          `/dashboard?thread=${conversationId}&cat=${syncCat}`,
+          { scroll: false },
+        );
+      }
+
+      // Placeholder assistant bubble — typing until first delta.
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === assistantId)) return prev;
+        return [
+          ...prev,
+          {
+            id: assistantId,
+            role: "assistant",
+            content: "",
+            status: "PENDING",
+          },
+        ];
+      });
 
       const res = await fetch(
         `/api/conversations/${conversationId}/messages`,
@@ -457,83 +476,189 @@ export function ChatView() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Accept: "text/event-stream",
             "Idempotency-Key": idempotencyKey,
           },
           body: JSON.stringify({ content }),
         },
       );
-      const json = await parseApiJson(res);
 
-      if (!res.ok || !json?.ok) {
-        const code: string = json?.error?.code ?? "INTERNAL";
-        applyApiError(
-          code,
-          json?.error?.message,
-          { setErrorCode, setErrorText, setState, setPendingRetry },
-          { question: content, idempotencyKey },
-          { hasPendingPayment },
-        );
-        return;
-      }
-
-      const syncCat = categorySlug ?? catSlug;
-      const shouldSyncUrl = !threadId;
-
-      // Background accept — AI continues after response; poll thread for result.
-      if (
-        res.status === 202 ||
-        (json.data as { status?: string } | undefined)?.status === "pending"
-      ) {
-        setState("processing");
-        if (shouldSyncUrl && syncCat) {
-          router.replace(
-            `/dashboard?thread=${conversationId}&cat=${syncCat}`,
-            { scroll: false },
+      // Non-SSE error JSON
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("text/event-stream")) {
+        const json = await parseApiJson(res);
+        if (!res.ok || !json?.ok) {
+          const code: string = json?.error?.code ?? "INTERNAL";
+          applyApiError(
+            code,
+            json?.error?.message,
+            { setErrorCode, setErrorText, setState, setPendingRetry },
+            { question: content, idempotencyKey },
+            { hasPendingPayment },
           );
-        } else {
-          // Already on thread URL — inject pending placeholder for polling.
-          setMessages((prev) => {
-            if (prev.some((m) => m.status === "PENDING")) return prev;
-            return [
-              ...prev,
-              {
-                id: `pending-${idempotencyKey}`,
-                role: "assistant",
-                content: "",
-                status: "PENDING",
-              },
-            ];
-          });
+          setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+          return;
         }
+        // Legacy 202 pending — fall back to poll
+        if (
+          res.status === 202 ||
+          (json.data as { status?: string } | undefined)?.status === "pending"
+        ) {
+          setState("processing");
+          void refresh();
+          return;
+        }
+        const reading = json.data as {
+          responseText: string;
+          modelId: string | null;
+          chartSnapshot?: ChartJson | null;
+          transitSnapshot?: ChartJson | null;
+        };
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content: reading.responseText,
+                  modelId: reading.modelId ?? undefined,
+                  status: "SUCCESS",
+                  chartSnapshot: reading.chartSnapshot ?? null,
+                  transitSnapshot: reading.transitSnapshot ?? null,
+                }
+              : m,
+          ),
+        );
+        setState("idle");
+        setPendingRetry(null);
         void refresh();
+        usageRefreshRef.current?.();
         return;
       }
 
-      setErrorCode(null);
-      setPendingRetry(null);
-      const reading = json.data as {
-        responseText: string;
-        modelId: string | null;
-        chartSnapshot?: ChartJson | null;
-        transitSnapshot?: ChartJson | null;
-      };
-      streamReply(
-        reading.responseText,
-        reading.modelId ?? DEFAULTS.defaultGeminiModelId,
-        {
-          natal: reading.chartSnapshot,
-          transit: reading.transitSnapshot,
-        },
-        () => {
-          if (shouldSyncUrl && syncCat) {
-            router.replace(
-              `/dashboard?thread=${conversationId}&cat=${syncCat}`,
-              { scroll: false },
-            );
+      if (!res.ok || !res.body) {
+        setErrorCode("NETWORK");
+        setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
+        setState("error");
+        setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let assembled = "";
+      let gotDelta = false;
+      let finished = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const block of parts) {
+          const line = block
+            .split("\n")
+            .map((l) => l.trim())
+            .find((l) => l.startsWith("data:"));
+          if (!line) continue;
+          const payload = line.slice(5).trim();
+          if (!payload) continue;
+          let event: {
+            type?: string;
+            text?: string;
+            code?: string;
+            message?: string;
+            reading?: {
+              responseText?: string | null;
+              modelId?: string | null;
+              chartSnapshot?: ChartJson | null;
+              transitSnapshot?: ChartJson | null;
+            };
+          };
+          try {
+            event = JSON.parse(payload);
+          } catch {
+            continue;
           }
-        },
-      );
-    } catch {
+
+          if (event.type === "delta" && event.text) {
+            gotDelta = true;
+            assembled += event.text;
+            setState("streaming");
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: assembled, status: "PENDING" }
+                  : m,
+              ),
+            );
+          } else if (event.type === "done") {
+            finished = true;
+            const reading = event.reading;
+            const finalText = reading?.responseText || assembled;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      content: finalText,
+                      modelId: reading?.modelId ?? DEFAULTS.defaultGeminiModelId,
+                      status: "SUCCESS",
+                      chartSnapshot: reading?.chartSnapshot ?? null,
+                      transitSnapshot: reading?.transitSnapshot ?? null,
+                    }
+                  : m,
+              ),
+            );
+            setState("idle");
+            setErrorText(null);
+            setErrorCode(null);
+            setPendingRetry(null);
+            void refresh();
+            usageRefreshRef.current?.();
+          } else if (event.type === "error") {
+            finished = true;
+            const code = event.code ?? "AI_PROVIDER_ERROR";
+            applyApiError(
+              code,
+              event.message,
+              { setErrorCode, setErrorText, setState, setPendingRetry },
+              { question: content, idempotencyKey },
+              { hasPendingPayment },
+            );
+            if (!gotDelta) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? {
+                        ...m,
+                        content:
+                          event.message || ERROR_MESSAGES.AI_PROVIDER_ERROR,
+                        status: "FAILED",
+                      }
+                    : m,
+                ),
+              );
+            }
+          }
+        }
+      }
+
+      // Stream ended without done — recover via PENDING poll.
+      if (!finished) {
+        if (assembled) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: assembled, status: "PENDING" }
+                : m,
+            ),
+          );
+        }
+        setState("processing");
+      }    } catch {
       setErrorCode("NETWORK");
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
       setState("error");
@@ -678,6 +803,11 @@ export function ChatView() {
               )
             )}
             {state === "processing" && <ThinkingIndicator />}
+            {state === "streaming" &&
+              messages[messages.length - 1]?.role === "assistant" &&
+              !messages[messages.length - 1]?.content && (
+                <ThinkingIndicator />
+              )}
             {(state === "error" || state === "no-quota") && (
               <ErrorBanner
                 state={state}
@@ -866,7 +996,7 @@ function ThinkingIndicator() {
             />
           ))}
         </div>
-        <span className="shimmer-text text-xs font-medium">กำลังเพ่งดวงดาว…</span>
+        <span className="shimmer-text text-xs font-medium">กำลังพิมพ์คำตอบ…</span>
       </div>
       <p className="pl-0 text-[11px] tabular-nums text-[var(--muted-2)]">
         ใช้เวลาไปแล้ว{" "}
