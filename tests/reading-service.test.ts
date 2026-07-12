@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
   resolvePromptParts: vi.fn(),
   loadChart: vi.fn(),
   requireReadyNatalChart: vi.fn(),
+  getOrRefreshChartMemory: vi.fn(),
+  getOrComputeDailyTransit: vi.fn(),
+  questionWantsTodayTransit: vi.fn(() => false),
   generateWithFallback: vi.fn(),
   logUsage: vi.fn(),
   deductCredits: vi.fn(),
@@ -57,8 +60,18 @@ vi.mock("@/server/horoscope/prompt-resolver", () => ({
 vi.mock("@/server/horoscope/chart-context", () => ({
   loadChartForUser: mocks.loadChart,
   requireReadyNatalChart: mocks.requireReadyNatalChart,
+  assertUsableEngineChart: (chart: unknown) => chart,
+  isUsableEngineChart: (chart: unknown) => Boolean(chart),
 }));
 
+vi.mock("@/server/horoscope/chart-memory-service", () => ({
+  getOrRefreshChartMemory: mocks.getOrRefreshChartMemory,
+}));
+
+vi.mock("@/server/horoscope/daily-transit-service", () => ({
+  getOrComputeDailyTransit: mocks.getOrComputeDailyTransit,
+  questionWantsTodayTransit: mocks.questionWantsTodayTransit,
+}));
 vi.mock("@/server/ai/usage-logger", () => ({
   logUsage: mocks.logUsage,
 }));
@@ -142,9 +155,52 @@ function setupHappyPath() {
     planets: [
       { planet: "อาทิตย์", siderealSign: "มกร", degreeText: "10°" },
       { planet: "จันทร์", siderealSign: "เมษ", degreeText: "5°" },
+      { planet: "อังคาร", siderealSign: "พิจิก", degreeText: "12°" },
+      { planet: "พุธ", siderealSign: "ธนู", degreeText: "3°" },
+      { planet: "พฤหัสบดี", siderealSign: "มิถุน", degreeText: "8°" },
+      { planet: "ศุกร์", siderealSign: "มกร", degreeText: "20°" },
+      { planet: "เสาร์", siderealSign: "ธนู", degreeText: "15°" },
+      { planet: "ราหู", siderealSign: "มกร", degreeText: "1°" },
+      { planet: "เกตุ", siderealSign: "สิงห์", degreeText: "1°" },
+      { planet: "มฤตยู", siderealSign: "ธนู", degreeText: "7°" },
     ],
     chart: { lagna: "เมษ", taksa: [] },
   });
+  mocks.getOrRefreshChartMemory.mockResolvedValue({
+    lagna: "เมษ",
+    source: "formula-pipeline",
+    birthHash: "abc",
+    computedAt: new Date().toISOString(),
+    taksa: [],
+    houseOccupants: [],
+    categories: {
+      career: {
+        houses: [10, 6, 2],
+        planetsInHouses: [],
+        houseLords: [],
+        summaryLines: ["งาน/อาชีพ: เรือน 10, 6, 2 จากลัคนาเมษ"],
+      },
+      love: {
+        houses: [7, 5],
+        planetsInHouses: [],
+        houseLords: [],
+        summaryLines: ["ความรัก: เรือน 7, 5"],
+      },
+      money: {
+        houses: [2, 11],
+        planetsInHouses: [],
+        houseLords: [],
+        summaryLines: ["การเงิน: เรือน 2, 11"],
+      },
+      health: {
+        houses: [1, 6, 8],
+        planetsInHouses: [],
+        houseLords: [],
+        summaryLines: ["สุขภาพ: เรือน 1, 6, 8"],
+      },
+    },
+  });
+  mocks.questionWantsTodayTransit.mockReturnValue(false);
   mocks.generateWithFallback.mockResolvedValue({
     ok: true,
     rawText: "คำตอบจาก AI",
@@ -277,6 +333,13 @@ describe("createReading (M3 B2)", () => {
 
     expect(result).toMatchObject({ id: "reading-1", responseText: "คำตอบจาก AI" });
     expect(mocks.generateWithFallback).toHaveBeenCalledOnce();
+    const aiCall = mocks.generateWithFallback.mock.calls[0]?.[1] as {
+      userPrompt: string;
+      systemPrompt: string;
+    };
+    expect(aiCall.userPrompt).toContain("[natal]");
+    expect(aiCall.userPrompt).toContain("[memory]");
+    expect(aiCall.systemPrompt).toContain("กฎบังคับ");
     expect(mocks.reserveUsageSlot).toHaveBeenCalledOnce();
     expect(mocks.transaction).toHaveBeenCalledOnce();
     expect(mocks.deductCredits).toHaveBeenCalledWith(

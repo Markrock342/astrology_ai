@@ -42,18 +42,28 @@ export function computeNatalChartFormula(input: BirthInputSnapshot): ChartJson {
 }
 
 /**
- * Scrape-first natal chart. Falls back to local formula pipeline on failure.
- * Prefer this for production accuracy matching myhora tables.
+ * Scrape-first natal chart with hard timeout, then local formula fallback.
+ * Prefer formula for latency-sensitive chat; scrape is best-effort.
  */
 export async function computeNatalChart(
   input: BirthInputSnapshot,
-  options?: { transit?: TransitInput },
+  options?: { transit?: TransitInput; scrapeTimeoutMs?: number },
 ): Promise<ChartJson> {
   if (isMyhoraScrapeEnabled()) {
+    const scrapeTimeoutMs = options?.scrapeTimeoutMs ?? 12_000;
     try {
-      const scrape = await fetchMyhoraThaiChart(input, {
-        transit: options?.transit,
-      });
+      const scrape = await Promise.race([
+        fetchMyhoraThaiChart(input, {
+          transit: options?.transit,
+          lite: true,
+        }),
+        new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`myhora scrape timeout after ${scrapeTimeoutMs}ms`)),
+            scrapeTimeoutMs,
+          );
+        }),
+      ]);
       return mapScrapeToChartJson(input, scrape);
     } catch (err) {
       console.warn(
@@ -67,11 +77,12 @@ export async function computeNatalChart(
 
 /**
  * Transit chart for a moment/place.
- * When scrape is on, uses myhora with that transit snapshot; else local formula.
+ * Short scrape timeout — chat must not hang on myhora.
  */
 export async function computeTransitChart(
   input: BirthInputSnapshot,
   natalInput?: BirthInputSnapshot,
+  options?: { scrapeTimeoutMs?: number },
 ): Promise<ChartJson> {
   const transit: TransitInput = {
     day: input.day,
@@ -82,9 +93,18 @@ export async function computeTransitChart(
   };
 
   if (isMyhoraScrapeEnabled()) {
+    const scrapeTimeoutMs = options?.scrapeTimeoutMs ?? 8_000;
     try {
       const birth = natalInput ?? input;
-      const scrape = await fetchMyhoraThaiChart(birth, { transit });
+      const scrape = await Promise.race([
+        fetchMyhoraThaiChart(birth, { transit, lite: true }),
+        new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`myhora transit scrape timeout after ${scrapeTimeoutMs}ms`)),
+            scrapeTimeoutMs,
+          );
+        }),
+      ]);
       const chart = mapScrapeToChartJson(input, scrape);
       // Prefer transit planet table when present.
       if (scrape.tables.transitPlanets?.length) {

@@ -1,7 +1,11 @@
 import type { BirthProfileSnapshot, ConversationTurn } from "@/types";
 import type { ChartJson } from "@/types/chart";
+import type { UserChartMemoryJson } from "@/types/chart-memory";
 import { MAX_CONVERSATION_TURNS } from "@/config/constants";
+import { AppError } from "@/lib/errors";
+import { assertUsableEngineChart } from "@/server/horoscope/chart-context";
 import { formatChartForPrompt } from "@/server/horoscope/engine/format-chart-prompt";
+import { formatMemoryForPrompt } from "@/server/horoscope/engine/derive-chart-memory";
 
 /**
  * Composes the final prompt in the order defined by spec 7.2:
@@ -21,13 +25,14 @@ export type PromptParts = {
 
 /** Hard rule injected into every system prompt (engine-first). */
 export const ENGINE_CHART_RULE =
-  "กฎบังคับ: ใช้เฉพาะตำแหน่งดาว ลัคนา ทักษา และตารางจากบล็อกข้อมูลดวงที่ระบบคำนวณให้มาเท่านั้น " +
+  "กฎบังคับ: คำตอบทุกครั้งต้องอ้างจากตาราง [natal] และ [memory] (และ [transit] ถ้ามี) ในข้อความผู้ใช้ " +
+  "ใช้เฉพาะตำแหน่งดาว ลัคนา ทักษา และตารางจากบล็อกนั้นเท่านั้น " +
   "ห้ามแต่ง ห้ามเดา ห้ามสมมติตำแหน่งดาวหรือราศีเอง " +
   "ทบทวนตารางก่อนตอบ: ดาวอยู่ราศี/เรือนใด มาตรฐาน (อุจจ์/นีจ/สวักษ์) สัมพันธ์ดาวเป็นอย่างไร " +
   "ตอบคำถามผู้ใช้ตรง ๆ — ห้ามพิมพ์อธิบายว่า 'นี่คือพื้นดวง' 'ระบบคำนวณให้' หรือสอนว่ากราฟคืออะไร " +
   "ห้ามบอกว่า engine / ระบบคำนวณ / ดวงจร ยังอยู่ในขั้นตอนพัฒนา หรือยังไม่ได้เชื่อมต่อ " +
-  "ถ้ามีบล็อกตารางดวงในข้อความนี้ ให้ถือว่ามีข้อมูลดวงพร้อมใช้แล้ว " +
-  "ถ้าคำถามเกี่ยวกับดวงจรแต่ไม่มีบล็อกดวงจร ให้แนะนำให้ผู้ใช้เลือกเมนู「เริ่มดวงจร」ในแถบข้าง " +
+  "ถ้ามีบล็อก [natal]/[memory] ให้ถือว่า engine คำนวณเสร็จแล้วและต้องใช้ตอบทันที " +
+  "ถ้าคำถามเกี่ยวกับดวงจรแต่ไม่มีบล็อก [transit] ให้แนะนำให้ผู้ใช้เลือกเมนู「เริ่มดวงจร」ในแถบข้าง " +
   "ถ้าคำถามต้องการข้อมูลนอกบล็อกที่ให้มา ให้บอกข้อจำกัดอย่างสุภาพ อย่า invent";
 
 export function buildSystemPrompt(parts: PromptParts): string {
@@ -44,27 +49,41 @@ export function buildSystemPrompt(parts: PromptParts): string {
     .join("\n\n");
 }
 
+export type BuildUserPromptOptions = {
+  chartMemory?: UserChartMemoryJson | null;
+  categorySlug?: string | null;
+  transitChartJson?: ChartJson | null;
+};
+
+/**
+ * Build the current-turn user prompt. Natal engine chart is required —
+ * never call Gemini with profile/question alone.
+ */
 export function buildUserPrompt(
   profile: BirthProfileSnapshot,
   question: string,
-  chartJson?: ChartJson | null,
-  transitChartJson?: ChartJson | null,
+  chartJson: ChartJson,
+  options?: BuildUserPromptOptions,
 ): string {
-  const lines: Array<string | null> = [];
+  const opts = options ?? {};
+  const natal = assertUsableEngineChart(chartJson);
 
-  if (chartJson) {
-    lines.push(
-      formatChartForPrompt(chartJson, {
-        title: "[natal] พื้นดวง (คำนวณในเครื่อง — ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)",
-      }),
-      "",
-    );
+  const lines: Array<string | null> = [
+    formatChartForPrompt(natal, {
+      title: "[natal] พื้นดวงจาก engine (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)",
+    }),
+    "",
+  ];
+
+  if (opts.chartMemory) {
+    lines.push(formatMemoryForPrompt(opts.chartMemory, opts.categorySlug), "");
   }
 
-  if (transitChartJson) {
+  if (opts.transitChartJson) {
+    const transit = assertUsableEngineChart(opts.transitChartJson);
     lines.push(
-      formatChartForPrompt(transitChartJson, {
-        title: "[transit] ดวงจรจากตาราง (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)",
+      formatChartForPrompt(transit, {
+        title: "[transit] ดวงจรจาก engine (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)",
         preferTransitSamrap: true,
       }),
       "",
@@ -85,7 +104,14 @@ export function buildUserPrompt(
     `คำถาม: ${question}`,
   );
 
-  return lines.filter((line): line is string => line !== null).join("\n");
+  const prompt = lines.filter((line): line is string => line !== null).join("\n");
+  if (!prompt.includes("[natal]")) {
+    throw new AppError("CHART_NOT_READY", "Engine chart missing from prompt");
+  }
+  if (opts.chartMemory && !prompt.includes("[memory]")) {
+    throw new AppError("CHART_NOT_READY", "Chart memory missing from prompt");
+  }
+  return prompt;
 }
 
 export type PriorThreadMessage = {
@@ -103,9 +129,9 @@ export type PriorThreadMessage = {
 export function buildConversationHistory(
   priorMessages: PriorThreadMessage[],
   profile: BirthProfileSnapshot,
-  chartJson: ChartJson | null | undefined,
+  chartJson: ChartJson,
   currentQuestion: string,
-  transitChartJson?: ChartJson | null,
+  options?: BuildUserPromptOptions,
 ): { conversationHistory: ConversationTurn[]; userPrompt: string } {
   const history: ConversationTurn[] = [];
 
@@ -123,7 +149,7 @@ export function buildConversationHistory(
       profile,
       currentQuestion,
       chartJson,
-      transitChartJson,
+      options,
     ),
   };
 }

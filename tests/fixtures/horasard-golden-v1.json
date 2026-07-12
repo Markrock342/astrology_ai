@@ -1,0 +1,627 @@
+{
+  "version": "HoraSard-Standard-v1",
+  "lockedAt": "2026-07-12",
+  "description": "Golden natal cases for regression. myhora-parity = external birth-time charts; formula-locked / suryayat-year-locked = engine self-consistency locks (not third-party certified).",
+  "cases": [
+    {
+      "id": "ref-2006-bangkok-pranakorn",
+      "authority": "myhora-parity",
+      "notes": "เทียบ myhora ราศีจักรตามเวลาเกิด — referenceCharts",
+      "input": {
+        "day": 21,
+        "month": 5,
+        "year": 2006,
+        "time": "18:31",
+        "country": "ไทย",
+        "province": "กรุงเทพมหานคร",
+        "district": "พระนคร"
+      },
+      "expect": {
+        "source": "suryayat-100-reference",
+        "lagna": "พิจิก",
+        "planets": {
+          "อาทิตย์": "มีน",
+          "จันทร์": "กุมภ์",
+          "อังคาร": "เมษ",
+          "พุธ": "พิจิก",
+          "พฤหัสบดี": "ตุลย์",
+          "ศุกร์": "มีน",
+          "เสาร์": "สิงห์",
+          "ราหู": "มกร",
+          "เกตุ": "พิจิก",
+          "มฤตยู": "ตุลย์"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "ref-2001-bangkok-bangkae",
+      "authority": "myhora-parity",
+      "notes": "เทียบ myhora — referenceCharts",
+      "input": {
+        "day": 21,
+        "month": 11,
+        "year": 2001,
+        "time": "02:00",
+        "country": "ไทย",
+        "province": "กรุงเทพมหานคร",
+        "district": "บางแค"
+      },
+      "expect": {
+        "source": "suryayat-100-reference",
+        "lagna": "กันย์",
+        "planets": {
+          "อาทิตย์": "พิจิก",
+          "จันทร์": "มกร",
+          "อังคาร": "มกร",
+          "พุธ": "พิจิก",
+          "พฤหัสบดี": "มิถุน",
+          "ศุกร์": "ตุลย์",
+          "เสาร์": "พฤษภ",
+          "ราหู": "มิถุน",
+          "เกตุ": "มีน",
+          "มฤตยู": "มกร"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "formula-1938-bangkok",
+      "authority": "formula-locked",
+      "notes": "นอกช่วง suryayat100 → formula-pipeline (ล็อก regression)",
+      "input": {
+        "day": 15,
+        "month": 6,
+        "year": 1938,
+        "time": "10:00",
+        "country": "ไทย",
+        "province": "กรุงเทพมหานคร",
+        "district": "พระนคร"
+      },
+      "expect": {
+        "source": "formula-pipeline",
+        "lagna": "สิงห์",
+        "planets": {
+          "อาทิตย์": "มิถุน",
+          "จันทร์": "ธนู",
+          "อังคาร": "มิถุน",
+          "พุธ": "พฤษภ",
+          "พฤหัสบดี": "กุมภ",
+          "ศุกร์": "กรกฎ",
+          "เสาร์": "มีน",
+          "ราหู": "ธนู",
+          "เกตุ": "ธนู",
+          "มฤตยู": "เมษ"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "formula-2045-chiangmai",
+      "authority": "formula-locked",
+      "notes": "นอกช่วง suryayat100 → formula-pipeline",
+      "input": {
+        "day": 1,
+        "month": 1,
+        "year": 2045,
+        "time": "12:00",
+        "country": "ไทย",
+        "province": "เชียงใหม่",
+        "district": "เมืองเชียงใหม่"
+      },
+      "expect": {
+        "source": "formula-pipeline",
+        "lagna": "มีน",
+        "planets": {
+          "อาทิตย์": "ธนู",
+          "จันทร์": "พฤษภ",
+          "อังคาร": "มกร",
+          "พุธ": "พิจิก",
+          "พฤหัสบดี": "มกร",
+          "ศุกร์": "พิจิก",
+          "เสาร์": "พิจิก",
+          "ราหู": "เมษ",
+          "เกตุ": "มีน",
+          "มฤตยู": "สิงห์"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1990-bangkok",
+      "authority": "suryayat-year-locked",
+      "notes": "ดาวจากปฏิทินปี; ลัคนาอาจเป็นค่าเริ่มต้นถ้า year JSON ไม่มี lagna",
+      "input": {
+        "day": 15,
+        "month": 1,
+        "year": 1990,
+        "time": "08:30",
+        "country": "ไทย",
+        "province": "กรุงเทพมหานคร",
+        "district": "พระนคร"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "มกร",
+          "จันทร์": "สิงห์",
+          "อังคาร": "พิจิก",
+          "พุธ": "ธนู",
+          "พฤหัสบดี": "มิถุน",
+          "ศุกร์": "มกร",
+          "เสาร์": "ธนู",
+          "ราหู": "มกร",
+          "เกตุ": "สิงห์",
+          "มฤตยู": "ธนู"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1985-chiangmai",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 12,
+        "month": 8,
+        "year": 1985,
+        "time": "14:20",
+        "country": "ไทย",
+        "province": "เชียงใหม่",
+        "district": "เมืองเชียงใหม่"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "กรกฎ",
+          "จันทร์": "มิถุน",
+          "อังคาร": "กรกฎ",
+          "พุธ": "กรกฎ",
+          "พฤหัสบดี": "มกร",
+          "ศุกร์": "มิถุน",
+          "เสาร์": "ตุลย์",
+          "ราหู": "เมษ",
+          "เกตุ": "ธนู",
+          "มฤตยู": "พิจิก"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1995-khonkaen",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 3,
+        "month": 3,
+        "year": 1995,
+        "time": "06:15",
+        "country": "ไทย",
+        "province": "ขอนแก่น",
+        "district": "เมืองขอนแก่น"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "กุมภ์",
+          "จันทร์": "มีน",
+          "อังคาร": "กรกฎ",
+          "พุธ": "มกร",
+          "พฤหัสบดี": "พิจิก",
+          "ศุกร์": "มกร",
+          "เสาร์": "กุมภ์",
+          "ราหู": "ตุลย์",
+          "เกตุ": "พิจิก",
+          "มฤตยู": "มกร"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-2000-hatyai",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 31,
+        "month": 12,
+        "year": 2000,
+        "time": "23:45",
+        "country": "ไทย",
+        "province": "สงขลา",
+        "district": "หาดใหญ่"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "ธนู",
+          "จันทร์": "กุมภ์",
+          "อังคาร": "ตุลย์",
+          "พุธ": "ธนู",
+          "พฤหัสบดี": "พฤษภ",
+          "ศุกร์": "กุมภ์",
+          "เสาร์": "เมษ",
+          "ราหู": "มิถุน",
+          "เกตุ": "กันย์",
+          "มฤตยู": "มกร"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1992-korat",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 7,
+        "month": 7,
+        "year": 1992,
+        "time": "12:00",
+        "country": "ไทย",
+        "province": "นครราชสีมา",
+        "district": "เมืองนครราชสีมา"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "มิถุน",
+          "จันทร์": "กันย์",
+          "อังคาร": "เมษ",
+          "พุธ": "กรกฎ",
+          "พฤหัสบดี": "สิงห์",
+          "ศุกร์": "มิถุน",
+          "เสาร์": "มกร",
+          "ราหู": "ธนู",
+          "เกตุ": "เมษ",
+          "มฤตยู": "ธนู"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1988-phuket-leap",
+      "authority": "suryayat-year-locked",
+      "notes": "29 ก.พ.",
+      "input": {
+        "day": 29,
+        "month": 2,
+        "year": 1988,
+        "time": "09:00",
+        "country": "ไทย",
+        "province": "ภูเก็ต",
+        "district": "เมืองภูเก็ต"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "กุมภ์",
+          "จันทร์": "กรกฎ",
+          "อังคาร": "ธนู",
+          "พุธ": "มกร",
+          "พฤหัสบดี": "เมษ",
+          "ศุกร์": "มีน",
+          "เสาร์": "ธนู",
+          "ราหู": "กุมภ์",
+          "เกตุ": "สิงห์",
+          "มฤตยู": "ธนู"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-2010-pattaya",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 1,
+        "month": 6,
+        "year": 2010,
+        "time": "16:40",
+        "country": "ไทย",
+        "province": "ชลบุรี",
+        "district": "พัทยา"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "พฤษภ",
+          "จันทร์": "มกร",
+          "อังคาร": "สิงห์",
+          "พุธ": "พฤษภ",
+          "พฤหัสบดี": "มีน",
+          "ศุกร์": "มิถุน",
+          "เสาร์": "กันย์",
+          "ราหู": "ธนู",
+          "เกตุ": "สิงห์",
+          "มฤตยู": "มีน"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1975-ubon",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 10,
+        "month": 10,
+        "year": 1975,
+        "time": "04:30",
+        "country": "ไทย",
+        "province": "อุบลราชธานี",
+        "district": "เมืองอุบลราชธานี"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "กันย์",
+          "จันทร์": "ธนู",
+          "อังคาร": "มิถุน",
+          "พุธ": "กันย์",
+          "พฤหัสบดี": "มีน",
+          "ศุกร์": "สิงห์",
+          "เสาร์": "กรกฎ",
+          "ราหู": "ตุลย์",
+          "เกตุ": "เมษ",
+          "มฤตยู": "ตุลย์"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1998-phitsanulok",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 20,
+        "month": 4,
+        "year": 1998,
+        "time": "19:10",
+        "country": "ไทย",
+        "province": "พิษณุโลก",
+        "district": "เมืองพิษณุโลก"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "เมษ",
+          "จันทร์": "มกร",
+          "อังคาร": "เมษ",
+          "พุธ": "มีน",
+          "พฤหัสบดี": "กุมภ์",
+          "ศุกร์": "กุมภ์",
+          "เสาร์": "มีน",
+          "ราหู": "สิงห์",
+          "เกตุ": "กุมภ์",
+          "มฤตยู": "มกร"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-2003-udon",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 9,
+        "month": 9,
+        "year": 2003,
+        "time": "11:11",
+        "country": "ไทย",
+        "province": "อุดรธานี",
+        "district": "เมืองอุดรธานี"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "สิงห์",
+          "จันทร์": "กุมภ์",
+          "อังคาร": "กุมภ์",
+          "พุธ": "สิงห์",
+          "พฤหัสบดี": "สิงห์",
+          "ศุกร์": "สิงห์",
+          "เสาร์": "มิถุน",
+          "ราหู": "เมษ",
+          "เกตุ": "เมษ",
+          "มฤตยู": "กุมภ์"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1980-dusit",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 1,
+        "month": 1,
+        "year": 1980,
+        "time": "00:15",
+        "country": "ไทย",
+        "province": "กรุงเทพมหานคร",
+        "district": "ดุสิต"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "ธนู",
+          "จันทร์": "มิถุน",
+          "อังคาร": "สิงห์",
+          "พุธ": "ธนู",
+          "พฤหัสบดี": "สิงห์",
+          "ศุกร์": "มกร",
+          "เสาร์": "กันย์",
+          "ราหู": "สิงห์",
+          "เกตุ": "ธนู",
+          "มฤตยู": "ตุลย์"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1993-surat",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 15,
+        "month": 11,
+        "year": 1993,
+        "time": "21:00",
+        "country": "ไทย",
+        "province": "สุราษฎร์ธานี",
+        "district": "เมืองสุราษฎร์ธานี"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "ตุลย์",
+          "จันทร์": "พิจิก",
+          "อังคาร": "พิจิก",
+          "พุธ": "ตุลย์",
+          "พฤหัสบดี": "ตุลย์",
+          "ศุกร์": "ตุลย์",
+          "เสาร์": "มกร",
+          "ราหู": "พิจิก",
+          "เกตุ": "กรกฎ",
+          "มฤตยู": "ธนู"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-2008-rayong",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 5,
+        "month": 5,
+        "year": 2008,
+        "time": "07:45",
+        "country": "ไทย",
+        "province": "ระยอง",
+        "district": "เมืองระยอง"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "เมษ",
+          "จันทร์": "เมษ",
+          "อังคาร": "กรกฎ",
+          "พุธ": "พฤษภ",
+          "พฤหัสบดี": "มกร",
+          "ศุกร์": "เมษ",
+          "เสาร์": "สิงห์",
+          "ราหู": "มกร",
+          "เกตุ": "ตุลย์",
+          "มฤตยู": "กุมภ์"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1970-chiangrai",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 20,
+        "month": 6,
+        "year": 1970,
+        "time": "13:30",
+        "country": "ไทย",
+        "province": "เชียงราย",
+        "district": "เมืองเชียงราย"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "มิถุน",
+          "จันทร์": "ธนู",
+          "อังคาร": "มิถุน",
+          "พุธ": "พฤษภ",
+          "พฤหัสบดี": "ตุลย์",
+          "ศุกร์": "กรกฎ",
+          "เสาร์": "เมษ",
+          "ราหู": "กุมภ์",
+          "เกตุ": "กุมภ์",
+          "มฤตยู": "กันย์"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-2015-nonthaburi",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 14,
+        "month": 2,
+        "year": 2015,
+        "time": "10:10",
+        "country": "ไทย",
+        "province": "นนทบุรี",
+        "district": "เมืองนนทบุรี"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "กุมภ์",
+          "จันทร์": "ธนู",
+          "อังคาร": "มีน",
+          "พุธ": "มกร",
+          "พฤหัสบดี": "กรกฎ",
+          "ศุกร์": "กุมภ์",
+          "เสาร์": "พิจิก",
+          "ราหู": "กันย์",
+          "เกตุ": "กุมภ์",
+          "มฤตยู": "มีน"
+        },
+        "taksaCountMin": 6
+      }
+    },
+    {
+      "id": "year-1987-mahasarakham",
+      "authority": "suryayat-year-locked",
+      "notes": "",
+      "input": {
+        "day": 25,
+        "month": 12,
+        "year": 1987,
+        "time": "15:00",
+        "country": "ไทย",
+        "province": "มหาสารคาม",
+        "district": "เมืองมหาสารคาม"
+      },
+      "expect": {
+        "source": "suryayat-100-year",
+        "lagna": "เมษ",
+        "planets": {
+          "อาทิตย์": "ธนู",
+          "จันทร์": "กุมภ์",
+          "อังคาร": "ตุลย์",
+          "พุธ": "ธนู",
+          "พฤหัสบดี": "มีน",
+          "ศุกร์": "มกร",
+          "เสาร์": "พิจิก",
+          "ราหู": "มีน",
+          "เกตุ": "กันย์",
+          "มฤตยู": "พิจิก"
+        },
+        "taksaCountMin": 6
+      }
+    }
+  ]
+}

@@ -8,7 +8,7 @@ import {
   releaseUsageReservation,
   reserveUsageSlot,
 } from "@/server/credit/quota-service";
-import { generateWithFallback, resolveConfig } from "@/server/ai/router";
+import { generateWithFallback, resolveConfig, streamWithFallback } from "@/server/ai/router";
 import {
   classifyProviderFailure,
   logProviderAlert,
@@ -17,10 +17,17 @@ import {
 import { buildSystemPrompt, buildConversationHistory } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
-import { requireReadyNatalChart } from "@/server/horoscope/chart-context";
+import {
+  assertUsableEngineChart,
+  requireReadyNatalChart,
+} from "@/server/horoscope/chart-context";
+import { getOrRefreshChartMemory } from "@/server/horoscope/chart-memory-service";
+import {
+  getOrComputeDailyTransit,
+  questionWantsTodayTransit,
+} from "@/server/horoscope/daily-transit-service";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
-import { computeTransitChart } from "@/server/horoscope/engine/compute-chart";
-import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
+import type { ChartJson } from "@/types/chart";
 import type { BirthProfileSnapshot } from "@/types";
 
 /**
@@ -30,7 +37,7 @@ import type { BirthProfileSnapshot } from "@/types";
  *   - retry / double-click => idempotencyKey returns the existing reading
  *   - credit deduction + reading + usage finalize committed in ONE transaction
  *
- * Engine-first: natal chart MUST be READY (recompute once) before Gemini.
+ * Engine-first: every Gemini call gets natal + user chart memory (+ transit when needed).
  */
 
 export type TransitSnapshotInput = {
@@ -52,23 +59,22 @@ export type CreateReadingInput = {
   transit?: TransitSnapshotInput | null;
 };
 
-function transitToChartInput(
-  transit: TransitSnapshotInput,
-  natalFallback: BirthInputSnapshot,
-): BirthInputSnapshot {
-  const d = transit.date;
-  return {
-    day: d.getUTCDate(),
-    month: d.getUTCMonth() + 1,
-    year: d.getUTCFullYear(),
-    time: transit.time?.trim() || "12:00",
-    country: transit.country?.trim() || natalFallback.country,
-    province: transit.province?.trim() || natalFallback.province,
-    district: transit.district?.trim() || natalFallback.district,
-  };
+export async function createReading(input: CreateReadingInput) {
+  return runReading(input);
 }
 
-export async function createReading(input: CreateReadingInput) {
+/** Same as createReading but streams text chunks to onDelta (Khui-like UX). */
+export async function streamReading(
+  input: CreateReadingInput,
+  onDelta: (chunk: string) => void,
+) {
+  return runReading(input, onDelta);
+}
+
+async function runReading(
+  input: CreateReadingInput,
+  onDelta?: (chunk: string) => void,
+) {
   const { userId, categorySlug, question, idempotencyKey, priorMessages } = input;
   const mode = input.mode ?? "NATAL";
 
@@ -79,6 +85,7 @@ export async function createReading(input: CreateReadingInput) {
     });
     if (existing) {
       const natalChart = await requireReadyNatalChart(userId).catch(() => null);
+      if (existing.responseText && onDelta) onDelta(existing.responseText);
       return {
         ...existing,
         chartSnapshot: natalChart,
@@ -141,8 +148,9 @@ export async function createReading(input: CreateReadingInput) {
     additionalInfo: profile.additionalInfo,
   };
 
-  // 5b. Engine-first gate — never call Gemini without a computed natal chart.
-  const natalChart = await requireReadyNatalChart(userId);
+  // 5b. Engine-first gate — never call Gemini without a usable natal chart.
+  const natalChart = assertUsableEngineChart(await requireReadyNatalChart(userId));
+  const chartMemory = await getOrRefreshChartMemory(userId, natalChart);
 
   let transitChart: ChartJson | null = null;
   if (mode === "TRANSIT") {
@@ -152,12 +160,28 @@ export async function createReading(input: CreateReadingInput) {
         "โหมดดวงจรต้องระบุวันเวลา/สถานที่สำหรับคำนวณดวงจร",
       );
     }
-    const transitInput = transitToChartInput(input.transit, natalChart.input);
     try {
-      transitChart = await computeTransitChart(transitInput, natalChart.input);
+      transitChart = await getOrComputeDailyTransit(userId, natalChart, {
+        date: input.transit.date,
+        time: input.transit.time,
+        scrapeTimeoutMs: 4_000,
+      });
     } catch (err) {
+      if (err instanceof AppError) throw err;
       const message = err instanceof Error ? err.message : "คำนวณดวงจรไม่สำเร็จ";
       throw new AppError("CHART_NOT_READY", message);
+    }
+  } else if (questionWantsTodayTransit(question)) {
+    // Natal chat asking about "today" — attach cached daily transit (no mode switch).
+    try {
+      transitChart = await getOrComputeDailyTransit(userId, natalChart, {
+        scrapeTimeoutMs: 4_000,
+      });
+    } catch (err) {
+      console.warn(
+        "[transit] daily cache miss failed:",
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 
@@ -199,14 +223,38 @@ export async function createReading(input: CreateReadingInput) {
     snapshot,
     natalChart,
     question,
-    transitChart,
+    {
+      chartMemory,
+      categorySlug,
+      transitChartJson: transitChart,
+    },
   );
 
-  const result = await generateWithFallback(config.id, {
-    systemPrompt,
-    userPrompt,
-    conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
-  });
+  // Final guard: refuse AI if engine table somehow missing from the prompt.
+  if (!userPrompt.includes("[natal]") || !userPrompt.includes("[memory]")) {
+    throw new AppError("CHART_NOT_READY", "Engine chart/memory missing from prompt");
+  }
+  if (mode === "TRANSIT" && !userPrompt.includes("[transit]")) {
+    throw new AppError("CHART_NOT_READY", "Transit engine chart missing from prompt");
+  }
+
+  const result = onDelta
+    ? await streamWithFallback(
+        config.id,
+        {
+          systemPrompt,
+          userPrompt,
+          conversationHistory:
+            conversationHistory.length > 0 ? conversationHistory : undefined,
+        },
+        onDelta,
+      )
+    : await generateWithFallback(config.id, {
+        systemPrompt,
+        userPrompt,
+        conversationHistory:
+          conversationHistory.length > 0 ? conversationHistory : undefined,
+      });
 
   // On failure/timeout: release reservation, log failure, DO NOT charge.
   if (!result.ok || !result.rawText) {

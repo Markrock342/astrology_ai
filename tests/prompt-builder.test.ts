@@ -5,6 +5,7 @@ import {
 } from "@/server/ai/prompt-builder";
 import type { BirthProfileSnapshot } from "@/types";
 import type { ChartJson } from "@/types/chart";
+import { deriveChartMemory } from "@/server/horoscope/engine/derive-chart-memory";
 
 const profile: BirthProfileSnapshot = {
   nickname: "ทดสอบ",
@@ -17,26 +18,63 @@ const profile: BirthProfileSnapshot = {
 };
 
 const chart = {
+  input: {
+    day: 15,
+    month: 1,
+    year: 1990,
+    time: "08:30",
+    country: "ไทย",
+    province: "กรุงเทพมหานคร",
+    district: "พระนคร",
+  },
   meta: { calculationSource: "formula-pipeline", lagna: "เมษ" },
-  planets: [{ planet: "อาทิตย์", siderealSign: "เมษ" }],
+  planets: [
+    { planet: "อาทิตย์", siderealSign: "เมษ" },
+    { planet: "จันทร์", siderealSign: "พฤษภ" },
+    { planet: "อังคาร", siderealSign: "เมษ" },
+    { planet: "พุธ", siderealSign: "เมษ" },
+    { planet: "พฤหัสบดี", siderealSign: "กรกฎ" },
+    { planet: "ศุกร์", siderealSign: "มีน" },
+    { planet: "เสาร์", siderealSign: "มกร" },
+    { planet: "ราหู", siderealSign: "ธนู" },
+    { planet: "เกตุ", siderealSign: "มิถุน" },
+    { planet: "มฤตยู", siderealSign: "พิจิก" },
+  ],
   chart: { lagna: "เมษ", taksa: [] },
 } as unknown as ChartJson;
 
+const memory = deriveChartMemory(chart);
+
 describe("buildConversationHistory (M3 B1)", () => {
-  it("returns full user prompt when thread is empty", () => {
+  it("requires engine natal chart on every turn", () => {
+    expect(() =>
+      buildConversationHistory(
+        [],
+        profile,
+        // @ts-expect-error intentional invalid chart
+        { meta: {}, planets: [] },
+        "เรื่องความรักเป็นอย่างไร",
+      ),
+    ).toThrow();
+  });
+
+  it("returns full user prompt with natal + memory when thread is empty", () => {
     const { conversationHistory, userPrompt } = buildConversationHistory(
       [],
       profile,
-      null,
+      chart,
       "เรื่องความรักเป็นอย่างไร",
+      { chartMemory: memory, categorySlug: "love" },
     );
     expect(conversationHistory).toEqual([]);
     expect(userPrompt).toContain("เรื่องความรักเป็นอย่างไร");
     expect(userPrompt).toContain("ทดสอบ");
+    expect(userPrompt).toContain("[natal]");
+    expect(userPrompt).toContain("[memory]");
     expect(userPrompt).toContain("คำถาม:");
   });
 
-  it("attaches profile+chart to every current userPrompt (not only first turn)", () => {
+  it("attaches profile+chart+memory to every current userPrompt (not only first turn)", () => {
     const { conversationHistory, userPrompt } = buildConversationHistory(
       [
         { role: "USER", content: "เรื่องงานเป็นอย่างไร" },
@@ -45,10 +83,12 @@ describe("buildConversationHistory (M3 B1)", () => {
       profile,
       chart,
       "แล้วเรื่องความรักล่ะ",
+      { chartMemory: memory, categorySlug: "love" },
     );
     expect(userPrompt).toContain("แล้วเรื่องความรักล่ะ");
     expect(userPrompt).toContain("ทดสอบ");
     expect(userPrompt).toContain("[natal]");
+    expect(userPrompt).toContain("[memory]");
     expect(conversationHistory).toHaveLength(2);
     expect(conversationHistory[0]).toEqual({
       role: "user",
@@ -71,14 +111,15 @@ describe("buildConversationHistory (M3 B1)", () => {
       profile,
       chart,
       "คำถามล่าสุด",
+      { chartMemory: memory },
     );
     expect(conversationHistory).toHaveLength(20);
     expect(userPrompt).toContain("คำถามล่าสุด");
     expect(userPrompt).toContain("[natal]");
+    expect(userPrompt).toContain("[memory]");
     expect(userPrompt).toContain("ทดสอบ");
   });
 });
-
 describe("trimConversationHistory", () => {
   it("trims to the most recent turns", () => {
     const long = Array.from({ length: 30 }, (_, i) => ({

@@ -159,6 +159,8 @@ model User {
 
   birthProfile  BirthProfile?
   natalChart    NatalChart?
+  chartMemory   UserChartMemory?
+  dailyTransits DailyTransitCache[]
   creditWallet  CreditWallet?
   subscriptions UserSubscription[]
   creditTxns    CreditTransaction[]
@@ -298,6 +300,41 @@ model NatalChart {
   birthProfile BirthProfile @relation(fields: [birthProfileId], references: [id], onDelete: Cascade)
 
   @@map("natal_charts")
+}
+
+// Derived natal facts for fast chat prompts (engine-only — never LLM-invented).
+model UserChartMemory {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  memoryJson Json
+  birthHash  String
+  source     String?
+  computedAt DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([birthHash])
+  @@map("user_chart_memories")
+}
+
+// Per-user daily transit snapshot (Asia/Bangkok date key) — reuse all day.
+model DailyTransitCache {
+  id         String   @id @default(cuid())
+  userId     String
+  dateKey    String
+  chartJson  Json
+  source     String?
+  computedAt DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dateKey])
+  @@index([dateKey])
+  @@map("daily_transit_caches")
 }
 
 // ---------------------------------------------------------------------------

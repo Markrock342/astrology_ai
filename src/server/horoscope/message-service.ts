@@ -1,7 +1,7 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getEffectivePlan } from "@/server/user/account-service";
-import { createReading } from "@/server/horoscope/reading-service";
+import { createReading, streamReading } from "@/server/horoscope/reading-service";
 import {
   appendUserMessage,
   createPendingAssistant,
@@ -70,6 +70,21 @@ export async function acceptMessage(
   input: SendMessageInput,
 ): Promise<AcceptMessageResult> {
   const conversation = await assertCanSend(input.conversationId, input.userId);
+
+  // Unstick zombie PENDING rows left when serverless after() was killed mid-AI.
+  await prisma.message.updateMany({
+    where: {
+      conversationId: conversation.id,
+      role: "ASSISTANT",
+      status: "PENDING",
+      createdAt: { lt: new Date(Date.now() - 2 * 60_000) },
+    },
+    data: {
+      status: "FAILED",
+      content:
+        "ระบบใช้เวลานานเกินไปหรือถูกตัดการเชื่อมต่อ กรุณาลองถามใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
+    },
+  });
 
   const existingAssistant = await prisma.message.findUnique({
     where: {
@@ -155,8 +170,11 @@ export async function acceptMessage(
   };
 }
 
-/** Run AI + finalize the PENDING assistant (called from `after()`). */
-export async function completePendingMessage(input: SendMessageInput) {
+/** Run AI + finalize the PENDING assistant (called from `after()` or SSE stream). */
+export async function completePendingMessage(
+  input: SendMessageInput,
+  onDelta?: (chunk: string) => void,
+) {
   const conversation = await assertCanSend(input.conversationId, input.userId);
 
   const pending = await prisma.message.findUnique({
@@ -168,29 +186,63 @@ export async function completePendingMessage(input: SendMessageInput) {
     },
   });
   if (!pending) return;
-  if (pending.status === "SUCCESS" && pending.content) return;
+  if (pending.status === "SUCCESS" && pending.content) {
+    if (onDelta) onDelta(pending.content);
+    return {
+      id: pending.id,
+      responseText: pending.content,
+      provider: pending.provider,
+      modelId: pending.modelId,
+      creditCost: pending.creditCost,
+      status: pending.status,
+      chartSnapshot: null,
+      transitSnapshot: null,
+    };
+  }
 
   const priorMessages = await loadPriorMessages(conversation.id, input.userId);
 
   try {
-    const reading = await createReading({
-      userId: input.userId,
-      categorySlug: conversation.category.slug,
-      question: input.content,
-      idempotencyKey: input.idempotencyKey,
-      priorMessages,
-      mode: conversation.mode,
-      transit:
-        conversation.mode === "TRANSIT" && conversation.transitDate
-          ? {
-              date: conversation.transitDate,
-              time: conversation.transitTime,
-              country: conversation.transitCountry,
-              province: conversation.transitProvince,
-              district: conversation.transitDistrict,
-            }
-          : null,
-    });
+    const reading = onDelta
+      ? await streamReading(
+          {
+            userId: input.userId,
+            categorySlug: conversation.category.slug,
+            question: input.content,
+            idempotencyKey: input.idempotencyKey,
+            priorMessages,
+            mode: conversation.mode,
+            transit:
+              conversation.mode === "TRANSIT" && conversation.transitDate
+                ? {
+                    date: conversation.transitDate,
+                    time: conversation.transitTime,
+                    country: conversation.transitCountry,
+                    province: conversation.transitProvince,
+                    district: conversation.transitDistrict,
+                  }
+                : null,
+          },
+          onDelta,
+        )
+      : await createReading({
+          userId: input.userId,
+          categorySlug: conversation.category.slug,
+          question: input.content,
+          idempotencyKey: input.idempotencyKey,
+          priorMessages,
+          mode: conversation.mode,
+          transit:
+            conversation.mode === "TRANSIT" && conversation.transitDate
+              ? {
+                  date: conversation.transitDate,
+                  time: conversation.transitTime,
+                  country: conversation.transitCountry,
+                  province: conversation.transitProvince,
+                  district: conversation.transitDistrict,
+                }
+              : null,
+        });
 
     await finalizeAssistantMessage({
       conversationId: conversation.id,

@@ -15,7 +15,7 @@ import {
   planetsFromMyhoraTable,
 } from "./parse-html";
 
-const DEFAULT_TIMEOUT_MS = 20_000;
+const DEFAULT_TIMEOUT_MS = 8_000;
 const USER_AGENT = "HoraSard/1.0 (+server-scrape)";
 
 function ceToBe(year: number): number {
@@ -126,6 +126,8 @@ export interface MyhoraScrapeResult {
 
 export interface FetchMyhoraOptions {
   transit?: TransitInput;
+  /** Skip embed iframes (taksa/triwai/charts) — much faster for AI prompts. */
+  lite?: boolean;
 }
 
 export async function fetchMyhoraThaiChart(
@@ -150,6 +152,29 @@ export async function fetchMyhoraThaiChart(
   const { lagnaSign, planets } = parsePlanetTable(resultHtml);
   const embeds = parseEmbedUrls(resultHtml);
   const contentPaths = parseMyhoraContentPaths(resultHtml);
+
+  if (options.lite) {
+    const tables = mergeMyhoraTables(resultHtml, "", "", {
+      chartEmbeds: {
+        natalAnalysis: null,
+        natalSvg: null,
+        rasi: null,
+        navamsa: null,
+        drekkana: null,
+      },
+      transit,
+      astrologyTransitHtml: null,
+    });
+    const result: MyhoraScrapeResult = {
+      planets: planets.length ? planets : planetsFromMyhoraTable(resultHtml),
+      lagna: lagnaSign ?? tables.lagnaSign,
+      tables: { ...tables, lagnaSign: lagnaSign ?? tables.lagnaSign },
+    };
+    if (!isValidMyhoraScrape(result)) {
+      throw new Error("myhora scrape incomplete (missing lagna/planets)");
+    }
+    return result;
+  }
 
   const [taksaHtml, triwaiHtml, transitHtml, rasiRaw, navamsaRaw, drekkanaRaw, bhavaRaw] =
     await Promise.all([

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   createPendingAssistant: vi.fn(),
   finalizeAssistantMessage: vi.fn(),
   messageUpdate: vi.fn(),
+  messageUpdateMany: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -29,6 +30,7 @@ vi.mock("@/server/db", () => ({
       findMany: mocks.findMessages,
       create: vi.fn(),
       update: mocks.messageUpdate,
+      updateMany: mocks.messageUpdateMany,
     },
     horoscopeReading: { findUnique: mocks.findReading },
     horoscopeCategory: { findFirst: mocks.findCategory },
@@ -78,6 +80,7 @@ describe("sendMessage (M3 B2)", () => {
     mocks.appendUserMessage.mockResolvedValue(undefined);
     mocks.createPendingAssistant.mockResolvedValue({ id: "pend-1" });
     mocks.finalizeAssistantMessage.mockResolvedValue(undefined);
+    mocks.messageUpdateMany.mockResolvedValue({ count: 0 });
   });
 
   it("throws CHAT_REQUIRES_PRO for Free users", async () => {
