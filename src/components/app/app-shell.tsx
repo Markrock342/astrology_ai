@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { BrandLockup, BrandMark } from "@/components/brand-logo";
 import { SettingsPopover, type SettingsModal } from "./settings-popover";
 import {
@@ -23,6 +23,7 @@ import {
   TransitIcon,
 } from "./sidebar-icons";
 import { useAppData, isCategoryLocked } from "./app-data-provider";
+import { isPlainLeftClick, useChatNav } from "./chat-nav";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { PendingPaymentBanner } from "./pending-payment-banner";
 import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banner";
@@ -47,10 +48,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const profileBtnRef = useRef<HTMLButtonElement>(null);
   const closeMobileTimer = useRef<number | null>(null);
   const searchParams = useSearchParams();
-  const router = useRouter();
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
   const { theme, toggleTheme } = useTheme();
+  const chatNav = useChatNav();
 
   const {
     user,
@@ -70,7 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     closeMobile();
     void prefetchThread(threadId);
     const cat = categorySlug ? `&cat=${categorySlug}` : "";
-    router.replace(`/dashboard?thread=${threadId}${cat}`, { scroll: false });
+    chatNav(`/dashboard?thread=${threadId}${cat}`);
   }
 
   async function deleteThread(threadId: string) {
@@ -79,7 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     removeThreadLocal(threadId);
     invalidateCachedThread(threadId);
     if (activeThread === threadId) {
-      router.replace("/dashboard", { scroll: false });
+      chatNav("/dashboard");
     }
     try {
       const res = await fetch(`/api/conversations/${threadId}`, {
@@ -173,7 +174,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarContent = (
     <>
       <div className="flex items-center justify-between px-4 pt-4">
-        <Link href="/dashboard" className="min-w-0" onClick={closeMobile}>
+        <Link
+          href="/dashboard"
+          className="min-w-0"
+          onClick={(e) => {
+            if (isPlainLeftClick(e)) {
+              e.preventDefault();
+              chatNav("/dashboard");
+            }
+            closeMobile();
+          }}
+        >
           <BrandLockup markSize={28} />
         </Link>
         <button
@@ -200,7 +211,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col gap-1 px-3 pt-4">
         <Link
           href="/dashboard"
-          onClick={closeMobile}
+          onClick={(e) => {
+            if (isPlainLeftClick(e)) {
+              e.preventDefault();
+              chatNav("/dashboard");
+            }
+            closeMobile();
+          }}
           className="press-scale flex items-center gap-2.5 rounded-full border border-[var(--secondary)]/45 bg-[var(--secondary)]/10 px-3.5 py-2.5 text-sm font-semibold text-[var(--secondary-active)] transition hover:bg-[var(--secondary)]/15"
         >
           <NewChatIcon /> เริ่มสนทนาใหม่
@@ -236,7 +253,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={cat.slug}
                 href={`/dashboard?cat=${cat.slug}`}
-                onClick={closeMobile}
+                onClick={(e) => {
+                  if (isPlainLeftClick(e)) {
+                    e.preventDefault();
+                    chatNav(`/dashboard?cat=${cat.slug}`);
+                  }
+                  closeMobile();
+                }}
                 className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
                   active
                     ? "bg-[var(--surface-3)] text-[var(--foreground)]"

@@ -525,6 +525,12 @@ export function ChatView() {
       // Claim it before the URL changes, so the loader never races this send.
       sendingThreadRef.current = conversationId;
 
+      // The user can switch threads or start a new chat mid-answer. This stream
+      // belongs to the thread it started on; painting its deltas into whatever
+      // happens to be on screen would graft one conversation onto another. The
+      // answer still lands — the server finalizes it and it is there on return.
+      const ownsView = () => conversationIdRef.current === conversationId;
+
       const syncCat = categorySlug ?? catSlug;
       if (!threadId && syncCat) {
         // The loader stands down for this thread, so seed what it would have set.
@@ -675,6 +681,7 @@ export function ChatView() {
           if (event.type === "delta" && event.text) {
             gotDelta = true;
             assembled += event.text;
+            if (!ownsView()) continue;
             setState("streaming");
             setMessages((prev) =>
               prev.map((m) =>
@@ -685,6 +692,7 @@ export function ChatView() {
             );
           } else if (event.type === "done") {
             finished = true;
+            if (!ownsView()) continue;
             const reading = event.reading;
             const finalText = reading?.responseText || assembled;
             setMessages((prev) =>
@@ -709,6 +717,7 @@ export function ChatView() {
             usageRefreshRef.current?.();
           } else if (event.type === "error") {
             finished = true;
+            if (!ownsView()) continue;
             const code = event.code ?? "AI_PROVIDER_ERROR";
             applyApiError(
               code,
