@@ -11,6 +11,10 @@ const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
   getEffectivePlan: vi.fn(),
   createReading: vi.fn(),
+  appendUserMessage: vi.fn(),
+  createPendingAssistant: vi.fn(),
+  finalizeAssistantMessage: vi.fn(),
+  messageUpdate: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -24,6 +28,7 @@ vi.mock("@/server/db", () => ({
       findUnique: mocks.findMessage,
       findMany: mocks.findMessages,
       create: vi.fn(),
+      update: mocks.messageUpdate,
     },
     horoscopeReading: { findUnique: mocks.findReading },
     horoscopeCategory: { findFirst: mocks.findCategory },
@@ -41,6 +46,9 @@ vi.mock("@/server/horoscope/reading-service", () => ({
 
 vi.mock("@/server/horoscope/thread-service", () => ({
   loadPriorMessages: mocks.findMessages,
+  appendUserMessage: mocks.appendUserMessage,
+  createPendingAssistant: mocks.createPendingAssistant,
+  finalizeAssistantMessage: mocks.finalizeAssistantMessage,
   appendExchangeToConversation: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -67,6 +75,9 @@ describe("sendMessage (M3 B2)", () => {
       status: "SUCCESS",
     });
     mocks.transaction.mockResolvedValue([]);
+    mocks.appendUserMessage.mockResolvedValue(undefined);
+    mocks.createPendingAssistant.mockResolvedValue({ id: "pend-1" });
+    mocks.finalizeAssistantMessage.mockResolvedValue(undefined);
   });
 
   it("throws CHAT_REQUIRES_PRO for Free users", async () => {
@@ -104,7 +115,14 @@ describe("sendMessage (M3 B2)", () => {
   });
 
   it("returns existing reading on idempotent retry without calling AI again", async () => {
-    const existingReading = { id: "reading-1", responseText: "เดิม" };
+    const existingReading = {
+      id: "reading-1",
+      responseText: "เดิม",
+      provider: "GEMINI",
+      modelId: "gemini",
+      creditCost: 1,
+      status: "SUCCESS",
+    };
     mocks.findMessage.mockResolvedValue({
       id: "msg-asst",
       content: "เดิม",
@@ -122,7 +140,7 @@ describe("sendMessage (M3 B2)", () => {
       idempotencyKey: "k-dup",
     });
 
-    expect(result).toBe(existingReading);
+    expect(result).toMatchObject({ id: "reading-1", responseText: "เดิม" });
     expect(mocks.createReading).not.toHaveBeenCalled();
   });
 
@@ -131,6 +149,13 @@ describe("sendMessage (M3 B2)", () => {
       { role: "USER", content: "คำถามแรก" },
       { role: "ASSISTANT", content: "คำตอบแรก" },
     ]);
+    mocks.findMessage
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "pend-1",
+        status: "PENDING",
+        content: "",
+      });
 
     await sendMessage({
       conversationId: "conv-1",
@@ -139,6 +164,8 @@ describe("sendMessage (M3 B2)", () => {
       idempotencyKey: "k2",
     });
 
+    expect(mocks.appendUserMessage).toHaveBeenCalled();
+    expect(mocks.createPendingAssistant).toHaveBeenCalled();
     expect(mocks.createReading).toHaveBeenCalledWith(
       expect.objectContaining({
         priorMessages: [
@@ -148,6 +175,7 @@ describe("sendMessage (M3 B2)", () => {
         question: "คำถามต่อ",
       }),
     );
+    expect(mocks.finalizeAssistantMessage).toHaveBeenCalled();
   });
 });
 

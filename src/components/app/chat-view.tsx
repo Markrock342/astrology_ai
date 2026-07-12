@@ -22,6 +22,7 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   modelId?: string;
+  status?: "SUCCESS" | "FAILED" | "TIMEOUT" | "PENDING";
   chartSnapshot?: ChartJson | null;
   transitSnapshot?: ChartJson | null;
 };
@@ -211,10 +212,27 @@ export function ChatView() {
         } else {
           setThreadTransitLabel(null);
         }
-        setState("idle");
-        setErrorText(null);
-        setErrorCode(null);
-        setPendingRetry(null);
+        const msgs = json.data.messages as Message[];
+        const pending = msgs.some(
+          (m) => m.role === "assistant" && m.status === "PENDING",
+        );
+        const failed = [...msgs]
+          .reverse()
+          .find((m) => m.role === "assistant" && m.status === "FAILED");
+        if (pending) {
+          setState("processing");
+          setErrorText(null);
+          setErrorCode(null);
+        } else if (failed) {
+          setState("error");
+          setErrorText(failed.content || ERROR_MESSAGES.AI_PROVIDER_ERROR);
+          setErrorCode("AI_PROVIDER_ERROR");
+        } else {
+          setState("idle");
+          setErrorText(null);
+          setErrorCode(null);
+          setPendingRetry(null);
+        }
       })
       .catch(() => {
         if (!alive) return;
@@ -228,6 +246,62 @@ export function ChatView() {
       alive = false;
     };
   }, [threadId]);
+
+  // Poll while a background reply is still PENDING (leave/return safe).
+  const pendingAssistantIds = messages
+    .filter((m) => m.role === "assistant" && m.status === "PENDING")
+    .map((m) => m.id)
+    .join(",");
+
+  useEffect(() => {
+    if (!threadId || !pendingAssistantIds) return;
+
+    let alive = true;
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/conversations/${threadId}`);
+        const json = await parseApiJson(res);
+        if (!alive || !res.ok || !json?.ok) return;
+        const next = json.data.messages as Message[];
+        setMessages(next);
+        const stillPending = next.some(
+          (m) => m.role === "assistant" && m.status === "PENDING",
+        );
+        if (stillPending) {
+          setState("processing");
+          return;
+        }
+
+        const lastFailed = [...next]
+          .reverse()
+          .find((m) => m.role === "assistant" && m.status === "FAILED");
+        if (lastFailed) {
+          setState("error");
+          setErrorText(lastFailed.content || ERROR_MESSAGES.AI_PROVIDER_ERROR);
+          setErrorCode("AI_PROVIDER_ERROR");
+          return;
+        }
+
+        setState("idle");
+        setErrorText(null);
+        setErrorCode(null);
+        setPendingRetry(null);
+        void refresh();
+        usageRefreshRef.current?.();
+      } catch {
+        /* keep polling */
+      }
+    };
+
+    const id = window.setInterval(() => {
+      void tick();
+    }, 2000);
+    void tick();
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [threadId, pendingAssistantIds, refresh]);
 
   // Reset the thread when the selected category changes (new chat).
   useEffect(() => {
@@ -402,6 +476,39 @@ export function ChatView() {
         return;
       }
 
+      const syncCat = categorySlug ?? catSlug;
+      const shouldSyncUrl = !threadId;
+
+      // Background accept — AI continues after response; poll thread for result.
+      if (
+        res.status === 202 ||
+        (json.data as { status?: string } | undefined)?.status === "pending"
+      ) {
+        setState("processing");
+        if (shouldSyncUrl && syncCat) {
+          router.replace(
+            `/dashboard?thread=${conversationId}&cat=${syncCat}`,
+            { scroll: false },
+          );
+        } else {
+          // Already on thread URL — inject pending placeholder for polling.
+          setMessages((prev) => {
+            if (prev.some((m) => m.status === "PENDING")) return prev;
+            return [
+              ...prev,
+              {
+                id: `pending-${idempotencyKey}`,
+                role: "assistant",
+                content: "",
+                status: "PENDING",
+              },
+            ];
+          });
+        }
+        void refresh();
+        return;
+      }
+
       setErrorCode(null);
       setPendingRetry(null);
       const reading = json.data as {
@@ -410,8 +517,6 @@ export function ChatView() {
         chartSnapshot?: ChartJson | null;
         transitSnapshot?: ChartJson | null;
       };
-      const syncCat = categorySlug ?? catSlug;
-      const shouldSyncUrl = !threadId;
       streamReply(
         reading.responseText,
         reading.modelId ?? DEFAULTS.defaultGeminiModelId,
@@ -503,7 +608,16 @@ export function ChatView() {
           <LockedState category={category?.label} />
         ) : (
           <div className="mx-auto flex max-w-3xl flex-col gap-6">
-            {messages.map((m, idx) =>
+            {messages
+              .filter(
+                (m) =>
+                  !(
+                    m.role === "assistant" &&
+                    m.status === "PENDING" &&
+                    !m.content
+                  ),
+              )
+              .map((m, idx) =>
               m.role === "user" ? (
                 <div key={m.id} className="animate-msg-in flex justify-end">
                   <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl bg-[var(--surface-3)] px-4 py-2.5 text-sm text-[var(--foreground)]">
@@ -561,7 +675,7 @@ export function ChatView() {
                     </p>
                   )}
                 </div>
-              ),
+              )
             )}
             {state === "processing" && <ThinkingIndicator />}
             {(state === "error" || state === "no-quota") && (

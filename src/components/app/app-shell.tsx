@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { BrandLockup, BrandMark } from "@/components/brand-logo";
 import { SettingsPopover, type SettingsModal } from "./settings-popover";
 import {
@@ -43,6 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const profileBtnRef = useRef<HTMLButtonElement>(null);
   const closeMobileTimer = useRef<number | null>(null);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
   const { theme, toggleTheme } = useTheme();
@@ -58,6 +59,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     loading,
     loadError,
   } = useAppData();
+
+  async function deleteThread(threadId: string) {
+    if (!window.confirm("ลบแชทนี้ทั้งหมด? กู้คืนไม่ได้")) return;
+    try {
+      const res = await fetch(`/api/conversations/${threadId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        window.alert(json?.error?.message ?? "ลบแชทไม่สำเร็จ");
+        return;
+      }
+      if (activeThread === threadId) {
+        router.push("/dashboard");
+      }
+      await refresh();
+    } catch {
+      window.alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+    }
+  }
 
   const displayName = user?.name ?? (loading ? "…" : loadError ? "—" : "ผู้ใช้");
   const isStaff = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
@@ -243,23 +264,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </p>
           ) : (
             filteredNatalThreads.map((t) => (
-              <Link
+              <div
                 key={t.id}
-                href={`/dashboard?thread=${t.id}${t.categorySlug ? `&cat=${t.categorySlug}` : ""}`}
-                onClick={closeMobile}
-                className={`flex items-center gap-2 truncate rounded-lg px-3 py-2 text-xs transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] ${
-                  activeThread === t.id
-                    ? "bg-[var(--surface-3)] text-[var(--foreground)]"
-                    : "text-[var(--muted)]"
+                className={`group flex items-center gap-0.5 rounded-lg pr-1 transition hover:bg-[var(--surface-2)] ${
+                  activeThread === t.id ? "bg-[var(--surface-3)]" : ""
                 }`}
               >
-                {t.categorySlug ? (
-                  <span className="shrink-0 text-[var(--primary)]">
-                    <CategoryIcon slug={t.categorySlug} />
-                  </span>
-                ) : null}
-                {t.title}
-              </Link>
+                <Link
+                  href={`/dashboard?thread=${t.id}${t.categorySlug ? `&cat=${t.categorySlug}` : ""}`}
+                  onClick={closeMobile}
+                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-xs transition hover:text-[var(--foreground)] ${
+                    activeThread === t.id
+                      ? "text-[var(--foreground)]"
+                      : "text-[var(--muted)]"
+                  }`}
+                >
+                  {t.categorySlug ? (
+                    <span className="shrink-0 text-[var(--primary)]">
+                      <CategoryIcon slug={t.categorySlug} />
+                    </span>
+                  ) : null}
+                  <span className="truncate">{t.title}</span>
+                </Link>
+                <button
+                  type="button"
+                  title="ลบแชท"
+                  aria-label="ลบแชท"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void deleteThread(t.id);
+                  }}
+                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100 md:opacity-0"
+                >
+                  ลบ
+                </button>
+              </div>
             ))
           )}
         </nav>
@@ -285,21 +325,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </p>
           ) : (
             filteredTransitThreads.map((t) => (
-              <Link
+              <div
                 key={t.id}
-                href={`/dashboard?thread=${t.id}${t.categorySlug ? `&cat=${t.categorySlug}` : ""}`}
-                onClick={closeMobile}
-                className={`flex items-center gap-2 truncate rounded-lg px-3 py-2 text-xs transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] ${
-                  activeThread === t.id
-                    ? "bg-[var(--surface-3)] text-[var(--foreground)]"
-                    : "text-[var(--muted)]"
+                className={`group flex items-center gap-0.5 rounded-lg pr-1 transition hover:bg-[var(--surface-2)] ${
+                  activeThread === t.id ? "bg-[var(--surface-3)]" : ""
                 }`}
               >
-                <span className="shrink-0 text-[var(--primary)]">
-                  <TransitIcon />
-                </span>
-                {t.title}
-              </Link>
+                <Link
+                  href={`/dashboard?thread=${t.id}${t.categorySlug ? `&cat=${t.categorySlug}` : ""}`}
+                  onClick={closeMobile}
+                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-xs transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] ${
+                    activeThread === t.id
+                      ? "text-[var(--foreground)]"
+                      : "text-[var(--muted)]"
+                  }`}
+                >
+                  <span className="shrink-0 text-[var(--primary)]">
+                    <TransitIcon />
+                  </span>
+                  <span className="truncate">{t.title}</span>
+                </Link>
+                <button
+                  type="button"
+                  title="ลบแชท"
+                  aria-label="ลบแชท"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void deleteThread(t.id);
+                  }}
+                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100 md:opacity-0"
+                >
+                  ลบ
+                </button>
+              </div>
             ))
           )}
         </nav>
