@@ -113,6 +113,7 @@ export async function streamWithFallback(
   configId: string,
   base: RunInput,
   onDelta: (chunk: string) => void,
+  signal?: AbortSignal,
 ): Promise<GenerateAIResult> {
   const config = await prisma.aIProviderConfig.findUnique({ where: { id: configId } });
   if (!config) throw new AppError("AI_PROVIDER_ERROR", "AI config not found");
@@ -121,7 +122,7 @@ export async function streamWithFallback(
     const adapter = adapterFor(cfg.provider);
     const input = toGenerateInput(cfg, base);
     if (adapter instanceof GeminiAdapter) {
-      return adapter.streamGenerate(input, onDelta);
+      return adapter.streamGenerate(input, onDelta, signal);
     }
     const result = await adapter.generate(input);
     if (result.ok && result.rawText) onDelta(result.rawText);
@@ -129,7 +130,9 @@ export async function streamWithFallback(
   };
 
   const primary = await attempt(config);
-  if (primary.ok || !config.fallbackConfigId) return primary;
+  // A stop is the user's decision, not a provider failure — retrying it on the
+  // fallback would restart the answer they just cancelled, and bill them for it.
+  if (primary.ok || primary.stopped || !config.fallbackConfigId) return primary;
 
   const fallback = await prisma.aIProviderConfig.findUnique({
     where: { id: config.fallbackConfigId },
