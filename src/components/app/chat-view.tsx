@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
@@ -13,6 +13,7 @@ import {
 
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
+import { ChatUsageBar } from "./chat-usage-bar";
 import type { ChartJson } from "@/types/chart";
 
 type Message = {
@@ -40,10 +41,11 @@ const RETRYABLE_ERRORS = new Set([
   "INTERNAL",
 ]);
 
-/** Errors that should offer an upgrade-to-Pro CTA. */
+/** Errors that should offer upgrade / account CTA (not retry). */
 const UPGRADE_ERRORS = new Set([
   "CHAT_REQUIRES_PRO",
   "TRANSIT_REQUIRES_PRO",
+  "QUOTA_EXCEEDED",
 ]);
 
 /** Map API error codes (lib/errors.ts) to friendly Thai messages. */
@@ -60,6 +62,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   AI_PROVIDER_ERROR: "ระบบทำนายขัดข้องชั่วคราว ลองใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
   VALIDATION: "กรุณากรอกข้อมูลวันเกิดก่อนเริ่มดูดวง",
   RATE_LIMITED: "ถามถี่เกินไป รอสักครู่แล้วลองใหม่",
+  QUOTA_EXCEEDED:
+    "โควต้าวันนี้หรือเดือนนี้ครบแล้ว รอรีเซ็ตหรือไปหน้าบัญชีเพื่อเติมเครดิต",
   UNAUTHENTICATED: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
   USER_DISABLED: "บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อแอดมิน",
   FEATURE_DISABLED: "ระบบดูดวงด้วย AI กำลังอยู่ระหว่างพัฒนา",
@@ -113,12 +117,14 @@ function applyApiError(
       ? ERROR_MESSAGES.CHAT_REQUIRES_PRO_PENDING
       : null;
   setters.setErrorText(
-    pendingChatMsg ||
-      message?.trim() ||
-      ERROR_MESSAGES[code] ||
+    pendingChatMsg ??
+      message?.trim() ??
+      ERROR_MESSAGES[code] ??
       "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง",
   );
-  setters.setState(code === "NO_QUOTA" ? "no-quota" : "error");
+  setters.setState(
+    code === "NO_QUOTA" || code === "QUOTA_EXCEEDED" ? "no-quota" : "error",
+  );
   if (!RETRYABLE_ERRORS.has(code)) {
     setters.setPendingRetry(null);
   } else if (retry) {
@@ -156,6 +162,10 @@ export function ChatView() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamTimer = useRef<number | null>(null);
   const conversationIdRef = useRef<string | null>(threadId);
+  const usageRefreshRef = useRef<(() => void) | null>(null);
+  const registerUsageRefresh = useCallback((fn: () => void) => {
+    usageRefreshRef.current = fn;
+  }, []);
 
   useEffect(() => {
     conversationIdRef.current = threadId;
@@ -281,6 +291,7 @@ export function ChatView() {
         streamTimer.current = null;
         setState("idle");
         refresh();
+        usageRefreshRef.current?.();
         onDone?.();
       }
     }, 24);
@@ -432,6 +443,7 @@ export function ChatView() {
 
   return (
     <div className="flex flex-1 flex-col">
+      <ChatUsageBar registerRefresh={registerUsageRefresh} />
       {threadMode === "TRANSIT" && threadTransitLabel ? (
         <div className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-center text-xs text-[var(--muted)] md:px-8">
           โหมดดวงจร · {threadTransitLabel}
@@ -541,6 +553,12 @@ export function ChatView() {
                         ตอบโดย {modelLabel(m.modelId)}
                       </p>
                     )}
+                  {!(state === "streaming" && idx === messages.length - 1) && (
+                    <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted-2)]">
+                      คำทำนายนี้มีไว้เพื่อความบันเทิงและเป็นแนวทางเท่านั้น
+                      ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์
+                    </p>
+                  )}
                 </div>
               ),
             )}
@@ -569,6 +587,7 @@ export function ChatView() {
         onSend={() => send(input)}
         disabled={state === "processing" || state === "streaming" || locked}
         aiEnabled={FEATURES.aiChat && !locked}
+        creditCost={DEFAULTS.creditCostPerReading}
       />
     </div>
   );
@@ -588,6 +607,7 @@ function ErrorBanner({
   const showUpgrade =
     state === "no-quota" ||
     (errorCode != null && UPGRADE_ERRORS.has(errorCode));
+  const quotaExceeded = errorCode === "QUOTA_EXCEEDED";
   const showBirthProfile =
     errorCode === "VALIDATION" && errorText === ERROR_MESSAGES.VALIDATION;
 
@@ -611,7 +631,11 @@ function ErrorBanner({
             href="/account"
             className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
           >
-            {state === "no-quota" ? "ดูแพ็กเกจ / เติมเครดิต" : "อัปเกรดเป็น Pro"}
+            {quotaExceeded
+              ? "ดูแพ็กเกจ / รอวันใหม่"
+              : state === "no-quota"
+                ? "ดูแพ็กเกจ / เติมเครดิต"
+                : "อัปเกรดเป็น Pro"}
           </a>
         )}
         {showBirthProfile && (
@@ -724,12 +748,14 @@ function Composer({
   onSend,
   disabled,
   aiEnabled,
+  creditCost,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
   disabled: boolean;
   aiEnabled: boolean;
+  creditCost?: number;
 }) {
   return (
     <div className="px-4 pb-6 md:px-8">
@@ -775,6 +801,9 @@ function Composer({
         </button>
       </div>
       <p className="mt-2 text-center text-[10px] text-[var(--muted-2)]">
+        {aiEnabled && creditCost != null && creditCost > 0
+          ? `แต่ละคำถามใช้ ${creditCost} เครดิต · `
+          : ""}
         Horasard อาจให้ข้อมูลที่ไม่ถูกต้องเสมอไป โปรดใช้วิจารณญาณ
       </p>
     </div>
