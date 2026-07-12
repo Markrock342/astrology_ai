@@ -1,3 +1,4 @@
+import type { SendEmailResult } from "@/server/email/mailer";
 import { prisma } from "@/server/db";
 import { sendEmail } from "@/server/email/mailer";
 import { sendWebPushToAdmins } from "@/server/push/web-push-service";
@@ -66,7 +67,7 @@ export async function notifyUserPaymentReviewed(input: {
   approved: boolean;
   amount: number;
   note?: string | null;
-}): Promise<void> {
+}): Promise<SendEmailResult> {
   const link = `${appBaseUrl()}/account`;
   const title = input.approved
     ? `อนุมัติการชำระเงิน ฿${input.amount} แล้ว`
@@ -80,10 +81,23 @@ export async function notifyUserPaymentReviewed(input: {
     .filter(Boolean)
     .join("\n");
 
-  await sendEmail({
+  return sendEmail({
     to: input.userEmail,
     subject: `[HoraSard] ${title}`,
     text,
     html: `<p>${title}</p>${input.note ? `<p>หมายเหตุ: ${input.note}</p>` : ""}<p><a href="${link}">เปิดหน้าบัญชี</a></p>`,
-  }).catch(() => {});
+  });
+}
+
+/** Persist customer email delivery outcome for admin visibility (BE-E0.3). */
+export async function persistPaymentNotifyResult(
+  paymentId: string,
+  result: SendEmailResult,
+): Promise<void> {
+  await prisma.payment.update({
+    where: { id: paymentId },
+    data: result.ok
+      ? { notifiedAt: new Date(), notifyError: null }
+      : { notifyError: result.error },
+  });
 }

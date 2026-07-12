@@ -215,6 +215,8 @@ export const submitPaymentSchema = z.object({
   amount: z.number().int().positive(),
   reference: z.string().max(120).optional(),
   note: z.string().max(300).optional(),
+  /** Target package code (PRO, CREDIT_TOPUP, …). */
+  packageCode: z.string().min(1).max(40).optional(),
   /** Private blob pathname from POST /api/payments/proof (preferred). */
   proofPath: z
     .string()
@@ -267,6 +269,7 @@ export const packageCreateSchema = z.object({
   description: z.string().max(500).optional(),
   features: z.array(z.string().min(1).max(200)).default([]),
   upgradeSteps: z.array(z.string().min(1).max(300)).default([]),
+  creditOnly: z.boolean().default(false),
 });
 
 export const packageUpdateSchema = packageCreateSchema.partial();

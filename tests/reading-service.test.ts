@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
   getEffectivePlan: vi.fn(),
   assertWithinUsageLimits: vi.fn(),
+  reserveUsageSlot: vi.fn(),
+  releaseUsageReservation: vi.fn(),
   resolveConfig: vi.fn(),
   resolvePromptParts: vi.fn(),
   loadChart: vi.fn(),
@@ -39,6 +41,8 @@ vi.mock("@/server/user/account-service", () => ({
 
 vi.mock("@/server/credit/quota-service", () => ({
   assertWithinUsageLimits: mocks.assertWithinUsageLimits,
+  reserveUsageSlot: mocks.reserveUsageSlot,
+  releaseUsageReservation: mocks.releaseUsageReservation,
 }));
 
 vi.mock("@/server/ai/router", () => ({
@@ -61,6 +65,7 @@ vi.mock("@/server/ai/usage-logger", () => ({
 
 vi.mock("@/server/credit/credit-service", () => ({
   deductCredits: mocks.deductCredits,
+  lockWalletForUpdate: vi.fn().mockResolvedValue(undefined),
 }));
 
 const baseCategory = {
@@ -91,9 +96,16 @@ function setupHappyPath() {
   mocks.getEffectivePlan.mockResolvedValue("PRO");
   mocks.findWallet.mockResolvedValue({ balance: 10 });
   mocks.assertWithinUsageLimits.mockResolvedValue(undefined);
+  mocks.reserveUsageSlot.mockResolvedValue("reservation-1");
+  mocks.releaseUsageReservation.mockResolvedValue(undefined);
   mocks.findProfile.mockResolvedValue(baseProfile);
   mocks.findKnowledge.mockResolvedValue([]);
-  mocks.resolveConfig.mockResolvedValue({ id: "cfg-1", promptTemplateId: null });
+  mocks.resolveConfig.mockResolvedValue({
+    id: "cfg-1",
+    promptTemplateId: null,
+    provider: "GEMINI",
+    modelId: "gemini-2.5-flash",
+  });
   mocks.resolvePromptParts.mockResolvedValue({
     safety: "safe",
     persona: "persona",
@@ -152,6 +164,10 @@ function setupHappyPath() {
           provider: "GEMINI",
           modelId: "gemini-2.5-flash",
         }),
+      },
+      aIUsageLog: {
+        findFirst: vi.fn().mockResolvedValue({ id: "reservation-1" }),
+        update: vi.fn().mockResolvedValue({ id: "reservation-1", status: "SUCCESS" }),
       },
     };
     return fn(tx);
@@ -240,9 +256,13 @@ describe("createReading (M3 B2)", () => {
       createReading({ userId: "user-1", categorySlug: "career", question: "q" }),
     ).rejects.toMatchObject({ code: "AI_TIMEOUT" });
 
+    expect(mocks.reserveUsageSlot).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1", creditCost: 1 }),
+    );
     expect(mocks.logUsage).toHaveBeenCalledWith(
       expect.objectContaining({ status: "TIMEOUT", userId: "user-1" }),
     );
+    expect(mocks.releaseUsageReservation).toHaveBeenCalledWith("reservation-1");
     expect(mocks.transaction).not.toHaveBeenCalled();
     expect(mocks.deductCredits).not.toHaveBeenCalled();
   });
@@ -257,6 +277,7 @@ describe("createReading (M3 B2)", () => {
 
     expect(result).toMatchObject({ id: "reading-1", responseText: "คำตอบจาก AI" });
     expect(mocks.generateWithFallback).toHaveBeenCalledOnce();
+    expect(mocks.reserveUsageSlot).toHaveBeenCalledOnce();
     expect(mocks.transaction).toHaveBeenCalledOnce();
     expect(mocks.deductCredits).toHaveBeenCalledWith(
       "user-1",
