@@ -171,11 +171,48 @@ export async function acceptMessage(
   };
 }
 
+/**
+ * Mark an in-flight assistant answer as stop-requested. Ownership is checked via
+ * the conversation, and only a PENDING row can be stopped, so a late stop cannot
+ * corrupt an answer that already finished.
+ */
+export async function requestStopGeneration(input: {
+  conversationId: string;
+  userId: string;
+  idempotencyKey: string;
+}): Promise<boolean> {
+  const { count } = await prisma.message.updateMany({
+    where: {
+      conversationId: input.conversationId,
+      idempotencyKey: input.idempotencyKey,
+      role: "ASSISTANT",
+      status: "PENDING",
+      conversation: { userId: input.userId },
+    },
+    data: { stopRequested: true },
+  });
+  return count > 0;
+}
+
+/** True once the user has pressed stop for this answer. Polled while streaming. */
+export async function isStopRequested(
+  conversationId: string,
+  idempotencyKey: string,
+): Promise<boolean> {
+  const row = await prisma.message.findUnique({
+    where: {
+      conversationId_idempotencyKey: { conversationId, idempotencyKey },
+    },
+    select: { stopRequested: true },
+  });
+  return row?.stopRequested === true;
+}
+
 /** Run AI + finalize the PENDING assistant (called from `after()` or SSE stream). */
 export async function completePendingMessage(
   input: SendMessageInput,
   onDelta?: (chunk: string) => void,
-  signal?: AbortSignal,
+  shouldStop?: () => Promise<boolean>,
 ) {
   const conversation = await assertCanSend(input.conversationId, input.userId);
 
@@ -226,7 +263,7 @@ export async function completePendingMessage(
                 : null,
           },
           onDelta,
-          signal,
+          shouldStop,
         )
       : await createReading({
           userId: input.userId,
