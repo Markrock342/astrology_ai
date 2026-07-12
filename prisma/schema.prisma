@@ -634,6 +634,10 @@ model Message {
   status           ReadingStatus @default(SUCCESS)
   inputUsage       Int?
   outputUsage      Int?
+  // Set by POST /conversations/[id]/stop. The generating request polls this so a
+  // stop works even when it lands on a different serverless instance. A dropped
+  // connection (refresh, tab close) must NOT set it — generation carries on.
+  stopRequested    Boolean       @default(false)
   createdAt        DateTime      @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

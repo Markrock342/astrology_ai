@@ -164,7 +164,7 @@ export class GeminiAdapter implements AIProviderAdapter {
   async streamGenerate(
     input: GenerateAIInput,
     onDelta: (chunk: string) => void,
-    signal?: AbortSignal,
+    shouldStop?: () => Promise<boolean>,
   ): Promise<GenerateAIResult> {
     const start = Date.now();
     const apiKey = resolveSecret(input.secretReference);
@@ -183,21 +183,24 @@ export class GeminiAdapter implements AIProviderAdapter {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), input.timeoutMs);
 
-    // A client stop and a timeout both abort the same fetch; this flag is how we
-    // tell them apart in the catch below. Aborting the fetch also closes the
-    // upstream connection, so Gemini stops billing us for the rest.
-    let stoppedByClient = false;
-    const stop = () => {
-      stoppedByClient = true;
-      controller.abort();
-    };
-    if (signal?.aborted) stop();
-    signal?.addEventListener("abort", stop, { once: true });
-
-    // Hoisted so the catch can return whatever streamed before a stop.
+    // Hoisted so a stop can return whatever streamed before it.
     let rawText = "";
     let inputTokens: number | undefined;
     let outputTokens: number | undefined;
+    let stopped = false;
+
+    // Polling the stop flag on every chunk would mean a query per token, so
+    // check at most once a second — a stop lands within ~1s, which is well
+    // inside what a user reads as instant.
+    const STOP_POLL_MS = 1_000;
+    let lastStopCheck = start;
+    const checkStop = async (): Promise<boolean> => {
+      if (!shouldStop) return false;
+      const now = Date.now();
+      if (now - lastStopCheck < STOP_POLL_MS) return false;
+      lastStopCheck = now;
+      return shouldStop().catch(() => false);
+    };
 
     try {
       const url =
@@ -250,6 +253,13 @@ export class GeminiAdapter implements AIProviderAdapter {
       let buffer = "";
 
       while (true) {
+        if (await checkStop()) {
+          stopped = true;
+          // Cancelling the reader closes the upstream connection, so Gemini
+          // stops generating (and billing us) for the rest of the answer.
+          await reader.cancel().catch(() => {});
+          break;
+        }
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
@@ -295,8 +305,12 @@ export class GeminiAdapter implements AIProviderAdapter {
         };
       }
 
+      // A stop is a success with a shorter answer, not a failure: the user read
+      // what streamed, so the caller persists and charges it like a completed
+      // reading — and must never retry it on the fallback provider.
       return {
         ok: true,
+        stopped,
         provider: "GEMINI",
         modelId: input.modelId,
         rawText: text,
@@ -305,36 +319,17 @@ export class GeminiAdapter implements AIProviderAdapter {
         latencyMs,
       };
     } catch (err) {
-      // A client stop is a success with a shorter answer, not a failure: the
-      // user already read what streamed, so we keep it and let the caller
-      // persist and charge for it exactly like a completed reading.
-      const stoppedText = rawText.trim();
-      if (stoppedByClient && stoppedText) {
-        return {
-          ok: true,
-          stopped: true,
-          provider: "GEMINI",
-          modelId: input.modelId,
-          rawText: stoppedText,
-          parsed: parseHoroscopeText(stoppedText),
-          usage: { inputTokens, outputTokens },
-          latencyMs: Date.now() - start,
-        };
-      }
-
       const isTimeout = err instanceof Error && err.name === "AbortError";
       return {
         ok: false,
-        stopped: stoppedByClient,
         provider: "GEMINI",
         modelId: input.modelId,
         latencyMs: Date.now() - start,
-        errorCode: stoppedByClient ? "STOPPED" : isTimeout ? "TIMEOUT" : "PROVIDER_ERROR",
+        errorCode: isTimeout ? "TIMEOUT" : "PROVIDER_ERROR",
         errorMessage: err instanceof Error ? err.message : "Gemini stream failed",
       };
     } finally {
       clearTimeout(timer);
-      signal?.removeEventListener("abort", stop);
     }
   }
 

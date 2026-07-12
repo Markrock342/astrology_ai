@@ -33,6 +33,8 @@ type Message = {
   status?: "SUCCESS" | "FAILED" | "TIMEOUT" | "PENDING";
   chartSnapshot?: ChartJson | null;
   transitSnapshot?: ChartJson | null;
+  /** Present only while PENDING — the handle the stop endpoint needs. */
+  idempotencyKey?: string;
 };
 type ChatState =
   | "idle"
@@ -95,6 +97,9 @@ type PendingRetry = {
   question: string;
   idempotencyKey: string;
 };
+
+/** The handle needed to cancel an answer that is still generating. */
+type StopTarget = { threadId: string; idempotencyKey: string };
 
 async function parseApiJson(res: Response) {
   try {
@@ -183,15 +188,26 @@ export function ChatView() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamTimer = useRef<number | null>(null);
   const conversationIdRef = useRef<string | null>(threadId);
-  // Aborting this cancels the provider call server-side. stoppedRef tells the
-  // catch below that the resulting AbortError was the user's doing, not a
-  // network failure — the partial answer stays on screen and stays charged.
-  const abortRef = useRef<AbortController | null>(null);
-  const stoppedRef = useRef(false);
+  // Stopping is an explicit server call, not just an aborted fetch: dropping the
+  // connection has to let the answer finish in the background (so a refresh
+  // never strands it as "generating"), while stop must actually cancel the model.
+  const [inFlight, setInFlight] = useState<StopTarget | null>(null);
+  const [stopping, setStopping] = useState(false);
 
-  function stopStreaming() {
-    stoppedRef.current = true;
-    abortRef.current?.abort();
+  async function stopStreaming(target: StopTarget | null) {
+    if (!target || stopping) return;
+    setStopping(true);
+    try {
+      await fetch(`/api/conversations/${target.threadId}/stop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idempotencyKey: target.idempotencyKey }),
+      });
+    } catch {
+      /* the stream/poll below still settles the message either way */
+    } finally {
+      setStopping(false);
+    }
   }
   const usageRefreshRef = useRef<(() => void) | null>(null);
   const registerUsageRefresh = useCallback((fn: () => void) => {
@@ -295,10 +311,21 @@ export function ChatView() {
   }, [threadId, messages, threadCategorySlug, threadMode]);
 
   // Poll while a background reply is still PENDING (leave/return safe).
+  const pendingAssistant = messages.find(
+    (m) => m.role === "assistant" && m.status === "PENDING",
+  );
   const pendingAssistantIds = messages
     .filter((m) => m.role === "assistant" && m.status === "PENDING")
     .map((m) => m.id)
     .join(",");
+
+  // A reload loses `inFlight`, but the PENDING row carries its own key — so the
+  // stop button keeps working on a thread the user came back to.
+  const stopTarget: StopTarget | null =
+    inFlight ??
+    (threadId && pendingAssistant?.idempotencyKey
+      ? { threadId, idempotencyKey: pendingAssistant.idempotencyKey }
+      : null);
 
   useEffect(() => {
     if (!threadId || !pendingAssistantIds) return;
@@ -501,9 +528,7 @@ export function ChatView() {
         ];
       });
 
-      stoppedRef.current = false;
-      const controller = new AbortController();
-      abortRef.current = controller;
+      setInFlight({ threadId: conversationId, idempotencyKey });
 
       const res = await fetch(
         `/api/conversations/${conversationId}/messages`,
@@ -515,7 +540,6 @@ export function ChatView() {
             "Idempotency-Key": idempotencyKey,
           },
           body: JSON.stringify({ content }),
-          signal: controller.signal,
         },
       );
 
@@ -695,29 +719,25 @@ export function ChatView() {
         setState("processing");
       }
     } catch {
-      // The user pressed stop: the server already persisted and charged the
-      // partial answer, so keep it on screen and settle to idle rather than
-      // showing a network error over text they can plainly see.
-      if (stoppedRef.current) {
+      // The connection dropped, but the server keeps generating and finalizes
+      // the message, so fall back to the PENDING poll rather than erroring out
+      // over an answer that is still on its way.
+      if (assembled) {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content: assembled, status: "SUCCESS" }
+              ? { ...m, content: assembled, status: "PENDING" }
               : m,
           ),
         );
-        setState("idle");
-        setErrorText(null);
-        setErrorCode(null);
-        void refreshLight();
-        usageRefreshRef.current?.();
+        setState("processing");
         return;
       }
       setErrorCode("NETWORK");
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
       setState("error");
     } finally {
-      abortRef.current = null;
+      setInFlight(null);
     }
   }
 
@@ -901,8 +921,10 @@ export function ChatView() {
           value={input}
           onChange={setInput}
           onSend={() => send(input)}
-          onStop={stopStreaming}
-          streaming={state === "processing" || state === "streaming"}
+          onStop={() => void stopStreaming(stopTarget)}
+          // Only offer stop when there is an answer we can actually cancel — a
+          // button that silently does nothing is worse than no button at all.
+          streaming={Boolean(stopTarget) && !stopping}
           disabled={state === "processing" || state === "streaming" || locked}
           aiEnabled={FEATURES.aiChat && !locked}
           creditCost={DEFAULTS.creditCostPerReading}
@@ -1105,6 +1127,7 @@ function Composer({
   onChange: (v: string) => void;
   onSend: () => void;
   onStop: () => void;
+  /** True while an answer is in flight and cancellable. */
   streaming: boolean;
   disabled: boolean;
   aiEnabled: boolean;

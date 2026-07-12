@@ -113,7 +113,7 @@ export async function streamWithFallback(
   configId: string,
   base: RunInput,
   onDelta: (chunk: string) => void,
-  signal?: AbortSignal,
+  shouldStop?: () => Promise<boolean>,
 ): Promise<GenerateAIResult> {
   const config = await prisma.aIProviderConfig.findUnique({ where: { id: configId } });
   if (!config) throw new AppError("AI_PROVIDER_ERROR", "AI config not found");
@@ -122,7 +122,7 @@ export async function streamWithFallback(
     const adapter = adapterFor(cfg.provider);
     const input = toGenerateInput(cfg, base);
     if (adapter instanceof GeminiAdapter) {
-      return adapter.streamGenerate(input, onDelta, signal);
+      return adapter.streamGenerate(input, onDelta, shouldStop);
     }
     const result = await adapter.generate(input);
     if (result.ok && result.rawText) onDelta(result.rawText);

@@ -17,6 +17,8 @@ export type ThreadMessage = {
   content: string;
   modelId?: string;
   status?: "SUCCESS" | "FAILED" | "TIMEOUT" | "PENDING";
+  /** Only on a PENDING assistant turn — lets the client stop it after a reload. */
+  idempotencyKey?: string;
 };
 
 export type ThreadDetail = {
@@ -100,6 +102,7 @@ export async function getThreadDetail(
           content: true,
           modelId: true,
           status: true,
+          idempotencyKey: true,
         },
       },
     },
@@ -119,10 +122,13 @@ export async function getThreadDetail(
       transitDistrict: conversation.transitDistrict,
       messages: conversation.messages.map((m) => ({
         id: m.id,
-        role: m.role === "USER" ? "user" : "assistant",
+        role: m.role === "USER" ? "user" : "assistant" as const,
         content: m.content,
         modelId: m.modelId ?? undefined,
         status: m.status,
+        // Exposed only while generating, so a reloaded tab can still stop it.
+        idempotencyKey:
+          m.status === "PENDING" ? (m.idempotencyKey ?? undefined) : undefined,
       })),
     };
   }

@@ -7,6 +7,7 @@ import { requireUser } from "@/server/auth/rbac";
 import {
   acceptMessage,
   completePendingMessage,
+  isStopRequested,
 } from "@/server/horoscope/message-service";
 
 export const maxDuration = 300;
@@ -97,9 +98,10 @@ export async function POST(
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        // Once the client stops or navigates away the stream is dead, but
-        // completePendingMessage still has to persist and charge the partial
-        // answer — so writing to a closed stream must never throw into it.
+        // The client can vanish mid-answer (refresh, tab close, flaky mobile
+        // network). Generation must carry on regardless — the message row is
+        // PENDING until it finalizes, and a row nobody finalizes hangs forever.
+        // So writing to a dead stream is a no-op, never an error.
         const send = (event: Record<string, unknown>) => {
           if (req.signal.aborted) return;
           try {
@@ -139,7 +141,7 @@ export async function POST(
 
           send({ type: "status", status: "started" });
 
-          const reading = await completePendingMessage(
+          const generation = completePendingMessage(
             {
               conversationId: id,
               userId: user.id,
@@ -149,11 +151,21 @@ export async function POST(
             (chunk) => {
               send({ type: "delta", text: chunk });
             },
-            // Client pressed stop (or navigated away): abort the provider call so
-            // we stop paying for tokens nobody will read. The partial text is
-            // still persisted and charged below.
-            req.signal,
+            // Only an explicit POST /stop cancels the answer. A dropped
+            // connection must not — see the note on `send` above.
+            () => isStopRequested(id, idempotencyKey),
           );
+
+          // Keep the instance alive until generation settles even if the client
+          // disconnects, so the PENDING row always gets finalized. Without this,
+          // a refresh mid-answer strands the message as "generating" forever.
+          after(() =>
+            generation.catch((err) => {
+              console.error("[chat-sse]", err);
+            }),
+          );
+
+          const reading = await generation;
 
           send({
             type: "done",
