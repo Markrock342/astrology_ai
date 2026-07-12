@@ -1,5 +1,7 @@
 # 🟩 Backend — สถานะปิด M4 (อัปเดต 12 ก.ค. 2026)
 
+**ส่งเพื่อน A:** [HANDOFF_BE.md](./HANDOFF_BE.md) — https://github.com/Markrock342/astrology_ai/blob/main/HANDOFF_BE.md
+
 **สถานะ:** โค้ด M4 ครบบน `main` · เหลือ manual go-live เท่านั้น
 
 อ่านคู่กับ `M4_HANDOFF.md` · `BACKEND_TASKS.md` · `docs/backend_m4_deploy.md`

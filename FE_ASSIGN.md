@@ -1,5 +1,7 @@
 # 🟦 Frontend — สถานะปิด M4 (อัปเดต 12 ก.ค. 2026)
 
+**ส่งเพื่อน B:** [HANDOFF_FE.md](./HANDOFF_FE.md) — https://github.com/Markrock342/astrology_ai/blob/main/HANDOFF_FE.md
+
 **สถานะ:** F1–F4 + Wave D + UX ChatGPT-style ครบบน `main`
 
 อ่านคู่กับ `M4_HANDOFF.md` · `FRONTEND_TASKS.md`
