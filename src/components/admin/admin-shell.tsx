@@ -8,6 +8,7 @@ import { APP_NAME_TH } from "@/config/constants";
 import { FEATURES } from "@/config/features";
 import { groupedAdminNav } from "@/config/admin-nav";
 import { Badge } from "./ui";
+import { ProviderAlertBanner } from "./provider-alert-banner";
 
 export function AdminShell({
   children,
@@ -109,6 +110,7 @@ export function AdminShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <ProviderAlertBanner />
         <header className="flex items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3 lg:px-6">
           <div className="flex items-center gap-3">
             <button
