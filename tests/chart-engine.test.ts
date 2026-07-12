@@ -4,7 +4,12 @@ import {
   computeNatalChartSync,
 } from "@/server/horoscope/engine/compute-chart";
 import { formatChartForPrompt } from "@/server/horoscope/engine/format-chart-prompt";
-import { buildSystemPrompt, buildUserPrompt, ENGINE_CHART_RULE } from "@/server/ai/prompt-builder";
+import {
+  buildSystemPrompt,
+  buildUserPrompt,
+  ENGINE_CHART_RULE,
+  RESPONSE_LAYOUT_RULE,
+} from "@/server/ai/prompt-builder";
 
 const SAMPLE_INPUT = {
   day: 21,
@@ -76,6 +81,12 @@ describe("engine-first prompts", () => {
       outputFormat: "format",
     });
     expect(system).toContain(ENGINE_CHART_RULE);
+    expect(system).toContain(RESPONSE_LAYOUT_RULE);
+    expect(system.indexOf(ENGINE_CHART_RULE)).toBeLessThan(
+      system.indexOf("persona"),
+    );
+    expect(system).toContain("##");
+    expect(system).toContain("persona");
 
     const user = buildUserPrompt(
       {
