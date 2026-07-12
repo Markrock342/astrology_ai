@@ -79,19 +79,30 @@ export function SettingsPopover({
   }, [anchorRef]);
 
   useEffect(() => {
-    function onClick(e: MouseEvent) {
-      const target = e.target as Node;
-      if (anchorRef?.current?.contains(target)) return;
-      if (ref.current && !ref.current.contains(target)) onClose();
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
+    let mounted = true;
+    let removeListeners: (() => void) | undefined;
+    // Defer so the opening tap doesn't immediately close the popover.
+    const timer = window.setTimeout(() => {
+      if (!mounted) return;
+      function onPointerDown(e: PointerEvent) {
+        const target = e.target as Node;
+        if (anchorRef?.current?.contains(target)) return;
+        if (ref.current && !ref.current.contains(target)) onClose();
+      }
+      function onKey(e: KeyboardEvent) {
+        if (e.key === "Escape") onClose();
+      }
+      document.addEventListener("pointerdown", onPointerDown);
+      document.addEventListener("keydown", onKey);
+      removeListeners = () => {
+        document.removeEventListener("pointerdown", onPointerDown);
+        document.removeEventListener("keydown", onKey);
+      };
+    }, 0);
     return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
+      mounted = false;
+      window.clearTimeout(timer);
+      removeListeners?.();
     };
   }, [onClose, anchorRef]);
 
@@ -111,7 +122,7 @@ export function SettingsPopover({
       ref={ref}
       style={pos ? { left: pos.left, bottom: pos.bottom } : undefined}
       className={`animate-fade-up fixed z-[60] w-[340px] max-w-[calc(100vw-24px)] overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface-2)] p-3 shadow-2xl ${
-        pos ? "" : "invisible"
+        pos ? "" : "invisible pointer-events-none"
       }`}
     >
       <div className="flex items-center gap-3 px-1 pb-2.5 pt-0.5">
