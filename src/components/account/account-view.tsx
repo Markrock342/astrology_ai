@@ -1,6 +1,8 @@
 import type { CmsPaymentInfo } from "@/lib/cms-keys";
 import { PaymentSubmitCard } from "./payment-submit-card";
 import { ProfileAvatarCard } from "./profile-avatar-card";
+import { UsageSummary } from "./usage-summary";
+import type { UsageLimitsFallback } from "@/types/my-usage";
 
 export type PublicPackage = {
   id: string;
@@ -19,7 +21,12 @@ type MyPackage = {
   plan: "FREE" | "PRO";
   creditBalance: number;
   subscription: {
-    package: { code: string; name: string };
+    package: {
+      code: string;
+      name: string;
+      dailyLimit?: number | null;
+      monthlyLimit?: number | null;
+    };
   } | null;
 };
 
@@ -59,6 +66,11 @@ export function AccountView({
   const isPro = myPackage.plan === "PRO";
   const proPkg = packages.find((p) => p.type === "PRO");
 
+  const usageLimits: UsageLimitsFallback = {
+    dailyLimit: myPackage.subscription?.package.dailyLimit ?? null,
+    monthlyLimit: myPackage.subscription?.package.monthlyLimit ?? null,
+  };
+
   return (
     <div className="flex-1 overflow-y-auto px-6 py-10 md:px-10">
       <div className="mx-auto max-w-3xl">
@@ -77,21 +89,13 @@ export function AccountView({
         />
 
         <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-[var(--muted-2)]">แพ็กเกจปัจจุบัน</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--primary)]">
-                {myPackage.subscription?.package.name ?? (isPro ? "Pro" : "Free")}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-[var(--muted-2)]">เครดิตคงเหลือ</p>
-              <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
-                {myPackage.creditBalance}
-              </p>
-            </div>
-          </div>
+          <p className="text-xs text-[var(--muted-2)]">แพ็กเกจปัจจุบัน</p>
+          <p className="mt-1 text-lg font-semibold text-[var(--primary)]">
+            {myPackage.subscription?.package.name ?? (isPro ? "Pro" : "Free")}
+          </p>
         </div>
+
+        <UsageSummary fallbackLimits={usageLimits} />
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {packages.map((pkg) => (
@@ -110,7 +114,9 @@ export function AccountView({
         </div>
 
         {!isPro && proPkg && (
-          <PaymentSubmitCard proPrice={proPkg.price} paymentInfo={paymentInfo} />
+          <div id="payment">
+            <PaymentSubmitCard proPrice={proPkg.price} paymentInfo={paymentInfo} />
+          </div>
         )}
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
@@ -13,6 +13,7 @@ import {
 
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
+import { ChatUsageBar } from "./chat-usage-bar";
 import type { ChartJson } from "@/types/chart";
 
 type Message = {
@@ -156,6 +157,10 @@ export function ChatView() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamTimer = useRef<number | null>(null);
   const conversationIdRef = useRef<string | null>(threadId);
+  const usageRefreshRef = useRef<(() => void) | null>(null);
+  const registerUsageRefresh = useCallback((fn: () => void) => {
+    usageRefreshRef.current = fn;
+  }, []);
 
   useEffect(() => {
     conversationIdRef.current = threadId;
@@ -281,6 +286,7 @@ export function ChatView() {
         streamTimer.current = null;
         setState("idle");
         refresh();
+        usageRefreshRef.current?.();
         onDone?.();
       }
     }, 24);
@@ -432,6 +438,7 @@ export function ChatView() {
 
   return (
     <div className="flex flex-1 flex-col">
+      <ChatUsageBar registerRefresh={registerUsageRefresh} />
       {threadMode === "TRANSIT" && threadTransitLabel ? (
         <div className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-center text-xs text-[var(--muted)] md:px-8">
           โหมดดวงจร · {threadTransitLabel}
@@ -569,6 +576,7 @@ export function ChatView() {
         onSend={() => send(input)}
         disabled={state === "processing" || state === "streaming" || locked}
         aiEnabled={FEATURES.aiChat && !locked}
+        creditCost={DEFAULTS.creditCostPerReading}
       />
     </div>
   );
@@ -724,12 +732,14 @@ function Composer({
   onSend,
   disabled,
   aiEnabled,
+  creditCost,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
   disabled: boolean;
   aiEnabled: boolean;
+  creditCost?: number;
 }) {
   return (
     <div className="px-4 pb-6 md:px-8">
@@ -775,6 +785,9 @@ function Composer({
         </button>
       </div>
       <p className="mt-2 text-center text-[10px] text-[var(--muted-2)]">
+        {aiEnabled && creditCost != null && creditCost > 0
+          ? `แต่ละคำถามใช้ ${creditCost} เครดิต · `
+          : ""}
         Horasard อาจให้ข้อมูลที่ไม่ถูกต้องเสมอไป โปรดใช้วิจารณญาณ
       </p>
     </div>
