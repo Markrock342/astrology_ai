@@ -64,7 +64,7 @@ export async function requestPasswordReset(rawEmail: string): Promise<void> {
   });
 
   const link = `${buildBaseUrl()}/reset-password?token=${rawToken}`;
-  await sendEmail({
+  const sent = await sendEmail({
     to: email,
     subject: "รีเซ็ตรหัสผ่าน HoraSard",
     text: [
@@ -76,6 +76,14 @@ export async function requestPasswordReset(rawEmail: string): Promise<void> {
       "หากคุณไม่ได้เป็นผู้ขอ สามารถเพิกเฉยอีเมลนี้ได้",
     ].join("\n"),
   });
+
+  if (!sent.ok) {
+    // Drop the unused token so the user can retry once mail is fixed.
+    await prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id, tokenHash: hashResetToken(rawToken) },
+    });
+    console.error("[password-reset] email not delivered:", sent.error);
+  }
 }
 
 /**

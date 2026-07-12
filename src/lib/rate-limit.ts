@@ -8,6 +8,9 @@ import { Redis } from "@upstash/redis";
  * When `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set, limits are
  * enforced across all Vercel instances. Otherwise falls back to per-process memory
  * (fine for local dev / single instance).
+ *
+ * Auth paths should pass `{ failClosed: true }` so Redis outages reject instead
+ * of allowing unlimited login attempts.
  */
 
 type Bucket = { count: number; resetAt: number };
@@ -70,6 +73,14 @@ export function getRateLimitBackend(): "upstash" | "memory" {
   return upstashConfigured() ? "upstash" : "memory";
 }
 
+export type RateLimitOptions = {
+  /**
+   * When Upstash is configured but Redis errors, reject the request instead of
+   * failing open. Use for auth endpoints.
+   */
+  failClosed?: boolean;
+};
+
 /**
  * Enforce a sliding-window request limit. Throws RATE_LIMITED when exceeded.
  */
@@ -77,8 +88,14 @@ export async function rateLimit(
   key: string,
   limit: number,
   windowMs: number,
+  options?: RateLimitOptions,
 ): Promise<void> {
   if (!upstashConfigured()) {
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        "[rate-limit] CRITICAL: Upstash unset in production — using per-instance memory (set UPSTASH_*)",
+      );
+    }
     memoryRateLimit(key, limit, windowMs);
     return;
   }
@@ -90,8 +107,14 @@ export async function rateLimit(
     }
   } catch (err) {
     if (err instanceof AppError) throw err;
-    // Fail open on Redis outage so auth/chat still works; log for ops.
-    console.error("[rate-limit] Upstash error, allowing request:", err);
+    console.error("[rate-limit] Upstash error:", err);
+    if (options?.failClosed || process.env.NODE_ENV === "production") {
+      throw new AppError(
+        "RATE_LIMITED",
+        "ระบบจำกัดคำขอขัดข้องชั่วคราว กรุณาลองใหม่ในอีกสักครู่",
+      );
+    }
+    // Dev only: fail open so local work continues without Redis.
   }
 }
 

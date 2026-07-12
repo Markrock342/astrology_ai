@@ -3,6 +3,7 @@ import {
   reviewPayment,
   submitManualPayment,
 } from "@/server/payment/payment-service";
+import { AppError } from "@/lib/errors";
 
 const mocks = vi.hoisted(() => ({
   count: vi.fn(),
@@ -11,10 +12,12 @@ const mocks = vi.hoisted(() => ({
   findPackage: vi.fn(),
   update: vi.fn(),
   updateMany: vi.fn(),
+  findUniqueOrThrow: vi.fn(),
   subscriptionCreate: vi.fn(),
   transaction: vi.fn(),
   addCredits: vi.fn(),
   writeAudit: vi.fn(),
+  userFindUnique: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -26,6 +29,7 @@ vi.mock("@/server/db", () => ({
       update: mocks.update,
     },
     package: { findUnique: mocks.findPackage },
+    user: { findUnique: mocks.userFindUnique },
     userSubscription: {
       updateMany: mocks.updateMany,
       create: mocks.subscriptionCreate,
@@ -56,7 +60,12 @@ describe("payment-service (M4)", () => {
       amount: 199,
       status: "PENDING",
       reference: null,
+      proofUrl: "https://blob.example/slip.jpg",
       createdAt: new Date(),
+    });
+    mocks.userFindUnique.mockResolvedValue({
+      email: "u@test.com",
+      name: "User",
     });
   });
 
@@ -86,19 +95,21 @@ describe("payment-service (M4)", () => {
       user: { id: "user-1", email: "u@test.com" },
     };
     const pkg = { id: "pkg-pro", code: "PRO", creditQuota: 100 };
+    const updated = {
+      id: "pay-1",
+      status: "APPROVED",
+      amount: 199,
+      reviewedAt: new Date(),
+      userId: "user-1",
+    };
 
     mocks.findUnique.mockResolvedValueOnce(payment);
     mocks.findPackage.mockResolvedValueOnce(pkg);
 
     const tx = {
       payment: {
-        update: vi.fn().mockResolvedValue({
-          id: "pay-1",
-          status: "APPROVED",
-          amount: 199,
-          reviewedAt: new Date(),
-          userId: "user-1",
-        }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(updated),
       },
       userSubscription: {
         updateMany: mocks.updateMany,
@@ -117,6 +128,11 @@ describe("payment-service (M4)", () => {
     );
 
     expect(result.payment.status).toBe("APPROVED");
+    expect(tx.payment.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "pay-1", status: "PENDING" },
+      }),
+    );
     expect(mocks.addCredits).toHaveBeenCalledWith(
       "user-1",
       100,
@@ -136,15 +152,17 @@ describe("payment-service (M4)", () => {
       user: { id: "user-1", email: "u@test.com" },
     });
 
+    const updated = {
+      id: "pay-2",
+      status: "REJECTED",
+      amount: 199,
+      reviewedAt: new Date(),
+      userId: "user-1",
+    };
     const tx = {
       payment: {
-        update: vi.fn().mockResolvedValue({
-          id: "pay-2",
-          status: "REJECTED",
-          amount: 199,
-          reviewedAt: new Date(),
-          userId: "user-1",
-        }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(updated),
       },
     };
     mocks.transaction.mockImplementation(async (fn) => fn(tx));
@@ -156,5 +174,45 @@ describe("payment-service (M4)", () => {
       expect.objectContaining({ action: "payment.reject" }),
       tx,
     );
+  });
+
+  it("reviewPayment second concurrent approve loses CAS and does not grant", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "pay-3",
+      userId: "user-1",
+      amount: 199,
+      status: "PENDING",
+      note: null,
+      user: { id: "user-1", email: "u@test.com" },
+    });
+    mocks.findPackage.mockResolvedValue({
+      id: "pkg-pro",
+      code: "PRO",
+      creditQuota: 100,
+    });
+
+    const tx = {
+      payment: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        findUniqueOrThrow: vi.fn(),
+      },
+      userSubscription: {
+        updateMany: mocks.updateMany,
+        create: mocks.subscriptionCreate,
+      },
+    };
+    mocks.transaction.mockImplementation(async (fn) => fn(tx));
+
+    await expect(
+      reviewPayment(
+        "pay-3",
+        { status: "APPROVED", packageCode: "PRO" },
+        { id: "admin-2" },
+      ),
+    ).rejects.toBeInstanceOf(AppError);
+
+    expect(mocks.addCredits).not.toHaveBeenCalled();
+    expect(mocks.subscriptionCreate).not.toHaveBeenCalled();
+    expect(tx.payment.findUniqueOrThrow).not.toHaveBeenCalled();
   });
 });

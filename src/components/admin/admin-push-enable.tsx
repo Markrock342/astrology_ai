@@ -17,20 +17,17 @@ function urlBase64ToUint8Array(base64String: string) {
  * Registers service worker + stores subscription on the server.
  */
 export function AdminPushEnable() {
-  const [supported, setSupported] = useState(false);
+  const [supported] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window,
+  );
   const [configured, setConfigured] = useState(false);
   const [publicKey, setPublicKey] = useState("");
   const [status, setStatus] = useState<"idle" | "on" | "busy" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    setSupported(
-      typeof window !== "undefined" &&
-        "serviceWorker" in navigator &&
-        "PushManager" in window &&
-        "Notification" in window,
-    );
-  }, []);
 
   const load = useCallback(async () => {
     try {

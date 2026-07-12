@@ -95,7 +95,10 @@ export type PriorThreadMessage = {
 
 /**
  * Build multi-turn history for the AI adapter from persisted thread messages.
- * The first user turn is enriched with birth profile + chart (not stored in DB).
+ *
+ * Chart + birth profile are always attached to the *current* userPrompt so
+ * trimConversationHistory cannot drop natal evidence after ~10 turns.
+ * Prior turns stay as plain text to keep token use bounded.
  */
 export function buildConversationHistory(
   priorMessages: PriorThreadMessage[],
@@ -104,30 +107,11 @@ export function buildConversationHistory(
   currentQuestion: string,
   transitChartJson?: ChartJson | null,
 ): { conversationHistory: ConversationTurn[]; userPrompt: string } {
-  if (priorMessages.length === 0) {
-    return {
-      conversationHistory: [],
-      userPrompt: buildUserPrompt(
-        profile,
-        currentQuestion,
-        chartJson,
-        transitChartJson,
-      ),
-    };
-  }
-
   const history: ConversationTurn[] = [];
-  let firstUser = true;
 
   for (const msg of priorMessages) {
     if (msg.role === "USER") {
-      history.push({
-        role: "user",
-        content: firstUser
-          ? buildUserPrompt(profile, msg.content, chartJson, transitChartJson)
-          : msg.content,
-      });
-      firstUser = false;
+      history.push({ role: "user", content: msg.content });
     } else {
       history.push({ role: "assistant", content: msg.content });
     }
@@ -135,7 +119,12 @@ export function buildConversationHistory(
 
   return {
     conversationHistory: trimConversationHistory(history),
-    userPrompt: currentQuestion,
+    userPrompt: buildUserPrompt(
+      profile,
+      currentQuestion,
+      chartJson,
+      transitChartJson,
+    ),
   };
 }
 

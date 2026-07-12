@@ -5,14 +5,8 @@ import { env } from "@/config/env";
  *
  * Delivery strategy is chosen at runtime from env:
  *   - RESEND_API_KEY set  → send a real email via the Resend HTTP API.
- *   - otherwise           → "dev fallback": log the message to the server
- *                           console so the flow is fully testable without any
- *                           external service. No code change is needed to switch
- *                           on real delivery later — just set RESEND_API_KEY
- *                           (and EMAIL_FROM).
- *
- * Never throw to the caller in a way that leaks whether an address exists; the
- * caller decides what to reveal.
+ *   - otherwise (dev/test) → log to console so flows are testable offline.
+ *   - production without RESEND_API_KEY → { ok: false } (never pretend it sent).
  */
 
 export type SendEmailInput = {
@@ -32,10 +26,23 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   const from = env.EMAIL_FROM || DEFAULT_FROM;
 
   if (env.RESEND_API_KEY) {
+    if (
+      env.NODE_ENV === "production" &&
+      (!env.EMAIL_FROM || /onboarding@resend\.dev/i.test(env.EMAIL_FROM))
+    ) {
+      console.error(
+        "[mailer] EMAIL_FROM is missing or still the Resend sandbox sender — emails may not reach customers",
+      );
+    }
     return sendViaResend(input, from, env.RESEND_API_KEY);
   }
 
-  // Dev fallback — no external service configured.
+  if (env.NODE_ENV === "production") {
+    console.error("[mailer] RESEND_API_KEY unset in production — refusing to fake-send");
+    return { ok: false, error: "Email is not configured in production" };
+  }
+
+  // Dev/test fallback — no external service configured.
   console.info(
     [
       "",

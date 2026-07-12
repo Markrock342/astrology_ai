@@ -123,7 +123,7 @@ export function PaymentSubmitCard({
         <p className="mt-2 text-xs">{paymentInfo.amountNote}</p>
         <ol className="mt-3 list-inside list-decimal space-y-1 text-xs">
           {paymentInfo.steps.map((step, i) => (
-            <li key={i}>{step.replace(/\d+/, String(proPrice))}</li>
+            <li key={i}>{step.replaceAll("{price}", String(proPrice))}</li>
           ))}
         </ol>
         {paymentInfo.footer && (
@@ -157,7 +157,8 @@ export function PaymentSubmitCard({
             </a>
           ) : null}
           <p className="mt-3 text-[11px] text-[var(--muted-2)]">
-            ไม่สามารถส่งคำขอใหม่ได้จนกว่าแอดมินจะอนุมัติหรือปฏิเสธคำขอนี้
+            ปกติภายใน 1–2 วันทำการ · ไม่สามารถส่งคำขอใหม่ได้จนกว่าแอดมินจะอนุมัติหรือปฏิเสธ
+            {paymentInfo.footer ? ` · ${paymentInfo.footer}` : ""}
           </p>
         </div>
       ) : (

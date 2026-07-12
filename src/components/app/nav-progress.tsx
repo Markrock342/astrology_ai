@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
 /**
@@ -10,15 +10,12 @@ import { usePathname, useSearchParams } from "next/navigation";
 export function NavProgress() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [visible, setVisible] = useState(false);
-  const [tick, setTick] = useState(0);
   const urlKey = `${pathname}?${searchParams.toString()}`;
-  const pendingRef = useRef(false);
+  /** Destination URL key while a navigation is in flight; null when idle. */
+  const [targetUrl, setTargetUrl] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
 
-  useEffect(() => {
-    pendingRef.current = false;
-    setVisible(false);
-  }, [urlKey]);
+  const visible = targetUrl !== null && targetUrl !== urlKey;
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -38,9 +35,8 @@ export function NavProgress() {
       if (url.origin !== window.location.origin) return;
       const nextKey = `${url.pathname}?${url.searchParams.toString()}`;
       if (nextKey === urlKey) return;
-      pendingRef.current = true;
       setTick((n) => n + 1);
-      setVisible(true);
+      setTargetUrl(nextKey);
     }
 
     document.addEventListener("click", onClick, true);
@@ -50,12 +46,7 @@ export function NavProgress() {
   // Safety: clear stuck bar if navigation never settles (e.g. cancelled).
   useEffect(() => {
     if (!visible) return;
-    const id = window.setTimeout(() => {
-      if (pendingRef.current) {
-        pendingRef.current = false;
-        setVisible(false);
-      }
-    }, 8000);
+    const id = window.setTimeout(() => setTargetUrl(null), 8000);
     return () => window.clearTimeout(id);
   }, [visible, tick]);
 

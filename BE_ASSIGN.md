@@ -37,45 +37,37 @@
 - **เสร็จเมื่อ:** seed ล้มถ้าไม่ตั้งรหัส · ล็อกอินรหัสเดิมบน prod ไม่ได้ · **S** ✅
 
 ### BE-E0.2 · [P1] ปิด double-approve race (แจกเครดิตซ้ำ + subscription 2 อัน)
-`payment-service.ts:141` — status check นอก tx, `update({where:{id}})` ไม่มี status predicate → 2 admin กดพร้อมกัน = สลิปใบเดียวแจก 2 เท่า
-- [ ] compare-and-swap ใน tx: `tx.payment.updateMany({ where:{ id, status:"PENDING" }, data:{...} })` แล้ว `if (count===0) throw AppError("VALIDATION","คำขอนี้ถูกตรวจสอบแล้ว")` ก่อน addCredits/subscription
-- [ ] partial unique index กัน PENDING ซ้ำต่อ user
-- [ ] **test:** ยิง review 2 ครั้งพร้อมกัน → เครดิตเพิ่มครั้งเดียว, subscription ACTIVE อันเดียว · **S**
+- [x] compare-and-swap ใน tx: `updateMany({ where:{ id, status:"PENDING" }})` → count===0 throw
+- [x] partial unique index กัน PENDING ซ้ำต่อ user (`payments_userId_pending_unique`)
+- [x] **test:** concurrent second approve loses CAS · **S** ✅
 
 ### BE-E0.3 · [P1] Email — blast radius กว้างกว่าที่คิด: **password reset ตายทั้งระบบ**
-`EMAIL_FROM` ดีฟอลต์ `onboarding@resend.dev` (sandbox — ส่งถึงเจ้าของบัญชี Resend คนเดียว, `mailer.ts:29`) และ `sendEmail` ตัวเดียวกันนี้คือ transport ของ **3 อย่าง**:
-1. อนุมัติ/ปฏิเสธสลิป (`payment-notify.ts:88` — กลืน error)
-2. **Password reset** (`password-reset-service.ts`) ← ลูกค้าลืมรหัส = กู้บัญชีไม่ได้เลย
-3. Email verification ตอน register (`register/route.ts:41`) — อันนี้เป็นแค่ soft banner ไม่ block การใช้งาน
-`mailer.ts:39` ยัง return `ok:true` แม้ไม่ได้ส่ง
 - [ ] (ops) verify domain Resend → ตั้ง `EMAIL_FROM` → `npm run deploy:env`
-- [ ] mailer.ts: dev-console fallback `throw`/return `ok:false` เมื่อ prod
+- [x] mailer.ts: production without Resend → `{ok:false}` (ไม่ fake-send) + warn sandbox FROM
+- [x] password-reset: ลบ token ถ้าส่งอีเมลไม่สำเร็จ
 - [ ] persist `notifiedAt`/`notifyError` บน `Payment` 🔗 (FE โชว์ badge) · **S** + ops
 
 ### BE-E0.4 · [P1] เปิด Upstash rate-limit จริง + auth fail-closed
-`rate-limit.ts:81` — ไม่ตั้ง Upstash = per-lambda memory fail-open → brute-force รหัส admin ง่าย
-- [ ] (ops) สร้าง Upstash → `UPSTASH_REDIS_REST_URL`+`_TOKEN` → deploy:env → redeploy
-- [ ] `upstashConfigured()===false` ให้ hard `throw` เมื่อ prod
-- [ ] `/api/auth/login` **fail-closed** เมื่อ Redis ล่ม · **S** + ops
+- [ ] (ops) สร้าง Upstash → `UPSTASH_*` → deploy:env → redeploy
+- [x] production ไม่มี Upstash → log CRITICAL (ยัง memory เพื่อไม่พัง login)
+- [x] `/api/auth/login` **failClosed** เมื่อ Redis ล่ม · **S** + ops
 
 ### BE-E0.5 · [P1] Slip upload — rate limit + กัน storage abuse
-`proof/route.ts:13` ไม่มี rate limit → บัญชีเดียวถม Vercel Blob + คิดเงิน
-- [ ] `rateLimit(\`proof:${user.id}\`,5,60_000)` + cap รายวัน บน `proof/route.ts` + `manual/route.ts`
-- [ ] gate ด้วย "ไม่มี PENDING payment" · ลบ blob เมื่อ REJECTED ใน reviewPayment · **S**
+- [x] `rateLimit(proof:user)` 5/min + 20/day · manual 5/min
+- [x] gate proof ด้วย "ไม่มี PENDING payment"
+- [ ] ลบ blob เมื่อ REJECTED ใน reviewPayment · **S**
 
 ### BE-E0.6 · [P1] Slip เป็น PII — private blob + validate path (PDPA)
-`proof/route.ts:39` เขียน public URL ถาวร (สลิปมีชื่อ+เลขบัญชี) · `admin-schemas.ts:218` รับ URL อะไรก็ได้
 - [ ] proof endpoint return **pathname** ไม่ใช่ public URL
-- [ ] `submitPaymentSchema`: `proofUrl:z.string().url()` → `proofPath:z.string().max(300)` reject ถ้าไม่ขึ้นต้น `payment-slips/${userId}/`
-- [ ] blob → private + `GET /api/payments/proof/[id]` เช็ค owner-or-admin ก่อน stream 🔗 (FE ใช้แสดงสลิป)
-- [ ] retention job ลบสลิป N วันหลัง review · **M**
+- [ ] `submitPaymentSchema` → `proofPath` validate prefix
+- [ ] blob → private + authenticated stream 🔗
+- [ ] retention job · **M**
 
 ## 🟠 E1 — สัปดาห์แรก
 
 ### BE-E1.1 · [P1] Chart+profile หลุดจาก prompt หลัง 10 turns (ยังหักเงิน)
-`prompt-builder.ts:137` — chart pin ที่ turn แรก, trim ตัดทิ้งก่อน → คำถามที่ 12+ โมเดลไม่เห็นดวง
-- [ ] แนบ chart เข้ากับ **current userPrompt ทุกครั้ง** แทน pin ที่ history
-- [ ] test: assert `[natal]` อยู่ในคำถามที่ 3, 11, 20 · **S**
+- [x] แนบ chart เข้ากับ **current userPrompt ทุกครั้ง** แทน pin ที่ history
+- [x] test: long thread ยังมี `[natal]` ใน userPrompt · **S** ✅
 
 ### BE-E1.2 · [P1] Quota enforcement ให้ atomic (comment โกหกว่า atomic)
 `quota-service.ts:53` — pre-check count นอก tx → ยิงพร้อมกันทะลุ cap

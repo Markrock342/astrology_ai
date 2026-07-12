@@ -1,7 +1,9 @@
 import { put } from "@vercel/blob";
 import { handle, ok } from "@/lib/http";
 import { AppError } from "@/lib/errors";
+import { rateLimit } from "@/lib/rate-limit";
 import { requireUser } from "@/server/auth/rbac";
+import { prisma } from "@/server/db";
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -13,6 +15,19 @@ const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 export async function POST(req: Request) {
   return handle(async () => {
     const user = await requireUser();
+    await rateLimit(`proof:${user.id}`, 5, 60_000);
+    await rateLimit(`proof-day:${user.id}`, 20, 24 * 60 * 60 * 1000);
+
+    const pending = await prisma.payment.count({
+      where: { userId: user.id, status: "PENDING" },
+    });
+    if (pending > 0) {
+      throw new AppError(
+        "DUPLICATE_REQUEST",
+        "มีคำขอชำระเงินรอตรวจสอบอยู่แล้ว — ไม่สามารถอัปโหลดสลิปเพิ่มได้",
+      );
+    }
+
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) {
       throw new AppError(

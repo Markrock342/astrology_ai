@@ -4,8 +4,8 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
-  useState,
+  useLayoutEffect,
+  useSyncExternalStore,
 } from "react";
 
 export type Theme = "dark" | "light";
@@ -34,23 +34,46 @@ function readStoredTheme(): Theme {
   return "dark";
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
+const listeners = new Set<() => void>();
 
-  useEffect(() => {
-    const initial = readStoredTheme();
-    setThemeState(initial);
-    applyTheme(initial);
-  }, []);
+function subscribeTheme(onStoreChange: () => void) {
+  listeners.add(onStoreChange);
+  return () => {
+    listeners.delete(onStoreChange);
+  };
+}
+
+function emitThemeChange() {
+  for (const listener of listeners) listener();
+}
+
+function getThemeSnapshot(): Theme {
+  return readStoredTheme();
+}
+
+function getServerThemeSnapshot(): Theme {
+  return "dark";
+}
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const theme = useSyncExternalStore(
+    subscribeTheme,
+    getThemeSnapshot,
+    getServerThemeSnapshot,
+  );
+
+  useLayoutEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   const setTheme = useCallback((next: Theme) => {
-    setThemeState(next);
-    applyTheme(next);
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {
       /* ignore */
     }
+    applyTheme(next);
+    emitThemeChange();
   }, []);
 
   const toggleTheme = useCallback(() => {
