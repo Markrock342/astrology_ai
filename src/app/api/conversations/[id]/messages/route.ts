@@ -139,12 +139,10 @@ export async function POST(
 
         // Heartbeat keeps intermediaries from buffering the whole answer.
         const heartbeat = setInterval(() => {
-          send({ type: "status", status: "working" });
+          send({ type: "ping" });
         }, 1500);
 
         try {
-          send({ type: "status", status: "started" });
-
           const accepted = await acceptMessage({
             conversationId: id,
             userId: user.id,
@@ -154,8 +152,6 @@ export async function POST(
             regenerateAssistantMessageId,
             answerMode,
           });
-
-          send({ type: "status", status: "preparing" });
 
           if (accepted.status === "ready") {
             const text = accepted.reading.responseText ?? "";
@@ -189,6 +185,9 @@ export async function POST(
               emitDeltaChunks(send, chunk);
             },
             () => isStopRequested(id, idempotencyKey),
+            (phase) => {
+              send({ type: "status", phase });
+            },
           );
 
           after(() =>

@@ -81,6 +81,9 @@ export function buildKnowledgePrompt(
 /** Cap output tokens by plan while respecting Admin config ceiling. */
 export type AnswerMode = "brief" | "detailed";
 
+/** UX Wave F — staged thinking phases emitted over SSE before the first delta. */
+export type ChatPrepPhase = "chart" | "memory" | "writing";
+
 export function resolveMaxOutputTokens(
   plan: "FREE" | "PRO",
   configMaxOutputTokens: number,
@@ -103,6 +106,8 @@ export type CreateReadingInput = {
   mode?: ConversationMode;
   transit?: TransitSnapshotInput | null;
   answerMode?: AnswerMode;
+  /** Optional hook for SSE phased status (chart → memory → writing). */
+  onPhase?: (phase: ChatPrepPhase) => void;
 };
 
 export async function createReading(input: CreateReadingInput) {
@@ -123,7 +128,8 @@ async function runReading(
   onDelta?: (chunk: string) => void,
   shouldStop?: () => Promise<boolean>,
 ) {
-  const { userId, categorySlug, question, idempotencyKey, priorMessages } = input;
+  const { userId, categorySlug, question, idempotencyKey, priorMessages, onPhase } =
+    input;
   const mode = input.mode ?? "NATAL";
 
   // 0. Idempotency: if we already produced a reading for this key, return it.
@@ -166,7 +172,8 @@ async function runReading(
     isFollowUp: (priorMessages?.length ?? 0) > 0,
   });
 
-  // 4–5. Load profile, wallet, limits, and natal chart in parallel.
+  // Chart phase — natal + optional transit evidence.
+  onPhase?.("chart");
   const [profile, wallet, , natalChartRaw] = await Promise.all([
     prisma.birthProfile.findUnique({ where: { userId } }),
     prisma.creditWallet.findUnique({ where: { userId } }),
@@ -225,10 +232,13 @@ async function runReading(
     return null;
   }
 
-  const [chartMemory, config, transitChart, knowledgeDocs] = await Promise.all([
+  const transitChart = await loadTransitChart();
+
+  // Memory phase — chart memory, config, knowledge, prompt assembly.
+  onPhase?.("memory");
+  const [chartMemory, config, knowledgeDocs] = await Promise.all([
     getOrRefreshChartMemory(userId, natalChart),
     resolveConfig(category.id, plan),
-    loadTransitChart(),
     prisma.knowledgeDoc.findMany({
       where: { enabled: true, OR: [{ categoryId: category.id }, { categoryId: null }] },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -237,20 +247,12 @@ async function runReading(
 
   const templateId = category.promptTemplateId ?? config.promptTemplateId;
 
-  const [promptParts, reservationId] = await Promise.all([
-    resolvePromptParts({
-      plan,
-      categoryName: category.nameTh,
-      categoryDescription: category.description,
-      personaTemplateId: templateId,
-    }),
-    reserveUsageSlot({
-      userId,
-      creditCost: category.creditCost,
-      provider: config.provider,
-      modelId: config.modelId,
-    }),
-  ]);
+  const promptParts = await resolvePromptParts({
+    plan,
+    categoryName: category.nameTh,
+    categoryDescription: category.description,
+    personaTemplateId: templateId,
+  });
   const knowledge = buildKnowledgePrompt(knowledgeDocs);
 
   const answerMode = input.answerMode ?? "detailed";
@@ -280,6 +282,15 @@ async function runReading(
   if (mode === "TRANSIT" && !userPrompt.includes("[transit]")) {
     throw new AppError("CHART_NOT_READY", "Transit engine chart missing from prompt");
   }
+
+  // Writing phase — reserve quota then call the model.
+  onPhase?.("writing");
+  const reservationId = await reserveUsageSlot({
+    userId,
+    creditCost: category.creditCost,
+    provider: config.provider,
+    modelId: config.modelId,
+  });
 
   const maxOutputTokens = resolveMaxOutputTokens(
     plan,

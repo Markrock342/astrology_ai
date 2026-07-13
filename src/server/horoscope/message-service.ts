@@ -4,6 +4,7 @@ import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 import { getEffectivePlan } from "@/server/user/account-service";
 import { assertCanRequestReading } from "@/server/horoscope/access-policy";
 import { createReading, streamReading } from "@/server/horoscope/reading-service";
+import type { ChatPrepPhase } from "@/server/horoscope/reading-service";
 import {
   appendUserMessage,
   createPendingAssistant,
@@ -287,6 +288,7 @@ export async function completePendingMessage(
   input: SendMessageInput,
   onDelta?: (chunk: string) => void,
   shouldStop?: () => Promise<boolean>,
+  onPhase?: (phase: ChatPrepPhase) => void,
 ) {
   const conversation = await assertCanSend(input.conversationId, input.userId);
 
@@ -336,6 +338,7 @@ export async function completePendingMessage(
                   }
                 : null,
             answerMode: input.answerMode,
+            onPhase,
           },
           onDelta,
           shouldStop,
@@ -348,6 +351,7 @@ export async function completePendingMessage(
           priorMessages,
           mode: conversation.mode,
           answerMode: input.answerMode,
+          onPhase,
           transit:
             conversation.mode === "TRANSIT" && conversation.transitDate
               ? {
