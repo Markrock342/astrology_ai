@@ -13,7 +13,6 @@ import {
 
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
-import { ChatMarkdown } from "./chat-markdown";
 import { ChatUsageBar } from "./chat-usage-bar";
 import { CopyMessageButton } from "./copy-message-button";
 import { NatalChartBanner } from "./natal-chart-banner";
@@ -716,6 +715,8 @@ export function ChatView() {
             assembledRef.current = assembled;
             if (!ownsView()) continue;
             setState("streaming");
+            // Flush to React every chunk so the typewriter can run frames
+            // between network reads (avoids one giant paint at the end).
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
@@ -728,6 +729,7 @@ export function ChatView() {
                   : m,
               ),
             );
+            await new Promise<void>((r) => requestAnimationFrame(() => r()));
           } else if (event.type === "done") {
             finished = true;
             if (!ownsView()) continue;
@@ -954,10 +956,11 @@ export function ChatView() {
                     )}
                     {isStreamingTurn && !m.content ? (
                       <ThinkingIndicator />
-                    ) : isStreamingTurn ? (
-                      <SmoothStreamMarkdown content={m.content} streaming />
                     ) : (
-                      <ChatMarkdown content={m.content} />
+                      <SmoothStreamMarkdown
+                        content={m.content}
+                        streaming={isStreamingTurn}
+                      />
                     )}
                     {!isStreamingTurn && m.content && (
                       <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-[var(--border)]/70 pt-2">

@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatMarkdown } from "./chat-markdown";
 
 /**
- * Reveal streamed text smoothly even when the model dumps large chunks.
- * Feels like ChatGPT typing instead of a sudden paragraph dump.
+ * Always reveal toward `content` character-by-character — even when the model
+ * (or the proxy) dumps the whole answer in one chunk. ChatGPT-like typing.
+ *
+ * Critical: when streaming ends we must NOT snap to full text. Keep typing
+ * until the reveal catches up, then drop the caret.
  */
 export function SmoothStreamMarkdown({
   content,
@@ -14,45 +17,59 @@ export function SmoothStreamMarkdown({
   content: string;
   streaming: boolean;
 }) {
-  const [shown, setShown] = useState(content);
+  const [shown, setShown] = useState("");
+  const [caughtUp, setCaughtUp] = useState(true);
+  const shownLenRef = useRef(0);
+  const contentRef = useRef(content);
+  contentRef.current = content;
 
   useEffect(() => {
-    if (!streaming) {
-      setShown(content);
-      return;
-    }
-    if (content.length <= shown.length) {
-      setShown(content);
+    if (!content) {
+      shownLenRef.current = 0;
+      setShown("");
+      setCaughtUp(true);
       return;
     }
 
     let alive = true;
-    let cursor = shown.length;
-    const target = content;
+    let cursor = shownLenRef.current;
+    // Content replaced (new answer) — start from the beginning.
+    if (cursor > content.length) {
+      cursor = 0;
+      shownLenRef.current = 0;
+      setShown("");
+    }
 
     const tick = () => {
       if (!alive) return;
-      // Catch up faster when far behind, still visible as typing.
-      const remaining = target.length - cursor;
-      const step = remaining > 80 ? 12 : remaining > 30 ? 5 : 2;
-      cursor = Math.min(target.length, cursor + step);
-      setShown(target.slice(0, cursor));
-      if (cursor < target.length) {
-        requestAnimationFrame(tick);
+      const next = contentRef.current;
+      if (cursor >= next.length) {
+        shownLenRef.current = next.length;
+        setShown(next);
+        setCaughtUp(true);
+        return;
       }
+      setCaughtUp(false);
+      const remaining = next.length - cursor;
+      // Readable typing speed for Thai (~100–200 chars/sec).
+      const step =
+        remaining > 240 ? 10 : remaining > 80 ? 5 : remaining > 24 ? 3 : 1;
+      cursor = Math.min(next.length, cursor + step);
+      shownLenRef.current = cursor;
+      setShown(next.slice(0, cursor));
+      requestAnimationFrame(tick);
     };
+
+    setCaughtUp(false);
     const id = requestAnimationFrame(tick);
     return () => {
       alive = false;
       cancelAnimationFrame(id);
     };
-    // Only re-drive when content grows or streaming flips.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, streaming]);
+  }, [content]);
 
-  if (!content && streaming) {
-    return null;
-  }
+  if (!content && streaming) return null;
 
-  return <ChatMarkdown content={shown} streaming={streaming} />;
+  const stillTyping = streaming || !caughtUp;
+  return <ChatMarkdown content={shown} streaming={stillTyping} />;
 }
