@@ -27,6 +27,7 @@ import {
   questionWantsTodayTransit,
 } from "@/server/horoscope/daily-transit-service";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
+import { generateFollowUpMeta } from "@/server/horoscope/follow-up-suggestions";
 import {
   BRIEF_ANSWER_HINT,
   BRIEF_MAX_OUTPUT_TOKENS_FREE,
@@ -409,9 +410,18 @@ async function runReading(
     return created;
   });
 
+  const followUpMeta = await generateFollowUpMeta({
+    userId,
+    question,
+    answer: result.rawText,
+    categoryName: category.nameTh,
+  });
+
   return {
     ...reading,
     chartSnapshot: natalChart,
     transitSnapshot: transitChart,
+    summaryLine: followUpMeta.summaryLine,
+    followUps: followUpMeta.followUps,
   };
 }
