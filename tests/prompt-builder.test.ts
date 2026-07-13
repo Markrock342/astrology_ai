@@ -114,7 +114,7 @@ describe("buildConversationHistory (M3 B1)", () => {
     expect(userPrompt).toContain("อาทิตย์:");
   });
 
-  it("keeps full natal table on the first turn", () => {
+  it("uses compact natal block on every turn (UI still gets full chartSnapshot)", () => {
     const { userPrompt } = buildConversationHistory(
       [],
       profile,
@@ -122,7 +122,9 @@ describe("buildConversationHistory (M3 B1)", () => {
       "เรื่องความรักเป็นอย่างไร",
       { chartMemory: memory, categorySlug: "love" },
     );
-    expect(userPrompt).toContain("ตารางตำแหน่งดาว");
+    expect(userPrompt).toContain("[natal]");
+    expect(userPrompt).not.toContain("ตารางตำแหน่งดาว");
+    expect(userPrompt).toContain("อาทิตย์:");
   });
 
   it("truncates long assistant history to save tokens", () => {

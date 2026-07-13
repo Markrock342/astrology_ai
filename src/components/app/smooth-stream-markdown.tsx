@@ -51,9 +51,16 @@ export function SmoothStreamMarkdown({
       }
       setCaughtUp(false);
       const remaining = next.length - cursor;
-      // Readable typing speed for Thai (~100–200 chars/sec).
-      const step =
-        remaining > 240 ? 10 : remaining > 80 ? 5 : remaining > 24 ? 3 : 1;
+      // After the model finishes, catch up quickly so the full answer is visible.
+      const step = streaming
+        ? remaining > 240
+          ? 16
+          : remaining > 80
+            ? 8
+            : remaining > 24
+              ? 4
+              : 2
+        : Math.min(remaining, Math.max(32, Math.ceil(remaining / 6)));
       cursor = Math.min(next.length, cursor + step);
       shownLenRef.current = cursor;
       setShown(next.slice(0, cursor));
@@ -66,7 +73,7 @@ export function SmoothStreamMarkdown({
       alive = false;
       cancelAnimationFrame(id);
     };
-  }, [content]);
+  }, [content, streaming]);
 
   if (!content && streaming) return null;
 

@@ -27,7 +27,11 @@ function emitDeltaChunks(
   send: (event: Record<string, unknown>) => void,
   text: string,
 ) {
-  const size = 8;
+  if (text.length <= 48) {
+    send({ type: "delta", text });
+    return;
+  }
+  const size = 24;
   for (let i = 0; i < text.length; i += size) {
     send({ type: "delta", text: text.slice(i, i + size) });
   }

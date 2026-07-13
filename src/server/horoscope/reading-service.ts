@@ -156,18 +156,18 @@ async function runReading(
     isFollowUp: (priorMessages?.length ?? 0) > 0,
   });
 
-  // 4. Fast-fail balance (authoritative check at reserveUsageSlot).
-  const wallet = await prisma.creditWallet.findUnique({ where: { userId } });
+  // 4–5. Load profile, wallet, limits, and natal chart in parallel.
+  const [profile, wallet, , natalChartRaw] = await Promise.all([
+    prisma.birthProfile.findUnique({ where: { userId } }),
+    prisma.creditWallet.findUnique({ where: { userId } }),
+    assertWithinUsageLimits(userId),
+    requireReadyNatalChart(userId),
+  ]);
+  if (!profile) throw new AppError("VALIDATION", "Birth profile is required");
   if ((wallet?.balance ?? 0) < category.creditCost) {
     throw new AppError("NO_QUOTA", "Not enough credit");
   }
 
-  // 4b. Fast-fail package limits (authoritative gate is reserveUsageSlot).
-  await assertWithinUsageLimits(userId);
-
-  // 5. Load birth profile and freeze a snapshot (rule 14).
-  const profile = await prisma.birthProfile.findUnique({ where: { userId } });
-  if (!profile) throw new AppError("VALIDATION", "Birth profile is required");
   const snapshot: BirthProfileSnapshot = {
     nickname: profile.nickname,
     birthDate: profile.birthDate.toISOString(),
@@ -178,67 +178,70 @@ async function runReading(
     additionalInfo: profile.additionalInfo,
   };
 
-  // 5b. Engine-first gate — never call Gemini without a usable natal chart.
-  const natalChart = assertUsableEngineChart(await requireReadyNatalChart(userId));
-  const chartMemory = await getOrRefreshChartMemory(userId, natalChart);
+  const natalChart = assertUsableEngineChart(natalChartRaw);
 
-  let transitChart: ChartJson | null = null;
-  if (mode === "TRANSIT") {
-    if (!input.transit?.date) {
-      throw new AppError(
-        "VALIDATION",
-        "โหมดดวงจรต้องระบุวันเวลา/สถานที่สำหรับคำนวณดวงจร",
-      );
+  async function loadTransitChart(): Promise<ChartJson | null> {
+    if (mode === "TRANSIT") {
+      if (!input.transit?.date) {
+        throw new AppError(
+          "VALIDATION",
+          "โหมดดวงจรต้องระบุวันเวลา/สถานที่สำหรับคำนวณดวงจร",
+        );
+      }
+      try {
+        return await getOrComputeDailyTransit(userId, natalChart, {
+          date: input.transit.date,
+          time: input.transit.time,
+          scrapeTimeoutMs: 500,
+        });
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+        const message = err instanceof Error ? err.message : "คำนวณดวงจรไม่สำเร็จ";
+        throw new AppError("CHART_NOT_READY", message);
+      }
     }
-    try {
-      transitChart = await getOrComputeDailyTransit(userId, natalChart, {
-        date: input.transit.date,
-        time: input.transit.time,
-        scrapeTimeoutMs: 800,
-      });
-    } catch (err) {
-      if (err instanceof AppError) throw err;
-      const message = err instanceof Error ? err.message : "คำนวณดวงจรไม่สำเร็จ";
-      throw new AppError("CHART_NOT_READY", message);
+    if (questionWantsTodayTransit(question)) {
+      try {
+        return await getOrComputeDailyTransit(userId, natalChart, {
+          scrapeTimeoutMs: 500,
+        });
+      } catch (err) {
+        console.warn(
+          "[transit] daily cache miss failed:",
+          err instanceof Error ? err.message : err,
+        );
+      }
     }
-  } else if (questionWantsTodayTransit(question)) {
-    // Natal chat asking about "today" — attach cached daily transit (no mode switch).
-    try {
-      transitChart = await getOrComputeDailyTransit(userId, natalChart, {
-        scrapeTimeoutMs: 800,
-      });
-    } catch (err) {
-      console.warn(
-        "[transit] daily cache miss failed:",
-        err instanceof Error ? err.message : err,
-      );
-    }
+    return null;
   }
 
-  // 6. Resolve config + prompt, then call AI (no charge yet).
-  const config = await resolveConfig(category.id, plan);
+  const [chartMemory, config, transitChart] = await Promise.all([
+    getOrRefreshChartMemory(userId, natalChart),
+    resolveConfig(category.id, plan),
+    loadTransitChart(),
+  ]);
+
   const templateId = category.promptTemplateId ?? config.promptTemplateId;
 
-  // Reserve quota slot + balance under lock BEFORE AI (prevents concurrent over-quota).
-  const reservationId = await reserveUsageSlot({
-    userId,
-    creditCost: category.creditCost,
-    provider: config.provider,
-    modelId: config.modelId,
-  });
-
-  const knowledgeDocs = await prisma.knowledgeDoc.findMany({
-    where: { enabled: true, OR: [{ categoryId: category.id }, { categoryId: null }] },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-  });
+  const [knowledgeDocs, promptParts, reservationId] = await Promise.all([
+    prisma.knowledgeDoc.findMany({
+      where: { enabled: true, OR: [{ categoryId: category.id }, { categoryId: null }] },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    }),
+    resolvePromptParts({
+      plan,
+      categoryName: category.nameTh,
+      categoryDescription: category.description,
+      personaTemplateId: templateId,
+    }),
+    reserveUsageSlot({
+      userId,
+      creditCost: category.creditCost,
+      provider: config.provider,
+      modelId: config.modelId,
+    }),
+  ]);
   const knowledge = buildKnowledgePrompt(knowledgeDocs);
-
-  const promptParts = await resolvePromptParts({
-    plan,
-    categoryName: category.nameTh,
-    categoryDescription: category.description,
-    personaTemplateId: templateId,
-  });
 
   const systemPrompt = buildSystemPrompt({
     ...promptParts,
