@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, forwardRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { APP_NAME, DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
@@ -15,6 +15,7 @@ import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import { ChatUsageBar } from "./chat-usage-bar";
 import { CopyMessageButton } from "./copy-message-button";
+import { MessageActions } from "./message-actions";
 import { NatalChartBanner } from "./natal-chart-banner";
 import { SmoothStreamMarkdown } from "./smooth-stream-markdown";
 import type { ChartJson } from "@/types/chart";
@@ -104,6 +105,14 @@ type PendingRetry = {
   idempotencyKey: string;
 };
 
+type SendOpts = {
+  retryKey?: string;
+  editUserMessageId?: string;
+  regenerateAssistantMessageId?: string;
+};
+
+const SCROLL_NEAR_BOTTOM_PX = 120;
+
 /** The handle needed to cancel an answer that is still generating. */
 type StopTarget = { threadId: string; idempotencyKey: string };
 
@@ -190,7 +199,11 @@ export function ChatView() {
   const [threadTransitLabel, setThreadTransitLabel] = useState<string | null>(
     null,
   );
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [showScrollFab, setShowScrollFab] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const isNearBottomRef = useRef(true);
   const streamTimer = useRef<number | null>(null);
   const conversationIdRef = useRef<string | null>(threadId);
   const streamAbortRef = useRef<AbortController | null>(null);
@@ -444,12 +457,34 @@ export function ChatView() {
     setThreadLoadError(null);
   }, [catSlug, locked, threadId]);
 
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+    isNearBottomRef.current = true;
+    setShowScrollFab(false);
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_NEAR_BOTTOM_PX;
+    isNearBottomRef.current = nearBottom;
+    setShowScrollFab(!nearBottom);
+  }, []);
+
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages, state]);
+    if (loadingThread) return;
+    composerRef.current?.focus();
+  }, [threadId, catSlug, loadingThread]);
+
+  useEffect(() => {
+    if (!isNearBottomRef.current) return;
+    scrollToBottom(
+      state === "streaming" || state === "processing" ? "auto" : "smooth",
+    );
+  }, [messages, state, scrollToBottom]);
 
   useEffect(() => {
     const timer = streamTimer;
@@ -489,9 +524,26 @@ export function ChatView() {
     return id;
   }
 
-  async function send(text: string, retryKey?: string) {
+  async function send(text: string, opts?: SendOpts | string) {
+    const options: SendOpts =
+      typeof opts === "string" ? { retryKey: opts } : (opts ?? {});
     const content = text.trim();
     if (!content || state === "processing" || state === "streaming") return;
+
+    const editUserMessageId = options.editUserMessageId ?? editingMessageId ?? undefined;
+    if (editUserMessageId) {
+      const idx = messages.findIndex((m) => m.id === editUserMessageId);
+      if (idx >= 0) {
+        setMessages((prev) => [
+          ...prev.slice(0, idx),
+          { ...prev[idx], content },
+        ]);
+      }
+      setEditingMessageId(null);
+    }
+
+    isNearBottomRef.current = true;
+    scrollToBottom("auto");
 
     if (!FEATURES.aiChat) {
       setErrorCode("FEATURE_DISABLED");
@@ -515,8 +567,9 @@ export function ChatView() {
       return;
     }
 
-    const isRetry = Boolean(retryKey);
-    if (!isRetry) {
+    const isRetry = Boolean(options.retryKey);
+    const isRegenerate = Boolean(options.regenerateAssistantMessageId);
+    if (!isRetry && !isRegenerate && !editUserMessageId) {
       const userMsg: Message = { id: crypto.randomUUID(), role: "user", content };
       setMessages((m) => [...m, userMsg]);
       setInput("");
@@ -526,7 +579,7 @@ export function ChatView() {
     setErrorCode(null);
     setState("processing");
 
-    const idempotencyKey = retryKey ?? crypto.randomUUID();
+    const idempotencyKey = options.retryKey ?? crypto.randomUUID();
     if (!isRetry) {
       setPendingRetry({ question: content, idempotencyKey });
     }
@@ -605,7 +658,11 @@ export function ChatView() {
             Accept: "text/event-stream",
             "Idempotency-Key": idempotencyKey,
           },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({
+            content,
+            editUserMessageId,
+            regenerateAssistantMessageId: options.regenerateAssistantMessageId,
+          }),
           signal: abort.signal,
         },
       );
@@ -840,6 +897,36 @@ export function ChatView() {
     !loadingThread &&
     !threadId;
 
+  const isBusy = state === "processing" || state === "streaming";
+
+  function startEditMessage(messageId: string, content: string) {
+    setEditingMessageId(messageId);
+    setInput(content);
+    composerRef.current?.focus();
+  }
+
+  function regenerateAssistant(assistantId: string) {
+    if (isBusy) return;
+    const idx = messages.findIndex((m) => m.id === assistantId);
+    if (idx <= 0) return;
+    const userMsg = messages[idx - 1];
+    if (userMsg.role !== "user") return;
+    setMessages((prev) => prev.slice(0, idx));
+    setErrorText(null);
+    setErrorCode(null);
+    void send(userMsg.content, { regenerateAssistantMessageId: assistantId });
+  }
+
+  function retryFailedAssistant(assistantId: string) {
+    if (isBusy) return;
+    const idx = messages.findIndex((m) => m.id === assistantId);
+    if (idx <= 0) return;
+    const userMsg = messages[idx - 1];
+    if (userMsg.role !== "user") return;
+    setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+    void send(userMsg.content, { regenerateAssistantMessageId: assistantId });
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ChatUsageBar registerRefresh={registerUsageRefresh} />
@@ -848,7 +935,11 @@ export function ChatView() {
           โหมดดวงจร · {threadTransitLabel}
         </div>
       ) : null}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="relative min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8"
+      >
         {!FEATURES.aiChat && (
           <div className="animate-fade-in mx-auto mb-6 max-w-3xl rounded-xl border border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 text-center text-xs text-[var(--muted)]">
             ตัวอย่างระบบ (เฟสนี้) — ระบบดูดวงด้วย AI จะเปิดให้ใช้งานจริงในเฟสถัดไป
@@ -908,10 +999,24 @@ export function ChatView() {
                 idx === messages.length - 1 &&
                 m.status === "PENDING";
               return m.role === "user" ? (
-                <div key={m.id} className="animate-msg-in flex justify-end">
-                  <div className="max-w-[min(85%,42rem)] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[var(--surface-3)] px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]">
+                <div key={m.id} className="animate-msg-in group flex flex-col items-end">
+                  <div
+                    className={`max-w-[min(85%,42rem)] whitespace-pre-wrap rounded-2xl rounded-br-md px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)] ${
+                      editingMessageId === m.id
+                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/40"
+                        : "bg-[var(--surface-3)]"
+                    }`}
+                  >
                     {m.content}
                   </div>
+                  {!isBusy && !m.id.startsWith("stream-") ? (
+                    <MessageActions
+                      role="user"
+                      content={m.content}
+                      canEdit
+                      onEdit={() => startEditMessage(m.id, m.content)}
+                    />
+                  ) : null}
                 </div>
               ) : (
                 <div key={m.id} className="animate-msg-in group flex gap-3 sm:gap-4">
@@ -964,7 +1069,22 @@ export function ChatView() {
                     )}
                     {!isStreamingTurn && m.content && (
                       <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-[var(--border)]/70 pt-2">
-                        <CopyMessageButton text={m.content} />
+                        {!isBusy && !m.id.startsWith("stream-") ? (
+                          <MessageActions
+                            role="assistant"
+                            content={m.content}
+                            canRegenerate={m.status !== "PENDING"}
+                            failed={m.status === "FAILED" || m.status === "TIMEOUT"}
+                            onRegenerate={() => regenerateAssistant(m.id)}
+                            onRetry={
+                              m.status === "FAILED" || m.status === "TIMEOUT"
+                                ? () => retryFailedAssistant(m.id)
+                                : undefined
+                            }
+                          />
+                        ) : (
+                          <CopyMessageButton text={m.content} />
+                        )}
                         {m.modelId && (
                           <span className="ml-1 inline-flex items-center gap-1 text-[10px] text-[var(--muted-2)]">
                             ตอบโดย {modelLabel(m.modelId)}
@@ -1003,13 +1123,47 @@ export function ChatView() {
             )}
           </div>
         )}
+        {showScrollFab ? (
+          <button
+            type="button"
+            onClick={() => scrollToBottom("smooth")}
+            className="press-scale fixed bottom-28 right-6 z-20 flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-lg transition hover:border-[var(--primary)] md:right-10"
+            aria-label="เลื่อนลงล่างสุด"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M12 5v14M6 13l6 6 6-6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        ) : null}
       </div>
 
-      <div className="shrink-0">
+      <div className="relative shrink-0">
+        {editingMessageId ? (
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 pb-2 md:px-8">
+            <p className="text-xs text-[var(--muted)]">กำลังแก้ไขข้อความ — ส่งเพื่อถามใหม่จากจุดนี้</p>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingMessageId(null);
+                setInput("");
+              }}
+              className="text-xs text-[var(--muted-2)] underline hover:text-[var(--foreground)]"
+            >
+              ยกเลิก
+            </button>
+          </div>
+        ) : null}
         <Composer
+          ref={composerRef}
           value={input}
           onChange={setInput}
-          onSend={() => send(input)}
+          onSend={() => send(input, editingMessageId ? { editUserMessageId: editingMessageId } : undefined)}
           onStop={() => void stopStreaming(stopTarget)}
           // Stop is offered only while an answer is genuinely in progress AND we
           // hold a handle to cancel it. Keying off the target alone let a stale
@@ -1210,40 +1364,54 @@ function SparkleIcon() {
   );
 }
 
-function Composer({
-  value,
-  onChange,
-  onSend,
-  onStop,
-  streaming,
-  disabled,
-  aiEnabled,
-  categoryLocked,
-  creditCost,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSend: () => void;
-  onStop: () => void;
-  /** True while an answer is in flight and cancellable. */
-  streaming: boolean;
-  disabled: boolean;
-  aiEnabled: boolean;
-  /** Pro-only category while user is on Free — input stays editable, send blocked. */
-  categoryLocked?: boolean;
-  creditCost?: number;
-}) {
+const Composer = forwardRef<
+  HTMLTextAreaElement,
+  {
+    value: string;
+    onChange: (v: string) => void;
+    onSend: () => void;
+    onStop: () => void;
+    streaming: boolean;
+    disabled: boolean;
+    aiEnabled: boolean;
+    categoryLocked?: boolean;
+    creditCost?: number;
+  }
+>(function Composer(
+  {
+    value,
+    onChange,
+    onSend,
+    onStop,
+    streaming,
+    disabled,
+    aiEnabled,
+    categoryLocked,
+    creditCost,
+  },
+  ref,
+) {
   const placeholder = !aiEnabled
     ? "เปิดให้ใช้งานในเฟสถัดไป"
     : categoryLocked
       ? "หมวดนี้สำหรับ Pro — เลือก「ตัวตน」หรือ「การงาน」หรืออัปเกรด"
-      : "สอบถามเราได้เลย";
+      : "สอบถามเราได้เลย — Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่";
+
+  useEffect(() => {
+    const el = ref && "current" in ref ? ref.current : null;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(el.scrollHeight, 200);
+    el.style.height = `${Math.max(next, 24)}px`;
+  }, [value, ref]);
 
   return (
-    <div className="px-4 pb-6 md:px-8">
-      <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-5 py-3 transition-shadow duration-300 focus-within:border-[var(--primary)]/50 focus-within:shadow-[0_0_0_3px_var(--ring)]">
-        <input
+    <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8">
+      <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 transition-shadow duration-300 focus-within:border-[var(--primary)]/50 focus-within:shadow-[0_0_0_3px_var(--ring)]">
+        <textarea
+          ref={ref}
           value={value}
+          rows={1}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -1253,7 +1421,7 @@ function Composer({
           }}
           disabled={!aiEnabled}
           placeholder={placeholder}
-          className="w-full bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed"
+          className="max-h-[200px] min-h-[24px] w-full resize-none bg-transparent text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed"
         />
         <button
           type="button"
@@ -1304,4 +1472,4 @@ function Composer({
       </p>
     </div>
   );
-}
+});

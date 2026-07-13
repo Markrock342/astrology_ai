@@ -100,6 +100,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function renameThread(threadId: string, currentTitle: string) {
+    const next = window.prompt("เปลี่ยนชื่อแชท", currentTitle);
+    if (!next?.trim() || next.trim() === currentTitle.trim()) return;
+    try {
+      const res = await fetch(`/api/conversations/${threadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: next.trim() }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        window.alert(json?.error?.message ?? "เปลี่ยนชื่อไม่สำเร็จ");
+        return;
+      }
+      await refreshLight();
+    } catch {
+      window.alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+    }
+  }
+
   const displayName = user?.name ?? (loading ? "…" : loadError ? "—" : "ผู้ใช้");
   const isStaff = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const planLabel = isStaff
@@ -329,7 +349,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <CategoryIcon slug={t.categorySlug} />
                     </span>
                   ) : null}
-                  <span className="truncate">{t.title}</span>
+                  <span
+                    className="truncate"
+                    title="ดับเบิลคลิกเพื่อเปลี่ยนชื่อ"
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void renameThread(t.id, t.title);
+                    }}
+                  >
+                    {t.title}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  title="เปลี่ยนชื่อ"
+                  aria-label="เปลี่ยนชื่อแชท"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void renameThread(t.id, t.title);
+                  }}
+                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] group-hover:opacity-100"
+                >
+                  ชื่อ
                 </button>
                 <button
                   type="button"
@@ -340,7 +383,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                     void deleteThread(t.id);
                   }}
-                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100 md:opacity-0"
+                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100"
                 >
                   ลบ
                 </button>
@@ -391,7 +434,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <span className="shrink-0 text-[var(--primary)]">
                     <TransitIcon />
                   </span>
-                  <span className="truncate">{t.title}</span>
+                  <span
+                    className="truncate"
+                    title="ดับเบิลคลิกเพื่อเปลี่ยนชื่อ"
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void renameThread(t.id, t.title);
+                    }}
+                  >
+                    {t.title}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  title="เปลี่ยนชื่อ"
+                  aria-label="เปลี่ยนชื่อแชท"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void renameThread(t.id, t.title);
+                  }}
+                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] group-hover:opacity-100"
+                >
+                  ชื่อ
                 </button>
                 <button
                   type="button"
@@ -402,7 +468,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                     void deleteThread(t.id);
                   }}
-                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100 md:opacity-0"
+                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100"
                 >
                   ลบ
                 </button>
