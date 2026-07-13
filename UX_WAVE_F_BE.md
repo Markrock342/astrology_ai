@@ -1,5 +1,7 @@
 # UX Wave F — เพื่อน A (Backend) · 1 วัน
 
+> **สถานะบน `be/ux-wave-f`:** ✅ P0 ครบ — `phase` SSE, `answerMode`, `summaryLine`/`followUps` ใน `done` · P1 (`balanceAfter`, feedback) ยังค้าง
+
 **Repo:** https://github.com/Markrock342/astrology_ai  
 **คู่กับ:** [UX_WAVE_F_FE.md](./UX_WAVE_F_FE.md) (เพื่อน B)  
 **Production:** https://astrology-ai-three.vercel.app  
@@ -72,20 +74,20 @@ npm run typecheck && npm test
 ## Checklist
 
 ### UX-BE-F1.1 · SSE phased status
-- [ ] ส่ง `phase: chart` ก่อนโหลด chart
-- [ ] ส่ง `phase: memory` ก่อน build prompt
-- [ ] ส่ง `phase: writing` ก่อนเรียก Gemini
+- [x] ส่ง `phase: chart` ก่อนโหลด chart
+- [x] ส่ง `phase: memory` ก่อน build prompt
+- [x] ส่ง `phase: writing` ก่อนเรียก Gemini
 - ไฟล์: `src/app/api/conversations/[id]/messages/route.ts`, `src/server/horoscope/reading-service.ts`
 
 ### UX-BE-F1.2 · followUps + summaryLine
-- [ ] หลังตอบเสร็จ — Flash-Lite สร้าง 3 chip + 1 บรรทัดสรุป
-- [ ] fail → `followUps: []` ไม่พังเทิร์น · **ไม่หักเครดิต user**
-- [ ] test mock ผ่าน
+- [x] หลังตอบเสร็จ — Flash-Lite สร้าง 3 chip + 1 บรรทัดสรุป
+- [x] fail → `followUps: []` ไม่พังเทิร์น · **ไม่หักเครดิต user**
+- [x] test mock ผ่าน (`tests/follow-up-suggestions.test.ts`)
 
 ### UX-BE-F1.3 · answerMode
-- [ ] zod schema ใน messages route
-- [ ] `resolveMaxOutputTokens` ลดเมื่อ `brief`
-- [ ] test: brief output สั้นกว่า detailed
+- [x] zod schema ใน messages route
+- [x] `resolveMaxOutputTokens` ลดเมื่อ `brief`
+- [x] test: `tests/reading-output-tokens.test.ts`
 
 ### UX-BE-F2.2 · (P1) balanceAfter ใน done
 
