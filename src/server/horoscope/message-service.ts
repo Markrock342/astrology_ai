@@ -109,12 +109,27 @@ export async function acceptMessage(
       conversationId: conversation.id,
       role: "ASSISTANT",
       status: "PENDING",
-      createdAt: { lt: new Date(Date.now() - 2 * 60_000) },
+      createdAt: { lt: new Date(Date.now() - 90_000) },
     },
     data: {
       status: "FAILED",
       content:
         "ระบบใช้เวลานานเกินไปหรือถูกตัดการเชื่อมต่อ กรุณาลองถามใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
+    },
+  });
+
+  // A new user turn supersedes any other in-flight assistant placeholder.
+  await prisma.message.updateMany({
+    where: {
+      conversationId: conversation.id,
+      role: "ASSISTANT",
+      status: "PENDING",
+      idempotencyKey: { not: input.idempotencyKey },
+    },
+    data: {
+      status: "FAILED",
+      content: "ถูกยกเลิกเพราะมีคำถามใหม่ (ไม่ถูกหักเครดิต)",
+      creditCost: 0,
     },
   });
 

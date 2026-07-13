@@ -151,6 +151,8 @@ export async function POST(
             regenerateAssistantMessageId,
           });
 
+          send({ type: "status", status: "preparing" });
+
           if (accepted.status === "ready") {
             const text = accepted.reading.responseText ?? "";
             if (text) emitDeltaChunks(send, text);
