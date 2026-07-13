@@ -11,6 +11,8 @@ import {
 } from "@/server/horoscope/message-service";
 
 export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   content: z.string().min(1),
@@ -18,6 +20,17 @@ const bodySchema = z.object({
 
 function sseEncode(event: Record<string, unknown>): string {
   return `data: ${JSON.stringify(event)}\n\n`;
+}
+
+/** Split a model chunk so proxies flush more often and the UI can type. */
+function emitDeltaChunks(
+  send: (event: Record<string, unknown>) => void,
+  text: string,
+) {
+  const size = 8;
+  for (let i = 0; i < text.length; i += size) {
+    send({ type: "delta", text: text.slice(i, i + size) });
+  }
 }
 
 /**
@@ -77,7 +90,8 @@ export async function POST(
     });
   }
 
-  // SSE happy path — stream tokens on the same request.
+  // Auth + body first, then open SSE immediately so the client can show
+  // "กำลังเพ่งดวงดาว…" while accept/generate runs — not a blank hang.
   try {
     const user = await requireUser();
     await rateLimit(`chat:${user.id}`, 10, 60_000);
@@ -88,29 +102,21 @@ export async function POST(
     }
     const { content } = bodySchema.parse(await req.json());
 
-    const accepted = await acceptMessage({
-      conversationId: id,
-      userId: user.id,
-      content,
-      idempotencyKey,
-    });
-
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        // The client can vanish mid-answer (refresh, tab close, flaky mobile
-        // network). Generation must carry on regardless — the message row is
-        // PENDING until it finalizes, and a row nobody finalizes hangs forever.
-        // So writing to a dead stream is a no-op, never an error.
+        let closed = false;
         const send = (event: Record<string, unknown>) => {
-          if (req.signal.aborted) return;
+          if (closed) return;
           try {
             controller.enqueue(encoder.encode(sseEncode(event)));
           } catch {
-            /* client already gone */
+            closed = true;
           }
         };
         const close = () => {
+          if (closed) return;
+          closed = true;
           try {
             controller.close();
           } catch {
@@ -118,10 +124,24 @@ export async function POST(
           }
         };
 
+        // Heartbeat keeps intermediaries from buffering the whole answer.
+        const heartbeat = setInterval(() => {
+          send({ type: "status", status: "working" });
+        }, 1500);
+
         try {
+          send({ type: "status", status: "started" });
+
+          const accepted = await acceptMessage({
+            conversationId: id,
+            userId: user.id,
+            content,
+            idempotencyKey,
+          });
+
           if (accepted.status === "ready") {
             const text = accepted.reading.responseText ?? "";
-            if (text) send({ type: "delta", text });
+            if (text) emitDeltaChunks(send, text);
             send({
               type: "done",
               reading: {
@@ -139,8 +159,6 @@ export async function POST(
             return;
           }
 
-          send({ type: "status", status: "started" });
-
           const generation = completePendingMessage(
             {
               conversationId: id,
@@ -149,16 +167,11 @@ export async function POST(
               idempotencyKey,
             },
             (chunk) => {
-              send({ type: "delta", text: chunk });
+              emitDeltaChunks(send, chunk);
             },
-            // Only an explicit POST /stop cancels the answer. A dropped
-            // connection must not — see the note on `send` above.
             () => isStopRequested(id, idempotencyKey),
           );
 
-          // Keep the instance alive until generation settles even if the client
-          // disconnects, so the PENDING row always gets finalized. Without this,
-          // a refresh mid-answer strands the message as "generating" forever.
           after(() =>
             generation.catch((err) => {
               console.error("[chat-sse]", err);
@@ -197,6 +210,8 @@ export async function POST(
                 : "AI request failed";
           send({ type: "error", code, message });
           close();
+        } finally {
+          clearInterval(heartbeat);
         }
       },
     });
