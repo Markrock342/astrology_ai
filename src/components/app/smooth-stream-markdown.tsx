@@ -51,11 +51,7 @@ export function SmoothStreamMarkdown({
   }, [content, streaming]);
 
   if (!content && streaming) {
-    return (
-      <p className="stream-caret text-[15px] leading-7 text-[var(--muted)]">
-        กำลังพิมพ์…
-      </p>
-    );
+    return null;
   }
 
   return <ChatMarkdown content={shown} streaming={streaming} />;
