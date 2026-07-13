@@ -4,6 +4,7 @@ import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 import { getEffectivePlan } from "@/server/user/account-service";
 import { assertCanRequestReading } from "@/server/horoscope/access-policy";
 import { createReading, streamReading } from "@/server/horoscope/reading-service";
+import type { ChatPrepPhase } from "@/server/horoscope/reading-service";
 import {
   appendUserMessage,
   createPendingAssistant,
@@ -23,6 +24,7 @@ export type SendMessageInput = {
   editUserMessageId?: string;
   /** Drop an assistant answer and re-run for the prior user question. */
   regenerateAssistantMessageId?: string;
+  answerMode?: "brief" | "detailed";
 };
 
 export type AcceptMessageResult =
@@ -286,6 +288,7 @@ export async function completePendingMessage(
   input: SendMessageInput,
   onDelta?: (chunk: string) => void,
   shouldStop?: () => Promise<boolean>,
+  onPhase?: (phase: ChatPrepPhase) => void,
 ) {
   const conversation = await assertCanSend(input.conversationId, input.userId);
 
@@ -334,6 +337,8 @@ export async function completePendingMessage(
                     district: conversation.transitDistrict,
                   }
                 : null,
+            answerMode: input.answerMode,
+            onPhase,
           },
           onDelta,
           shouldStop,
@@ -345,6 +350,8 @@ export async function completePendingMessage(
           idempotencyKey: input.idempotencyKey,
           priorMessages,
           mode: conversation.mode,
+          answerMode: input.answerMode,
+          onPhase,
           transit:
             conversation.mode === "TRANSIT" && conversation.transitDate
               ? {
