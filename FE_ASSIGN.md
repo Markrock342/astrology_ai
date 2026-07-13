@@ -4,7 +4,7 @@
 
 **สถานะ:** F1–F4 + Wave D + UX ChatGPT-style ครบบน `main`
 
-**งานรอบถัดไป (แบ่ง 2 คน):** [`UX_WAVE_F_ASSIGN.md`](./UX_WAVE_F_ASSIGN.md) — เพื่อน B ทำฝั่งนี้
+**งานรอบถัดไป:** [UX_WAVE_F_FE.md](./UX_WAVE_F_FE.md) (เพื่อน B)
 
 อ่านคู่กับ `M4_HANDOFF.md` · `FRONTEND_TASKS.md`
 
