@@ -952,11 +952,10 @@ export function ChatView() {
                         )}
                       </div>
                     )}
-                    {isStreamingTurn ? (
-                      <SmoothStreamMarkdown
-                        content={m.content}
-                        streaming
-                      />
+                    {isStreamingTurn && !m.content ? (
+                      <ThinkingIndicator />
+                    ) : isStreamingTurn ? (
+                      <SmoothStreamMarkdown content={m.content} streaming />
                     ) : (
                       <ChatMarkdown content={m.content} />
                     )}
@@ -1184,7 +1183,7 @@ function ThinkingIndicator() {
             />
           ))}
         </div>
-        <span className="shimmer-text text-xs font-medium">กำลังพิมพ์คำตอบ…</span>
+        <span className="shimmer-text text-xs font-medium">กำลังเพ่งดวงดาว…</span>
       </div>
       <p className="pl-0 text-[11px] tabular-nums text-[var(--muted-2)]">
         ใช้เวลาไปแล้ว{" "}
