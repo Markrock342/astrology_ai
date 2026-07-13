@@ -39,4 +39,17 @@ export const DISPLAY_TIMEZONE = "Asia/Bangkok";
 export const CREDIT_SECRET_ENV = "GEMINI_API_KEY";
 
 /** Max prior user+assistant pairs sent to the model (older turns are trimmed). */
-export const MAX_CONVERSATION_TURNS = 10;
+export const MAX_CONVERSATION_TURNS = 4;
+
+/** Max thread rows loaded from DB for prompt context (slightly above trimmed history). */
+export const MAX_PRIOR_MESSAGES_LOAD = MAX_CONVERSATION_TURNS * 3;
+
+/** Assistant replies in history are truncated to this many chars to save input tokens. */
+export const HISTORY_ASSISTANT_MAX_CHARS = 600;
+
+/** Total character budget for knowledge docs in the system prompt. */
+export const KNOWLEDGE_MAX_CHARS = 4_000;
+
+/** Plan-specific output caps (applied on top of Admin AIProviderConfig). */
+export const FREE_MAX_OUTPUT_TOKENS = 1_024;
+export const PRO_MAX_OUTPUT_TOKENS = 2_048;

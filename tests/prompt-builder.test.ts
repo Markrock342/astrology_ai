@@ -3,6 +3,7 @@ import {
   buildConversationHistory,
   trimConversationHistory,
 } from "@/server/ai/prompt-builder";
+import { MAX_CONVERSATION_TURNS } from "@/config/constants";
 import type { BirthProfileSnapshot } from "@/types";
 import type { ChartJson } from "@/types/chart";
 import { deriveChartMemory } from "@/server/horoscope/engine/derive-chart-memory";
@@ -100,6 +101,58 @@ describe("buildConversationHistory (M3 B1)", () => {
     });
   });
 
+  it("uses compact natal block on follow-up turns", () => {
+    const { userPrompt } = buildConversationHistory(
+      [{ role: "USER", content: "เรื่องงานเป็นอย่างไร" }],
+      profile,
+      chart,
+      "แล้วเรื่องความรักล่ะ",
+      { chartMemory: memory, categorySlug: "love" },
+    );
+    expect(userPrompt).toContain("[natal]");
+    expect(userPrompt).not.toContain("ตารางตำแหน่งดาว");
+    expect(userPrompt).toContain("อาทิตย์:");
+  });
+
+  it("keeps full natal table on the first turn", () => {
+    const { userPrompt } = buildConversationHistory(
+      [],
+      profile,
+      chart,
+      "เรื่องความรักเป็นอย่างไร",
+      { chartMemory: memory, categorySlug: "love" },
+    );
+    expect(userPrompt).toContain("ตารางตำแหน่งดาว");
+  });
+
+  it("truncates long assistant history to save tokens", () => {
+    const longReply = "ค".repeat(900);
+    const { conversationHistory } = buildConversationHistory(
+      [
+        { role: "USER", content: "คำถามแรก" },
+        { role: "ASSISTANT", content: longReply },
+      ],
+      profile,
+      chart,
+      "คำถามถัดไป",
+      { chartMemory: memory },
+    );
+    expect(conversationHistory[1]?.content).toHaveLength(601);
+    expect(conversationHistory[1]?.content.endsWith("…")).toBe(true);
+  });
+
+  it("sends only the asked category in [memory]", () => {
+    const { userPrompt } = buildConversationHistory(
+      [],
+      profile,
+      chart,
+      "เรื่องความรัก",
+      { chartMemory: memory, categorySlug: "love" },
+    );
+    expect(userPrompt).toContain("ความรัก");
+    expect(userPrompt).not.toContain("งาน/อาชีพ");
+  });
+
   it("keeps prior user turns as plain text so trim cannot drop natal from current turn", () => {
     const prior = Array.from({ length: 24 }, (_, i) =>
       i % 2 === 0
@@ -113,7 +166,7 @@ describe("buildConversationHistory (M3 B1)", () => {
       "คำถามล่าสุด",
       { chartMemory: memory },
     );
-    expect(conversationHistory).toHaveLength(20);
+    expect(conversationHistory).toHaveLength(MAX_CONVERSATION_TURNS * 2);
     expect(userPrompt).toContain("คำถามล่าสุด");
     expect(userPrompt).toContain("[natal]");
     expect(userPrompt).toContain("[memory]");
@@ -127,8 +180,8 @@ describe("trimConversationHistory", () => {
       content: `msg-${i}`,
     }));
     const trimmed = trimConversationHistory(long);
-    expect(trimmed).toHaveLength(20);
-    expect(trimmed[0].content).toBe("msg-10");
-    expect(trimmed[19].content).toBe("msg-29");
+    expect(trimmed).toHaveLength(MAX_CONVERSATION_TURNS * 2);
+    expect(trimmed[0].content).toBe(`msg-${30 - MAX_CONVERSATION_TURNS * 2}`);
+    expect(trimmed[trimmed.length - 1].content).toBe("msg-29");
   });
 });

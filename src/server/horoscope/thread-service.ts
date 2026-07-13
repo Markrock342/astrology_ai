@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
+import { MAX_PRIOR_MESSAGES_LOAD } from "@/config/constants";
 import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 import type { AIProvider, ConversationMode, ReadingStatus } from "@prisma/client";
 
@@ -375,7 +376,7 @@ export async function loadPriorMessages(conversationId: string, userId: string) 
   });
   if (!conversation) throw new AppError("NOT_FOUND", "Conversation not found");
 
-  return prisma.message.findMany({
+  const recent = await prisma.message.findMany({
     where: {
       conversationId,
       OR: [
@@ -383,9 +384,12 @@ export async function loadPriorMessages(conversationId: string, userId: string) 
         { role: "ASSISTANT", status: { not: "PENDING" }, NOT: { content: "" } },
       ],
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
+    take: MAX_PRIOR_MESSAGES_LOAD,
     select: { role: true, content: true },
   });
+
+  return recent.reverse();
 }
 
 /**

@@ -54,6 +54,8 @@ type RunInput = Omit<
   systemPrompt: string;
   userPrompt: string;
   conversationHistory?: GenerateAIInput["conversationHistory"];
+  /** Override Admin maxOutputTokens (e.g. plan-specific cap). */
+  maxOutputTokens?: number;
 };
 
 function toGenerateInput(
@@ -72,7 +74,7 @@ function toGenerateInput(
     userPrompt: base.userPrompt,
     conversationHistory: base.conversationHistory,
     temperature: cfg.temperature,
-    maxOutputTokens: cfg.maxOutputTokens,
+    maxOutputTokens: base.maxOutputTokens ?? cfg.maxOutputTokens,
     timeoutMs: cfg.timeoutMs,
     secretReference: cfg.secretReference,
   };
