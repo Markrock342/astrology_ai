@@ -177,8 +177,7 @@ export function buildConversationHistory(
     }
   }
 
-  const isFollowUp = priorMessages.length > 0;
-  const useCompactNatal = isFollowUp && !options?.transitChartJson;
+  const useCompactNatal = true;
 
   return {
     conversationHistory: trimConversationHistory(history),

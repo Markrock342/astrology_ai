@@ -67,8 +67,8 @@ export async function resolvePromptParts(input: {
     persona: personaContent,
     plan:
       input.plan === "PRO"
-        ? "ผู้ใช้ระดับ Pro: ตอบละเอียด อธิบายเหตุผลจากดวงที่ให้มา"
-        : "ผู้ใช้ระดับ Free: ตอบกระชับ",
+        ? "ผู้ใช้ระดับ Pro: ตอบครบถ้วนตรงคำถาม ใช้หัวข้อ/ตารางเมื่อมีหลายจุด — ไม่เกริ่นยาว ไม่ซ้ำประเด็น"
+        : "ผู้ใช้ระดับ Free: ตอบกระชับแต่ครบประเด็นหลัก",
     category: input.categoryDescription ?? input.categoryName,
     outputFormat: formatTpl?.content ?? DEFAULTS.format,
   };
