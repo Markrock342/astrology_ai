@@ -41,6 +41,29 @@ const CATEGORY_HOUSES = {
   health: [1, 6, 8],
 } as const;
 
+export type MemoryCategoryKey = keyof typeof CATEGORY_HOUSES;
+
+const MEMORY_CATEGORY_ORDER: MemoryCategoryKey[] = [
+  "career",
+  "love",
+  "money",
+  "health",
+];
+
+/** Topic hints in user text → memory focus (Thai + English). */
+const TOPIC_HINTS: Record<MemoryCategoryKey, RegExp> = {
+  career:
+    /งาน|อาชีพ|เลื่อนตำแหน่ง|เปลี่ยนงาน|หัวหน้า|ลูกน้อง|ธุรกิจ|สมัครงาน|career|job|promotion/i,
+  love: /รัก|คู่|แฟน|คนรัก|ความสัมพันธ์|แต่งงาน|คู่ครอง|เนื้อคู่|เลิก|love|relationship|marriage/i,
+  money:
+    /เงิน|การเงิน|รายได้|ลงทุน|หนี้|ออม|มรดก|โชคลาภ|fortune|finance|wealth|หุ้น|ค่าใช้จ่าย/i,
+  health:
+    /สุขภาพ|ป่วย|เจ็บ|ร่างกาย|จิตใจ|เครียด|stress|health|นอน|โรค|ออกกำลัง/i,
+};
+
+/** Thread slugs that always receive all category memory blocks. */
+const ALL_MEMORY_SLUGS = /^(self|overview)$/i;
+
 function dignityLabel(planet: string, sign: string): string {
   const d = DIGNITY[planet];
   if (!d) return "—";
@@ -160,20 +183,80 @@ export function deriveChartMemory(chart: ChartJson): UserChartMemoryJson {
 /** Map category slug → memory focus key. */
 export function memoryKeyForCategory(
   categorySlug: string,
-): keyof UserChartMemoryJson["categories"] | null {
+): MemoryCategoryKey | null {
   const s = categorySlug.toLowerCase();
+  if (ALL_MEMORY_SLUGS.test(s)) return null;
   if (/career|งาน|อาชีพ|job/.test(s)) return "career";
   if (/love|รัก|คู่|relationship/.test(s)) return "love";
-  if (/money|เงิน|การเงิน|wealth/.test(s)) return "money";
+  if (/money|finance|เงิน|การเงิน|wealth|fortune|โชค/.test(s)) return "money";
   if (/health|สุขภาพ|body/.test(s)) return "health";
   return null;
 }
 
+/** Detect memory categories referenced in free-text questions. */
+export function detectMemoryKeysFromText(text: string): MemoryCategoryKey[] {
+  const hits: MemoryCategoryKey[] = [];
+  for (const key of MEMORY_CATEGORY_ORDER) {
+    if (TOPIC_HINTS[key].test(text)) hits.push(key);
+  }
+  return hits;
+}
+
+export type ResolveMemoryFocusInput = {
+  categorySlug?: string | null;
+  question?: string;
+  /** Prior user turns in the same thread — enables cross-topic recall. */
+  priorUserTexts?: string[];
+};
+
+/**
+ * Pick which chart-memory focuses to inject.
+ * Returns null → all categories (self / overview threads).
+ */
+export function resolveMemoryFocusKeys(
+  input: ResolveMemoryFocusInput,
+): MemoryCategoryKey[] | null {
+  const slug = input.categorySlug?.trim();
+  if (slug && ALL_MEMORY_SLUGS.test(slug)) return null;
+
+  const threadKey = slug ? memoryKeyForCategory(slug) : null;
+  const detected = new Set<MemoryCategoryKey>();
+  if (threadKey) detected.add(threadKey);
+
+  const texts = [
+    input.question ?? "",
+    ...(input.priorUserTexts ?? []),
+  ].filter((t) => t.trim().length > 0);
+
+  for (const text of texts) {
+    for (const key of detectMemoryKeysFromText(text)) {
+      detected.add(key);
+    }
+  }
+
+  if (detected.size === 0) {
+    return threadKey ? [threadKey] : null;
+  }
+
+  return MEMORY_CATEGORY_ORDER.filter((key) => detected.has(key));
+}
+
+export type FormatMemoryOptions = {
+  categorySlug?: string | null;
+  question?: string;
+  priorUserTexts?: string[];
+};
+
 /** Format memory block for Gemini (engine facts only). */
 export function formatMemoryForPrompt(
   memory: UserChartMemoryJson,
-  categorySlug?: string | null,
+  options?: string | null | FormatMemoryOptions,
 ): string {
+  const opts: FormatMemoryOptions =
+    typeof options === "string" || options === null || options === undefined
+      ? { categorySlug: options ?? undefined }
+      : options;
+
   const lines: string[] = [
     "[memory] ความจำพื้นดวงผู้ใช้ (derive จาก engine — ใช้ประกอบการตอบ ห้ามแต่งดาว)",
     `ลัคนา: ${memory.lagna}`,
@@ -187,9 +270,13 @@ export function formatMemoryForPrompt(
     );
   }
 
-  const focusKey = categorySlug ? memoryKeyForCategory(categorySlug) : null;
-  const focuses = focusKey
-    ? [memory.categories[focusKey]]
+  const focusKeys = resolveMemoryFocusKeys({
+    categorySlug: opts.categorySlug,
+    question: opts.question,
+    priorUserTexts: opts.priorUserTexts,
+  });
+  const focuses = focusKeys
+    ? focusKeys.map((key) => memory.categories[key])
     : Object.values(memory.categories);
 
   for (const focus of focuses) {

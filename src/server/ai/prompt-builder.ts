@@ -76,6 +76,8 @@ export type BuildUserPromptOptions = {
   transitChartJson?: ChartJson | null;
   /** Use compact natal block on follow-up turns to save input tokens. */
   compactNatal?: boolean;
+  /** Prior user questions in this thread — enriches cross-category memory. */
+  priorUserTexts?: string[];
 };
 
 function truncateAssistantHistory(content: string): string {
@@ -107,7 +109,14 @@ export function buildUserPrompt(
   ];
 
   if (opts.chartMemory) {
-    lines.push(formatMemoryForPrompt(opts.chartMemory, opts.categorySlug), "");
+    lines.push(
+      formatMemoryForPrompt(opts.chartMemory, {
+        categorySlug: opts.categorySlug,
+        question,
+        priorUserTexts: opts.priorUserTexts,
+      }),
+      "",
+    );
   }
 
   if (opts.transitChartJson) {
@@ -178,6 +187,9 @@ export function buildConversationHistory(
   }
 
   const useCompactNatal = true;
+  const priorUserTexts = priorMessages
+    .filter((m) => m.role === "USER")
+    .map((m) => m.content);
 
   return {
     conversationHistory: trimConversationHistory(history),
@@ -188,6 +200,7 @@ export function buildConversationHistory(
       {
         ...options,
         compactNatal: useCompactNatal,
+        priorUserTexts,
       },
     ),
   };

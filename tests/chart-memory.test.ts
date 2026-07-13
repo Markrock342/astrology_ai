@@ -4,6 +4,7 @@ import {
   formatMemoryForPrompt,
   hashBirthInput,
   memoryKeyForCategory,
+  resolveMemoryFocusKeys,
 } from "@/server/horoscope/engine/derive-chart-memory";
 import { questionWantsTodayTransit, bangkokDateKey } from "@/server/horoscope/daily-transit-service";
 import type { ChartJson } from "@/types/chart";
@@ -73,7 +74,49 @@ describe("deriveChartMemory", () => {
   it("maps category slugs", () => {
     expect(memoryKeyForCategory("career")).toBe("career");
     expect(memoryKeyForCategory("love")).toBe("love");
+    expect(memoryKeyForCategory("finance")).toBe("money");
+    expect(memoryKeyForCategory("fortune")).toBe("money");
+    expect(memoryKeyForCategory("self")).toBeNull();
+    expect(memoryKeyForCategory("overview")).toBeNull();
     expect(memoryKeyForCategory("unknown")).toBeNull();
+  });
+
+  it("includes multiple memory focuses when the question crosses topics", () => {
+    const keys = resolveMemoryFocusKeys({
+      categorySlug: "career",
+      question: "แล้วเรื่องความรักช่วงนี้เป็นอย่างไร",
+    });
+    expect(keys).toEqual(["career", "love"]);
+
+    const text = formatMemoryForPrompt(deriveChartMemory(chart), {
+      categorySlug: "career",
+      question: "แล้วเรื่องความรักช่วงนี้เป็นอย่างไร",
+    });
+    expect(text).toContain("งาน/อาชีพ");
+    expect(text).toContain("ความรัก:");
+  });
+
+  it("recalls topics mentioned in prior user turns", () => {
+    const keys = resolveMemoryFocusKeys({
+      categorySlug: "career",
+      question: "สรุปให้หน่อย",
+      priorUserTexts: ["ช่วงนี้การเงินเป็นอย่างไร"],
+    });
+    expect(keys).toEqual(["career", "money"]);
+  });
+
+  it("sends all focuses for self/overview threads", () => {
+    expect(
+      resolveMemoryFocusKeys({ categorySlug: "self", question: "จุดแข็งของฉัน" }),
+    ).toBeNull();
+    const text = formatMemoryForPrompt(deriveChartMemory(chart), {
+      categorySlug: "self",
+      question: "จุดแข็งของฉัน",
+    });
+    expect(text).toContain("งาน/อาชีพ");
+    expect(text).toContain("ความรัก:");
+    expect(text).toContain("การเงิน:");
+    expect(text).toContain("สุขภาพ:");
   });
 });
 

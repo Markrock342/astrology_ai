@@ -143,7 +143,7 @@ describe("buildConversationHistory (M3 B1)", () => {
     expect(conversationHistory[1]?.content.endsWith("…")).toBe(true);
   });
 
-  it("sends only the asked category in [memory]", () => {
+  it("sends only the asked category in [memory] when the question stays on-topic", () => {
     const { userPrompt } = buildConversationHistory(
       [],
       profile,
@@ -153,6 +153,21 @@ describe("buildConversationHistory (M3 B1)", () => {
     );
     expect(userPrompt).toContain("ความรัก");
     expect(userPrompt).not.toContain("งาน/อาชีพ");
+  });
+
+  it("adds cross-category memory when the user asks across topics in one thread", () => {
+    const { userPrompt } = buildConversationHistory(
+      [
+        { role: "USER", content: "เรื่องงานเป็นอย่างไร" },
+        { role: "ASSISTANT", content: "งานของคุณมีโอกาสดี" },
+      ],
+      profile,
+      chart,
+      "แล้วเรื่องความรักล่ะ",
+      { chartMemory: memory, categorySlug: "career" },
+    );
+    expect(userPrompt).toContain("งาน/อาชีพ");
+    expect(userPrompt).toContain("ความรัก:");
   });
 
   it("keeps prior user turns as plain text so trim cannot drop natal from current turn", () => {
