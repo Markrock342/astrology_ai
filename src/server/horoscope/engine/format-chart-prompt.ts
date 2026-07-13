@@ -214,3 +214,40 @@ export function formatChartForPrompt(
 
   return lines.join("\n");
 }
+
+/**
+ * Compact natal block for follow-up turns — keeps [natal] marker and planet
+ * positions without full samrap/taksa/triwai tables (~10 lines vs ~50+).
+ */
+export function formatChartCompactForPrompt(
+  chart: ChartJson,
+  options: FormatChartOptions = {},
+): string {
+  const title =
+    options.title ??
+    "[natal] พื้นดวงจาก engine (ย่อ — ใช้ตำแหน่งดาวนี้เท่านั้น ห้ามแต่งดาว)";
+  const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "—";
+  const lines: string[] = [title, `ลัคนา: ${lagna}`];
+
+  const samrap = options.preferTransitSamrap
+    ? chart.myhora?.transitPlanets
+    : chart.myhora?.natalPlanets;
+
+  if (samrap?.length) {
+    for (const r of samrap) {
+      lines.push(
+        `${r.planet}: ${r.zodiac} เรือน${r.house ?? "—"}${r.rerkStandard ? ` (${r.rerkStandard})` : ""}`,
+      );
+    }
+  } else {
+    for (const p of chart.planets) {
+      const house = houseFromLagna(lagna, p.siderealSign);
+      const dignity = dignityLabel(p.planet, p.siderealSign);
+      lines.push(
+        `${p.planet}: ${p.siderealSign} เรือน${house ?? "—"} (${dignity})`,
+      );
+    }
+  }
+
+  return lines.join("\n");
+}

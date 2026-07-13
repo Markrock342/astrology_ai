@@ -125,6 +125,7 @@ function setupHappyPath() {
     promptTemplateId: null,
     provider: "GEMINI",
     modelId: "gemini-2.5-flash",
+    maxOutputTokens: 2048,
   });
   mocks.resolvePromptParts.mockResolvedValue({
     safety: "safe",
@@ -367,5 +368,40 @@ describe("createReading (M3 B2)", () => {
       expect.objectContaining({ type: "AI_USAGE", referenceType: "reading" }),
       expect.anything(),
     );
+  });
+
+  it("caps knowledge docs to the character budget in sortOrder", async () => {
+    mocks.findKnowledge.mockResolvedValue([
+      { title: "A", content: "a".repeat(2500), sortOrder: 1 },
+      { title: "B", content: "b".repeat(2500), sortOrder: 2 },
+    ]);
+
+    await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "q",
+    });
+
+    const aiCall = mocks.generateWithFallback.mock.calls[0]?.[1] as {
+      systemPrompt: string;
+    };
+    expect(aiCall.systemPrompt).toContain("## A");
+    expect(aiCall.systemPrompt).not.toContain("## B");
+    expect(aiCall.systemPrompt.length).toBeLessThanOrEqual(4_100);
+  });
+
+  it("passes plan-specific maxOutputTokens to the AI router", async () => {
+    mocks.assertCanRequestReading.mockResolvedValue("FREE");
+
+    await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "q",
+    });
+
+    const aiCall = mocks.generateWithFallback.mock.calls[0]?.[1] as {
+      maxOutputTokens: number;
+    };
+    expect(aiCall.maxOutputTokens).toBe(1024);
   });
 });

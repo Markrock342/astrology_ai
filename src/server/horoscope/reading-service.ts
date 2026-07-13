@@ -27,6 +27,11 @@ import {
   questionWantsTodayTransit,
 } from "@/server/horoscope/daily-transit-service";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
+import {
+  FREE_MAX_OUTPUT_TOKENS,
+  KNOWLEDGE_MAX_CHARS,
+  PRO_MAX_OUTPUT_TOKENS,
+} from "@/config/constants";
 import type { ChartJson } from "@/types/chart";
 import type { BirthProfileSnapshot } from "@/types";
 
@@ -47,6 +52,37 @@ export type TransitSnapshotInput = {
   province?: string | null;
   district?: string | null;
 };
+
+/** Join knowledge docs in sortOrder until the character budget is reached. */
+export function buildKnowledgePrompt(
+  docs: Array<{ title: string; content: string }>,
+  maxChars = KNOWLEDGE_MAX_CHARS,
+): string | undefined {
+  if (docs.length === 0) return undefined;
+
+  const header = "ความรู้อ้างอิง (ใช้ประกอบการตอบ):\n\n";
+  const parts: string[] = [];
+  let used = header.length;
+
+  for (const doc of docs) {
+    const block = `## ${doc.title}\n${doc.content}`;
+    const separator = parts.length > 0 ? 2 : 0;
+    if (used + separator + block.length > maxChars) break;
+    parts.push(block);
+    used += separator + block.length;
+  }
+
+  return parts.length > 0 ? header + parts.join("\n\n") : undefined;
+}
+
+/** Cap output tokens by plan while respecting Admin config ceiling. */
+export function resolveMaxOutputTokens(
+  plan: "FREE" | "PRO",
+  configMaxOutputTokens: number,
+): number {
+  const planCap = plan === "PRO" ? PRO_MAX_OUTPUT_TOKENS : FREE_MAX_OUTPUT_TOKENS;
+  return Math.min(configMaxOutputTokens, planCap);
+}
 
 export type CreateReadingInput = {
   userId: string;
@@ -195,11 +231,7 @@ async function runReading(
     where: { enabled: true, OR: [{ categoryId: category.id }, { categoryId: null }] },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
-  const knowledge =
-    knowledgeDocs.length > 0
-      ? "ความรู้อ้างอิง (ใช้ประกอบการตอบ):\n\n" +
-        knowledgeDocs.map((d) => `## ${d.title}\n${d.content}`).join("\n\n")
-      : undefined;
+  const knowledge = buildKnowledgePrompt(knowledgeDocs);
 
   const promptParts = await resolvePromptParts({
     plan,
@@ -232,24 +264,18 @@ async function runReading(
     throw new AppError("CHART_NOT_READY", "Transit engine chart missing from prompt");
   }
 
+  const maxOutputTokens = resolveMaxOutputTokens(plan, config.maxOutputTokens);
+  const aiInput = {
+    systemPrompt,
+    userPrompt,
+    conversationHistory:
+      conversationHistory.length > 0 ? conversationHistory : undefined,
+    maxOutputTokens,
+  };
+
   const result = onDelta
-    ? await streamWithFallback(
-        config.id,
-        {
-          systemPrompt,
-          userPrompt,
-          conversationHistory:
-            conversationHistory.length > 0 ? conversationHistory : undefined,
-        },
-        onDelta,
-        shouldStop,
-      )
-    : await generateWithFallback(config.id, {
-        systemPrompt,
-        userPrompt,
-        conversationHistory:
-          conversationHistory.length > 0 ? conversationHistory : undefined,
-      });
+    ? await streamWithFallback(config.id, aiInput, onDelta, shouldStop)
+    : await generateWithFallback(config.id, aiInput);
 
   // On failure/timeout: release reservation, log failure, DO NOT charge.
   // An explicit stop with no text yet is a cancelled turn — not a provider error.

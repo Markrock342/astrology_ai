@@ -3,7 +3,7 @@ import {
   computeNatalChartFormula,
   computeNatalChartSync,
 } from "@/server/horoscope/engine/compute-chart";
-import { formatChartForPrompt } from "@/server/horoscope/engine/format-chart-prompt";
+import { formatChartForPrompt, formatChartCompactForPrompt } from "@/server/horoscope/engine/format-chart-prompt";
 import {
   buildSystemPrompt,
   buildUserPrompt,
@@ -52,6 +52,24 @@ describe("natal chart engine (formula path)", () => {
     expect(text).toContain("ทักษา");
     expect(text).toContain("สัมพันธ์ดาว");
     expect(chart.chart?.taksa?.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("formats a compact natal block with [natal] marker and planet lines", () => {
+    const chart = computeNatalChartFormula({
+      day: 1,
+      month: 1,
+      year: 1990,
+      time: "10:00",
+      country: "ไทย",
+      province: "เชียงใหม่",
+      district: "เมืองเชียงใหม่",
+    });
+    const text = formatChartCompactForPrompt(chart);
+    expect(text).toContain("[natal]");
+    expect(text).toContain("ลัคนา");
+    expect(text).toContain("อาทิตย์:");
+    expect(text).not.toContain("ตารางสมผุส");
+    expect(text).not.toContain("ทักษา");
   });
 
   it("computes a distinct transit chart for another moment", () => {

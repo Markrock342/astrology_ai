@@ -1,10 +1,16 @@
 import type { BirthProfileSnapshot, ConversationTurn } from "@/types";
 import type { ChartJson } from "@/types/chart";
 import type { UserChartMemoryJson } from "@/types/chart-memory";
-import { MAX_CONVERSATION_TURNS } from "@/config/constants";
+import {
+  HISTORY_ASSISTANT_MAX_CHARS,
+  MAX_CONVERSATION_TURNS,
+} from "@/config/constants";
 import { AppError } from "@/lib/errors";
 import { assertUsableEngineChart } from "@/server/horoscope/chart-context";
-import { formatChartForPrompt } from "@/server/horoscope/engine/format-chart-prompt";
+import {
+  formatChartCompactForPrompt,
+  formatChartForPrompt,
+} from "@/server/horoscope/engine/format-chart-prompt";
 import { formatMemoryForPrompt } from "@/server/horoscope/engine/derive-chart-memory";
 
 /**
@@ -68,7 +74,14 @@ export type BuildUserPromptOptions = {
   chartMemory?: UserChartMemoryJson | null;
   categorySlug?: string | null;
   transitChartJson?: ChartJson | null;
+  /** Use compact natal block on follow-up turns to save input tokens. */
+  compactNatal?: boolean;
 };
+
+function truncateAssistantHistory(content: string): string {
+  if (content.length <= HISTORY_ASSISTANT_MAX_CHARS) return content;
+  return `${content.slice(0, HISTORY_ASSISTANT_MAX_CHARS)}…`;
+}
 
 /**
  * Build the current-turn user prompt. Natal engine chart is required —
@@ -83,9 +96,12 @@ export function buildUserPrompt(
   const opts = options ?? {};
   const natal = assertUsableEngineChart(chartJson);
 
+  const formatNatal = opts.compactNatal ? formatChartCompactForPrompt : formatChartForPrompt;
   const lines: Array<string | null> = [
-    formatChartForPrompt(natal, {
-      title: "[natal] พื้นดวงจาก engine (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)",
+    formatNatal(natal, {
+      title: opts.compactNatal
+        ? "[natal] พื้นดวงจาก engine (ย่อ — ใช้ตำแหน่งดาวนี้เท่านั้น ห้ามแต่งดาว)"
+        : "[natal] พื้นดวงจาก engine (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)",
     }),
     "",
   ];
@@ -154,9 +170,15 @@ export function buildConversationHistory(
     if (msg.role === "USER") {
       history.push({ role: "user", content: msg.content });
     } else {
-      history.push({ role: "assistant", content: msg.content });
+      history.push({
+        role: "assistant",
+        content: truncateAssistantHistory(msg.content),
+      });
     }
   }
+
+  const isFollowUp = priorMessages.length > 0;
+  const useCompactNatal = isFollowUp && !options?.transitChartJson;
 
   return {
     conversationHistory: trimConversationHistory(history),
@@ -164,7 +186,10 @@ export function buildConversationHistory(
       profile,
       currentQuestion,
       chartJson,
-      options,
+      {
+        ...options,
+        compactNatal: useCompactNatal,
+      },
     ),
   };
 }
