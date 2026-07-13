@@ -215,19 +215,19 @@ async function runReading(
     return null;
   }
 
-  const [chartMemory, config, transitChart] = await Promise.all([
+  const [chartMemory, config, transitChart, knowledgeDocs] = await Promise.all([
     getOrRefreshChartMemory(userId, natalChart),
     resolveConfig(category.id, plan),
     loadTransitChart(),
-  ]);
-
-  const templateId = category.promptTemplateId ?? config.promptTemplateId;
-
-  const [knowledgeDocs, promptParts, reservationId] = await Promise.all([
     prisma.knowledgeDoc.findMany({
       where: { enabled: true, OR: [{ categoryId: category.id }, { categoryId: null }] },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
+  ]);
+
+  const templateId = category.promptTemplateId ?? config.promptTemplateId;
+
+  const [promptParts, reservationId] = await Promise.all([
     resolvePromptParts({
       plan,
       categoryName: category.nameTh,
