@@ -18,6 +18,7 @@ const bodySchema = z.object({
   content: z.string().min(1),
   editUserMessageId: z.string().optional(),
   regenerateAssistantMessageId: z.string().optional(),
+  answerMode: z.enum(["brief", "detailed"]).optional().default("detailed"),
 });
 
 function sseEncode(event: Record<string, unknown>): string {
@@ -61,7 +62,7 @@ export async function POST(
       if (!idempotencyKey) {
         throw new AppError("VALIDATION", "Idempotency-Key header is required");
       }
-      const { content, editUserMessageId, regenerateAssistantMessageId } =
+      const { content, editUserMessageId, regenerateAssistantMessageId, answerMode } =
         bodySchema.parse(await req.json());
 
       const accepted = await acceptMessage({
@@ -71,6 +72,7 @@ export async function POST(
         idempotencyKey,
         editUserMessageId,
         regenerateAssistantMessageId,
+        answerMode,
       });
 
       if (accepted.status === "ready") {
@@ -83,6 +85,7 @@ export async function POST(
           userId: user.id,
           content,
           idempotencyKey,
+          answerMode,
         }).catch((err) => {
           console.error("[chat-after]", err);
         });
@@ -109,7 +112,7 @@ export async function POST(
     if (!idempotencyKey) {
       throw new AppError("VALIDATION", "Idempotency-Key header is required");
     }
-    const { content, editUserMessageId, regenerateAssistantMessageId } =
+    const { content, editUserMessageId, regenerateAssistantMessageId, answerMode } =
       bodySchema.parse(await req.json());
 
     const encoder = new TextEncoder();
@@ -136,12 +139,10 @@ export async function POST(
 
         // Heartbeat keeps intermediaries from buffering the whole answer.
         const heartbeat = setInterval(() => {
-          send({ type: "status", status: "working" });
+          send({ type: "ping" });
         }, 1500);
 
         try {
-          send({ type: "status", status: "started" });
-
           const accepted = await acceptMessage({
             conversationId: id,
             userId: user.id,
@@ -149,9 +150,8 @@ export async function POST(
             idempotencyKey,
             editUserMessageId,
             regenerateAssistantMessageId,
+            answerMode,
           });
-
-          send({ type: "status", status: "preparing" });
 
           if (accepted.status === "ready") {
             const text = accepted.reading.responseText ?? "";
@@ -168,6 +168,8 @@ export async function POST(
                 chartSnapshot: accepted.reading.chartSnapshot ?? null,
                 transitSnapshot: accepted.reading.transitSnapshot ?? null,
               },
+              followUps: [],
+              creditCost: accepted.reading.creditCost,
             });
             close();
             return;
@@ -179,11 +181,15 @@ export async function POST(
               userId: user.id,
               content,
               idempotencyKey,
+              answerMode,
             },
             (chunk) => {
               emitDeltaChunks(send, chunk);
             },
             () => isStopRequested(id, idempotencyKey),
+            (phase) => {
+              send({ type: "status", phase });
+            },
           );
 
           after(() =>
@@ -193,6 +199,11 @@ export async function POST(
           );
 
           const reading = await generation;
+
+          const meta = reading as {
+            summaryLine?: string;
+            followUps?: string[];
+          } | null | undefined;
 
           send({
             type: "done",
@@ -212,6 +223,9 @@ export async function POST(
                   ? reading.transitSnapshot
                   : null,
             },
+            ...(meta?.summaryLine ? { summaryLine: meta.summaryLine } : {}),
+            followUps: meta?.followUps ?? [],
+            creditCost: reading?.creditCost ?? 0,
           });
           close();
         } catch (err) {
