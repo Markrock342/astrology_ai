@@ -57,6 +57,23 @@ function databaseUrl(): string | undefined {
   return url;
 }
 
+const REQUIRED_DEV_MODELS = ["userChartMemory", "dailyTransitCache"] as const;
+
+function missingPrismaModels(client: PrismaClient): string[] {
+  return REQUIRED_DEV_MODELS.filter(
+    (model) => !(model in client) || (client as Record<string, unknown>)[model] == null,
+  );
+}
+
+function warnMissingPrismaModels(client: PrismaClient): void {
+  const missing = missingPrismaModels(client);
+  if (missing.length === 0) return;
+  console.error(
+    `[prisma] Client is missing models: ${missing.join(", ")}. ` +
+      "Run `npx prisma generate` and restart the dev server.",
+  );
+}
+
 function createPrismaClient(): PrismaClient {
   const url = databaseUrl();
   return new PrismaClient({
@@ -87,6 +104,9 @@ function getPrismaClient(): PrismaClient {
 
   globalForPrisma.prisma = createPrismaClient();
   globalForPrisma.prismaClientMarker = marker;
+  if (process.env.NODE_ENV !== "production") {
+    warnMissingPrismaModels(globalForPrisma.prisma);
+  }
   return globalForPrisma.prisma;
 }
 

@@ -1,10 +1,10 @@
-# 🟦 Frontend — สถานะปิด M4 (อัปเดต 12 ก.ค. 2026)
+# 🟦 Frontend — สถานะปิด M4 (อัปเดต 13 ก.ค. 2026)
 
 **ส่งเพื่อน B:** [HANDOFF_FE.md](./HANDOFF_FE.md) — https://github.com/Markrock342/astrology_ai/blob/main/HANDOFF_FE.md
 
-**สถานะ:** F1–F4 + Wave D + UX ChatGPT-style ครบบน `main`
+**สถานะ:** F1–F4 + Wave D + UX ChatGPT-style + usage bar **ครบบน `main` @ `981010d`**
 
-**งานรอบถัดไป:** [UX_WAVE_F_FE.md](./UX_WAVE_F_FE.md) (เพื่อน B)
+**งานปัจจุบัน:** [UX_WAVE_F_FE.md](./UX_WAVE_F_FE.md) (เพื่อน B)
 
 อ่านคู่กับ `M4_HANDOFF.md` · `FRONTEND_TASKS.md`
 
@@ -49,9 +49,10 @@
 
 ### FE-E1.1 · [P1] ⭐ หน้า usage ให้ user (หัวใจ "เทียบเท่า ChatGPT")
 ตอนนี้เห็นแค่ยอดเครดิตเปล่า ไม่มี history / "ใช้ไป x/y" / ไม่เห็น balance ตอนแชท
-- [ ] 🔗 รอ `GET /api/me/usage` (BE-E1.3) — คุย field
-- [ ] `account-view.tsx:18`: ขยาย `MyPackage` พก limit+used → "ใช้ไปแล้ว 18/20 ครั้งวันนี้" + progress bar
-- [ ] แสดง balance บน chat header · (option) ราคาต่อคำถามก่อนกดส่ง · usage history list · **M**
+- [x] 🔗 `GET /api/me/usage` + `?view=summary` — BE-E1.3 บน main แล้ว
+- [x] `chat-usage-bar.tsx` — balance + โควต้าวันนี้บนแชท
+- [x] `usage-summary.tsx` บน account — progress วันนี้/เดือนนี้
+- [ ] usage history list เต็ม + ราคาต่อคำถามใต้ composer (UX-FE-F1.2 ซ้อน Wave F) · **M**
 
 ### FE-E1.2 · [P2] การ์ด REJECTED + ปุ่มส่งใหม่ (ตอนนี้เห็นแค่ "ปฏิเสธ")
 `payment-submit-card.tsx:219` — เหตุผล fetch มาแล้วทิ้ง
@@ -63,8 +64,8 @@
 
 ### FE-E1.4 · [P2] แยกข้อความโควต้าหมด จาก "ถามเร็วไป"
 `chat-view.tsx:59` — โควต้าหมดโชว์ Retry ที่กดไม่ผ่าน
-- [ ] 🔗 BE-E1.5 (`QUOTA_EXCEEDED`) — เอาออกจาก `RETRYABLE_ERRORS`, ใส่ `UPGRADE_ERRORS`
-- [ ] `applyApiError` (`chat-view.tsx:112`) ใช้ server message ก่อน: `message ?? ERROR_MESSAGES[code]` · **S**
+- [x] 🔗 BE-E1.5 (`QUOTA_EXCEEDED`) — เอาออกจาก `RETRYABLE_ERRORS`, ใส่ `UPGRADE_ERRORS`
+- [x] `applyApiError` ใช้ server message ก่อน · **S**
 
 ## 🟡 E2 — เดือนแรก (Admin CMS ฝั่ง FE)
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { CHAT_SOFT_NAV_EVENT } from "@/components/app/chat-nav";
 
 /**
  * Top progress bar for real route changes only.
@@ -54,8 +55,8 @@ export function NavProgress() {
     function onSoftNav() {
       setTargetUrl(null);
     }
-    window.addEventListener("horasard:soft-nav", onSoftNav);
-    return () => window.removeEventListener("horasard:soft-nav", onSoftNav);
+    window.addEventListener(CHAT_SOFT_NAV_EVENT, onSoftNav);
+    return () => window.removeEventListener(CHAT_SOFT_NAV_EVENT, onSoftNav);
   }, []);
 
   useEffect(() => {

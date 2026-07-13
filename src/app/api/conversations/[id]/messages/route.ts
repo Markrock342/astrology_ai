@@ -175,6 +175,8 @@ export async function POST(
             return;
           }
 
+          send({ type: "status", phase: "chart" });
+
           const generation = completePendingMessage(
             {
               conversationId: id,

@@ -8,8 +8,8 @@ only those tables**. Local formula pipeline remains the fallback when scrape fai
 
 ```
 Save birth profile
-  → queueNatalChart()
-  → computeNatalChart()          // scrape-first
+  → queueNatalChart()          // mark PENDING แล้ว after(compute) — ไม่บล็อก DB pool
+  → computeNatalChart()        // scrape-first (ใน background)
        ├─ ENABLE_MYHORA_SCRAPE (default on)
        │    → fetch myhora thai.aspx + embeds
        │    → map → ChartJson { calculationSource: "myhora-scrape", myhora: {...} }

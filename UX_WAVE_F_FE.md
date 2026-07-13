@@ -1,5 +1,7 @@
 # UX Wave F — เพื่อน B (Frontend) · 1 วัน
 
+> **สถานะบน `main` @ `981010d`:** มี `ThinkingIndicator` + `ChatUsageBar` (balance/โควต้า) แล้ว · ยังไม่มี 3-phase จาก SSE, follow-up chips, summary callout
+
 **Repo:** https://github.com/Markrock342/astrology_ai  
 **คู่กับ:** [UX_WAVE_F_BE.md](./UX_WAVE_F_BE.md) (เพื่อน A)  
 **Production:** https://astrology-ai-three.vercel.app  
@@ -63,9 +65,8 @@ npm run typecheck && npm run lint
 ## Checklist
 
 ### UX-FE-F1.2 · เครดิตก่อนส่ง
-- [ ] ใต้ composer: `ใช้ {cost} เครดิต · คงเหลือ {balance}`
-- [ ] ใช้ `useMyUsage` + `DEFAULTS.creditCostPerReading`
-- [ ] หลังตอบเสร็จ — refresh usage bar
+- [x] ใต้ composer / chat bar: balance + โควต้าวันนี้ (`ChatUsageBar`)
+- [ ] ใต้ composer: `ใช้ {cost} เครดิต · คงเหลือ {balance}` แบบละเอียดก่อนกดส่ง
 - ไฟล์: `src/components/app/chat-view.tsx`, `chat-usage-bar.tsx`
 
 ### UX-FE-F1.1 · Staged thinking

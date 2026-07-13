@@ -2,7 +2,7 @@
 
 **โปรเจกต์:** HoraSard / astrology-ai  
 **วันที่อัปเดต:** 13 กรกฎาคม 2026  
-**เวอร์ชัน:** commit `a448fbc` (branch `main`)  
+**เวอร์ชัน:** `main` @ `981010d` (13 ก.ค. 2026)  
 **สถานะ:** deploy แล้วบน production (Vercel auto-deploy จาก `main`)
 
 ---

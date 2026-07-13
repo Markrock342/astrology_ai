@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { BrandLockup, BrandMark } from "@/components/brand-logo";
 import { SettingsPopover, type SettingsModal } from "./settings-popover";
 import {
@@ -11,6 +10,7 @@ import {
   RenameModal,
 } from "./settings-modals";
 import { CategoryIcon } from "./category-icon";
+import { SidebarNavSkeleton } from "./content-skeleton";
 import {
   CollapseSidebarIcon,
   ExpandSidebarIcon,
@@ -23,7 +23,11 @@ import {
   TransitIcon,
 } from "./sidebar-icons";
 import { useAppData, isCategoryLocked } from "./app-data-provider";
-import { isPlainLeftClick, useChatNav } from "./chat-nav";
+import {
+  isPlainLeftClick,
+  useChatNav,
+  useChatRouteSearchParams,
+} from "./chat-nav";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { PendingPaymentBanner } from "./pending-payment-banner";
 import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banner";
@@ -47,7 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [activeModal, setActiveModal] = useState<SettingsModal>(null);
   const profileBtnRef = useRef<HTMLButtonElement>(null);
   const closeMobileTimer = useRef<number | null>(null);
-  const searchParams = useSearchParams();
+  const searchParams = useChatRouteSearchParams();
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
   const { theme, toggleTheme } = useTheme();
@@ -66,6 +70,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     loading,
     loadError,
   } = useAppData();
+
+  const shellBootstrapping = loading && !user;
 
   function openThread(threadId: string, categorySlug?: string | null) {
     closeMobile();
@@ -264,6 +270,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <div className="mt-4 flex-1 overflow-y-auto px-3 pb-2">
+        {shellBootstrapping ? (
+          <SidebarNavSkeleton />
+        ) : (
+          <>
         <SectionLabel>พื้นดวงเดิม</SectionLabel>
         <nav className="flex flex-col gap-0.5">
           {filteredCategories.map((cat) => {
@@ -476,6 +486,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))
           )}
         </nav>
+          </>
+        )}
       </div>
 
       <div className="relative border-t border-[var(--border)] p-3">
@@ -723,6 +735,12 @@ function CollapsedRail({
               href={`/dashboard?cat=${cat.slug}`}
               title={cat.label}
               aria-label={cat.label}
+              onClick={(e) => {
+                if (isPlainLeftClick(e)) {
+                  e.preventDefault();
+                  chatNav(`/dashboard?cat=${cat.slug}`);
+                }
+              }}
               className={`flex h-10 w-10 items-center justify-center rounded-lg transition ${
                 active
                   ? "bg-[var(--surface-3)] text-[var(--primary)]"

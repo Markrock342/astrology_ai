@@ -52,12 +52,19 @@ export async function getOrComputeDailyTransit(
   const when = options?.date ?? new Date();
   const dateKey = bangkokDateKey(when);
 
-  const cached = await prisma.dailyTransitCache.findUnique({
-    where: { userId_dateKey: { userId, dateKey } },
-  });
-  if (cached?.chartJson) {
-    const chart = cached.chartJson as unknown as ChartJson;
-    if (isUsableEngineChart(chart)) return chart;
+  try {
+    const cached = await prisma.dailyTransitCache.findUnique({
+      where: { userId_dateKey: { userId, dateKey } },
+    });
+    if (cached?.chartJson) {
+      const chart = cached.chartJson as unknown as ChartJson;
+      if (isUsableEngineChart(chart)) return chart;
+    }
+  } catch (err) {
+    console.warn(
+      "[transit] cache read failed — computing fresh:",
+      err instanceof Error ? err.message : err,
+    );
   }
 
   const transitInput = transitInputForDate(when, natalChart.input, options?.time);
@@ -67,21 +74,28 @@ export async function getOrComputeDailyTransit(
     }),
   );
 
-  await prisma.dailyTransitCache.upsert({
-    where: { userId_dateKey: { userId, dateKey } },
-    create: {
-      userId,
-      dateKey,
-      chartJson: chart as object,
-      source: chart.meta.calculationSource ?? null,
-      computedAt: new Date(),
-    },
-    update: {
-      chartJson: chart as object,
-      source: chart.meta.calculationSource ?? null,
-      computedAt: new Date(),
-    },
-  });
+  try {
+    await prisma.dailyTransitCache.upsert({
+      where: { userId_dateKey: { userId, dateKey } },
+      create: {
+        userId,
+        dateKey,
+        chartJson: chart as object,
+        source: chart.meta.calculationSource ?? null,
+        computedAt: new Date(),
+      },
+      update: {
+        chartJson: chart as object,
+        source: chart.meta.calculationSource ?? null,
+        computedAt: new Date(),
+      },
+    });
+  } catch (err) {
+    console.warn(
+      "[transit] cache write failed — returning computed chart:",
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   return chart;
 }

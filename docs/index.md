@@ -34,6 +34,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 | **Perf Wave 3** — pool fix, bootstrap cache, indexes | ✅ บน `main` |
 | **UX Wave F BE** — phased SSE, answerMode, followUps | ✅ P0 บน `be/ux-wave-f` | [UX_WAVE_F_BE.md](../UX_WAVE_F_BE.md) · `follow-up-suggestions.ts` |
 | **UX Wave F FE** — thinking UI, chips | 🟡 รอ FE | [UX_WAVE_F_FE.md](../UX_WAVE_F_FE.md) |
+| **Local dev stability** — SSR bootstrap, chat SSE activity/stale fix, follow-up turn lock | ✅ `be/ux-wave-f` | [frontend_app_ui.md](./frontend_app_ui.md) |
 
 **Feature gating:** `src/config/features.ts` — ตั้ง `NEXT_PUBLIC_APP_PHASE=2` บน Vercel จะปิด AI chat + Admin AI CMS; dev ไม่ตั้ง = เปิดทั้งหมด
 
@@ -115,3 +116,4 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 - [x] Payment slip: ยอด + รูปเท่านั้น (ไม่มีเลขอ้างอิง)
 - [x] HoraSard Standard v1 + 20 golden cases
 - [x] Gemini billing alert banner ใน admin
+- [x] Dashboard cascade fix — SSR bootstrap, session sign-out, `npm run smoke:app`

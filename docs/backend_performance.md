@@ -35,6 +35,7 @@
 - Migration `20260712200000_perf_indexes`
 
 ## บันทึกการแก้บัค (Bug & Troubleshooting Log)
+- **Local dev API 404 ทั้งก้อน / UI หลอกว่าเป็น Free:** หยุด node ซ้อน → ลบ `.next` → `npx prisma generate` (ก่อน start dev บน Windows กัน EPERM) → `npm run dev` → logout/login ใหม่; ยืนยันด้วย `npm run smoke:app`
 - **Prisma pool timeout (`natalChart.update`, limit 1):** เพิ่ม connection limit + แยก natal compute ด้วย `after()` + retry
 - **Admin landing แท็บ crash:** CMS JSON จาก DB ไม่มี `items`/`steps` → `value.items.map` throw → แก้ด้วย `asFeatures`/`asHow` normalize
 - **Dev mode:** Turbopack + `force-dynamic` ช้ากว่า prod — วัดบน Vercel หลัง deploy
@@ -45,6 +46,7 @@
 - Vercel cold start + Supabase latency — ตั้ง `PRISMA_CONNECTION_LIMIT` ใน env ถ้ายัง timeout
 
 ## Checklist งานต่อไป (Next Steps)
-- [ ] Deploy Wave 3 บน Vercel + ตั้ง `PRISMA_CONNECTION_LIMIT=5` ถ้าจำเป็น
+- [x] Deploy Wave 3 บน `main` (pool fix + indexes migration)
+- [ ] ตั้ง `PRISMA_CONNECTION_LIMIT=5` บน Vercel ถ้ายัง timeout
 - [ ] Wave 4: message cursor pagination
 - [ ] วัด TTFB / Web Vitals หลัง deploy

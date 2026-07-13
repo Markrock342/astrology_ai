@@ -32,5 +32,5 @@
 ## Checklist งานต่อไป (Next Steps)
 - [x] B3 Upstash rate-limit (code)
 - [x] Wave E payment notify + top-up
-- [ ] Merge `be/wave-e-handoff` → `main`
-- [ ] FE: badge `notifyError` (FE-E2.4), ฟอร์มเลือก `packageCode` (FE-E1.3)
+- [x] Merge Wave E → `main`
+- [ ] FE: badge `notifyError` เต็มรูปแบบ (FE-E2.4), REJECTED `reviewNote` (FE-E1.2)

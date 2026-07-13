@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, forwardRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useChatRouteSearchParams, CHAT_SOFT_NAV_EVENT } from "./chat-nav";
 import { APP_NAME, DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
 import { ChatThreadSkeleton } from "@/components/app/content-skeleton";
@@ -10,6 +10,7 @@ import {
   useAppData,
   useCategory,
 } from "./app-data-provider";
+import { isStaleSessionError, redirectOnStaleSession } from "./session-guard-client";
 
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
@@ -25,6 +26,21 @@ import {
   setCachedThread,
   type CachedChatMessage,
 } from "./thread-cache";
+import {
+  assistantIdForTurn,
+  resolveActiveAssistantId,
+  shouldBlockFollowUpSend,
+  type ChatTurnLock,
+} from "@/lib/chat-turn-guard";
+import {
+  isSseActivityEvent,
+  mergePollMessages,
+  parsePrepPhase,
+  prepPhaseLabel,
+  shouldRecoverStaleTurn,
+  SSE_STREAM_IDLE_MS,
+  type ChatPrepPhase,
+} from "@/lib/chat-sse-activity";
 
 type Message = {
   id: string;
@@ -112,10 +128,6 @@ type SendOpts = {
 };
 
 const SCROLL_NEAR_BOTTOM_PX = 120;
-/** No stream delta for this long → treat the turn as stuck and recover. */
-const STALE_TURN_MS = 45_000;
-/** Abort the HTTP stream if no SSE arrives — fall back to background poll. */
-const FETCH_STREAM_TIMEOUT_MS = 35_000;
 
 /** The handle needed to cancel an answer that is still generating. */
 type StopTarget = { threadId: string; idempotencyKey: string };
@@ -159,6 +171,13 @@ function applyApiError(
     setters.setPendingRetry(null);
     return;
   }
+  if (isStaleSessionError(code)) {
+    setters.setErrorText(ERROR_MESSAGES.UNAUTHENTICATED);
+    setters.setState("error");
+    setters.setPendingRetry(null);
+    void redirectOnStaleSession(code);
+    return;
+  }
   const pendingChatMsg =
     code === "CHAT_REQUIRES_PRO" && opts?.hasPendingPayment
       ? ERROR_MESSAGES.CHAT_REQUIRES_PRO_PENDING
@@ -178,10 +197,10 @@ function applyApiError(
 }
 
 export function ChatView() {
-  const searchParams = useSearchParams();
+  const searchParams = useChatRouteSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
-  const { user, refreshLight, pendingPayment } = useAppData();
+  const { user, refreshLight, pendingPayment, loading: appDataLoading } = useAppData();
   const category = useCategory(catSlug);
   const locked = isCategoryLocked(category, user?.plan ?? "FREE");
   const hasPendingPayment = Boolean(pendingPayment);
@@ -204,6 +223,9 @@ export function ChatView() {
     null,
   );
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [prepPhase, setPrepPhase] = useState<ChatPrepPhase | null>(null);
+  const [sendBlockedHint, setSendBlockedHint] = useState<string | null>(null);
+  const sendBlockedHintTimer = useRef<number | null>(null);
   const [showScrollFab, setShowScrollFab] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -223,8 +245,13 @@ export function ChatView() {
   // empty response overwrites the optimistic bubbles and the answer streams into
   // a message that no longer exists, leaving a blank chat.
   const sendingThreadRef = useRef<string | null>(null);
+  const activeTurnRef = useRef<ChatTurnLock | null>(null);
+  const streamGenerationRef = useRef(0);
+  const streamPhaseRef = useRef<ChatState>("idle");
   const processingStartedAtRef = useRef<number | null>(null);
+  const lastStreamActivityAtRef = useRef<number | null>(null);
   const lastDeltaAtRef = useRef<number | null>(null);
+  const hasDeltaRef = useRef(false);
   const explicitStopRef = useRef(false);
 
   async function stopStreaming(target: StopTarget | null) {
@@ -251,7 +278,15 @@ export function ChatView() {
       ),
     );
     setState("idle");
+    streamPhaseRef.current = "idle";
     setInFlight(null);
+    setPrepPhase(null);
+    hasDeltaRef.current = false;
+    lastStreamActivityAtRef.current = null;
+    if (activeTurnRef.current?.idempotencyKey === target.idempotencyKey) {
+      activeTurnRef.current = null;
+    }
+    streamGenerationRef.current += 1;
     try {
       await fetch(`/api/conversations/${target.threadId}/stop`, {
         method: "POST",
@@ -367,9 +402,9 @@ export function ChatView() {
   }, [threadId, messages, threadCategorySlug, threadMode]);
 
   // Poll while a background reply is still PENDING (leave/return safe).
-  const pendingAssistant = messages.find(
-    (m) => m.role === "assistant" && m.status === "PENDING",
-  );
+  const pendingAssistant = [...messages]
+    .reverse()
+    .find((m) => m.role === "assistant" && m.status === "PENDING");
   const pendingAssistantIds = messages
     .filter((m) => m.role === "assistant" && m.status === "PENDING")
     .map((m) => m.id)
@@ -386,15 +421,21 @@ export function ChatView() {
   const recoverStaleTurn = useCallback(
     (reason: string) => {
       processingStartedAtRef.current = null;
+      lastStreamActivityAtRef.current = null;
       lastDeltaAtRef.current = null;
+      hasDeltaRef.current = false;
       setInFlight(null);
+      activeTurnRef.current = null;
+      streamGenerationRef.current += 1;
+      streamPhaseRef.current = "idle";
+      setPrepPhase(null);
       setMessages((prev) =>
         prev.map((m) =>
-          m.role === "assistant" && m.status === "PENDING" && !m.content.trim()
+          m.role === "assistant" && m.status === "PENDING"
             ? {
                 ...m,
                 status: "FAILED" as const,
-                content: reason,
+                content: m.content.trim() || reason,
               }
             : m,
         ),
@@ -406,11 +447,13 @@ export function ChatView() {
     [],
   );
 
-  // If a turn stalls with no text, unblock the composer and offer retry.
+  // If a turn stalls with no SSE activity, unblock the composer and offer retry.
   useEffect(() => {
     if (state !== "processing" && state !== "streaming") {
       processingStartedAtRef.current = null;
+      lastStreamActivityAtRef.current = null;
       lastDeltaAtRef.current = null;
+      hasDeltaRef.current = false;
       return;
     }
     if (!processingStartedAtRef.current) {
@@ -419,8 +462,17 @@ export function ChatView() {
     const id = window.setInterval(() => {
       const started = processingStartedAtRef.current;
       if (!started) return;
-      const lastActivity = lastDeltaAtRef.current ?? started;
-      if (Date.now() - lastActivity < STALE_TURN_MS) return;
+      if (
+        !shouldRecoverStaleTurn({
+          startedAt: started,
+          lastActivityAt: lastStreamActivityAtRef.current,
+          now: Date.now(),
+          isStreaming: streamPhaseRef.current === "streaming",
+          hasReceivedDelta: hasDeltaRef.current,
+        })
+      ) {
+        return;
+      }
       recoverStaleTurn(
         "ใช้เวลานานผิดปกติ — กดลองใหม่ (ยังไม่หักเครดิตถ้ายังไม่มีคำตอบ)",
       );
@@ -437,9 +489,7 @@ export function ChatView() {
       try {
         if (Date.now() - pollStarted > 120_000) {
           if (!alive) return;
-          setState("error");
-          setErrorCode("AI_TIMEOUT");
-          setErrorText(
+          recoverStaleTurn(
             "ใช้เวลานานเกินไป — ลองถามใหม่อีกครั้ง (ยังไม่หักเครดิตถ้ายังไม่มีคำตอบ)",
           );
           return;
@@ -454,17 +504,28 @@ export function ChatView() {
 
         if (poll.hasPending) {
           setState("processing");
+          lastStreamActivityAtRef.current = Date.now();
           return;
         }
 
         if (poll.messages) {
-          setMessages(poll.messages);
+          setMessages((prev) => mergePollMessages(prev, poll.messages as Message[]));
         }
+
+        activeTurnRef.current = null;
+        setInFlight(null);
+        setPrepPhase(null);
+        hasDeltaRef.current = false;
+        lastStreamActivityAtRef.current = null;
+        processingStartedAtRef.current = null;
 
         const lastFailed = [...(poll.messages ?? [])]
           .reverse()
           .find((m) => m.role === "assistant" && m.status === "FAILED");
         if (lastFailed) {
+          activeTurnRef.current = null;
+          setInFlight(null);
+          setPrepPhase(null);
           setState("error");
           setErrorText(lastFailed.content || ERROR_MESSAGES.AI_PROVIDER_ERROR);
           setErrorCode("AI_PROVIDER_ERROR");
@@ -490,7 +551,7 @@ export function ChatView() {
       alive = false;
       window.clearInterval(id);
     };
-  }, [threadId, pendingAssistantIds, refreshLight]);
+  }, [threadId, pendingAssistantIds, refreshLight, recoverStaleTurn]);
 
   // Reset the thread when the selected category changes (new chat).
   useEffect(() => {
@@ -583,39 +644,23 @@ export function ChatView() {
     const content = text.trim();
     if (!content) return;
 
-    const hasLiveTurn = Boolean(inFlight) || Boolean(stopTarget);
-    if (hasLiveTurn && (state === "processing" || state === "streaming")) {
+    if (!user) {
+      setErrorCode(appDataLoading ? "VALIDATION" : "UNAUTHENTICATED");
+      setErrorText(
+        appDataLoading
+          ? "กำลังโหลดข้อมูลผู้ใช้ — รอสักครู่แล้วลองใหม่"
+          : ERROR_MESSAGES.UNAUTHENTICATED,
+      );
+      setState("error");
+      if (!appDataLoading) void redirectOnStaleSession("UNAUTHENTICATED");
       return;
     }
-    // Stale processing/streaming with no live server handle — recover locally.
-    if ((state === "processing" || state === "streaming") && !hasLiveTurn) {
-      setState("idle");
-      setMessages((prev) =>
-        prev.filter(
-          (m) =>
-            !(
-              m.role === "assistant" &&
-              m.status === "PENDING" &&
-              !m.content.trim()
-            ),
-        ),
-      );
-    }
 
-    const editUserMessageId = options.editUserMessageId ?? editingMessageId ?? undefined;
-    if (editUserMessageId) {
-      const idx = messages.findIndex((m) => m.id === editUserMessageId);
-      if (idx >= 0) {
-        setMessages((prev) => [
-          ...prev.slice(0, idx),
-          { ...prev[idx], content },
-        ]);
-      }
-      setEditingMessageId(null);
-    }
-
-    isNearBottomRef.current = true;
-    scrollToBottom("auto");
+    const isRetry = Boolean(options.retryKey);
+    const isRegenerate = Boolean(options.regenerateAssistantMessageId);
+    const editUserMessageId =
+      options.editUserMessageId ?? editingMessageId ?? undefined;
+    const bypassBusyGuard = isRetry || isRegenerate || Boolean(editUserMessageId);
 
     if (!FEATURES.aiChat) {
       setErrorCode("FEATURE_DISABLED");
@@ -639,37 +684,134 @@ export function ChatView() {
       return;
     }
 
-    const isRetry = Boolean(options.retryKey);
-    const isRegenerate = Boolean(options.regenerateAssistantMessageId);
+    if (
+      shouldBlockFollowUpSend({
+        state,
+        inFlight: Boolean(inFlight),
+        activeTurn: activeTurnRef.current,
+        pendingAssistant: Boolean(pendingAssistant),
+        bypassBusyGuard,
+      })
+    ) {
+      setSendBlockedHint("รอคำตอบก่อนส่งข้อความถัดไป");
+      if (sendBlockedHintTimer.current) {
+        window.clearTimeout(sendBlockedHintTimer.current);
+      }
+      sendBlockedHintTimer.current = window.setTimeout(() => {
+        setSendBlockedHint(null);
+      }, 4000);
+      return;
+    }
+
+    if (editUserMessageId) {
+      const idx = messages.findIndex((m) => m.id === editUserMessageId);
+      if (idx >= 0) {
+        setMessages((prev) => [
+          ...prev.slice(0, idx),
+          { ...prev[idx], content },
+        ]);
+      }
+      setEditingMessageId(null);
+    }
+
+    isNearBottomRef.current = true;
+    scrollToBottom("auto");
+
+    if (!isRetry && state === "error") {
+      setErrorText(null);
+      setErrorCode(null);
+    }
+    if (isRetry || isRegenerate) {
+      setErrorText(null);
+      setErrorCode(null);
+    }
+
+    streamPhaseRef.current = "processing";
+    setState("processing");
+    setPrepPhase(null);
+    processingStartedAtRef.current = Date.now();
+    lastStreamActivityAtRef.current = Date.now();
+    lastDeltaAtRef.current = null;
+    hasDeltaRef.current = false;
+
+    const idempotencyKey = options.retryKey ?? crypto.randomUUID();
+    const assistantId = assistantIdForTurn(idempotencyKey);
+    const preliminaryThread = threadId ?? conversationIdRef.current;
+
+    streamAbortRef.current?.abort();
+    const generation = streamGenerationRef.current + 1;
+    streamGenerationRef.current = generation;
+
+    activeTurnRef.current = {
+      idempotencyKey,
+      assistantId,
+      threadId: preliminaryThread,
+    };
+    setInFlight({
+      threadId: preliminaryThread ?? "pending",
+      idempotencyKey,
+    });
+
+    if (!isRetry) {
+      setPendingRetry({ question: content, idempotencyKey });
+    } else {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.role === "assistant" &&
+          (m.idempotencyKey === idempotencyKey || m.id === assistantId)
+            ? {
+                ...m,
+                content: "",
+                status: "PENDING" as const,
+                idempotencyKey,
+              }
+            : m,
+        ),
+      );
+    }
+
     if (!isRetry && !isRegenerate && !editUserMessageId) {
       const userMsg: Message = { id: crypto.randomUUID(), role: "user", content };
       setMessages((m) => [...m, userMsg]);
       setInput("");
     }
 
-    setErrorText(null);
-    setErrorCode(null);
-    setState("processing");
-    processingStartedAtRef.current = Date.now();
-    lastDeltaAtRef.current = null;
-
-    const idempotencyKey = options.retryKey ?? crypto.randomUUID();
-    if (!isRetry) {
-      setPendingRetry({ question: content, idempotencyKey });
-    }
-
-    const assistantId = `stream-${idempotencyKey}`;
     // Hoisted so the catch can keep whatever streamed before a stop/disconnect.
     let assembled = "";
     let activeConversationId: string | null = null;
+    let handoffToPoll = false;
     assembledRef.current = "";
     explicitStopRef.current = false;
     const abort = new AbortController();
-    streamAbortRef.current?.abort();
     streamAbortRef.current = abort;
-    const fetchTimeout = window.setTimeout(() => {
-      abort.abort();
-    }, FETCH_STREAM_TIMEOUT_MS);
+    let streamIdleTimer: number | null = null;
+    const resetStreamIdleTimer = () => {
+      if (streamIdleTimer !== null) {
+        window.clearTimeout(streamIdleTimer);
+      }
+      streamIdleTimer = window.setTimeout(() => {
+        abort.abort();
+      }, SSE_STREAM_IDLE_MS);
+    };
+    resetStreamIdleTimer();
+
+    const touchStreamActivity = () => {
+      lastStreamActivityAtRef.current = Date.now();
+      resetStreamIdleTimer();
+    };
+
+    const releaseTurnIfOwned = () => {
+      if (generation !== streamGenerationRef.current) return;
+      if (activeTurnRef.current?.idempotencyKey === idempotencyKey) {
+        activeTurnRef.current = null;
+      }
+      setInFlight(null);
+      sendingThreadRef.current = null;
+    };
+
+    if (preliminaryThread) {
+      sendingThreadRef.current = preliminaryThread;
+    }
 
     // Show the assistant placeholder immediately — don't wait on ensureConversation.
     setMessages((prev) => {
@@ -692,19 +834,31 @@ export function ChatView() {
         : (threadId ?? conversationIdRef.current);
       if (!activeConversationId) {
         setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+        streamPhaseRef.current = "idle";
         setState("idle");
         processingStartedAtRef.current = null;
+        releaseTurnIfOwned();
         return;
       }
 
+      if (generation !== streamGenerationRef.current) return;
+
       // Claim it before the URL changes, so the loader never races this send.
       sendingThreadRef.current = activeConversationId;
+      activeTurnRef.current = {
+        idempotencyKey,
+        assistantId,
+        threadId: activeConversationId,
+      };
+      setInFlight({ threadId: activeConversationId, idempotencyKey });
 
       // The user can switch threads or start a new chat mid-answer. This stream
       // belongs to the thread it started on; painting its deltas into whatever
       // happens to be on screen would graft one conversation onto another. The
       // answer still lands — the server finalizes it and it is there on return.
-      const ownsView = () => conversationIdRef.current === activeConversationId;
+      const ownsStream = () =>
+        generation === streamGenerationRef.current &&
+        conversationIdRef.current === activeConversationId;
 
       const syncCat = categorySlug ?? catSlug;
       if (!threadId && syncCat) {
@@ -713,19 +867,14 @@ export function ChatView() {
         setThreadMode("NATAL");
         setThreadLoadError(null);
         setLoadingThread(false);
-        // Native history over router.replace: this only needs the URL to carry
-        // the new thread id. router.replace would run a real navigation — a
-        // fresh RSC request that re-renders the route mid-answer, which is the
-        // "the page refreshed while it was typing" flash. replaceState still
-        // syncs useSearchParams, so threadId lands without any of that.
-        window.history.replaceState(
-          window.history.state,
-          "",
-          `/dashboard?thread=${activeConversationId}&cat=${syncCat}`,
-        );
+        // Native history over router.replace: avoids a full RSC navigation that
+        // would remount ChatView mid-answer. useChatRouteSearchParams listens
+        // for horasard:soft-nav so threadId lands without a page flash.
+        const threadHref = `/dashboard?thread=${activeConversationId}&cat=${syncCat}`;
+        window.history.replaceState(window.history.state, "", threadHref);
         window.dispatchEvent(
-          new CustomEvent("horasard:soft-nav", {
-            detail: { href: `/dashboard?thread=${activeConversationId}&cat=${syncCat}` },
+          new CustomEvent(CHAT_SOFT_NAV_EVENT, {
+            detail: { href: threadHref },
           }),
         );
         conversationIdRef.current = activeConversationId;
@@ -739,8 +888,6 @@ export function ChatView() {
             : m,
         ),
       );
-
-      setInFlight({ threadId: activeConversationId, idempotencyKey });
 
       const res = await fetch(
         `/api/conversations/${activeConversationId}/messages`,
@@ -773,6 +920,8 @@ export function ChatView() {
             { question: content, idempotencyKey },
             { hasPendingPayment },
           );
+          streamPhaseRef.current = "idle";
+          releaseTurnIfOwned();
           setMessages((prev) => prev.filter((m) => m.id !== assistantId));
           return;
         }
@@ -781,6 +930,7 @@ export function ChatView() {
           res.status === 202 ||
           (json.data as { status?: string } | undefined)?.status === "pending"
         ) {
+          handoffToPoll = true;
           setState("processing");
           void refreshLight();
           return;
@@ -805,18 +955,28 @@ export function ChatView() {
               : m,
           ),
         );
+        streamPhaseRef.current = "idle";
         setState("idle");
         setPendingRetry(null);
         void refreshLight();
         usageRefreshRef.current?.();
+        releaseTurnIfOwned();
         return;
       }
 
       if (!res.ok || !res.body) {
+        streamPhaseRef.current = "idle";
+        releaseTurnIfOwned();
         setErrorCode("NETWORK");
         setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
         setState("error");
-        setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, status: "FAILED" as const }
+              : m,
+          ),
+        );
         return;
       }
 
@@ -833,6 +993,8 @@ export function ChatView() {
         const parts = buffer.split("\n\n");
         buffer = parts.pop() ?? "";
 
+        let chunkHadDelta = false;
+
         for (const block of parts) {
           const line = block
             .split("\n")
@@ -844,6 +1006,7 @@ export function ChatView() {
           let event: {
             type?: string;
             text?: string;
+            phase?: string;
             code?: string;
             message?: string;
             reading?: {
@@ -859,31 +1022,26 @@ export function ChatView() {
             continue;
           }
 
-          if (event.type === "delta" && event.text) {
+          if (isSseActivityEvent(event.type)) {
+            touchStreamActivity();
+          }
+
+          if (event.type === "status") {
+            const phase = parsePrepPhase(event.phase);
+            if (phase && ownsStream()) {
+              setPrepPhase(phase);
+            }
+          } else if (event.type === "delta" && event.text) {
             gotDelta = true;
+            hasDeltaRef.current = true;
+            chunkHadDelta = true;
             lastDeltaAtRef.current = Date.now();
+            setPrepPhase(null);
             assembled += event.text;
             assembledRef.current = assembled;
-            if (!ownsView()) continue;
-            setState("streaming");
-            // Flush to React every chunk so the typewriter can run frames
-            // between network reads (avoids one giant paint at the end).
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? {
-                      ...m,
-                      content: assembled,
-                      status: "PENDING",
-                      idempotencyKey,
-                    }
-                  : m,
-              ),
-            );
-            await new Promise<void>((r) => requestAnimationFrame(() => r()));
           } else if (event.type === "done") {
             finished = true;
-            if (!ownsView()) continue;
+            if (!ownsStream()) continue;
             const reading = event.reading;
             const finalText = reading?.responseText || assembled;
             setMessages((prev) =>
@@ -900,18 +1058,25 @@ export function ChatView() {
                   : m,
               ),
             );
+            streamPhaseRef.current = "idle";
+            setPrepPhase(null);
             setState("idle");
             setErrorText(null);
             setErrorCode(null);
             setPendingRetry(null);
             processingStartedAtRef.current = null;
+            lastStreamActivityAtRef.current = null;
             lastDeltaAtRef.current = null;
+            hasDeltaRef.current = false;
             void refreshLight();
             usageRefreshRef.current?.();
           } else if (event.type === "error") {
             finished = true;
-            if (!ownsView()) continue;
+            if (!ownsStream()) continue;
             const code = event.code ?? "AI_PROVIDER_ERROR";
+            streamPhaseRef.current = "idle";
+            setPrepPhase(null);
+            releaseTurnIfOwned();
             applyApiError(
               code,
               event.message,
@@ -932,13 +1097,43 @@ export function ChatView() {
                     : m,
                 ),
               );
+            } else {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId && m.status === "PENDING"
+                    ? { ...m, status: "FAILED" as const }
+                    : m,
+                ),
+              );
             }
           }
+        }
+
+        if (chunkHadDelta && ownsStream()) {
+          if (streamPhaseRef.current !== "streaming") {
+            streamPhaseRef.current = "streaming";
+            setState("streaming");
+          }
+          const snapshot = assembled;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    content: snapshot,
+                    status: "PENDING",
+                    idempotencyKey,
+                  }
+                : m,
+            ),
+          );
+          await new Promise<void>((r) => requestAnimationFrame(() => r()));
         }
       }
 
       // Stream ended without done — recover via PENDING poll.
       if (!finished) {
+        handoffToPoll = true;
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -960,6 +1155,7 @@ export function ChatView() {
         // Timed out waiting for SSE — server may still be generating; poll it.
         const convId = activeConversationId ?? conversationIdRef.current;
         if (convId) {
+          handoffToPoll = true;
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
@@ -981,6 +1177,7 @@ export function ChatView() {
       // the message, so fall back to the PENDING poll rather than erroring out
       // over an answer that is still on its way.
       if (assembled) {
+        handoffToPoll = true;
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -998,14 +1195,23 @@ export function ChatView() {
       }
       setErrorCode("NETWORK");
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
+      streamPhaseRef.current = "idle";
       setState("error");
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, status: "FAILED" as const } : m,
+        ),
+      );
     } finally {
-      window.clearTimeout(fetchTimeout);
+      if (streamIdleTimer !== null) {
+        window.clearTimeout(streamIdleTimer);
+      }
       if (streamAbortRef.current === abort) {
         streamAbortRef.current = null;
       }
-      setInFlight(null);
-      sendingThreadRef.current = null;
+      if (generation === streamGenerationRef.current && !handoffToPoll) {
+        releaseTurnIfOwned();
+      }
     }
   }
 
@@ -1016,7 +1222,16 @@ export function ChatView() {
     !loadingThread &&
     !threadId;
 
-  const isBusy = state === "processing" || state === "streaming";
+  const isBusy =
+    state === "processing" ||
+    state === "streaming" ||
+    Boolean(pendingAssistant) ||
+    Boolean(inFlight);
+
+  const activeAssistantId = resolveActiveAssistantId(
+    inFlight?.idempotencyKey ?? pendingAssistant?.idempotencyKey,
+    null,
+  );
 
   function startEditMessage(messageId: string, content: string) {
     setEditingMessageId(messageId);
@@ -1036,12 +1251,24 @@ export function ChatView() {
     void send(userMsg.content, { regenerateAssistantMessageId: assistantId });
   }
 
+  function retryPendingSend() {
+    if (!pendingRetry || !errorCode || !RETRYABLE_ERRORS.has(errorCode)) return;
+    setErrorText(null);
+    setErrorCode(null);
+    setMessages((prev) =>
+      prev.filter((m) => !(m.role === "assistant" && m.status === "FAILED")),
+    );
+    void send(pendingRetry.question, pendingRetry.idempotencyKey);
+  }
+
   function retryFailedAssistant(assistantId: string) {
     if (isBusy) return;
     const idx = messages.findIndex((m) => m.id === assistantId);
     if (idx <= 0) return;
     const userMsg = messages[idx - 1];
     if (userMsg.role !== "user") return;
+    setErrorText(null);
+    setErrorCode(null);
     setMessages((prev) => prev.filter((m) => m.id !== assistantId));
     void send(userMsg.content, { regenerateAssistantMessageId: assistantId });
   }
@@ -1096,11 +1323,7 @@ export function ChatView() {
                     pendingRetry &&
                     errorCode &&
                     RETRYABLE_ERRORS.has(errorCode)
-                      ? () =>
-                          send(
-                            pendingRetry.question,
-                            pendingRetry.idempotencyKey,
-                          )
+                      ? retryPendingSend
                       : undefined
                   }
                 />
@@ -1111,12 +1334,12 @@ export function ChatView() {
           <LockedState category={category?.label} />
         ) : (
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-2">
-            {messages.map((m, idx) => {
+            {messages.map((m) => {
               const isStreamingTurn =
                 (state === "streaming" || state === "processing") &&
                 m.role === "assistant" &&
-                idx === messages.length - 1 &&
-                m.status === "PENDING";
+                m.status === "PENDING" &&
+                m.id === activeAssistantId;
               return m.role === "user" ? (
                 <div key={m.id} className="animate-msg-in group flex flex-col items-end">
                   <div
@@ -1179,7 +1402,7 @@ export function ChatView() {
                       </div>
                     )}
                     {isStreamingTurn && !m.content ? (
-                      <ThinkingIndicator />
+                      <ThinkingIndicator phase={prepPhase} />
                     ) : (
                       <SmoothStreamMarkdown
                         content={m.content}
@@ -1222,10 +1445,10 @@ export function ChatView() {
               );
             })}
             {state === "processing" &&
-              !(
-                messages[messages.length - 1]?.role === "assistant" &&
-                messages[messages.length - 1]?.status === "PENDING"
-              ) && <ThinkingIndicator />}
+              activeAssistantId &&
+              !messages.some(
+                (m) => m.id === activeAssistantId && m.status === "PENDING",
+              ) && <ThinkingIndicator phase={prepPhase} />}
             {(state === "error" || state === "no-quota") && (
               <ErrorBanner
                 state={state}
@@ -1235,7 +1458,7 @@ export function ChatView() {
                   pendingRetry &&
                   errorCode &&
                   RETRYABLE_ERRORS.has(errorCode)
-                    ? () => send(pendingRetry.question, pendingRetry.idempotencyKey)
+                    ? retryPendingSend
                     : undefined
                 }
               />
@@ -1278,25 +1501,29 @@ export function ChatView() {
             </button>
           </div>
         ) : null}
+        {sendBlockedHint ? (
+          <p className="mx-auto max-w-3xl px-4 pb-2 text-center text-xs text-[var(--muted)] md:px-8">
+            {sendBlockedHint}
+          </p>
+        ) : null}
         <Composer
           ref={composerRef}
           value={input}
           onChange={setInput}
           onSend={() => send(input, editingMessageId ? { editUserMessageId: editingMessageId } : undefined)}
           onStop={() => void stopStreaming(stopTarget)}
-          // Stop is offered only while an answer is genuinely in progress AND we
-          // hold a handle to cancel it. Keying off the target alone let a stale
-          // PENDING row keep the button up long after the answer had landed.
           streaming={
             (state === "processing" || state === "streaming") &&
             Boolean(stopTarget) &&
             !stopping
           }
-          disabled={locked || state === "locked"}
+          sendBlocked={isBusy}
+          disabled={locked || state === "locked" || appDataLoading || !user}
           // Keep the field editable while streaming (ChatGPT-style). Send is
           // blocked in send() until the turn settles; Stop replaces the arrow.
-          aiEnabled={FEATURES.aiChat}
+          aiEnabled={FEATURES.aiChat && Boolean(user)}
           categoryLocked={locked}
+          userLoading={appDataLoading && !user}
           creditCost={DEFAULTS.creditCostPerReading}
         />
       </div>
@@ -1437,7 +1664,7 @@ function formatElapsed(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")} นาที`;
 }
 
-function ThinkingIndicator() {
+function ThinkingIndicator({ phase }: { phase?: ChatPrepPhase | null }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -1446,7 +1673,7 @@ function ThinkingIndicator() {
       setElapsed(Math.floor((Date.now() - started) / 1000));
     }, 250);
     return () => window.clearInterval(id);
-  }, []);
+  }, [phase]);
 
   return (
     <div className="animate-fade-in flex flex-col gap-1.5">
@@ -1460,7 +1687,9 @@ function ThinkingIndicator() {
             />
           ))}
         </div>
-        <span className="shimmer-text text-xs font-medium">กำลังเพ่งดวงดาว…</span>
+        <span className="shimmer-text text-xs font-medium">
+          {prepPhaseLabel(phase ?? null)}
+        </span>
       </div>
       <p className="pl-0 text-[11px] tabular-nums text-[var(--muted-2)]">
         ใช้เวลาไปแล้ว{" "}
@@ -1491,9 +1720,11 @@ const Composer = forwardRef<
     onSend: () => void;
     onStop: () => void;
     streaming: boolean;
+    sendBlocked?: boolean;
     disabled: boolean;
     aiEnabled: boolean;
     categoryLocked?: boolean;
+    userLoading?: boolean;
     creditCost?: number;
   }
 >(function Composer(
@@ -1503,14 +1734,18 @@ const Composer = forwardRef<
     onSend,
     onStop,
     streaming,
+    sendBlocked,
     disabled,
     aiEnabled,
     categoryLocked,
+    userLoading,
     creditCost,
   },
   ref,
 ) {
-  const placeholder = !aiEnabled
+  const placeholder = userLoading
+    ? "กำลังโหลดข้อมูลผู้ใช้…"
+    : !aiEnabled
     ? "เปิดให้ใช้งานในเฟสถัดไป"
     : categoryLocked
       ? "หมวดนี้สำหรับ Pro — เลือก「ตัวตน」หรือ「การงาน」หรืออัปเกรด"
@@ -1535,10 +1770,10 @@ const Composer = forwardRef<
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              onSend();
+              if (!sendBlocked) onSend();
             }
           }}
-          disabled={!aiEnabled}
+          disabled={!aiEnabled || userLoading}
           placeholder={placeholder}
           className="max-h-[200px] min-h-[24px] w-full resize-none bg-transparent text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed"
         />
@@ -1573,7 +1808,7 @@ const Composer = forwardRef<
           <button
             type="button"
             onClick={onSend}
-            disabled={disabled || !aiEnabled || categoryLocked || !value.trim()}
+            disabled={disabled || !aiEnabled || categoryLocked || !value.trim() || sendBlocked}
             className="press-scale flex shrink-0 items-center justify-center text-[var(--primary)] transition hover:text-[var(--primary-hover)] disabled:opacity-40"
             aria-label="ส่ง"
           >

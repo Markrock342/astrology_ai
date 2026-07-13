@@ -33,15 +33,25 @@ export async function upsertChartMemory(
 
 /**
  * Load memory for chat. Re-derives if missing or birth hash no longer matches.
+ * Falls back to in-memory derive when the DB client/model is unavailable
+ * (e.g. dev server started before `prisma generate`).
  */
 export async function getOrRefreshChartMemory(
   userId: string,
   natalChart: ChartJson,
 ): Promise<UserChartMemoryJson> {
   const expectedHash = hashBirthInput(natalChart.input);
-  const row = await prisma.userChartMemory.findUnique({ where: { userId } });
-  if (row?.memoryJson && row.birthHash === expectedHash) {
-    return row.memoryJson as unknown as UserChartMemoryJson;
+  try {
+    const row = await prisma.userChartMemory.findUnique({ where: { userId } });
+    if (row?.memoryJson && row.birthHash === expectedHash) {
+      return row.memoryJson as unknown as UserChartMemoryJson;
+    }
+    return await upsertChartMemory(userId, natalChart);
+  } catch (err) {
+    console.warn(
+      "[chart-memory] DB unavailable — deriving in-memory:",
+      err instanceof Error ? err.message : err,
+    );
+    return deriveChartMemory(natalChart);
   }
-  return upsertChartMemory(userId, natalChart);
 }

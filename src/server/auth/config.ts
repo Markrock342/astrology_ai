@@ -107,7 +107,30 @@ export const authConfig: NextAuthConfig = {
           if (u.role) token.role = u.role;
           if (u.status) token.status = u.status;
         }
+        token.dbCheckedAt = Math.floor(Date.now() / 1000);
       }
+
+      const sub = token.sub as string | undefined;
+      if (sub) {
+        const now = Math.floor(Date.now() / 1000);
+        const last = (token.dbCheckedAt as number | undefined) ?? 0;
+        if (now - last >= 60) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: sub },
+            select: { id: true, role: true, status: true },
+          });
+          token.dbCheckedAt = now;
+          if (!dbUser || dbUser.status === "DISABLED") {
+            token.status = "DISABLED";
+            delete token.sub;
+          } else {
+            token.sub = dbUser.id;
+            token.role = dbUser.role;
+            token.status = dbUser.status;
+          }
+        }
+      }
+
       return token;
     },
     session({ session, token }) {

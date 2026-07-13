@@ -34,6 +34,23 @@ export function ChatThreadSkeleton() {
   );
 }
 
+/** Sidebar nav placeholder while bootstrap loads (avoids mock Free categories). */
+export function SidebarNavSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 px-3" aria-busy="true">
+      <div className="h-10 animate-pulse rounded-full bg-[var(--surface-2)]" />
+      <div className="h-9 animate-pulse rounded-lg bg-[var(--surface-2)]" />
+      {Array.from({ length: 7 }, (_, i) => (
+        <div key={i} className="h-9 animate-pulse rounded-lg bg-[var(--surface-2)]" />
+      ))}
+      <div className="my-2 border-t border-[var(--border)]" />
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={`t-${i}`} className="h-8 animate-pulse rounded-lg bg-[var(--surface-2)]" />
+      ))}
+    </div>
+  );
+}
+
 /** List rows for history / sidebar-style pages. */
 export function ListSkeleton({ rows = 5 }: { rows?: number }) {
   return (

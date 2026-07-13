@@ -69,7 +69,7 @@ export async function getMe(userId: string) {
     plan,
     creditBalance: balance,
     /** Free cannot chat AI — must upgrade to Pro (`CHAT_REQUIRES_PRO`). */
-    canChat: plan === "PRO",
+    canChat: isStaffRole(user.role) || plan === "PRO",
     emailVerified: Boolean(user.emailVerifiedAt),
     needsEmailVerification: Boolean(passwordHash && !user.emailVerifiedAt),
   };
@@ -109,7 +109,7 @@ export async function getMyPackage(userId: string) {
     plan,
     credits: balance,
     creditBalance: balance,
-    canChat: plan === "PRO",
+    canChat: isStaffRole(user.role) || plan === "PRO",
     subscription,
   };
 }

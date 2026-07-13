@@ -18,13 +18,22 @@
 - Edit / regenerate · chart memory ใน prompt
 
 ## บันทึกการแก้บัค (Bug & Troubleshooting Log)
-- ไม่มีบันทึกใหม่ในรอบ UX Wave F BE
+- [ปัญหา]: Client ส่งคำถามต่อซ้อน — คำตอบล่าช้า / สะสม user bubble
+  - [สาเหตุ]: FE ไม่ serialize turn ระหว่าง `await ensureConversation` — ดู [frontend_app_ui.md](./frontend_app_ui.md)
+  - [วิธีแก้]: ฝั่ง FE lock turn ก่อน await; server `acceptMessage` ยกเลิก PENDING อื่นเมื่อมี turn ใหม่จริง (ถูกต้องอยู่แล้ว)
+- [ปัญหา]: Client timeout ปลอมระหว่าง prep (ไม่มี delta แต่มี ping/status)
+  - [สาเหตุ]: FE ไม่ treat `ping`/`status` เป็น activity — timeline mismatch 35–45s client vs 60–120s server prep
+  - [วิธีแก้]: FE `chat-sse-activity.ts`; route ส่ง `status: chart` ทันทีหลัง accept pending
+- [ปัญหา]: Client crash `Maximum update depth exceeded` ระหว่าง SSE stream
+  - [สาเหตุ]: FE เรียก `setState`/`setMessages` ต่อ delta ใน buffer เดียว — ดู [frontend_app_ui.md](./frontend_app_ui.md)
+  - [วิธีแก้]: ฝั่ง FE batch ต่อ network chunk (`chat-sse-batch.ts`); BE ส่ง delta หลายบรรทัดต่อ chunk ยังถูกต้อง ไม่ต้องเปลี่ยน contract
+- ไม่มีบันทึกใหม่ในรอบ UX Wave F BE นอกเหนือจากข้างต้น
 
 ## สิ่งที่ยังค้างอยู่และปัญหาที่ทราบ (Pending & Known Issues)
 - P1: `balanceAfter` ใน `done` · feedback API (thumbs)
 - Message pagination เธรดยาว (cap 200)
 - Transit chart cache บน conversation (BE-E2.2)
-- FE ยังไม่ parse `phase` / chips — รอ `UX_WAVE_F_FE.md`
+- FE parse SSE `phase` ใน ThinkingIndicator — ✅ `chat-view.tsx` (UX-FE-F1.1 บางส่วน)
 
 ## Checklist งานต่อไป (Next Steps)
 - [x] UX-BE-F1.1–F1.3

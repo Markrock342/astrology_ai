@@ -10,10 +10,10 @@ import {
 } from "react";
 import {
   mapApiCategory,
-  NATAL_CATEGORIES,
   type Category,
   type Thread,
 } from "./nav-data";
+import { redirectOnStaleSession } from "./session-guard-client";
 
 export type AppUser = {
   name: string;
@@ -184,7 +184,7 @@ export function AppDataProvider({
   const [categories, setCategories] = useState<Category[]>(() =>
     initialData?.categories?.length
       ? initialData.categories.map(mapApiCategory)
-      : NATAL_CATEGORIES,
+      : [],
   );
   const [natalThreads, setNatalThreads] = useState<Thread[]>(
     () => initialData?.natalThreads ?? [],
@@ -213,6 +213,26 @@ export function AppDataProvider({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const handleBootstrapFailure = useCallback(
+    async (res: Response, json: { error?: { code?: string; message?: string } } | null) => {
+      const code = json?.error?.code;
+      if (await redirectOnStaleSession(code)) return;
+      if (res.status === 401 || code === "UNAUTHENTICATED") {
+        await redirectOnStaleSession("UNAUTHENTICATED");
+        return;
+      }
+      if (res.status >= 500 || code === "INTERNAL") {
+        setLoadError(
+          json?.error?.message ??
+            "ระบบฐานข้อมูลไม่ว่างชั่วคราว — ลองใหม่อีกครั้ง",
+        );
+        return;
+      }
+      setLoadError("โหลดข้อมูลไม่สำเร็จ");
+    },
+    [],
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -220,17 +240,17 @@ export function AppDataProvider({
     const timeout = window.setTimeout(() => controller.abort(), 12000);
     try {
       const res = await fetch("/api/app/bootstrap", { signal: controller.signal });
-      if (!res.ok) {
-        setLoadError("โหลดข้อมูลไม่สำเร็จ");
-        return;
-      }
-      const json = await res.json();
-      if (!json?.ok || !json.data) {
-        setLoadError("โหลดข้อมูลไม่สำเร็จ");
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        data?: AppBootstrapPayload;
+        error?: { code?: string; message?: string };
+      } | null;
+      if (!res.ok || !json?.ok || !json.data) {
+        await handleBootstrapFailure(res, json);
         return;
       }
 
-      applyBootstrap(json.data as AppBootstrapPayload, {
+      applyBootstrap(json.data, {
         setUser,
         setCategories,
         setNatalThreads,
@@ -249,7 +269,7 @@ export function AppDataProvider({
       window.clearTimeout(timeout);
       setLoading(false);
     }
-  }, []);
+  }, [handleBootstrapFailure]);
 
   const refreshLight = useCallback(async () => {
     try {

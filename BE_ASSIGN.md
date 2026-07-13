@@ -1,10 +1,10 @@
-# 🟩 Backend — สถานะปิด M4 (อัปเดต 12 ก.ค. 2026)
+# 🟩 Backend — สถานะปิด M4 (อัปเดต 13 ก.ค. 2026)
 
 **ส่งเพื่อน A:** [HANDOFF_BE.md](./HANDOFF_BE.md) — https://github.com/Markrock342/astrology_ai/blob/main/HANDOFF_BE.md
 
-**สถานะ:** M4 ปิดบน `main` · **Wave E handoff (BE-E0.3–E1.6) ครบบน `be/wave-e-handoff`** — รอ merge
+**สถานะ:** M4 + **Wave E merge แล้วบน `main`** · งานปัจจุบัน: [UX_WAVE_F_BE.md](./UX_WAVE_F_BE.md)
 
-**งานรอบถัดไป:** [UX_WAVE_F_BE.md](./UX_WAVE_F_BE.md) (เพื่อน A)
+**Branch อ้างอิง:** `main` @ `981010d` · `be/perf-wave3` ถูก absorb เข้า main แล้ว
 
 อ่านคู่กับ `M4_HANDOFF.md` · `BACKEND_TASKS.md` · `docs/backend_m4_deploy.md` · **`docs/backend_wave_e.md`**
 
@@ -22,7 +22,7 @@
 - [ ] Google OAuth redirect URI ตรงโดเมนจริง
 - [ ] (Optional) `UPSTASH_*` บน Vercel
 
-## ปิดแล้ว (Wave E handoff — branch `be/wave-e-handoff`)
+## ปิดแล้ว (Wave E handoff — merge บน `main`)
 - [x] BE-E0.3 — `Payment.notifiedAt` / `notifyError` + admin list API
 - [x] BE-E1.2 — quota atomic (`lockWalletForUpdate` + in-tx re-check)
 - [x] BE-E1.3 — `GET /api/me/usage` + credit history pagination
