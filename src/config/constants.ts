@@ -53,3 +53,10 @@ export const KNOWLEDGE_MAX_CHARS = 4_000;
 /** Plan-specific output caps (applied on top of Admin AIProviderConfig). */
 export const FREE_MAX_OUTPUT_TOKENS = 1_024;
 export const PRO_MAX_OUTPUT_TOKENS = 2_048;
+
+/** UX Wave F — brief answer mode caps (below plan caps). */
+export const BRIEF_MAX_OUTPUT_TOKENS_FREE = 384;
+export const BRIEF_MAX_OUTPUT_TOKENS_PRO = 512;
+
+export const BRIEF_ANSWER_HINT =
+  "ตอบกระชับ 2–4 ย่อหน้าสั้น ไม่เกิน ~300 คำ เน้นประเด็นหลัก";

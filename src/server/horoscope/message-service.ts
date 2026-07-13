@@ -23,6 +23,7 @@ export type SendMessageInput = {
   editUserMessageId?: string;
   /** Drop an assistant answer and re-run for the prior user question. */
   regenerateAssistantMessageId?: string;
+  answerMode?: "brief" | "detailed";
 };
 
 export type AcceptMessageResult =
@@ -334,6 +335,7 @@ export async function completePendingMessage(
                     district: conversation.transitDistrict,
                   }
                 : null,
+            answerMode: input.answerMode,
           },
           onDelta,
           shouldStop,
@@ -345,6 +347,7 @@ export async function completePendingMessage(
           idempotencyKey: input.idempotencyKey,
           priorMessages,
           mode: conversation.mode,
+          answerMode: input.answerMode,
           transit:
             conversation.mode === "TRANSIT" && conversation.transitDate
               ? {
