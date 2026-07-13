@@ -18,6 +18,7 @@ const bodySchema = z.object({
   content: z.string().min(1),
   editUserMessageId: z.string().optional(),
   regenerateAssistantMessageId: z.string().optional(),
+  answerMode: z.enum(["brief", "detailed"]).optional().default("detailed"),
 });
 
 function sseEncode(event: Record<string, unknown>): string {
@@ -61,7 +62,7 @@ export async function POST(
       if (!idempotencyKey) {
         throw new AppError("VALIDATION", "Idempotency-Key header is required");
       }
-      const { content, editUserMessageId, regenerateAssistantMessageId } =
+      const { content, editUserMessageId, regenerateAssistantMessageId, answerMode } =
         bodySchema.parse(await req.json());
 
       const accepted = await acceptMessage({
@@ -71,6 +72,7 @@ export async function POST(
         idempotencyKey,
         editUserMessageId,
         regenerateAssistantMessageId,
+        answerMode,
       });
 
       if (accepted.status === "ready") {
@@ -83,6 +85,7 @@ export async function POST(
           userId: user.id,
           content,
           idempotencyKey,
+          answerMode,
         }).catch((err) => {
           console.error("[chat-after]", err);
         });
@@ -109,7 +112,7 @@ export async function POST(
     if (!idempotencyKey) {
       throw new AppError("VALIDATION", "Idempotency-Key header is required");
     }
-    const { content, editUserMessageId, regenerateAssistantMessageId } =
+    const { content, editUserMessageId, regenerateAssistantMessageId, answerMode } =
       bodySchema.parse(await req.json());
 
     const encoder = new TextEncoder();
@@ -149,6 +152,7 @@ export async function POST(
             idempotencyKey,
             editUserMessageId,
             regenerateAssistantMessageId,
+            answerMode,
           });
 
           send({ type: "status", status: "preparing" });
@@ -179,6 +183,7 @@ export async function POST(
               userId: user.id,
               content,
               idempotencyKey,
+              answerMode,
             },
             (chunk) => {
               emitDeltaChunks(send, chunk);

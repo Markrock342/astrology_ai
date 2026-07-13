@@ -28,6 +28,9 @@ import {
 } from "@/server/horoscope/daily-transit-service";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
 import {
+  BRIEF_ANSWER_HINT,
+  BRIEF_MAX_OUTPUT_TOKENS_FREE,
+  BRIEF_MAX_OUTPUT_TOKENS_PRO,
   FREE_MAX_OUTPUT_TOKENS,
   KNOWLEDGE_MAX_CHARS,
   PRO_MAX_OUTPUT_TOKENS,
@@ -76,12 +79,18 @@ export function buildKnowledgePrompt(
 }
 
 /** Cap output tokens by plan while respecting Admin config ceiling. */
+export type AnswerMode = "brief" | "detailed";
+
 export function resolveMaxOutputTokens(
   plan: "FREE" | "PRO",
   configMaxOutputTokens: number,
+  answerMode: AnswerMode = "detailed",
 ): number {
   const planCap = plan === "PRO" ? PRO_MAX_OUTPUT_TOKENS : FREE_MAX_OUTPUT_TOKENS;
-  return Math.min(configMaxOutputTokens, planCap);
+  const briefCap =
+    plan === "PRO" ? BRIEF_MAX_OUTPUT_TOKENS_PRO : BRIEF_MAX_OUTPUT_TOKENS_FREE;
+  const modeCap = answerMode === "brief" ? briefCap : planCap;
+  return Math.min(configMaxOutputTokens, modeCap);
 }
 
 export type CreateReadingInput = {
@@ -93,6 +102,7 @@ export type CreateReadingInput = {
   priorMessages?: PriorThreadMessage[];
   mode?: ConversationMode;
   transit?: TransitSnapshotInput | null;
+  answerMode?: AnswerMode;
 };
 
 export async function createReading(input: CreateReadingInput) {
@@ -243,10 +253,14 @@ async function runReading(
   ]);
   const knowledge = buildKnowledgePrompt(knowledgeDocs);
 
-  const systemPrompt = buildSystemPrompt({
+  const answerMode = input.answerMode ?? "detailed";
+  let systemPrompt = buildSystemPrompt({
     ...promptParts,
     knowledge,
   });
+  if (answerMode === "brief") {
+    systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
+  }
   const { conversationHistory, userPrompt } = buildConversationHistory(
     priorMessages ?? [],
     snapshot,
@@ -267,7 +281,11 @@ async function runReading(
     throw new AppError("CHART_NOT_READY", "Transit engine chart missing from prompt");
   }
 
-  const maxOutputTokens = resolveMaxOutputTokens(plan, config.maxOutputTokens);
+  const maxOutputTokens = resolveMaxOutputTokens(
+    plan,
+    config.maxOutputTokens,
+    answerMode,
+  );
   const aiInput = {
     systemPrompt,
     userPrompt,
