@@ -79,6 +79,10 @@ vi.mock("@/server/horoscope/daily-transit-service", () => ({
   getOrComputeDailyTransit: mocks.getOrComputeDailyTransit,
   questionWantsTodayTransit: mocks.questionWantsTodayTransit,
 }));
+
+vi.mock("@/server/horoscope/follow-up-suggestions", () => ({
+  generateFollowUpMeta: vi.fn().mockResolvedValue({ followUps: [] }),
+}));
 vi.mock("@/server/ai/usage-logger", () => ({
   logUsage: mocks.logUsage,
 }));

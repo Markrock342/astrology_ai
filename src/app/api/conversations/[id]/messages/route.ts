@@ -168,6 +168,8 @@ export async function POST(
                 chartSnapshot: accepted.reading.chartSnapshot ?? null,
                 transitSnapshot: accepted.reading.transitSnapshot ?? null,
               },
+              followUps: [],
+              creditCost: accepted.reading.creditCost,
             });
             close();
             return;
@@ -198,6 +200,11 @@ export async function POST(
 
           const reading = await generation;
 
+          const meta = reading as {
+            summaryLine?: string;
+            followUps?: string[];
+          } | null | undefined;
+
           send({
             type: "done",
             reading: {
@@ -216,6 +223,9 @@ export async function POST(
                   ? reading.transitSnapshot
                   : null,
             },
+            ...(meta?.summaryLine ? { summaryLine: meta.summaryLine } : {}),
+            followUps: meta?.followUps ?? [],
+            creditCost: reading?.creditCost ?? 0,
           });
           close();
         } catch (err) {
