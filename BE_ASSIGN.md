@@ -4,6 +4,8 @@
 
 **สถานะ:** M4 ปิดบน `main` · **Wave E handoff (BE-E0.3–E1.6) ครบบน `be/wave-e-handoff`** — รอ merge
 
+**งานรอบถัดไป (แบ่ง 2 คน):** [`UX_WAVE_F_ASSIGN.md`](./UX_WAVE_F_ASSIGN.md) — เพื่อน A ทำฝั่งนี้
+
 อ่านคู่กับ `M4_HANDOFF.md` · `BACKEND_TASKS.md` · `docs/backend_m4_deploy.md` · **`docs/backend_wave_e.md`**
 
 ## ปิดแล้ว (M4 + engine)
