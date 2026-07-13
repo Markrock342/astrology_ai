@@ -1022,7 +1022,8 @@ export function ChatView() {
           disabled={locked || state === "locked"}
           // Keep the field editable while streaming (ChatGPT-style). Send is
           // blocked in send() until the turn settles; Stop replaces the arrow.
-          aiEnabled={FEATURES.aiChat && !locked}
+          aiEnabled={FEATURES.aiChat}
+          categoryLocked={locked}
           creditCost={DEFAULTS.creditCostPerReading}
         />
       </div>
@@ -1217,6 +1218,7 @@ function Composer({
   streaming,
   disabled,
   aiEnabled,
+  categoryLocked,
   creditCost,
 }: {
   value: string;
@@ -1227,8 +1229,16 @@ function Composer({
   streaming: boolean;
   disabled: boolean;
   aiEnabled: boolean;
+  /** Pro-only category while user is on Free — input stays editable, send blocked. */
+  categoryLocked?: boolean;
   creditCost?: number;
 }) {
+  const placeholder = !aiEnabled
+    ? "เปิดให้ใช้งานในเฟสถัดไป"
+    : categoryLocked
+      ? "หมวดนี้สำหรับ Pro — เลือก「ตัวตน」หรือ「การงาน」หรืออัปเกรด"
+      : "สอบถามเราได้เลย";
+
   return (
     <div className="px-4 pb-6 md:px-8">
       <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-5 py-3 transition-shadow duration-300 focus-within:border-[var(--primary)]/50 focus-within:shadow-[0_0_0_3px_var(--ring)]">
@@ -1242,7 +1252,7 @@ function Composer({
             }
           }}
           disabled={!aiEnabled}
-          placeholder={aiEnabled ? "สอบถามเราได้เลย" : "เปิดให้ใช้งานในเฟสถัดไป"}
+          placeholder={placeholder}
           className="w-full bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed"
         />
         <button
@@ -1276,7 +1286,7 @@ function Composer({
           <button
             type="button"
             onClick={onSend}
-            disabled={disabled || !aiEnabled || !value.trim()}
+            disabled={disabled || !aiEnabled || categoryLocked || !value.trim()}
             className="press-scale flex shrink-0 items-center justify-center text-[var(--primary)] transition hover:text-[var(--primary-hover)] disabled:opacity-40"
             aria-label="ส่ง"
           >
