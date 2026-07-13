@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
 /**
- * ChatGPT-style top progress bar: starts on internal link click, clears when
- * the URL settles. Gives instant feedback while force-dynamic RSC streams.
+ * Top progress bar for real route changes only.
+ * Soft chat switches on /dashboard (thread/cat query) must NOT flash a
+ * full-page "loading" bar — that is what felt like a forced refresh.
  */
 export function NavProgress() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const urlKey = `${pathname}?${searchParams.toString()}`;
-  /** Destination URL key while a navigation is in flight; null when idle. */
   const [targetUrl, setTargetUrl] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
@@ -33,17 +33,31 @@ export function NavProgress() {
         return;
       }
       if (url.origin !== window.location.origin) return;
+
+      // Same app shell, query-only — soft chat nav, no progress bar.
+      if (url.pathname === pathname && pathname.startsWith("/dashboard")) {
+        return;
+      }
+
       const nextKey = `${url.pathname}?${url.searchParams.toString()}`;
       if (nextKey === urlKey) return;
       setTick((n) => n + 1);
       setTargetUrl(nextKey);
     }
 
-    document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
-  }, [urlKey]);
+    // Bubble phase so preventDefault from soft-nav handlers is visible.
+    document.addEventListener("click", onClick, false);
+    return () => document.removeEventListener("click", onClick, false);
+  }, [urlKey, pathname]);
 
-  // Safety: clear stuck bar if navigation never settles (e.g. cancelled).
+  useEffect(() => {
+    function onSoftNav() {
+      setTargetUrl(null);
+    }
+    window.addEventListener("horasard:soft-nav", onSoftNav);
+    return () => window.removeEventListener("horasard:soft-nav", onSoftNav);
+  }, []);
+
   useEffect(() => {
     if (!visible) return;
     const id = window.setTimeout(() => setTargetUrl(null), 8000);

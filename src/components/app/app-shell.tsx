@@ -532,7 +532,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <MenuIcon />
           </button>
-          <Link href="/dashboard" className="min-w-0">
+          <Link
+            href="/dashboard"
+            className="min-w-0"
+            onClick={(e) => {
+              if (isPlainLeftClick(e)) {
+                e.preventDefault();
+                chatNav("/dashboard");
+              }
+            }}
+          >
             <BrandLockup markSize={26} showTagline={false} />
           </Link>
         </header>
@@ -594,6 +603,7 @@ function CollapsedRail({
   image?: string | null;
 }) {
   const { filteredCategories } = useAppData();
+  const chatNav = useChatNav();
   const railBtnRef = useRef<HTMLButtonElement>(null);
 
   return (
@@ -603,6 +613,12 @@ function CollapsedRail({
         className="press-scale mb-1 rounded-lg p-1 transition hover:bg-[var(--surface-2)]"
         aria-label="horasard"
         title="horasard"
+        onClick={(e) => {
+          if (isPlainLeftClick(e)) {
+            e.preventDefault();
+            chatNav("/dashboard");
+          }
+        }}
       >
         <BrandMark size={32} />
       </Link>
@@ -622,6 +638,12 @@ function CollapsedRail({
         className="press-scale mt-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--secondary-active)] text-[var(--secondary-foreground)] transition hover:brightness-110"
         aria-label="เริ่มสนทนาใหม่"
         title="เริ่มสนทนาใหม่"
+        onClick={(e) => {
+          if (isPlainLeftClick(e)) {
+            e.preventDefault();
+            chatNav("/dashboard");
+          }
+        }}
       >
         <NewChatIcon size={22} />
       </Link>

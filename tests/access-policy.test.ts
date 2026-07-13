@@ -49,10 +49,10 @@ describe("free tier access policy", () => {
     ).rejects.toMatchObject({ code: "TRANSIT_REQUIRES_PRO" });
   });
 
-  it("refuses follow-ups on Free — every extra turn re-sends chart, knowledge and history", async () => {
+  it("allows Free follow-ups — each turn still spends a credit like ChatGPT", async () => {
     await expect(
       assertCanRequestReading({ ...FREE_HAPPY, isFollowUp: true }),
-    ).rejects.toMatchObject({ code: "FOLLOWUP_REQUIRES_PRO" });
+    ).resolves.toBe("FREE");
   });
 
   it("refuses an unverified email — otherwise the trial is farmable with throwaway addresses", async () => {

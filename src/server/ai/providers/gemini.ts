@@ -189,11 +189,9 @@ export class GeminiAdapter implements AIProviderAdapter {
     let outputTokens: number | undefined;
     let stopped = false;
 
-    // Polling the stop flag on every chunk would mean a query per token, so
-    // check at most once a second — a stop lands within ~1s, which is well
-    // inside what a user reads as instant.
-    const STOP_POLL_MS = 1_000;
-    let lastStopCheck = start;
+    // Check stop often enough that the button feels instant (~250ms).
+    const STOP_POLL_MS = 250;
+    let lastStopCheck = 0;
     const checkStop = async (): Promise<boolean> => {
       if (!shouldStop) return false;
       const now = Date.now();
@@ -255,8 +253,8 @@ export class GeminiAdapter implements AIProviderAdapter {
       while (true) {
         if (await checkStop()) {
           stopped = true;
-          // Cancelling the reader closes the upstream connection, so Gemini
-          // stops generating (and billing us) for the rest of the answer.
+          // Abort the upstream request so Gemini stops generating immediately.
+          controller.abort();
           await reader.cancel().catch(() => {});
           break;
         }
@@ -300,14 +298,14 @@ export class GeminiAdapter implements AIProviderAdapter {
           provider: "GEMINI",
           modelId: input.modelId,
           latencyMs,
-          errorCode: "EMPTY_RESPONSE",
-          errorMessage: "Gemini stream returned no text",
+          errorCode: stopped ? "STOPPED" : "EMPTY_RESPONSE",
+          errorMessage: stopped
+            ? "Stopped before any text arrived"
+            : "Gemini stream returned no text",
+          stopped,
         };
       }
 
-      // A stop is a success with a shorter answer, not a failure: the user read
-      // what streamed, so the caller persists and charges it like a completed
-      // reading — and must never retry it on the fallback provider.
       return {
         ok: true,
         stopped,
@@ -320,6 +318,19 @@ export class GeminiAdapter implements AIProviderAdapter {
       };
     } catch (err) {
       const isTimeout = err instanceof Error && err.name === "AbortError";
+      // Abort from an explicit stop is success-with-partial, not a timeout.
+      if (stopped && rawText.trim()) {
+        return {
+          ok: true,
+          stopped: true,
+          provider: "GEMINI",
+          modelId: input.modelId,
+          rawText: rawText.trim(),
+          parsed: parseHoroscopeText(rawText.trim()),
+          usage: { inputTokens, outputTokens },
+          latencyMs: Date.now() - start,
+        };
+      }
       return {
         ok: false,
         provider: "GEMINI",

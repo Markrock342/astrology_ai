@@ -17,6 +17,7 @@ import { ChatMarkdown } from "./chat-markdown";
 import { ChatUsageBar } from "./chat-usage-bar";
 import { CopyMessageButton } from "./copy-message-button";
 import { NatalChartBanner } from "./natal-chart-banner";
+import { SmoothStreamMarkdown } from "./smooth-stream-markdown";
 import type { ChartJson } from "@/types/chart";
 import {
   getCachedThread,
@@ -193,6 +194,8 @@ export function ChatView() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamTimer = useRef<number | null>(null);
   const conversationIdRef = useRef<string | null>(threadId);
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const assembledRef = useRef("");
   // Stopping is an explicit server call, not just an aborted fetch: dropping the
   // connection has to let the answer finish in the background (so a refresh
   // never strands it as "generating"), while stop must actually cancel the model.
@@ -208,24 +211,35 @@ export function ChatView() {
   async function stopStreaming(target: StopTarget | null) {
     if (!target || stopping) return;
     setStopping(true);
+    // Instant UI: cut the local stream and keep whatever already arrived.
+    streamAbortRef.current?.abort();
+    const partial = assembledRef.current.trim();
+    const assistantId = `stream-${target.idempotencyKey}`;
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === assistantId || m.idempotencyKey === target.idempotencyKey
+          ? {
+              ...m,
+              content:
+                partial ||
+                m.content ||
+                "หยุดการทำนายแล้ว",
+              status: "SUCCESS",
+              idempotencyKey: target.idempotencyKey,
+            }
+          : m,
+      ),
+    );
+    setState("idle");
+    setInFlight(null);
     try {
       await fetch(`/api/conversations/${target.threadId}/stop`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idempotencyKey: target.idempotencyKey }),
       });
-      // A live answer settles through its own stream. A stranded one is closed
-      // out by the endpoint, and only a re-read will show that — otherwise the
-      // turn keeps rendering as "generating" even though it is now finished.
-      if (!inFlight) {
-        const fresh = await prefetchThread(target.threadId);
-        if (fresh) {
-          setMessages(fresh.messages as Message[]);
-          setState("idle");
-        }
-      }
     } catch {
-      /* the stream/poll still settles the message either way */
+      /* server stop is best-effort — UI already settled */
     } finally {
       setStopping(false);
     }
@@ -521,6 +535,10 @@ export function ChatView() {
     const assistantId = `stream-${idempotencyKey}`;
     // Hoisted so the catch can keep whatever streamed before a stop/disconnect.
     let assembled = "";
+    assembledRef.current = "";
+    const abort = new AbortController();
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = abort;
 
     try {
       const conversationId = categorySlug
@@ -550,10 +568,16 @@ export function ChatView() {
         // "the page refreshed while it was typing" flash. replaceState still
         // syncs useSearchParams, so threadId lands without any of that.
         window.history.replaceState(
-          null,
+          window.history.state,
           "",
           `/dashboard?thread=${conversationId}&cat=${syncCat}`,
         );
+        window.dispatchEvent(
+          new CustomEvent("horasard:soft-nav", {
+            detail: { href: `/dashboard?thread=${conversationId}&cat=${syncCat}` },
+          }),
+        );
+        conversationIdRef.current = conversationId;
       }
 
       // Placeholder assistant bubble — typing until first delta.
@@ -566,6 +590,7 @@ export function ChatView() {
             role: "assistant",
             content: "",
             status: "PENDING",
+            idempotencyKey,
           },
         ];
       });
@@ -582,6 +607,7 @@ export function ChatView() {
             "Idempotency-Key": idempotencyKey,
           },
           body: JSON.stringify({ content }),
+          signal: abort.signal,
         },
       );
 
@@ -687,12 +713,18 @@ export function ChatView() {
           if (event.type === "delta" && event.text) {
             gotDelta = true;
             assembled += event.text;
+            assembledRef.current = assembled;
             if (!ownsView()) continue;
             setState("streaming");
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: assembled, status: "PENDING" }
+                  ? {
+                      ...m,
+                      content: assembled,
+                      status: "PENDING",
+                      idempotencyKey,
+                    }
                   : m,
               ),
             );
@@ -763,7 +795,11 @@ export function ChatView() {
         }
         setState("processing");
       }
-    } catch {
+    } catch (err) {
+      // User pressed Stop — UI already settled in stopStreaming().
+      if (abort.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
       // The connection dropped, but the server keeps generating and finalizes
       // the message, so fall back to the PENDING poll rather than erroring out
       // over an answer that is still on its way.
@@ -771,7 +807,12 @@ export function ChatView() {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content: assembled, status: "PENDING" }
+              ? {
+                  ...m,
+                  content: assembled,
+                  status: "PENDING",
+                  idempotencyKey,
+                }
               : m,
           ),
         );
@@ -782,6 +823,9 @@ export function ChatView() {
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
       setState("error");
     } finally {
+      if (streamAbortRef.current === abort) {
+        streamAbortRef.current = null;
+      }
       setInFlight(null);
       sendingThreadRef.current = null;
     }
@@ -855,20 +899,12 @@ export function ChatView() {
           <LockedState category={category?.label} />
         ) : (
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-2">
-            {(() => {
-              const visibleMessages = messages.filter(
-                (m) =>
-                  !(
-                    m.role === "assistant" &&
-                    m.status === "PENDING" &&
-                    !m.content
-                  ),
-              );
-              return visibleMessages.map((m, idx) => {
+            {messages.map((m, idx) => {
               const isStreamingTurn =
-                state === "streaming" &&
+                (state === "streaming" || state === "processing") &&
                 m.role === "assistant" &&
-                idx === visibleMessages.length - 1;
+                idx === messages.length - 1 &&
+                m.status === "PENDING";
               return m.role === "user" ? (
                 <div key={m.id} className="animate-msg-in flex justify-end">
                   <div className="max-w-[min(85%,42rem)] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[var(--surface-3)] px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]">
@@ -916,7 +952,14 @@ export function ChatView() {
                         )}
                       </div>
                     )}
-                    <ChatMarkdown content={m.content} streaming={isStreamingTurn} />
+                    {isStreamingTurn ? (
+                      <SmoothStreamMarkdown
+                        content={m.content}
+                        streaming
+                      />
+                    ) : (
+                      <ChatMarkdown content={m.content} />
+                    )}
                     {!isStreamingTurn && m.content && (
                       <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-[var(--border)]/70 pt-2">
                         <CopyMessageButton text={m.content} />
@@ -936,14 +979,12 @@ export function ChatView() {
                   </div>
                 </div>
               );
-            });
-            })()}
-            {state === "processing" && <ThinkingIndicator />}
-            {state === "streaming" &&
-              messages[messages.length - 1]?.role === "assistant" &&
-              !messages[messages.length - 1]?.content && (
-                <ThinkingIndicator />
-              )}
+            })}
+            {state === "processing" &&
+              !(
+                messages[messages.length - 1]?.role === "assistant" &&
+                messages[messages.length - 1]?.status === "PENDING"
+              ) && <ThinkingIndicator />}
             {(state === "error" || state === "no-quota") && (
               <ErrorBanner
                 state={state}
@@ -976,7 +1017,9 @@ export function ChatView() {
             Boolean(stopTarget) &&
             !stopping
           }
-          disabled={state === "processing" || state === "streaming" || locked}
+          disabled={locked || state === "locked"}
+          // Keep the field editable while streaming (ChatGPT-style). Send is
+          // blocked in send() until the turn settles; Stop replaces the arrow.
           aiEnabled={FEATURES.aiChat && !locked}
           creditCost={DEFAULTS.creditCostPerReading}
         />
