@@ -16,6 +16,8 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   content: z.string().min(1),
+  editUserMessageId: z.string().optional(),
+  regenerateAssistantMessageId: z.string().optional(),
 });
 
 function sseEncode(event: Record<string, unknown>): string {
@@ -59,13 +61,16 @@ export async function POST(
       if (!idempotencyKey) {
         throw new AppError("VALIDATION", "Idempotency-Key header is required");
       }
-      const { content } = bodySchema.parse(await req.json());
+      const { content, editUserMessageId, regenerateAssistantMessageId } =
+        bodySchema.parse(await req.json());
 
       const accepted = await acceptMessage({
         conversationId: id,
         userId: user.id,
         content,
         idempotencyKey,
+        editUserMessageId,
+        regenerateAssistantMessageId,
       });
 
       if (accepted.status === "ready") {
@@ -104,7 +109,8 @@ export async function POST(
     if (!idempotencyKey) {
       throw new AppError("VALIDATION", "Idempotency-Key header is required");
     }
-    const { content } = bodySchema.parse(await req.json());
+    const { content, editUserMessageId, regenerateAssistantMessageId } =
+      bodySchema.parse(await req.json());
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
@@ -141,6 +147,8 @@ export async function POST(
             userId: user.id,
             content,
             idempotencyKey,
+            editUserMessageId,
+            regenerateAssistantMessageId,
           });
 
           if (accepted.status === "ready") {

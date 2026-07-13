@@ -230,6 +230,139 @@ export async function deleteConversation(userId: string, threadId: string) {
   return { id: conversation.id };
 }
 
+/** Rename a conversation thread (sidebar title). */
+export async function updateConversationTitle(
+  userId: string,
+  threadId: string,
+  title: string,
+) {
+  const trimmed = title.trim();
+  if (!trimmed) throw new AppError("VALIDATION", "ชื่อแชทต้องไม่ว่าง");
+
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: threadId, userId },
+    select: { id: true },
+  });
+  if (!conversation) throw new AppError("NOT_FOUND", "ไม่พบประวัติการสนทนานี้");
+
+  await prisma.conversation.update({
+    where: { id: conversation.id },
+    data: { title: truncateTitle(trimmed, 120), updatedAt: new Date() },
+  });
+  invalidateUserBootstrap(userId);
+  return { id: conversation.id, title: truncateTitle(trimmed, 120) };
+}
+
+/** Delete a message and every message created after it in the same thread. */
+export async function truncateMessagesFrom(
+  userId: string,
+  messageId: string,
+): Promise<{ conversationId: string }> {
+  const anchor = await prisma.message.findFirst({
+    where: { id: messageId, conversation: { userId } },
+    select: { id: true, conversationId: true, createdAt: true },
+  });
+  if (!anchor) throw new AppError("NOT_FOUND", "ไม่พบข้อความนี้");
+
+  await prisma.message.deleteMany({
+    where: {
+      conversationId: anchor.conversationId,
+      createdAt: { gte: anchor.createdAt },
+    },
+  });
+
+  await prisma.conversation.update({
+    where: { id: anchor.conversationId },
+    data: { updatedAt: new Date() },
+  });
+
+  return { conversationId: anchor.conversationId };
+}
+
+/** Edit a user turn: update text and drop all later messages. */
+export async function editUserMessage(
+  userId: string,
+  messageId: string,
+  newContent: string,
+): Promise<{ conversationId: string; content: string }> {
+  const trimmed = newContent.trim();
+  if (!trimmed) throw new AppError("VALIDATION", "ข้อความต้องไม่ว่าง");
+
+  const message = await prisma.message.findFirst({
+    where: { id: messageId, role: "USER", conversation: { userId } },
+    select: { id: true, conversationId: true, createdAt: true },
+  });
+  if (!message) throw new AppError("NOT_FOUND", "ไม่พบข้อความผู้ใช้นี้");
+
+  await prisma.$transaction([
+    prisma.message.deleteMany({
+      where: {
+        conversationId: message.conversationId,
+        createdAt: { gt: message.createdAt },
+      },
+    }),
+    prisma.message.update({
+      where: { id: message.id },
+      data: { content: trimmed },
+    }),
+    prisma.conversation.update({
+      where: { id: message.conversationId },
+      data: { updatedAt: new Date() },
+    }),
+  ]);
+
+  return { conversationId: message.conversationId, content: trimmed };
+}
+
+/**
+ * Regenerate an assistant answer: remove it and everything after, return the
+ * preceding user question for a fresh AI run.
+ */
+export async function prepareRegenerateAssistant(
+  userId: string,
+  assistantMessageId: string,
+): Promise<{ conversationId: string; content: string }> {
+  const assistant = await prisma.message.findFirst({
+    where: {
+      id: assistantMessageId,
+      role: "ASSISTANT",
+      conversation: { userId },
+    },
+    select: { id: true, conversationId: true, createdAt: true },
+  });
+  if (!assistant) throw new AppError("NOT_FOUND", "ไม่พบคำตอบนี้");
+
+  const priorUser = await prisma.message.findFirst({
+    where: {
+      conversationId: assistant.conversationId,
+      role: "USER",
+      createdAt: { lt: assistant.createdAt },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { content: true },
+  });
+  if (!priorUser?.content.trim()) {
+    throw new AppError("VALIDATION", "ไม่พบคำถามก่อนหน้าสำหรับสร้างคำตอบใหม่");
+  }
+
+  await prisma.message.deleteMany({
+    where: {
+      conversationId: assistant.conversationId,
+      createdAt: { gte: assistant.createdAt },
+    },
+  });
+
+  await prisma.conversation.update({
+    where: { id: assistant.conversationId },
+    data: { updatedAt: new Date() },
+  });
+
+  return {
+    conversationId: assistant.conversationId,
+    content: priorUser.content.trim(),
+  };
+}
+
 /** Persist only the user turn (before background AI). */
 export async function appendUserMessage(input: {
   conversationId: string;

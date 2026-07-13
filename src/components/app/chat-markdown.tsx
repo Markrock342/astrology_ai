@@ -3,6 +3,7 @@
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { CopyCodeButton } from "./copy-code-button";
 
 const components: Components = {
   h1: ({ children }) => (
@@ -80,11 +81,28 @@ const components: Components = {
       </code>
     );
   },
-  pre: ({ children }) => (
-    <pre className="mb-3 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3 last:mb-0">
-      {children}
-    </pre>
-  ),
+  pre: ({ children }) => {
+    const child = Array.isArray(children) ? children[0] : children;
+    const codeText =
+      child &&
+      typeof child === "object" &&
+      "props" in child &&
+      typeof child.props?.children === "string"
+        ? child.props.children
+        : "";
+    return (
+      <div className="group/code relative mb-3 last:mb-0">
+        {codeText ? (
+          <div className="absolute right-2 top-2 z-10 opacity-0 transition group-hover/code:opacity-100">
+            <CopyCodeButton code={codeText} />
+          </div>
+        ) : null}
+        <pre className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3 pt-8">
+          {children}
+        </pre>
+      </div>
+    );
+  },
   table: ({ children }) => (
     <div className="mb-4 overflow-x-auto rounded-xl border border-[var(--border)] last:mb-0">
       <table className="min-w-full border-collapse text-left text-sm">{children}</table>

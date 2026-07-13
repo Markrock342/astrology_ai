@@ -7,8 +7,10 @@ import { createReading, streamReading } from "@/server/horoscope/reading-service
 import {
   appendUserMessage,
   createPendingAssistant,
+  editUserMessage,
   finalizeAssistantMessage,
   loadPriorMessages,
+  prepareRegenerateAssistant,
 } from "@/server/horoscope/thread-service";
 import type { ConversationMode } from "@prisma/client";
 
@@ -17,6 +19,10 @@ export type SendMessageInput = {
   userId: string;
   content: string;
   idempotencyKey: string;
+  /** Update an existing user message and re-run AI (no new user row). */
+  editUserMessageId?: string;
+  /** Drop an assistant answer and re-run for the prior user question. */
+  regenerateAssistantMessageId?: string;
 };
 
 export type AcceptMessageResult =
@@ -70,6 +76,32 @@ export async function acceptMessage(
   input: SendMessageInput,
 ): Promise<AcceptMessageResult> {
   const conversation = await assertCanSend(input.conversationId, input.userId);
+
+  let question = input.content.trim();
+  let skipUserAppend = false;
+
+  if (input.editUserMessageId) {
+    const edited = await editUserMessage(
+      input.userId,
+      input.editUserMessageId,
+      question,
+    );
+    if (edited.conversationId !== conversation.id) {
+      throw new AppError("VALIDATION", "ข้อความไม่อยู่ในเธรดนี้");
+    }
+    question = edited.content;
+    skipUserAppend = true;
+  } else if (input.regenerateAssistantMessageId) {
+    const prepared = await prepareRegenerateAssistant(
+      input.userId,
+      input.regenerateAssistantMessageId,
+    );
+    if (prepared.conversationId !== conversation.id) {
+      throw new AppError("VALIDATION", "ข้อความไม่อยู่ในเธรดนี้");
+    }
+    question = prepared.content;
+    skipUserAppend = true;
+  }
 
   // Unstick zombie PENDING rows left when serverless after() was killed mid-AI.
   await prisma.message.updateMany({
@@ -152,11 +184,13 @@ export async function acceptMessage(
     };
   }
 
-  await appendUserMessage({
-    conversationId: conversation.id,
-    userId: input.userId,
-    userContent: input.content,
-  });
+  if (!skipUserAppend) {
+    await appendUserMessage({
+      conversationId: conversation.id,
+      userId: input.userId,
+      userContent: question,
+    });
+  }
   await createPendingAssistant({
     conversationId: conversation.id,
     userId: input.userId,
