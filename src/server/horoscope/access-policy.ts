@@ -6,30 +6,23 @@ import { getEffectivePlan } from "@/server/user/account-service";
 /**
  * Who may ask the AI for a reading.
  *
- * Free is a **trial**, not a viewer tier. It used to be blanket-blocked from the
- * AI, which made the 3 credits granted at sign-up unspendable — the product
- * advertised a free trial that did not exist, and nobody could see a single
- * reading before wiring 199 THB and waiting a day for approval.
+ * Free is a **trial**, not a viewer tier — credits granted at sign-up must be
+ * spendable. Walls that keep the trial from becoming an open bar:
  *
- * So Free may spend its credits, and these are the walls that keep the trial
- * from becoming an open bar:
- *
- *  1. Free categories only — Pro categories stay locked (Package/Category CMS).
+ *  1. Free categories only — Pro categories stay locked.
  *  2. Natal only — transit is a Pro feature.
- *  3. No follow-ups — every extra turn re-sends the chart, the knowledge docs and
- *     the whole history, so cost grows with each one. A Free user gets one
- *     question per thread; new threads are fine while credits last.
- *  4. Verified email — the grant is per account, and an unverified address is
- *     free to mint, so this is what stops the trial being farmed.
+ *  3. Verified email — stops farming throwaway accounts for the trial grant.
  *
- * The credit balance and the package day/month limits are enforced separately
- * (credit-service, quota-service) and apply to both plans.
+ * Follow-ups are allowed on Free: each turn still spends a credit / quota slot
+ * (same as ChatGPT). Blocking them made the chat feel broken ("คุยต่อไม่ได้").
+ *
+ * Credit balance + package day/month limits are enforced separately.
  */
 export async function assertCanRequestReading(input: {
   userId: string;
   categoryAccessLevel: AccessLevel;
   mode: ConversationMode;
-  /** True when the turn continues an existing thread rather than opening one. */
+  /** Kept for callers/logging; Free follow-ups are allowed. */
   isFollowUp: boolean;
 }): Promise<"FREE" | "PRO"> {
   const plan = await getEffectivePlan(input.userId);
@@ -46,13 +39,6 @@ export async function assertCanRequestReading(input: {
     throw new AppError(
       "TRANSIT_REQUIRES_PRO",
       "โหมดดวงจรสำหรับสมาชิก Pro เท่านั้น",
-    );
-  }
-
-  if (input.isFollowUp) {
-    throw new AppError(
-      "FOLLOWUP_REQUIRES_PRO",
-      "ถามต่อในบทสนทนาเดิมสำหรับสมาชิก Pro — เริ่มคำถามใหม่ได้ตราบใดที่ยังมีเครดิต",
     );
   }
 

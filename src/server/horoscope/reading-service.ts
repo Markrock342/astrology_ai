@@ -112,6 +112,7 @@ async function runReading(
   }
 
   // 3. Free may spend its trial credits, within the walls in access-policy.
+  // Follow-ups are allowed on Free — each turn still spends a credit.
   const plan = await assertCanRequestReading({
     userId,
     categoryAccessLevel: category.accessLevel,
@@ -251,6 +252,30 @@ async function runReading(
       });
 
   // On failure/timeout: release reservation, log failure, DO NOT charge.
+  // An explicit stop with no text yet is a cancelled turn — not a provider error.
+  if (result.stopped && !result.rawText?.trim()) {
+    await releaseUsageReservation(reservationId);
+    await logUsage({
+      userId,
+      provider: result.provider,
+      modelId: result.modelId,
+      status: "FAILED",
+      latencyMs: result.latencyMs,
+      errorCode: "STOPPED",
+      errorMessage: "User stopped before text arrived",
+    });
+    return {
+      id: "",
+      responseText: "หยุดการทำนายแล้ว (ไม่ถูกหักเครดิตเพราะยังไม่มีคำตอบ)",
+      provider: result.provider,
+      modelId: result.modelId,
+      creditCost: 0,
+      status: "FAILED" as const,
+      chartSnapshot: null,
+      transitSnapshot: null,
+    };
+  }
+
   if (!result.ok || !result.rawText) {
     await releaseUsageReservation(reservationId);
     await logUsage({
