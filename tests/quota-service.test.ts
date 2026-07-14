@@ -61,12 +61,16 @@ describe("assertWithinUsageLimits (Wave E)", () => {
 
   it("assertWithinUsageLimitsInTx uses the transaction client", async () => {
     mocks.count.mockResolvedValue(1);
+    // The gate now purges stale RESERVED rows before counting — a leaked
+    // reservation used to hold shut the very door that would have freed it.
+    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
     const tx = {
       userSubscription: { findFirst: mocks.findFirstSub },
       package: { findFirst: mocks.findFirstPkg },
-      aIUsageLog: { count: mocks.count },
+      aIUsageLog: { count: mocks.count, deleteMany },
     };
     await assertWithinUsageLimitsInTx("user-1", tx as never);
+    expect(deleteMany).toHaveBeenCalled();
     expect(mocks.count).toHaveBeenCalled();
   });
 });

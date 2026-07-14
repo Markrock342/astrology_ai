@@ -40,6 +40,10 @@ export type AcceptMessageResult =
         chartSnapshot?: unknown;
         transitSnapshot?: unknown;
       };
+      /** Same contract as the pending branch — a replayed turn must still be
+       *  editable/regenerable, which needs the real row ids. */
+      userMessageId?: string;
+      assistantMessageId?: string;
     }
   | {
       status: "pending";
@@ -177,6 +181,22 @@ export async function acceptMessage(
       };
     }
 
+    // The question this answer belongs to — the client needs both ids or the
+    // replayed turn renders with no edit/regenerate/thumbs at all.
+    const priorUser = await prisma.message.findFirst({
+      where: {
+        conversationId: conversation.id,
+        role: "USER",
+        createdAt: { lt: existingAssistant.createdAt },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    const messageIds = {
+      userMessageId: priorUser?.id,
+      assistantMessageId: existingAssistant.id,
+    };
+
     const reading = await prisma.horoscopeReading.findUnique({
       where: {
         userId_idempotencyKey: {
@@ -196,6 +216,7 @@ export async function acceptMessage(
           creditCost: reading.creditCost,
           status: reading.status,
         },
+        ...messageIds,
       };
     }
     return {
@@ -208,6 +229,7 @@ export async function acceptMessage(
         creditCost: existingAssistant.creditCost,
         status: existingAssistant.status,
       },
+      ...messageIds,
     };
   }
 

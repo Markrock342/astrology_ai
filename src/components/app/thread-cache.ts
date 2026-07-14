@@ -46,6 +46,12 @@ export function invalidateCachedThread(threadId: string) {
   inflight.delete(threadId);
 }
 
+/** Drop every cached thread — after "clear all history", nothing may survive. */
+export function clearThreadCache() {
+  cache.clear();
+  inflight.clear();
+}
+
 export async function prefetchThread(
   threadId: string,
   options?: { timeoutMs?: number },

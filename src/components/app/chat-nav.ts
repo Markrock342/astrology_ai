@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 /**
  * Soft-navigate inside the chat route without a full Next navigation.
@@ -18,11 +19,27 @@ import { useCallback } from "react";
  * while every useSearchParams consumer (sidebar highlight, ChatView catSlug)
  * stayed stale. Next copies its internal tree onto the new entry itself, so
  * back/forward keeps working with null state.
+ *
+ * EQUALLY CRITICAL: this is shallow routing — it swaps the URL, not the route.
+ * ACTION_RESTORE reconciles the CURRENT tree; it never fetches another route's
+ * RSC payload. Pointing it at a different pathname (e.g. /account → /dashboard)
+ * changes the address bar while the old page stays mounted. Cross-route callers
+ * must fall back to a real navigation — see useChatNav.
+ *
+ * @returns true if the URL was handled here; false when the caller must
+ *          perform a real (router) navigation instead.
  */
-export function softNavigate(href: string, opts?: { replace?: boolean }) {
-  if (typeof window === "undefined") return;
+export function softNavigate(
+  href: string,
+  opts?: { replace?: boolean },
+): boolean {
+  if (typeof window === "undefined") return false;
   const next = href.startsWith("/") ? href : `/${href}`;
-  if (window.location.pathname + window.location.search === next) return;
+  if (window.location.pathname + window.location.search === next) return true;
+
+  const target = new URL(next, window.location.origin);
+  if (target.pathname !== window.location.pathname) return false;
+
   if (opts?.replace) {
     window.history.replaceState(null, "", next);
   } else {
@@ -32,11 +49,22 @@ export function softNavigate(href: string, opts?: { replace?: boolean }) {
   window.dispatchEvent(
     new CustomEvent("horasard:soft-nav", { detail: { href: next } }),
   );
+  return true;
 }
 
-/** Hook form of softNavigate for components that navigate on events. */
+/**
+ * Navigate to a chat destination: shallow when it is a query-only change on the
+ * current route, a real navigation otherwise (so leaving /account back to the
+ * chat actually renders the chat).
+ */
 export function useChatNav() {
-  return useCallback((href: string) => softNavigate(href), []);
+  const router = useRouter();
+  return useCallback(
+    (href: string) => {
+      if (!softNavigate(href)) router.push(href);
+    },
+    [router],
+  );
 }
 
 /** True for a click we should handle in-app (not open-in-new-tab). */

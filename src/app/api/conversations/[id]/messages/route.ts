@@ -162,6 +162,12 @@ export async function POST(
             if (text) emitDeltaChunks(send, text);
             send({
               type: "done",
+              // A replayed turn is still a real turn — without the ids the
+              // client leaves it with no edit/regenerate/thumbs, forever.
+              messageIds: {
+                user: accepted.userMessageId ?? null,
+                assistant: accepted.assistantMessageId ?? null,
+              },
               reading: {
                 id: accepted.reading.id,
                 responseText: accepted.reading.responseText,
