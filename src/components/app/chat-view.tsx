@@ -86,7 +86,24 @@ type Message = {
   idempotencyKey?: string;
   summaryLine?: string;
   followUps?: string[];
+  /**
+   * The real DB row id, learned from the `done` event. Optimistic bubbles keep
+   * their local id as the React key (swapping keys would remount and re-animate
+   * the whole turn), so server-addressed actions read this instead.
+   */
+  serverId?: string;
 };
+
+/**
+ * The DB row id for a message, or undefined while it is still optimistic.
+ * Edit/regenerate/retry must never send a `local-*`/`stream-*` id — the server
+ * looks the row up by id and answers "ไม่พบข้อความผู้ใช้นี้".
+ */
+function serverIdOf(m: Message): string | undefined {
+  if (m.serverId) return m.serverId;
+  if (m.id.startsWith("local-") || m.id.startsWith("stream-")) return undefined;
+  return m.id;
+}
 type ChatState =
   | "idle"
   | "processing"
@@ -737,9 +754,22 @@ export function ChatView() {
       );
     }
 
-    const editUserMessageId = options.editUserMessageId ?? editingMessageId ?? undefined;
-    if (editUserMessageId) {
-      const idx = messages.findIndex((m) => m.id === editUserMessageId);
+    // The edit target is addressed locally (React key) but must be sent to the
+    // server by its DB row id.
+    const editLocalId = options.editUserMessageId ?? editingMessageId ?? undefined;
+    let editServerMessageId: string | undefined;
+    if (editLocalId) {
+      const idx = messages.findIndex((m) => m.id === editLocalId);
+      const target = idx >= 0 ? messages[idx] : undefined;
+      editServerMessageId = target ? serverIdOf(target) : undefined;
+      if (!editServerMessageId) {
+        // Not persisted yet — editing it would address a row that isn't there.
+        setEditingMessageId(null);
+        setErrorCode("VALIDATION");
+        setErrorText("ข้อความนี้ยังบันทึกไม่เสร็จ รอสักครู่แล้วลองแก้ไขใหม่");
+        setState("error");
+        return;
+      }
       if (idx >= 0) {
         setMessages((prev) => [
           ...prev.slice(0, idx),
@@ -776,8 +806,12 @@ export function ChatView() {
 
     const isRetry = Boolean(options.retryKey);
     const isRegenerate = Boolean(options.regenerateAssistantMessageId);
-    if (!isRetry && !isRegenerate && !editUserMessageId) {
-      const userMsg: Message = { id: crypto.randomUUID(), role: "user", content };
+    // Local id: the server row does not exist yet. `done` brings back the real
+    // one and we bind it as serverId (see serverIdOf).
+    let optimisticUserId: string | null = null;
+    if (!isRetry && !isRegenerate && !editLocalId) {
+      optimisticUserId = `local-${crypto.randomUUID()}`;
+      const userMsg: Message = { id: optimisticUserId, role: "user", content };
       setMessages((m) => [...m, userMsg]);
       setInput("");
       window.localStorage.removeItem(DRAFT_KEY);
@@ -889,7 +923,7 @@ export function ChatView() {
           },
           body: JSON.stringify({
             content,
-            editUserMessageId,
+            editUserMessageId: editServerMessageId,
             regenerateAssistantMessageId: options.regenerateAssistantMessageId,
             answerMode,
           }),
@@ -1024,6 +1058,10 @@ export function ChatView() {
             message?: string;
             summaryLine?: string;
             followUps?: string[];
+            messageIds?: {
+              user?: string | null;
+              assistant?: string | null;
+            };
             reading?: {
               responseText?: string | null;
               modelId?: string | null;
@@ -1074,21 +1112,35 @@ export function ChatView() {
                 ? event.summaryLine.trim() || undefined
                 : undefined;
             setThinkingPhase(null);
+            // Bind the real row ids onto the optimistic bubbles (keys stay put,
+            // so nothing remounts) — this is what makes edit/regenerate work on
+            // a turn that was just streamed.
+            const serverUserId = event.messageIds?.user ?? undefined;
+            const serverAssistantId = event.messageIds?.assistant ?? undefined;
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? {
-                      ...m,
-                      content: finalText,
-                      modelId: reading?.modelId ?? DEFAULTS.defaultGeminiModelId,
-                      status: "SUCCESS",
-                      chartSnapshot: reading?.chartSnapshot ?? null,
-                      transitSnapshot: reading?.transitSnapshot ?? null,
-                      summaryLine,
-                      followUps,
-                    }
-                  : m,
-              ),
+              prev.map((m) => {
+                if (m.id === assistantId) {
+                  return {
+                    ...m,
+                    serverId: serverAssistantId ?? m.serverId,
+                    content: finalText,
+                    modelId: reading?.modelId ?? DEFAULTS.defaultGeminiModelId,
+                    status: "SUCCESS" as const,
+                    chartSnapshot: reading?.chartSnapshot ?? null,
+                    transitSnapshot: reading?.transitSnapshot ?? null,
+                    summaryLine,
+                    followUps,
+                  };
+                }
+                if (
+                  serverUserId &&
+                  optimisticUserId &&
+                  m.id === optimisticUserId
+                ) {
+                  return { ...m, serverId: serverUserId };
+                }
+                return m;
+              }),
             );
             setState("idle");
             setErrorText(null);
@@ -1243,26 +1295,31 @@ export function ChatView() {
     composerRef.current?.focus();
   }
 
-  function regenerateAssistant(assistantId: string) {
+  function regenerateAssistant(localId: string) {
     if (isBusy) return;
-    const idx = messages.findIndex((m) => m.id === assistantId);
+    const idx = messages.findIndex((m) => m.id === localId);
     if (idx <= 0) return;
+    // The server drops the assistant row by its DB id — a local key won't do.
+    const serverId = serverIdOf(messages[idx]);
+    if (!serverId) return;
     const userMsg = messages[idx - 1];
     if (userMsg.role !== "user") return;
     setMessages((prev) => prev.slice(0, idx));
     setErrorText(null);
     setErrorCode(null);
-    void send(userMsg.content, { regenerateAssistantMessageId: assistantId });
+    void send(userMsg.content, { regenerateAssistantMessageId: serverId });
   }
 
-  function retryFailedAssistant(assistantId: string) {
+  function retryFailedAssistant(localId: string) {
     if (isBusy) return;
-    const idx = messages.findIndex((m) => m.id === assistantId);
+    const idx = messages.findIndex((m) => m.id === localId);
     if (idx <= 0) return;
+    const serverId = serverIdOf(messages[idx]);
+    if (!serverId) return;
     const userMsg = messages[idx - 1];
     if (userMsg.role !== "user") return;
-    setMessages((prev) => prev.filter((m) => m.id !== assistantId));
-    void send(userMsg.content, { regenerateAssistantMessageId: assistantId });
+    setMessages((prev) => prev.filter((m) => m.id !== localId));
+    void send(userMsg.content, { regenerateAssistantMessageId: serverId });
   }
 
   function prefillFromChart(prompt: string) {
@@ -1347,6 +1404,10 @@ export function ChatView() {
                 m.role === "assistant" &&
                 idx === messages.length - 1 &&
                 m.status === "PENDING";
+              // Server-addressed actions (edit/regenerate/retry) only make sense
+              // once the row exists — and feedback keys off it so a thumbs-up
+              // survives the reload that swaps local ids for real ones.
+              const sid = serverIdOf(m);
               return m.role === "user" ? (
                 <div key={m.id} className="animate-msg-in group flex flex-col items-end">
                   <div
@@ -1358,10 +1419,10 @@ export function ChatView() {
                   >
                     {m.content}
                   </div>
-                  {!isBusy && !m.id.startsWith("stream-") ? (
+                  {!isBusy && sid ? (
                     <MessageActions
                       role="user"
-                      messageId={m.id}
+                      messageId={sid}
                       content={m.content}
                       canEdit
                       onEdit={() => startEditMessage(m.id, m.content)}
@@ -1431,10 +1492,10 @@ export function ChatView() {
                     )}
                     {!isStreamingTurn && m.content && (
                       <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-[var(--border)]/70 pt-2">
-                        {!isBusy && !m.id.startsWith("stream-") ? (
+                        {!isBusy && sid ? (
                           <MessageActions
                             role="assistant"
-                            messageId={m.id}
+                            messageId={sid}
                             content={m.content}
                             canRegenerate={m.status !== "PENDING"}
                             failed={m.status === "FAILED" || m.status === "TIMEOUT"}
@@ -1444,8 +1505,8 @@ export function ChatView() {
                                 ? () => retryFailedAssistant(m.id)
                                 : undefined
                             }
-                            feedback={feedbackById[m.id] ?? null}
-                            onFeedback={(value) => setMessageFeedback(m.id, value)}
+                            feedback={feedbackById[sid] ?? null}
+                            onFeedback={(value) => setMessageFeedback(sid, value)}
                           />
                         ) : (
                           <CopyMessageButton text={m.content} />

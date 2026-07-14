@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 import { addCredits, deductCredits } from "@/server/credit/credit-service";
 import { writeAudit } from "@/server/audit/audit-service";
 import { getMyUsageSummary } from "@/server/account/usage-service";
+import { bangkokBoundaries } from "@/server/credit/quota-service";
 
 /**
  * Admin user-management service. Every mutation writes an audit log with the
@@ -181,6 +182,46 @@ export async function setUserRole(userId: string, role: Role, actor: Actor) {
       tx,
     );
     return updated;
+  });
+}
+
+/**
+ * Reset the AI usage quota (used-today / used-this-month back to 0).
+ *
+ * Quota is derived by counting SUCCESS rows in ai_usage_logs since the start of
+ * the Bangkok month (see quota-service.getUsageCounts), so the reset clears this
+ * period's rows. Older months stay for cost history. A user sitting at 101/100
+ * is hard-blocked from chatting until this runs.
+ */
+export async function adminResetUsageQuota(userId: string, actor: Actor) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+  if (!user) throw new AppError("NOT_FOUND", "User not found");
+
+  const { monthStart } = bangkokBoundaries();
+
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.aIUsageLog.count({
+      where: { userId, createdAt: { gte: monthStart } },
+    });
+    const result = await tx.aIUsageLog.deleteMany({
+      where: { userId, createdAt: { gte: monthStart } },
+    });
+    await writeAudit(
+      {
+        adminUserId: actor.id,
+        action: "user.usage_quota.reset",
+        entityType: "user",
+        entityId: userId,
+        before: { periodStart: monthStart.toISOString(), usageRows: before },
+        after: { periodStart: monthStart.toISOString(), usageRows: 0 },
+        ipAddress: actor.ip,
+      },
+      tx,
+    );
+    return { deleted: result.count };
   });
 }
 

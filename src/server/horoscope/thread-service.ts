@@ -384,13 +384,16 @@ export async function appendUserMessage(input: {
 
   const title = conversation.title?.trim() || truncateTitle(input.userContent);
 
-  await prisma.$transaction([
+  // Return the row id: the client shows an optimistic bubble with a local id,
+  // and needs the real one before edit/regenerate can address this message.
+  const [message] = await prisma.$transaction([
     prisma.message.create({
       data: {
         conversationId: conversation.id,
         role: "USER",
         content: input.userContent,
       },
+      select: { id: true },
     }),
     prisma.conversation.update({
       where: { id: conversation.id },
@@ -400,6 +403,8 @@ export async function appendUserMessage(input: {
       },
     }),
   ]);
+
+  return message;
 }
 
 /** Placeholder assistant row while AI runs in `after()`. */

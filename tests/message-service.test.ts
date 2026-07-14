@@ -87,7 +87,9 @@ describe("sendMessage (M3 B2)", () => {
       status: "SUCCESS",
     });
     mocks.transaction.mockResolvedValue([]);
-    mocks.appendUserMessage.mockResolvedValue(undefined);
+    // appendUserMessage now returns the created row — acceptMessage hands the
+    // real id back to the client so edit/regenerate can address it.
+    mocks.appendUserMessage.mockResolvedValue({ id: "msg-user-1" });
     mocks.createPendingAssistant.mockResolvedValue({ id: "pend-1" });
     mocks.finalizeAssistantMessage.mockResolvedValue(undefined);
     mocks.messageUpdateMany.mockResolvedValue({ count: 0 });

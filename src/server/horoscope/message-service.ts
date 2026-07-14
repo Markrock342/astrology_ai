@@ -41,7 +41,15 @@ export type AcceptMessageResult =
         transitSnapshot?: unknown;
       };
     }
-  | { status: "pending"; conversationId: string; idempotencyKey: string };
+  | {
+      status: "pending";
+      conversationId: string;
+      idempotencyKey: string;
+      /** Real DB ids — the client swaps them onto its optimistic bubbles so
+       *  edit/regenerate can address the rows that actually exist. */
+      userMessageId?: string;
+      assistantMessageId?: string;
+    };
 
 async function assertCanSend(
   conversationId: string,
@@ -150,6 +158,7 @@ export async function acceptMessage(
         status: "pending",
         conversationId: conversation.id,
         idempotencyKey: input.idempotencyKey,
+        assistantMessageId: existingAssistant.id,
       };
     }
     if (
@@ -164,6 +173,7 @@ export async function acceptMessage(
         status: "pending",
         conversationId: conversation.id,
         idempotencyKey: input.idempotencyKey,
+        assistantMessageId: existingAssistant.id,
       };
     }
 
@@ -201,14 +211,19 @@ export async function acceptMessage(
     };
   }
 
+  let userMessageId: string | undefined;
   if (!skipUserAppend) {
-    await appendUserMessage({
+    const appended = await appendUserMessage({
       conversationId: conversation.id,
       userId: input.userId,
       userContent: question,
     });
+    userMessageId = appended.id;
+  } else if (input.editUserMessageId) {
+    // Editing reuses the existing row — it already carries a real id.
+    userMessageId = input.editUserMessageId;
   }
-  await createPendingAssistant({
+  const assistant = await createPendingAssistant({
     conversationId: conversation.id,
     userId: input.userId,
     idempotencyKey: input.idempotencyKey,
@@ -218,6 +233,8 @@ export async function acceptMessage(
     status: "pending",
     conversationId: conversation.id,
     idempotencyKey: input.idempotencyKey,
+    userMessageId,
+    assistantMessageId: assistant.id,
   };
 }
 

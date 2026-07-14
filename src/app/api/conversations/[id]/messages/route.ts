@@ -208,6 +208,12 @@ export async function POST(
           // actions appear, and the turn settles without waiting on meta.
           send({
             type: "done",
+            // Real row ids for the optimistic bubbles the client is showing —
+            // without these, edit/regenerate address ids that never existed.
+            messageIds: {
+              user: accepted.userMessageId ?? null,
+              assistant: accepted.assistantMessageId ?? null,
+            },
             reading: {
               id: reading?.id,
               responseText: reading?.responseText ?? null,
