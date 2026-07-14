@@ -55,6 +55,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [confirmBusy, setConfirmBusy] = useState(false);
   const profileBtnRef = useRef<HTMLButtonElement>(null);
   const closeMobileTimer = useRef<number | null>(null);
+  const mobileDrawerRef = useRef<HTMLElement>(null);
+  // What had focus before the drawer opened, so we can hand it back on close.
+  const focusBeforeDrawer = useRef<HTMLElement | null>(null);
   const searchParams = useSearchParams();
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
@@ -258,6 +261,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [mobileRender, closeMobile]);
+
+  // Move focus INTO the drawer when it opens and hand it back to the trigger when
+  // it closes. Without this, a keyboard or screen-reader user's focus stayed on
+  // the page behind the overlay — they could tab through content they could not
+  // see. (`inert` on the main content, below, keeps focus from escaping.)
+  useEffect(() => {
+    if (mobileShown) {
+      focusBeforeDrawer.current =
+        document.activeElement as HTMLElement | null;
+      mobileDrawerRef.current
+        ?.querySelector<HTMLElement>(
+          'a, button, input, [tabindex]:not([tabindex="-1"])',
+        )
+        ?.focus();
+    } else if (focusBeforeDrawer.current) {
+      focusBeforeDrawer.current.focus();
+      focusBeforeDrawer.current = null;
+    }
+  }, [mobileShown]);
 
   // Prevent background scroll while the mobile drawer is open.
   useEffect(() => {
@@ -639,6 +661,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             tabIndex={mobileShown ? 0 : -1}
           />
           <aside
+            ref={mobileDrawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="เมนู"
             className={`relative z-50 flex h-full w-[86vw] max-w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-transform duration-[240ms] ease-[var(--ease-out-quart)] will-change-transform ${
               mobileShown ? "translate-x-0" : "-translate-x-full"
             }`}
@@ -688,7 +714,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="relative flex min-w-0 flex-1 flex-col">
+      <div
+        className="relative flex min-w-0 flex-1 flex-col"
+        // While the mobile drawer is open, the content behind it is inert — no
+        // focus, no clicks reach it, so the drawer is a real modal.
+        inert={mobileShown}
+      >
         {/* Mobile top bar — gives the menu a home + brand context without a
             floating button overlapping page content. */}
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 md:hidden">
