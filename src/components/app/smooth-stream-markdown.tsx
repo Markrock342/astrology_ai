@@ -25,23 +25,35 @@ import { ChatMarkdown } from "./chat-markdown";
  * top of the thread and re-typed the entire history.
  */
 
-/** Floor: slow enough to read, fast enough not to feel like it is stalling. */
-const MIN_CHARS_PER_SEC = 70;
-/** Ceiling: a big backlog must never turn into a wall of text appearing at once. */
-const MAX_CHARS_PER_SEC = 900;
-/** Each character still buffered adds this much speed — the catch-up gradient. */
-const CATCHUP_PER_CHAR = 3;
-/** The model is done; land the remaining text promptly without teleporting. */
-const FINISH_CHARS_PER_SEC = 1500;
+/**
+ * Reveal rate, in characters per second.
+ *
+ * The trap the last version fell into: a cap of 900/s. A brief answer is
+ * ~250 characters, so it drained in a third of a second and read as "the whole
+ * thing appeared at once". ChatGPT types at a deliberate, readable pace and only
+ * speeds up when it is behind — it never fire-hoses.
+ *
+ * So this is a DRAIN-TIME model, not a fixed step. Aim to empty whatever is
+ * currently buffered over a target window, then clamp into a readable band.
+ * During steady streaming the reveal keeps pace with arrival, so `remaining`
+ * stays small and the rate sits near the floor — deliberate typing. A network
+ * burst lifts it briefly, never to a wall. When generation ends we drain a
+ * little faster so the tail lands promptly, but still visibly — no teleport.
+ */
+const FLOOR = 42;
+/** Empty the backlog over ~this long, so a burst catches up without lurching. */
+const DRAIN_SECONDS_STREAMING = 1.5;
+const DRAIN_SECONDS_FINISH = 0.55;
+/** Ceilings keep even a huge instant buffer from becoming a wall of text. */
+const CAP_STREAMING = 130;
+const CAP_FINISH = 420;
 /** A backgrounded tab pauses rAF; clamp the jump so it doesn't teleport on return. */
 const MAX_FRAME_SECONDS = 0.05;
 
 function revealRate(remaining: number, streaming: boolean): number {
-  if (!streaming) return FINISH_CHARS_PER_SEC;
-  return Math.min(
-    MAX_CHARS_PER_SEC,
-    MIN_CHARS_PER_SEC + remaining * CATCHUP_PER_CHAR,
-  );
+  const drain = streaming ? DRAIN_SECONDS_STREAMING : DRAIN_SECONDS_FINISH;
+  const cap = streaming ? CAP_STREAMING : CAP_FINISH;
+  return Math.max(FLOOR, Math.min(cap, remaining / drain));
 }
 
 function prefersReducedMotion(): boolean {

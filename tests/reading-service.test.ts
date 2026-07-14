@@ -375,9 +375,11 @@ describe("createReading (M3 B2)", () => {
   });
 
   it("caps knowledge docs to the character budget in sortOrder", async () => {
+    // Two docs whose combined length exceeds KNOWLEDGE_MAX_CHARS (6,000): the
+    // first fits, the second is dropped in sortOrder rather than half-included.
     mocks.findKnowledge.mockResolvedValue([
-      { title: "A", content: "a".repeat(2500), sortOrder: 1 },
-      { title: "B", content: "b".repeat(2500), sortOrder: 2 },
+      { title: "A", content: "a".repeat(3_500), sortOrder: 1 },
+      { title: "B", content: "b".repeat(3_500), sortOrder: 2 },
     ]);
 
     await createReading({
@@ -391,7 +393,7 @@ describe("createReading (M3 B2)", () => {
     };
     expect(aiCall.systemPrompt).toContain("## A");
     expect(aiCall.systemPrompt).not.toContain("## B");
-    expect(aiCall.systemPrompt.length).toBeLessThanOrEqual(4_100);
+    expect(aiCall.systemPrompt.length).toBeLessThanOrEqual(6_100);
   });
 
   it("passes plan-specific maxOutputTokens to the AI router", async () => {
