@@ -281,6 +281,13 @@ export function ChatView() {
     Record<string, FeedbackValue>
   >({});
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  /**
+   * Screen-reader announcement. The typewriter updates the DOM ~60×/sec, so an
+   * aria-live region on the answer itself would machine-gun a screen reader with
+   * fragments. Instead we announce the COMPLETE answer once, when the turn
+   * settles — and nothing on thread load, so history is not read aloud.
+   */
+  const [liveAnnounce, setLiveAnnounce] = useState("");
   /** Newest tap per message wins — see setMessageFeedback. */
   const feedbackSeqRef = useRef<Map<string, number>>(new Map());
   const [state, setState] = useState<ChatState>("idle");
@@ -1316,6 +1323,7 @@ export function ChatView() {
             setPendingRetry(null);
             processingStartedAtRef.current = null;
             lastDeltaAtRef.current = null;
+            if (ownsView()) setLiveAnnounce(finalText);
             void refreshLight();
             void usageRefreshRef.current?.();
           } else if (event.type === "meta") {
@@ -1512,6 +1520,10 @@ export function ChatView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* Screen readers hear the finished answer here, once. */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {liveAnnounce}
+      </div>
       <ChatUsageBar
         usage={usage}
         loading={usageLoading}
