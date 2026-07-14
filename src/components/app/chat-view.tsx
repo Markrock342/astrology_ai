@@ -823,6 +823,24 @@ export function ChatView() {
     );
   }, [messages, state, scrollToBottom]);
 
+  // Follow content that grows WITHOUT a messages change: the typewriter revealing
+  // its tail after `done`, a chart/table/image finishing layout. The effect
+  // above fires on message updates; this keeps the newest line in view between
+  // them — but only while the reader is already at the bottom, so it never yanks
+  // the view away from someone scrolling back through the answer.
+  const pinObserver = useRef<ResizeObserver | null>(null);
+  function pinToBottomRef(el: HTMLDivElement | null) {
+    pinObserver.current?.disconnect();
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (!isNearBottomRef.current) return;
+      const s = scrollRef.current;
+      if (s) s.scrollTop = s.scrollHeight;
+    });
+    ro.observe(el);
+    pinObserver.current = ro;
+  }
+
   useEffect(() => {
     const timer = streamTimer;
     return () => {
@@ -1590,7 +1608,10 @@ export function ChatView() {
         ) : state === "locked" && messages.length === 0 ? (
           <LockedState category={category?.label} />
         ) : (
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-2">
+          <div
+            ref={pinToBottomRef}
+            className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-2"
+          >
             {messages.map((m, idx) => {
               const isStreamingTurn =
                 (state === "streaming" || state === "processing") &&
