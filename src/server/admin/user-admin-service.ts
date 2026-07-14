@@ -111,9 +111,20 @@ export async function getUserDetail(userId: string) {
 export async function setUserStatus(userId: string, status: UserStatus, actor: Actor) {
   const before = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, role: true },
   });
   if (!before) throw new AppError("NOT_FOUND", "User not found");
+
+  // Same tier rule as setUserRole: a plain ADMIN must not be able to lock out a
+  // SUPER_ADMIN. Without this an ADMIN could disable every SUPER_ADMIN and seize
+  // the top tier. Only a SUPER_ADMIN may act on a SUPER_ADMIN account.
+  if (
+    before.role === "SUPER_ADMIN" &&
+    actor.role !== "SUPER_ADMIN" &&
+    userId !== actor.id
+  ) {
+    throw new AppError("FORBIDDEN", "ADMIN ไม่สามารถแก้บัญชี SUPER_ADMIN ได้");
+  }
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.user.update({

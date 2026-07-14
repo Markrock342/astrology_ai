@@ -146,6 +146,10 @@ export async function acceptMessage(
   });
 
   // A new user turn supersedes any other in-flight assistant placeholder.
+  // stopRequested aborts the generation that is still running (the SSE loop
+  // polls it) BEFORE it charges — marking the row FAILED alone left the model
+  // running, so the credit was still deducted and the discarded answer could
+  // reappear. Releasing the key stops finalize from re-matching this dead row.
   await prisma.message.updateMany({
     where: {
       conversationId: conversation.id,
@@ -158,6 +162,8 @@ export async function acceptMessage(
       status: "FAILED",
       content: "ถูกยกเลิกเพราะมีคำถามใหม่ (ไม่ถูกหักเครดิต)",
       creditCost: 0,
+      stopRequested: true,
+      idempotencyKey: null,
     },
   });
 

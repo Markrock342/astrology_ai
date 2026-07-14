@@ -275,6 +275,14 @@ export async function deleteConversation(userId: string, threadId: string) {
     select: { id: true },
   });
   if (!conversation) throw new AppError("NOT_FOUND", "ไม่พบประวัติการสนทนานี้");
+  // If a turn is still generating in the background, ask it to stop BEFORE we
+  // delete — the generation polls stopRequested and aborts before it charges, so
+  // the user is not billed for a reading whose thread they just threw away. The
+  // delete cascades the rows immediately after; this only narrows the race.
+  await prisma.message.updateMany({
+    where: { conversationId: conversation.id, status: "PENDING", ...LIVE },
+    data: { stopRequested: true },
+  });
   await prisma.conversation.delete({ where: { id: conversation.id } });
   invalidateUserBootstrap(userId);
   return { id: conversation.id };
@@ -535,7 +543,10 @@ export async function finalizeAssistantMessage(input: {
       creditCost: input.creditCost ?? 0,
     },
   });
-  await prisma.conversation.update({
+  // updateMany, not update: the user may have deleted the thread while this
+  // answer was still generating in the background, and update() throws P2025 on
+  // zero rows — an unhandled 500 in the after() task. updateMany is a no-op.
+  await prisma.conversation.updateMany({
     where: { id: input.conversationId },
     data: { updatedAt: new Date() },
   });
@@ -614,6 +625,12 @@ export async function loadPriorMessages(conversationId: string, userId: string) 
     take: MAX_PRIOR_MESSAGES_LOAD,
     select: { role: true, content: true },
   });
+
+  // The most recent USER row is THIS turn's question — already appended before
+  // generation begins. The caller passes it separately as the prompt, so leaving
+  // it here sent it to the model twice (once as history, once as the question):
+  // wasted input tokens and a confusing doubled prompt. Drop it.
+  if (recent[0]?.role === "USER") recent.shift();
 
   return recent.reverse();
 }

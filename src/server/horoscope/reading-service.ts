@@ -454,6 +454,12 @@ async function runReading(
         data: {
           status: "SUCCESS",
           readingId: created.id,
+          // The reservation was created with the PRIMARY model id. If the router
+          // fell back to another model, this row must reflect the one that
+          // actually ran — otherwise its estimatedCost (priced on the fallback)
+          // and the admin's per-model attribution disagree with reality.
+          provider: result.provider,
+          modelId: result.modelId,
           inputUsage: result.usage?.inputTokens,
           outputUsage: result.usage?.outputTokens,
           latencyMs: result.latencyMs,

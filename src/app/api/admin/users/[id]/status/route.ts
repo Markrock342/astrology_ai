@@ -10,6 +10,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const { id } = await ctx.params;
     const { status } = userStatusSchema.parse(await req.json());
     const ip = req.headers.get("x-forwarded-for") ?? undefined;
-    return ok(await setUserStatus(id, status, { id: admin.id, ip }));
+    // role is load-bearing: setUserStatus refuses to let a plain ADMIN disable a
+    // SUPER_ADMIN, and it can only enforce that if it knows the actor's tier.
+    return ok(
+      await setUserStatus(id, status, { id: admin.id, role: admin.role, ip }),
+    );
   });
 }
