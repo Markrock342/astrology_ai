@@ -20,6 +20,7 @@ import { NatalChartBanner } from "./natal-chart-banner";
 import { SmoothStreamMarkdown } from "./smooth-stream-markdown";
 import { useMyUsage } from "@/hooks/use-my-usage";
 import type { ChartJson } from "@/types/chart";
+import { softNavigate } from "./chat-nav";
 import {
   getCachedThread,
   prefetchThread,
@@ -856,17 +857,12 @@ export function ChatView() {
         // Native history over router.replace: this only needs the URL to carry
         // the new thread id. router.replace would run a real navigation — a
         // fresh RSC request that re-renders the route mid-answer, which is the
-        // "the page refreshed while it was typing" flash. replaceState still
-        // syncs useSearchParams, so threadId lands without any of that.
-        window.history.replaceState(
-          window.history.state,
-          "",
+        // "the page refreshed while it was typing" flash. softNavigate passes a
+        // plain history state so Next actually syncs useSearchParams (passing
+        // window.history.state here used to skip the sync entirely).
+        softNavigate(
           `/dashboard?thread=${activeConversationId}&cat=${syncCat}`,
-        );
-        window.dispatchEvent(
-          new CustomEvent("horasard:soft-nav", {
-            detail: { href: `/dashboard?thread=${activeConversationId}&cat=${syncCat}` },
-          }),
+          { replace: true },
         );
         conversationIdRef.current = activeConversationId;
       }
