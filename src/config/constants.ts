@@ -55,14 +55,20 @@ export const FREE_MAX_OUTPUT_TOKENS = 1_024;
 export const PRO_MAX_OUTPUT_TOKENS = 2_048;
 
 /**
- * UX Wave F — brief answer mode caps (below plan caps, above the hint length).
- * Thai runs ~3–4 tokens/word, so the old 384/512 caps physically could not hold
- * the "~300 คำ" the hint asked for — every brief answer hit MAX_TOKENS and got
- * cut mid-sentence. Caps now sit above the (shortened) hinted length with
- * headroom, while staying well under the detailed plan caps to keep brief cheap.
+ * UX Wave F — brief answer mode caps.
+ *
+ * The cap is a runaway guard, NOT the brevity lever — BRIEF_ANSWER_HINT is.
+ * Billing is per token actually generated, so a tight cap saves nothing; all it
+ * can do is truncate.
+ *
+ * And on Gemini 3 it does worse than truncate: thinking tokens are drawn from
+ * the SAME maxOutputTokens budget. At 640/768 the model could spend the whole
+ * allowance reasoning and emit no answer at all — brief mode returned an empty
+ * bubble. The cap must therefore leave room for thinking PLUS the ~150 words
+ * the hint asks for (Thai runs ~3–4 tokens/word).
  */
-export const BRIEF_MAX_OUTPUT_TOKENS_FREE = 640;
-export const BRIEF_MAX_OUTPUT_TOKENS_PRO = 768;
+export const BRIEF_MAX_OUTPUT_TOKENS_FREE = 1_024;
+export const BRIEF_MAX_OUTPUT_TOKENS_PRO = 1_280;
 
 export const BRIEF_ANSWER_HINT =
   "ตอบกระชับ 2–3 ย่อหน้าสั้น ไม่เกิน ~150 คำ เน้นประเด็นหลัก";
