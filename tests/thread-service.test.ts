@@ -85,6 +85,8 @@ describe("getThreadDetail (M3)", () => {
           content: "คำถาม",
           modelId: null,
           createdAt: new Date("2026-07-14T10:00:00Z"),
+          // getThreadDetail now selects the caller's own verdict.
+          feedback: [],
         },
         {
           id: "m2",
@@ -92,6 +94,7 @@ describe("getThreadDetail (M3)", () => {
           content: "คำตอบ",
           modelId: "gemini",
           createdAt: new Date("2026-07-14T10:00:05Z"),
+          feedback: [],
         },
       ],
     });
@@ -161,6 +164,7 @@ describe("pollThreadForUser", () => {
             modelId: null,
             status: "SUCCESS",
             createdAt: new Date("2026-07-14T10:00:00Z"),
+            feedback: [],
           },
           {
             id: "m2",
@@ -169,6 +173,7 @@ describe("pollThreadForUser", () => {
             modelId: "g",
             status: "SUCCESS",
             createdAt: new Date("2026-07-14T10:00:05Z"),
+            feedback: [],
           },
         ],
       });
@@ -264,6 +269,23 @@ describe("soft delete (edit / regenerate must not destroy history)", () => {
         data: { content: "คำถามที่แก้แล้ว" },
       }),
     );
+  });
+
+  it("releases the idempotency key when superseding a turn", async () => {
+    // The key is unique per conversation, and a HIDDEN row still holds it.
+    // Deleting the row used to free it; hiding it does not. So retrying the very
+    // turn you just discarded (same Idempotency-Key) collided with the ghost:
+    // a 500, and the question posted twice.
+    mocks.findFirst.mockResolvedValue({
+      id: "m-user",
+      conversationId: "conv-1",
+      createdAt: new Date("2026-07-14T10:00:00Z"),
+    });
+
+    await editUserMessage("user-1", "m-user", "แก้ใหม่");
+
+    const [args] = mocks.messageUpdateMany.mock.calls.at(-1)!;
+    expect(args.data.idempotencyKey).toBeNull();
   });
 
   it("prepareRegenerateAssistant hides the old answer and everything after it", async () => {

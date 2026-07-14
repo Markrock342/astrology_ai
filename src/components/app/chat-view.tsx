@@ -95,6 +95,8 @@ type Message = {
   serverId?: string;
   /** Row creation time — for a PENDING turn, when it actually started. */
   createdAt?: string;
+  /** This user's own thumbs verdict, as the SERVER knows it. */
+  feedback?: FeedbackValue;
   /** How long the finished turn took, server-measured (from the done event). */
   elapsedMs?: number;
 };
@@ -106,7 +108,15 @@ type Message = {
  */
 function serverIdOf(m: Message): string | undefined {
   if (m.serverId) return m.serverId;
-  if (m.id.startsWith("local-") || m.id.startsWith("stream-")) return undefined;
+  if (
+    m.id.startsWith("local-") ||
+    m.id.startsWith("stream-") ||
+    // Legacy threads are synthesised from a HoroscopeReading, not Message rows:
+    // nothing can be addressed by these ids, so every action on them 404s.
+    m.id.startsWith("legacy-")
+  ) {
+    return undefined;
+  }
   return m.id;
 }
 type ChatState =
@@ -270,6 +280,9 @@ export function ChatView() {
   const [feedbackById, setFeedbackById] = useState<
     Record<string, FeedbackValue>
   >({});
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  /** Newest tap per message wins — see setMessageFeedback. */
+  const feedbackSeqRef = useRef<Map<string, number>>(new Map());
   const [state, setState] = useState<ChatState>("idle");
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase | null>(
     null,
@@ -409,9 +422,39 @@ export function ChatView() {
    * Tapping the same thumb again withdraws the verdict, which is what people
    * expect and also the only way to undo a misclick.
    */
+  /**
+   * Adopt the server's verdicts for a freshly loaded thread.
+   *
+   * localStorage was the only store, so a thumb pressed on a phone was invisible
+   * on a laptop and clearing site data silently un-voted everything. It is a
+   * cache now; the database is the record, and the record wins.
+   */
+  function hydrateFeedback(loaded: Message[]) {
+    const fromServer: Record<string, FeedbackValue> = {};
+    for (const m of loaded) {
+      const sid = serverIdOf(m);
+      if (sid && m.feedback) fromServer[sid] = m.feedback;
+    }
+    if (Object.keys(fromServer).length === 0) return;
+    setFeedbackById((prev) => {
+      const map = { ...prev, ...fromServer };
+      window.localStorage.setItem(FEEDBACK_KEY, JSON.stringify(map));
+      return map;
+    });
+  }
+
   function setMessageFeedback(messageId: string, value: FeedbackValue) {
     const previous = feedbackById[messageId] ?? null;
     const next = previous === value ? null : value;
+
+    // Tap twice quickly and two requests are in flight at once. Whichever
+    // RESOLVES last used to win, so a late rollback from the first tap could
+    // re-apply a verdict the second tap had just withdrawn — leaving the UI
+    // showing a vote the database does not have. Only the newest tap per message
+    // is allowed to touch the state.
+    const seq = (feedbackSeqRef.current.get(messageId) ?? 0) + 1;
+    feedbackSeqRef.current.set(messageId, seq);
+    const isStale = () => feedbackSeqRef.current.get(messageId) !== seq;
 
     setFeedbackById((prev) => {
       const map = { ...prev };
@@ -420,6 +463,7 @@ export function ChatView() {
       window.localStorage.setItem(FEEDBACK_KEY, JSON.stringify(map));
       return map;
     });
+    setFeedbackError(null);
 
     void (async () => {
       try {
@@ -433,7 +477,11 @@ export function ChatView() {
         if (res.ok) return;
         throw new Error(String(res.status));
       } catch {
-        // The server did not take it, so the UI must not claim it did.
+        if (isStale()) return;
+        // The server did not take it, so the UI must not claim it did — and it
+        // must SAY so. A thumb that lights up and silently pops back off is
+        // indistinguishable from a dead button, and the user just concludes the
+        // feature is broken and stops telling us anything.
         setFeedbackById((prev) => {
           const map = { ...prev };
           if (previous) map[messageId] = previous;
@@ -441,6 +489,7 @@ export function ChatView() {
           window.localStorage.setItem(FEEDBACK_KEY, JSON.stringify(map));
           return map;
         });
+        setFeedbackError("บันทึกฟีดแบ็กไม่สำเร็จ — ลองใหม่อีกครั้ง");
       }
     })();
   }
@@ -491,7 +540,12 @@ export function ChatView() {
         }
         return;
       }
-      setMessages(payload.messages as Message[]);
+      const loaded = payload.messages as Message[];
+      setMessages(loaded);
+      // The database is the record; localStorage was only ever a cache. Adopt
+      // the server's verdicts so a thumb pressed on a phone shows on a laptop,
+      // and clearing site data no longer silently un-votes everything.
+      hydrateFeedback(loaded);
       setThreadCategorySlug(payload.categorySlug ?? null);
       setThreadMode(payload.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
       if (payload.mode === "TRANSIT" && payload.transitDate) {
@@ -1715,6 +1769,26 @@ export function ChatView() {
             )}
           </div>
         )}
+        {/* Feedback lives on one message, so its failure belongs next to the
+            thread, not in the chat-wide ErrorBanner (which would read as if the
+            ANSWER failed). Silent was the worst option: a thumb that lights up
+            and pops back off is indistinguishable from a dead button. */}
+        {feedbackError ? (
+          <div
+            role="status"
+            className="animate-fade-in absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-[var(--danger)]/40 bg-[var(--surface)]/95 px-3.5 py-1.5 text-xs text-[var(--danger)] shadow-md backdrop-blur"
+          >
+            {feedbackError}
+            <button
+              type="button"
+              onClick={() => setFeedbackError(null)}
+              className="ml-2 text-[var(--muted-2)] hover:text-[var(--foreground)]"
+              aria-label="ปิด"
+            >
+              ✕
+            </button>
+          </div>
+        ) : null}
         {showScrollFab ? (
           <button
             type="button"
