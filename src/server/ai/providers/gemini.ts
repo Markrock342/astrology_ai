@@ -12,6 +12,14 @@ type GeminiApiResponse = {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
     totalTokenCount?: number;
+    /**
+     * Prompt tokens served from the implicit cache — billed at 10% of the input
+     * rate. Included in promptTokenCount, so cost must subtract them out rather
+     * than add them on. Implicit caching is on by default for 2.5+ models but
+     * only fires once the prefix clears the model's minimum (4,096 tokens on
+     * 3.5 Flash), so a zero here is real information: we are not clearing it.
+     */
+    cachedContentTokenCount?: number;
   };
   error?: { code?: number; message?: string; status?: string };
 };
@@ -140,6 +148,7 @@ export class GeminiAdapter implements AIProviderAdapter {
         usage: {
           inputTokens: data.usageMetadata?.promptTokenCount,
           outputTokens: data.usageMetadata?.candidatesTokenCount,
+          cachedTokens: data.usageMetadata?.cachedContentTokenCount,
         },
         latencyMs,
         truncated: data.candidates?.[0]?.finishReason === "MAX_TOKENS",
@@ -208,6 +217,7 @@ export class GeminiAdapter implements AIProviderAdapter {
     let rawText = "";
     let inputTokens: number | undefined;
     let outputTokens: number | undefined;
+    let cachedTokens: number | undefined;
     let stopped = false;
     let finishReason: string | undefined;
 
@@ -308,6 +318,9 @@ export class GeminiAdapter implements AIProviderAdapter {
             if (data.usageMetadata?.candidatesTokenCount != null) {
               outputTokens = data.usageMetadata.candidatesTokenCount;
             }
+            if (data.usageMetadata?.cachedContentTokenCount != null) {
+              cachedTokens = data.usageMetadata.cachedContentTokenCount;
+            }
             if (data.candidates?.[0]?.finishReason) {
               finishReason = data.candidates[0].finishReason;
             }
@@ -350,7 +363,7 @@ export class GeminiAdapter implements AIProviderAdapter {
         modelId: input.modelId,
         rawText: text,
         parsed: parseHoroscopeText(text),
-        usage: { inputTokens, outputTokens },
+        usage: { inputTokens, outputTokens, cachedTokens },
         latencyMs,
         truncated: finishReason === "MAX_TOKENS",
       };
@@ -365,7 +378,7 @@ export class GeminiAdapter implements AIProviderAdapter {
           modelId: input.modelId,
           rawText: rawText.trim(),
           parsed: parseHoroscopeText(rawText.trim()),
-          usage: { inputTokens, outputTokens },
+          usage: { inputTokens, outputTokens, cachedTokens },
           latencyMs: Date.now() - start,
         };
       }
@@ -378,7 +391,7 @@ export class GeminiAdapter implements AIProviderAdapter {
           modelId: input.modelId,
           rawText: rawText.trim(),
           parsed: parseHoroscopeText(rawText.trim()),
-          usage: { inputTokens, outputTokens },
+          usage: { inputTokens, outputTokens, cachedTokens },
           latencyMs: Date.now() - start,
           truncated: true,
         };

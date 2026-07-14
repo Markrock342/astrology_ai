@@ -56,6 +56,8 @@ export type GenerateAIResult = {
   usage?: {
     inputTokens?: number;
     outputTokens?: number;
+    /** Subset of inputTokens served from cache — billed at 10% of the input rate. */
+    cachedTokens?: number;
   };
   latencyMs: number;
   errorCode?: string;
