@@ -92,6 +92,10 @@ type Message = {
    * the whole turn), so server-addressed actions read this instead.
    */
   serverId?: string;
+  /** Row creation time — for a PENDING turn, when it actually started. */
+  createdAt?: string;
+  /** How long the finished turn took, server-measured (from the done event). */
+  elapsedMs?: number;
 };
 
 /**
@@ -269,6 +273,12 @@ export function ChatView() {
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase | null>(
     null,
   );
+  /**
+   * Epoch ms this turn started, for the elapsed counter. Kept in state (not on
+   * processingStartedAtRef) because the indicator reads it during render, and a
+   * ref read there is neither reactive nor pure.
+   */
+  const [turnStartedAt, setTurnStartedAt] = useState<number | null>(null);
   const draftHydratedRef = useRef(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -845,6 +855,7 @@ export function ChatView() {
     setState("processing");
     // Event-handler timing (not render) — stamp wall-clock for stale-turn recovery.
     processingStartedAtRef.current = nowMs();
+    setTurnStartedAt(nowMs());
     lastDeltaAtRef.current = null;
 
     const idempotencyKey = options.retryKey ?? crypto.randomUUID();
@@ -1087,6 +1098,7 @@ export function ChatView() {
               user?: string | null;
               assistant?: string | null;
             };
+            elapsedMs?: number;
             reading?: {
               responseText?: string | null;
               modelId?: string | null;
@@ -1155,6 +1167,10 @@ export function ChatView() {
                     transitSnapshot: reading?.transitSnapshot ?? null,
                     summaryLine,
                     followUps,
+                    elapsedMs:
+                      typeof event.elapsedMs === "number"
+                        ? event.elapsedMs
+                        : m.elapsedMs,
                   };
                 }
                 if (
@@ -1514,7 +1530,16 @@ export function ChatView() {
                       </div>
                     )}
                     {isStreamingTurn && !m.content ? (
-                      <ThinkingIndicator phase={thinkingPhase} />
+                      <ThinkingIndicator
+                        phase={thinkingPhase}
+                        // The row's own createdAt is the only start time that
+                        // survives switching chats, remounting, or a reload.
+                        startedAt={
+                          m.createdAt
+                            ? Date.parse(m.createdAt)
+                            : (turnStartedAt ?? undefined)
+                        }
+                      />
                     ) : (
                       <>
                         {m.summaryLine ? (
@@ -1554,6 +1579,11 @@ export function ChatView() {
                             ตอบโดย {modelLabel(m.modelId)}
                           </span>
                         )}
+                        {m.elapsedMs != null && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-[var(--muted-2)]">
+                            · ใช้เวลา {formatElapsed(Math.round(m.elapsedMs / 1000))}
+                          </span>
+                        )}
                       </div>
                     )}
                     {!isBusy &&
@@ -1588,7 +1618,12 @@ export function ChatView() {
               !(
                 messages[messages.length - 1]?.role === "assistant" &&
                 messages[messages.length - 1]?.status === "PENDING"
-              ) && <ThinkingIndicator phase={thinkingPhase} />}
+              ) && (
+                <ThinkingIndicator
+                  phase={thinkingPhase}
+                  startedAt={turnStartedAt ?? undefined}
+                />
+              )}
             {(state === "error" || state === "no-quota") && (
               <ErrorBanner
                 state={state}
@@ -1805,7 +1840,19 @@ function formatElapsed(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")} นาที`;
 }
 
-function ThinkingIndicator({ phase }: { phase?: ThinkingPhase | null }) {
+/**
+ * @param startedAt epoch ms the turn actually began (the PENDING row's
+ *   createdAt, or the send timestamp). Timing off mount instead reset the
+ *   counter to zero every time this remounted — switch chats and come back and
+ *   a 90-second turn claimed it had been running for 2.
+ */
+function ThinkingIndicator({
+  phase,
+  startedAt,
+}: {
+  phase?: ThinkingPhase | null;
+  startedAt?: number;
+}) {
   const [elapsed, setElapsed] = useState(0);
   const label =
     phase && THINKING_PHASE_LABEL[phase]
@@ -1813,12 +1860,13 @@ function ThinkingIndicator({ phase }: { phase?: ThinkingPhase | null }) {
       : "กำลังเพ่งดวงดาว…";
 
   useEffect(() => {
-    const started = Date.now();
-    const id = window.setInterval(() => {
-      setElapsed(Math.floor((Date.now() - started) / 1000));
-    }, 250);
+    const started = startedAt ?? Date.now();
+    const tick = () =>
+      setElapsed(Math.max(0, Math.floor((Date.now() - started) / 1000)));
+    tick();
+    const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
-  }, []);
+  }, [startedAt]);
 
   return (
     <div className="animate-fade-in flex flex-col gap-1.5">

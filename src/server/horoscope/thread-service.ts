@@ -20,6 +20,13 @@ export type ThreadMessage = {
   status?: "SUCCESS" | "FAILED" | "TIMEOUT" | "PENDING";
   /** Only on a PENDING assistant turn — lets the client stop it after a reload. */
   idempotencyKey?: string;
+  /**
+   * When the row was created. For a PENDING assistant this is when the turn
+   * actually began — the client's own timer restarts whenever the indicator
+   * remounts (switch chats and back, reload), so the elapsed counter has to be
+   * derived from this instead of from mount time.
+   */
+  createdAt?: string;
 };
 
 export type ThreadDetail = {
@@ -108,6 +115,7 @@ export async function getThreadDetail(
           modelId: true,
           status: true,
           idempotencyKey: true,
+          createdAt: true,
         },
       },
     },
@@ -134,6 +142,7 @@ export async function getThreadDetail(
         // Exposed only while generating, so a reloaded tab can still stop it.
         idempotencyKey:
           m.status === "PENDING" ? (m.idempotencyKey ?? undefined) : undefined,
+        createdAt: m.createdAt.toISOString(),
       })),
     };
   }
