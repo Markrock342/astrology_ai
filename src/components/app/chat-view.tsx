@@ -304,6 +304,8 @@ export function ChatView() {
   // empty response overwrites the optimistic bubbles and the answer streams into
   // a message that no longer exists, leaving a blank chat.
   const sendingThreadRef = useRef<string | null>(null);
+  /** Which thread the on-screen `messages` array actually belongs to. */
+  const messagesThreadRef = useRef<string | null>(threadId);
   const processingStartedAtRef = useRef<number | null>(null);
   const lastDeltaAtRef = useRef<number | null>(null);
   const explicitStopRef = useRef(false);
@@ -392,8 +394,18 @@ export function ChatView() {
   // Load past thread when ?thread= is set — soft switch from cache first.
   useEffect(() => {
     if (!threadId) return;
-    if (sendingThreadRef.current === threadId) return;
+    // Stand down only while this thread's OWN bubbles are the ones on screen.
+    // Keying the guard on the send alone meant that leaving a streaming thread
+    // and coming back never reloaded it — the list still held the other
+    // conversation's messages, so you saw the wrong chat under this URL.
+    if (
+      sendingThreadRef.current === threadId &&
+      messagesThreadRef.current === threadId
+    ) {
+      return;
+    }
     let alive = true;
+    messagesThreadRef.current = threadId;
 
     const cached = getCachedThread(threadId);
     if (cached?.messages?.length) {
@@ -583,6 +595,10 @@ export function ChatView() {
 
         if (poll.hasPending) {
           setState("processing");
+          // A successful poll IS the heartbeat in poll-only mode (reload / return
+          // to a live turn). The stale-turn watchdog is fed only by SSE frames,
+          // so without this it force-failed a perfectly healthy reading at 45s.
+          lastDeltaAtRef.current = nowMs();
           return;
         }
 
@@ -649,6 +665,7 @@ export function ChatView() {
     if (threadId) return;
     if (streamTimer.current) window.clearInterval(streamTimer.current);
     conversationIdRef.current = null;
+    messagesThreadRef.current = null;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages([]);
     setThreadCategorySlug(null);
@@ -777,6 +794,11 @@ export function ChatView() {
         ]);
       }
       setEditingMessageId(null);
+      // The edit IS the send. Leaving the text in the composer made it look
+      // unsent, so users pressed Enter again — a duplicate question and a
+      // second credit charged.
+      setInput("");
+      window.localStorage.removeItem(DRAFT_KEY);
     }
 
     isNearBottomRef.current = true;
@@ -837,6 +859,14 @@ export function ChatView() {
     // Set once the turn settles (done/error/stream-end) — a coalesced flush
     // that fires after that must not repaint stale streaming state.
     let turnSettled = false;
+    // The user can switch threads or start a new chat mid-answer. This stream
+    // belongs to the thread it started on; painting its deltas — or its errors
+    // and spinners — into whatever happens to be on screen would graft one
+    // conversation onto another. Declared out here so the catch/finally paths
+    // can gate on it too, not just the read loop.
+    const ownsView = () =>
+      activeConversationId !== null &&
+      conversationIdRef.current === activeConversationId;
     assembledRef.current = "";
     explicitStopRef.current = false;
     const abort = new AbortController();
@@ -874,12 +904,7 @@ export function ChatView() {
 
       // Claim it before the URL changes, so the loader never races this send.
       sendingThreadRef.current = activeConversationId;
-
-      // The user can switch threads or start a new chat mid-answer. This stream
-      // belongs to the thread it started on; painting its deltas into whatever
-      // happens to be on screen would graft one conversation onto another. The
-      // answer still lands — the server finalizes it and it is there on return.
-      const ownsView = () => conversationIdRef.current === activeConversationId;
+      messagesThreadRef.current = activeConversationId;
 
       const syncCat = categorySlug ?? catSlug;
       if (!threadId && syncCat) {
@@ -1218,13 +1243,19 @@ export function ChatView() {
               : m,
           ),
         );
-        setState("processing");
+        // Message rows are keyed by assistantId so they are safe to touch, but
+        // the chat-wide state belongs to whatever thread is on screen now.
+        if (ownsView()) setState("processing");
       }
     } catch (err) {
       const partial = assembledRef.current;
       // User pressed Stop — UI already settled in stopStreaming().
       if (abort.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
-        if (explicitStopRef.current) return;
+        // ...or this turn already finished and the abort came from the NEXT send
+        // tearing down the (still-open) meta window. Recovering it as a timeout
+        // reset the finished answer to an empty PENDING bubble — and `partial`
+        // is now the new send's assembledRef, which it just cleared.
+        if (explicitStopRef.current || turnSettled) return;
         // Timed out waiting for SSE — server may still be generating; poll it.
         const convId = activeConversationId ?? conversationIdRef.current;
         if (convId) {
@@ -1240,7 +1271,7 @@ export function ChatView() {
                 : m,
             ),
           );
-          setState("processing");
+          if (ownsView()) setState("processing");
           return;
         }
         return;
@@ -1261,9 +1292,12 @@ export function ChatView() {
               : m,
           ),
         );
-        setState("processing");
+        if (ownsView()) setState("processing");
         return;
       }
+      // Never paint this stream's failure onto a conversation the user has
+      // since switched to — it has nothing to do with the error.
+      if (!ownsView()) return;
       setErrorCode("NETWORK");
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
       setState("error");
@@ -1318,7 +1352,11 @@ export function ChatView() {
     if (!serverId) return;
     const userMsg = messages[idx - 1];
     if (userMsg.role !== "user") return;
-    setMessages((prev) => prev.filter((m) => m.id !== localId));
+    // Truncate, don't just drop this one row: the server (prepareRegenerateAssistant)
+    // deletes this message AND everything after it. Filtering only the failed
+    // bubble left the later turns on screen while they were gone from the DB —
+    // silent data loss, and the retry answer landed under a stale question.
+    setMessages((prev) => prev.slice(0, idx));
     void send(userMsg.content, { regenerateAssistantMessageId: serverId });
   }
 

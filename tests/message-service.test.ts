@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   createReading: vi.fn(),
   appendUserMessage: vi.fn(),
   createPendingAssistant: vi.fn(),
+  findPriorUserMessage: vi.fn(),
   finalizeAssistantMessage: vi.fn(),
   messageUpdate: vi.fn(),
   messageUpdateMany: vi.fn(),
@@ -30,6 +31,9 @@ vi.mock("@/server/db", () => ({
     },
     message: {
       findUnique: mocks.findMessage,
+      // Replayed turns look up the question row so the client still gets real
+      // ids for edit/regenerate.
+      findFirst: mocks.findPriorUserMessage,
       findMany: mocks.findMessages,
       create: vi.fn(),
       update: mocks.messageUpdate,
@@ -90,6 +94,7 @@ describe("sendMessage (M3 B2)", () => {
     // appendUserMessage now returns the created row — acceptMessage hands the
     // real id back to the client so edit/regenerate can address it.
     mocks.appendUserMessage.mockResolvedValue({ id: "msg-user-1" });
+    mocks.findPriorUserMessage.mockResolvedValue({ id: "msg-user-1" });
     mocks.createPendingAssistant.mockResolvedValue({ id: "pend-1" });
     mocks.finalizeAssistantMessage.mockResolvedValue(undefined);
     mocks.messageUpdateMany.mockResolvedValue({ count: 0 });

@@ -32,6 +32,7 @@ import { UserAvatar } from "./user-avatar";
 import { useTheme } from "@/components/theme-provider";
 import { TransitFormModal } from "./transit-form-modal";
 import {
+  clearThreadCache,
   invalidateCachedThread,
   prefetchThread,
 } from "./thread-cache";
@@ -110,6 +111,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   async function performClearAll() {
     // Optimistic: empty the sidebar, then leave any open thread.
     clearThreadsLocal();
+    // Evict the in-memory thread cache too, or one press of Back restores a
+    // "permanently deleted" conversation, messages and all.
+    clearThreadCache();
     if (activeThread) chatNav("/dashboard");
     try {
       const res = await fetch("/api/conversations", { method: "DELETE" });

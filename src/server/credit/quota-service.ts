@@ -14,7 +14,20 @@ const BKK_OFFSET_MS = 7 * 60 * 60 * 1000;
 /** RESERVED rows older than this are treated as stale (crash mid-request). */
 const RESERVATION_TTL_MS = 5 * 60 * 1000;
 
-const QUOTA_COUNT_STATUSES = ["SUCCESS", "RESERVED"] as const;
+/**
+ * Rows that occupy a quota slot: an in-flight reservation, or a SUCCESS that
+ * actually produced a reading.
+ *
+ * The `readingId IS NOT NULL` half is load-bearing. Every turn ALSO logs a
+ * second, unbilled Flash-Lite call for the summary/follow-up chips
+ * (follow-up-suggestions.ts → logUsage status SUCCESS, readingId null). Counting
+ * those halved every plan's quota — a 100/month package hard-blocked after ~50
+ * readings, and the meter could read an impossible "101 / 100". Reservations
+ * legitimately have no readingId yet, so they are matched by status instead.
+ */
+const BILLABLE_QUOTA_ROW: Prisma.AIUsageLogWhereInput = {
+  OR: [{ status: "RESERVED" }, { status: "SUCCESS", readingId: { not: null } }],
+};
 
 export function bangkokBoundaries(now = new Date()) {
   const bkk = new Date(now.getTime() + BKK_OFFSET_MS);
@@ -57,7 +70,11 @@ export async function getActivePackageLimits(
 
 type UsageCountRow = { used_today: bigint; used_month: bigint };
 
-/** One index scan for both daily and monthly SUCCESS usage (display API). */
+/**
+ * One index scan for both daily and monthly billable usage (display API).
+ * Must match BILLABLE_QUOTA_ROW, or the meter disagrees with the gate that
+ * blocks the user — `readingId IS NOT NULL` excludes the unbilled meta call.
+ */
 async function countSuccessfulUsage(
   userId: string,
   dayStart: Date,
@@ -66,8 +83,13 @@ async function countSuccessfulUsage(
 ): Promise<{ usedToday: number; usedThisMonth: number }> {
   const rows = await tx.$queryRaw<UsageCountRow[]>`
     SELECT
-      COUNT(*) FILTER (WHERE "createdAt" >= ${dayStart} AND status = 'SUCCESS')::bigint AS used_today,
-      COUNT(*) FILTER (WHERE status = 'SUCCESS')::bigint AS used_month
+      COUNT(*) FILTER (
+        WHERE "createdAt" >= ${dayStart}
+          AND status = 'SUCCESS' AND "readingId" IS NOT NULL
+      )::bigint AS used_today,
+      COUNT(*) FILTER (
+        WHERE status = 'SUCCESS' AND "readingId" IS NOT NULL
+      )::bigint AS used_month
     FROM ai_usage_logs
     WHERE "userId" = ${userId}
       AND "createdAt" >= ${monthStart}
@@ -87,8 +109,8 @@ async function countQuotaUsageSince(
   return tx.aIUsageLog.count({
     where: {
       userId,
-      status: { in: [...QUOTA_COUNT_STATUSES] },
       createdAt: { gte: since },
+      ...BILLABLE_QUOTA_ROW,
     },
   });
 }
@@ -132,6 +154,12 @@ export async function assertWithinUsageLimitsInTx(
   const now = new Date();
   const limits = await getActivePackageLimits(userId, now, tx);
   if (limits.dailyLimit == null && limits.monthlyLimit == null) return;
+
+  // Purge BEFORE counting. This used to live only inside reserveUsageSlot, which
+  // runs after this gate — so once stale RESERVED rows pushed a user to the
+  // limit, the gate threw QUOTA_EXCEEDED and the purge that would have freed
+  // them was never reached. One crashed request locked the user out for good.
+  await purgeStaleReservations(userId, tx);
 
   const { dayStart, monthStart } = bangkokBoundaries(now);
 

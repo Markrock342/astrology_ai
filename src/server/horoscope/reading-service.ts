@@ -2,19 +2,29 @@ import type { ConversationMode } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { assertCanRequestReading } from "@/server/horoscope/access-policy";
-import { deductCredits, lockWalletForUpdate } from "@/server/credit/credit-service";
+import {
+  deductCredits,
+  lockWalletForUpdate,
+} from "@/server/credit/credit-service";
 import {
   assertWithinUsageLimits,
   releaseUsageReservation,
   reserveUsageSlot,
 } from "@/server/credit/quota-service";
-import { generateWithFallback, resolveConfig, streamWithFallback } from "@/server/ai/router";
+import {
+  generateWithFallback,
+  resolveConfig,
+  streamWithFallback,
+} from "@/server/ai/router";
 import {
   classifyProviderFailure,
   logProviderAlert,
   providerAlertUserMessage,
 } from "@/server/ai/provider-alerts";
-import { buildSystemPrompt, buildConversationHistory } from "@/server/ai/prompt-builder";
+import {
+  buildSystemPrompt,
+  buildConversationHistory,
+} from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
 import {
@@ -93,7 +103,8 @@ export function resolveMaxOutputTokens(
   configMaxOutputTokens: number,
   answerMode: AnswerMode = "detailed",
 ): number {
-  const planCap = plan === "PRO" ? PRO_MAX_OUTPUT_TOKENS : FREE_MAX_OUTPUT_TOKENS;
+  const planCap =
+    plan === "PRO" ? PRO_MAX_OUTPUT_TOKENS : FREE_MAX_OUTPUT_TOKENS;
   const briefCap =
     plan === "PRO" ? BRIEF_MAX_OUTPUT_TOKENS_PRO : BRIEF_MAX_OUTPUT_TOKENS_FREE;
   const modeCap = answerMode === "brief" ? briefCap : planCap;
@@ -132,8 +143,14 @@ async function runReading(
   onDelta?: (chunk: string) => void,
   shouldStop?: () => Promise<boolean>,
 ) {
-  const { userId, categorySlug, question, idempotencyKey, priorMessages, onPhase } =
-    input;
+  const {
+    userId,
+    categorySlug,
+    question,
+    idempotencyKey,
+    priorMessages,
+    onPhase,
+  } = input;
   const mode = input.mode ?? "NATAL";
 
   // 0. Idempotency: if we already produced a reading for this key, return it.
@@ -217,7 +234,8 @@ async function runReading(
         });
       } catch (err) {
         if (err instanceof AppError) throw err;
-        const message = err instanceof Error ? err.message : "คำนวณดวงจรไม่สำเร็จ";
+        const message =
+          err instanceof Error ? err.message : "คำนวณดวงจรไม่สำเร็จ";
         throw new AppError("CHART_NOT_READY", message);
       }
     }
@@ -244,7 +262,10 @@ async function runReading(
     getOrRefreshChartMemory(userId, natalChart),
     resolveConfig(category.id, plan),
     prisma.knowledgeDoc.findMany({
-      where: { enabled: true, OR: [{ categoryId: category.id }, { categoryId: null }] },
+      where: {
+        enabled: true,
+        OR: [{ categoryId: category.id }, { categoryId: null }],
+      },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
   ]);
@@ -281,10 +302,16 @@ async function runReading(
 
   // Final guard: refuse AI if engine table somehow missing from the prompt.
   if (!userPrompt.includes("[natal]") || !userPrompt.includes("[memory]")) {
-    throw new AppError("CHART_NOT_READY", "Engine chart/memory missing from prompt");
+    throw new AppError(
+      "CHART_NOT_READY",
+      "Engine chart/memory missing from prompt",
+    );
   }
   if (mode === "TRANSIT" && !userPrompt.includes("[transit]")) {
-    throw new AppError("CHART_NOT_READY", "Transit engine chart missing from prompt");
+    throw new AppError(
+      "CHART_NOT_READY",
+      "Transit engine chart missing from prompt",
+    );
   }
 
   // Writing phase — reserve quota then call the model.
@@ -296,148 +323,168 @@ async function runReading(
     modelId: config.modelId,
   });
 
-  const maxOutputTokens = resolveMaxOutputTokens(
-    plan,
-    config.maxOutputTokens,
-    answerMode,
-  );
-  const aiInput = {
-    systemPrompt,
-    userPrompt,
-    conversationHistory:
-      conversationHistory.length > 0 ? conversationHistory : undefined,
-    maxOutputTokens,
-  };
-
-  const result = onDelta
-    ? await streamWithFallback(config.id, aiInput, onDelta, shouldStop)
-    : await generateWithFallback(config.id, aiInput);
-
-  // On failure/timeout: release reservation, log failure, DO NOT charge.
-  // An explicit stop with no text yet is a cancelled turn — not a provider error.
-  if (result.stopped && !result.rawText?.trim()) {
-    await releaseUsageReservation(reservationId);
-    await logUsage({
-      userId,
-      provider: result.provider,
-      modelId: result.modelId,
-      status: "FAILED",
-      latencyMs: result.latencyMs,
-      errorCode: "STOPPED",
-      errorMessage: "User stopped before text arrived",
-    });
-    return {
-      id: "",
-      responseText: "หยุดการทำนายแล้ว (ไม่ถูกหักเครดิตเพราะยังไม่มีคำตอบ)",
-      provider: result.provider,
-      modelId: result.modelId,
-      creditCost: 0,
-      status: "FAILED" as const,
-      chartSnapshot: null,
-      transitSnapshot: null,
-    };
-  }
-
-  if (!result.ok || !result.rawText) {
-    await releaseUsageReservation(reservationId);
-    await logUsage({
-      userId,
-      provider: result.provider,
-      modelId: result.modelId,
-      status: result.errorCode === "TIMEOUT" ? "TIMEOUT" : "FAILED",
-      latencyMs: result.latencyMs,
-      errorCode: result.errorCode,
-      errorMessage: result.errorMessage,
-    });
-    const alert = classifyProviderFailure(result.errorCode, result.errorMessage);
-    logProviderAlert(alert, {
-      modelId: result.modelId,
-      errorCode: result.errorCode,
-      errorMessage: result.errorMessage,
-    });
-    const code = result.errorCode === "TIMEOUT" ? "AI_TIMEOUT" : "AI_PROVIDER_ERROR";
-    throw new AppError(
-      code,
-      providerAlertUserMessage(alert) ?? result.errorMessage ?? "AI request failed",
+  // Everything past the reservation runs under a release-on-throw guard. A
+  // RESERVED row counts against quota, and an error escaping here (DB blip,
+  // provider crash, expired reservation) used to leave it behind forever —
+  // each leak permanently eating one of the user's monthly readings.
+  // releaseUsageReservation only deletes rows still in RESERVED, so calling it
+  // after the charge tx (row is SUCCESS) or after an inner release is a no-op.
+  try {
+    const maxOutputTokens = resolveMaxOutputTokens(
+      plan,
+      config.maxOutputTokens,
+      answerMode,
     );
-  }
+    const aiInput = {
+      systemPrompt,
+      userPrompt,
+      conversationHistory:
+        conversationHistory.length > 0 ? conversationHistory : undefined,
+      maxOutputTokens,
+    };
 
-  // A MAX_TOKENS cut ends mid-sentence with no signal. Surface it honestly so
-  // the user knows to ask for the rest, instead of a silently missing ending.
-  const responseText = result.truncated
-    ? `${result.rawText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
-    : result.rawText;
+    const result = onDelta
+      ? await streamWithFallback(config.id, aiInput, onDelta, shouldStop)
+      : await generateWithFallback(config.id, aiInput);
 
-  // Success => charge tx: finalize reservation, deduct credit, persist reading.
-  const reading = await prisma.$transaction(async (tx) => {
-    await lockWalletForUpdate(userId, tx);
-
-    const reserved = await tx.aIUsageLog.findFirst({
-      where: { id: reservationId, userId, status: "RESERVED" },
-      select: { id: true },
-    });
-    if (!reserved) {
-      throw new AppError("INTERNAL", "Usage reservation expired — please retry");
-    }
-
-    const created = await tx.horoscopeReading.create({
-      data: {
+    // On failure/timeout: release reservation, log failure, DO NOT charge.
+    // An explicit stop with no text yet is a cancelled turn — not a provider error.
+    if (result.stopped && !result.rawText?.trim()) {
+      await releaseUsageReservation(reservationId);
+      await logUsage({
         userId,
-        idempotencyKey,
-        birthProfileSnapshotJson: snapshot as object,
-        categoryId: category.id,
-        question,
-        responseJson: (result.parsed as object | undefined) ?? undefined,
-        responseText,
         provider: result.provider,
         modelId: result.modelId,
-        promptTemplateId: templateId ?? undefined,
-        promptVersion: undefined,
-        status: "SUCCESS",
-        creditCost: category.creditCost,
-      },
-    });
-
-    await deductCredits(
-      userId,
-      category.creditCost,
-      { type: "AI_USAGE", referenceType: "reading", referenceId: created.id },
-      tx,
-    );
-
-    await tx.aIUsageLog.update({
-      where: { id: reservationId },
-      data: {
-        status: "SUCCESS",
-        readingId: created.id,
-        inputUsage: result.usage?.inputTokens,
-        outputUsage: result.usage?.outputTokens,
+        status: "FAILED",
         latencyMs: result.latencyMs,
-      },
+        errorCode: "STOPPED",
+        errorMessage: "User stopped before text arrived",
+      });
+      return {
+        id: "",
+        responseText: "หยุดการทำนายแล้ว (ไม่ถูกหักเครดิตเพราะยังไม่มีคำตอบ)",
+        provider: result.provider,
+        modelId: result.modelId,
+        creditCost: 0,
+        status: "FAILED" as const,
+        chartSnapshot: null,
+        transitSnapshot: null,
+      };
+    }
+
+    if (!result.ok || !result.rawText) {
+      await releaseUsageReservation(reservationId);
+      await logUsage({
+        userId,
+        provider: result.provider,
+        modelId: result.modelId,
+        status: result.errorCode === "TIMEOUT" ? "TIMEOUT" : "FAILED",
+        latencyMs: result.latencyMs,
+        errorCode: result.errorCode,
+        errorMessage: result.errorMessage,
+      });
+      const alert = classifyProviderFailure(
+        result.errorCode,
+        result.errorMessage,
+      );
+      logProviderAlert(alert, {
+        modelId: result.modelId,
+        errorCode: result.errorCode,
+        errorMessage: result.errorMessage,
+      });
+      const code =
+        result.errorCode === "TIMEOUT" ? "AI_TIMEOUT" : "AI_PROVIDER_ERROR";
+      throw new AppError(
+        code,
+        providerAlertUserMessage(alert) ??
+          result.errorMessage ??
+          "AI request failed",
+      );
+    }
+
+    // A MAX_TOKENS cut ends mid-sentence with no signal. Surface it honestly so
+    // the user knows to ask for the rest, instead of a silently missing ending.
+    const responseText = result.truncated
+      ? `${result.rawText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
+      : result.rawText;
+
+    // Success => charge tx: finalize reservation, deduct credit, persist reading.
+    const reading = await prisma.$transaction(async (tx) => {
+      await lockWalletForUpdate(userId, tx);
+
+      const reserved = await tx.aIUsageLog.findFirst({
+        where: { id: reservationId, userId, status: "RESERVED" },
+        select: { id: true },
+      });
+      if (!reserved) {
+        throw new AppError(
+          "INTERNAL",
+          "Usage reservation expired — please retry",
+        );
+      }
+
+      const created = await tx.horoscopeReading.create({
+        data: {
+          userId,
+          idempotencyKey,
+          birthProfileSnapshotJson: snapshot as object,
+          categoryId: category.id,
+          question,
+          responseJson: (result.parsed as object | undefined) ?? undefined,
+          responseText,
+          provider: result.provider,
+          modelId: result.modelId,
+          promptTemplateId: templateId ?? undefined,
+          promptVersion: undefined,
+          status: "SUCCESS",
+          creditCost: category.creditCost,
+        },
+      });
+
+      await deductCredits(
+        userId,
+        category.creditCost,
+        { type: "AI_USAGE", referenceType: "reading", referenceId: created.id },
+        tx,
+      );
+
+      await tx.aIUsageLog.update({
+        where: { id: reservationId },
+        data: {
+          status: "SUCCESS",
+          readingId: created.id,
+          inputUsage: result.usage?.inputTokens,
+          outputUsage: result.usage?.outputTokens,
+          latencyMs: result.latencyMs,
+        },
+      });
+
+      return created;
     });
 
-    return created;
-  });
+    // Meta (summaryLine + follow-up chips) is a second Flash-Lite call. Awaiting
+    // it here used to hold the SSE `done` event — and with it the caret, the
+    // message actions, and the follow-up chips — hostage for up to its full
+    // timeout AFTER the answer had already finished typing. Kick it off and hand
+    // the promise back so the route can send `done` now and deliver meta later.
+    // Only the streaming path consumes it; the legacy 202 path never ships meta.
+    const metaPromise: Promise<FollowUpMeta> = onDelta
+      ? generateFollowUpMeta({
+          userId,
+          question,
+          answer: result.rawText,
+          categoryName: category.nameTh,
+        })
+      : Promise.resolve({ followUps: [] });
 
-  // Meta (summaryLine + follow-up chips) is a second Flash-Lite call. Awaiting
-  // it here used to hold the SSE `done` event — and with it the caret, the
-  // message actions, and the follow-up chips — hostage for up to its full
-  // timeout AFTER the answer had already finished typing. Kick it off and hand
-  // the promise back so the route can send `done` now and deliver meta later.
-  // Only the streaming path consumes it; the legacy 202 path never ships meta.
-  const metaPromise: Promise<FollowUpMeta> = onDelta
-    ? generateFollowUpMeta({
-        userId,
-        question,
-        answer: result.rawText,
-        categoryName: category.nameTh,
-      })
-    : Promise.resolve({ followUps: [] });
-
-  return {
-    ...reading,
-    chartSnapshot: natalChart,
-    transitSnapshot: transitChart,
-    metaPromise,
-  };
+    return {
+      ...reading,
+      chartSnapshot: natalChart,
+      transitSnapshot: transitChart,
+      metaPromise,
+    };
+  } catch (err) {
+    await releaseUsageReservation(reservationId).catch(() => {});
+    throw err;
+  }
 }
