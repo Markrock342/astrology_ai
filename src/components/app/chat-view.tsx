@@ -251,7 +251,7 @@ export function ChatView() {
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase | null>(
     null,
   );
-  const draftHydratedRef = useRef(false);
+  const [draftReady, setDraftReady] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [pendingRetry, setPendingRetry] = useState<PendingRetry | null>(null);
@@ -337,26 +337,26 @@ export function ChatView() {
   }, [threadId]);
 
   // Hydrate answer mode, draft, and thumbs from localStorage once on mount.
+  // Mark draftReady only after applying the stored draft so the persist effect
+  // does not wipe localStorage while `input` is still the empty initial value.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage hydrate
     setAnswerMode(readAnswerMode());
     setFeedbackById(readFeedbackMap());
-    if (!draftHydratedRef.current) {
-      draftHydratedRef.current = true;
-      const draft = readDraft();
-      if (draft) setInput(draft);
-    }
+    const draft = readDraft();
+    if (draft) setInput(draft);
+    setDraftReady(true);
   }, []);
 
   useEffect(() => {
-    if (!draftHydratedRef.current) return;
+    if (!draftReady) return;
     if (editingMessageId) return;
     if (input.trim()) {
       window.localStorage.setItem(DRAFT_KEY, input);
     } else {
       window.localStorage.removeItem(DRAFT_KEY);
     }
-  }, [input, editingMessageId]);
+  }, [input, editingMessageId, draftReady]);
 
   function updateAnswerMode(mode: AnswerMode) {
     setAnswerMode(mode);
