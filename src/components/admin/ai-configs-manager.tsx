@@ -431,14 +431,38 @@ export function AiConfigsManager() {
             </p>
             {recentFailures.length === 0 ? (
               <p className="mt-2 text-[11px] text-[var(--secondary-active)]">
-                ไม่มี error จาก log Gemini ในช่วงนี้
+                ไม่มี error จริงจาก log Gemini ในช่วงนี้ (ผู้ใช้กดหยุดเองไม่นับ)
               </p>
             ) : (
-              <ul className="mt-2 space-y-1">
-                {recentFailures.slice(0, 4).map((f, i) => (
-                  <li key={`${f.createdAt}-${i}`} className="text-[11px] text-[var(--muted)]">
-                    <Badge tone="red">{f.status}</Badge> {f.modelId} ·{" "}
-                    {f.errorCode ?? f.errorMessage?.slice(0, 60) ?? "—"} · {fmtWhen(f.createdAt)}
+              <ul className="mt-2 space-y-1.5">
+                {recentFailures.slice(0, 6).map((f, i) => (
+                  <li
+                    key={`${f.createdAt}-${i}`}
+                    className="text-[11px] text-[var(--muted)]"
+                  >
+                    <details className="group/err">
+                      <summary className="flex cursor-pointer list-none items-center gap-1.5">
+                        <Badge tone="red">{f.errorCode ?? f.status}</Badge>
+                        <span className="truncate">{f.modelId}</span>
+                        <span className="text-[var(--muted-2)]">
+                          · {fmtWhen(f.createdAt)}
+                        </span>
+                        {f.errorMessage ? (
+                          <span className="ml-auto text-[10px] text-[var(--primary)] group-open/err:hidden">
+                            ดูสาเหตุ
+                          </span>
+                        ) : null}
+                      </summary>
+                      {f.errorMessage ? (
+                        <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[var(--surface-2)] px-2 py-1.5 text-[10px] leading-relaxed text-[var(--foreground)]">
+                          {f.errorMessage}
+                        </pre>
+                      ) : (
+                        <p className="mt-1 text-[10px] text-[var(--muted-2)]">
+                          ไม่มีรายละเอียดเพิ่มเติม (errorCode: {f.errorCode ?? "—"})
+                        </p>
+                      )}
+                    </details>
                   </li>
                 ))}
               </ul>
