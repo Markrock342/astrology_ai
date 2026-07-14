@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useAppData } from "@/components/app/app-data-provider";
 import type { MyUsage } from "@/types/my-usage";
 
 export function ChatUsageBar({
@@ -12,7 +13,24 @@ export function ChatUsageBar({
   loading: boolean;
   apiReady: boolean;
 }) {
-  if (loading && !usage) return null;
+  const { user } = useAppData();
+
+  // Instant paint from bootstrap balance — don't blank the bar while /usage loads.
+  if (loading && !usage) {
+    if (user) {
+      return (
+        <div className="flex shrink-0 items-center justify-center border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-[11px] text-[var(--muted)] md:px-8">
+          <Link href="/account" className="transition hover:text-[var(--primary)]">
+            เครดิต{" "}
+            <span className="font-semibold text-[var(--foreground)]">
+              {user.creditBalance}
+            </span>
+          </Link>
+        </div>
+      );
+    }
+    return null;
+  }
   if (!usage) return null;
 
   const balance = usage.balance;
