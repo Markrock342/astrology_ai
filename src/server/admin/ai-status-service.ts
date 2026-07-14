@@ -1,3 +1,4 @@
+import type { Prisma, UsageStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { generateWithFallback } from "@/server/ai/router";
 import { classifyProviderFailure } from "@/server/ai/provider-alerts";
@@ -160,20 +161,31 @@ async function fetchGoogleIncidents() {
 async function getUsageHealth() {
   const since = new Date(Date.now() - USAGE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
-  const [grouped, recentFailures] = await Promise.all([
+  // A "failure" is a REAL system failure — not a user stopping their own answer
+  // (logged as FAILED/STOPPED) and not an in-flight RESERVED slot. Counting
+  // those alarmed the admin over things that never broke: the fail badge lit red
+  // for a cancellation the user chose.
+  const isRealFailure = {
+    status: { in: ["FAILED", "TIMEOUT"] as UsageStatus[] },
+    // Prisma's `not` includes NULLs, so a failure with no error code still counts.
+    errorCode: { not: "STOPPED" },
+  } satisfies Prisma.AIUsageLogWhereInput;
+
+  const [totals, failureCounts, recentFailures] = await Promise.all([
     prisma.aIUsageLog.groupBy({
-      by: ["modelId", "status"],
+      by: ["modelId"],
       where: { createdAt: { gte: since }, provider: "GEMINI" },
       _count: { _all: true },
     }),
+    prisma.aIUsageLog.groupBy({
+      by: ["modelId"],
+      where: { createdAt: { gte: since }, provider: "GEMINI", ...isRealFailure },
+      _count: { _all: true },
+    }),
     prisma.aIUsageLog.findMany({
-      where: {
-        createdAt: { gte: since },
-        provider: "GEMINI",
-        status: { not: "SUCCESS" },
-      },
+      where: { createdAt: { gte: since }, provider: "GEMINI", ...isRealFailure },
       orderBy: { createdAt: "desc" },
-      take: 6,
+      take: 8,
       select: {
         id: true,
         modelId: true,
@@ -185,24 +197,20 @@ async function getUsageHealth() {
     }),
   ]);
 
+  const failureByModel = new Map(
+    failureCounts.map((f) => [f.modelId, f._count._all]),
+  );
+
   const byModelMap = new Map<string, ModelUsageHealth>();
-  for (const row of grouped) {
-    let entry = byModelMap.get(row.modelId);
-    if (!entry) {
-      entry = {
-        modelId: row.modelId,
-        total7d: 0,
-        failures7d: 0,
-        lastFailureAt: null,
-        lastErrorCode: null,
-        lastErrorMessage: null,
-      };
-      byModelMap.set(row.modelId, entry);
-    }
-    entry.total7d += row._count._all;
-    if (row.status !== "SUCCESS") {
-      entry.failures7d += row._count._all;
-    }
+  for (const row of totals) {
+    byModelMap.set(row.modelId, {
+      modelId: row.modelId,
+      total7d: row._count._all,
+      failures7d: failureByModel.get(row.modelId) ?? 0,
+      lastFailureAt: null,
+      lastErrorCode: null,
+      lastErrorMessage: null,
+    });
   }
 
   for (const fail of recentFailures) {
