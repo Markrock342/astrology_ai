@@ -11,6 +11,7 @@ import {
   useCategory,
 } from "./app-data-provider";
 
+import { BrandMark } from "@/components/brand-logo";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import { ChatUsageBar } from "./chat-usage-bar";
@@ -1518,11 +1519,13 @@ export function ChatView() {
                 </div>
               ) : (
                 <div key={m.id} className="animate-msg-in group flex gap-3 sm:gap-4">
+                  {/* The assistant speaks as the brand, so it wears the brand —
+                      a generic sparkle said nothing about whose answer this is. */}
                   <div
-                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--primary)]/35 bg-[var(--surface-2)] text-[var(--primary)]"
+                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--primary)]/35 bg-[var(--surface-2)]"
                     aria-hidden
                   >
-                    <SparkleIcon />
+                    <BrandMark size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="mb-2 text-xs font-semibold tracking-wide text-[var(--primary)]">
@@ -1928,13 +1931,6 @@ function ThinkingIndicator({
   );
 }
 
-function SparkleIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2l2.1 6.4L20.5 10l-6.4 2.1L12 18.5 9.9 12.1 3.5 10l6.4-1.6L12 2z" />
-    </svg>
-  );
-}
 
 const Composer = forwardRef<
   HTMLTextAreaElement,
