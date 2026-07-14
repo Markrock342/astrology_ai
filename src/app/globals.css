@@ -153,16 +153,6 @@ select option {
   }
 }
 
-/* Blinking caret at the end of streaming AI text */
-@keyframes caret-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
 
 .animate-fade-up {
   animation: fade-up 0.5s var(--ease-out-quart) both;
@@ -235,22 +225,52 @@ select option {
   animation: shimmer 2.2s linear infinite;
 }
 
-.stream-caret::after {
-  content: "▊";
-  margin-left: 2px;
-  color: var(--primary);
-  animation: caret-blink 0.9s steps(1) infinite;
+/*
+ * Typing caret.
+ *
+ * Drawn as a shape rather than the "▊" glyph it used to be: a text block
+ * character inherits the line's font metrics, so it changed size and sat at a
+ * different height inside a heading, a list item or a paragraph. This is a
+ * fixed 2px bar aligned to the text baseline — the same caret everywhere.
+ *
+ * It also breathes instead of clicking on and off (steps(1) is a hard switch),
+ * which reads as a cursor rather than a flashing artefact.
+ */
+.stream-caret::after,
+.chat-md.stream-caret > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 3px;
+  border-radius: 1px;
+  background: var(--primary);
+  vertical-align: text-bottom;
+  animation: caret-pulse 1.1s var(--ease-out-quart, ease-in-out) infinite;
 }
 
-/* Streaming caret after the last markdown block (ChatGPT-style) */
-.chat-md.stream-caret > :last-child::after {
-  content: "▊";
-  margin-left: 2px;
-  color: var(--primary);
-  animation: caret-blink 0.9s steps(1) infinite;
-}
+/* The caret trails the LAST block, not the wrapper — or it lands on its own line. */
 .chat-md.stream-caret::after {
   content: none;
+}
+
+@keyframes caret-pulse {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  70%,
+  100% {
+    opacity: 0.15;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-caret::after,
+  .chat-md.stream-caret > :last-child::after {
+    animation: none;
+    opacity: 0.8;
+  }
 }
 
 /* Button press feedback */
