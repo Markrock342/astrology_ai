@@ -1,3 +1,9 @@
+-- ALLOW_DESTRUCTIVE: the UPDATE below only fills a column this same migration
+-- just created, so every row it touches was NULL a statement ago. Nothing is
+-- overwritten. Already applied to production long before the guard existed —
+-- marked so the guard, which scans every migration on every build, does not
+-- block deploys forever over a backfill that already happened.
+
 -- Email verification (soft): track verified state + one-time tokens.
 ALTER TABLE "users" ADD COLUMN "emailVerifiedAt" TIMESTAMP(3);
 

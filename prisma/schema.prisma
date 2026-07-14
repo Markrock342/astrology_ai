@@ -167,6 +167,7 @@ model User {
   readings      HoroscopeReading[]
   conversations Conversation[]
   usageLogs     AIUsageLog[]
+  messageFeedback MessageFeedback[]
   payments      Payment[]
   pushSubscriptions PushSubscription[]
 
@@ -645,13 +646,44 @@ model Message {
   /// EVERY read path must filter `deletedAt: null`, or hidden turns walk back in.
   deletedAt        DateTime?
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback     MessageFeedback[]
 
   @@unique([conversationId, idempotencyKey])
   @@index([conversationId, createdAt])
   @@index([conversationId, status])
   @@index([conversationId, deletedAt, createdAt])
   @@map("messages")
+}
+
+enum FeedbackValue {
+  UP
+  DOWN
+}
+
+/// Thumbs up/down on an assistant answer.
+///
+/// The buttons shipped writing to localStorage and nowhere else, so a user could
+/// tell us an answer was bad and we would never know — the one signal we have
+/// about answer quality went into their browser and died there.
+model MessageFeedback {
+  id        String        @id @default(cuid())
+  messageId String
+  userId    String
+  value     FeedbackValue
+  /// Optional free text ("ทำไมถึงไม่ตรง") — the why behind a thumbs-down.
+  reason    String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// One verdict per person per answer — voting again changes your mind, it does
+  /// not stuff the ballot.
+  @@unique([messageId, userId])
+  @@index([value, createdAt])
+  @@map("message_feedback")
 }
 
 // ---------------------------------------------------------------------------

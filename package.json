@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "vercel-build": "npm run ci && next build",
+    "vercel-build": "npm run ci && npm run migrations:check && next build",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "ci": "bash scripts/ci-local.sh",
+    "migrations:check": "node scripts/check-migrations.mjs",
     "ci:e2e": "playwright test",
     "hooks:install": "git config core.hooksPath .githooks",
     "smoke:public": "node scripts/smoke-public-api.mjs",
