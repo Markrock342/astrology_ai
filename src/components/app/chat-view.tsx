@@ -28,12 +28,45 @@ import {
 } from "./thread-cache";
 
 type ThinkingPhase = "chart" | "memory" | "writing";
+type AnswerMode = "brief" | "detailed";
+type FeedbackValue = "up" | "down";
 
 const THINKING_PHASE_LABEL: Record<ThinkingPhase, string> = {
   chart: "กำลังคำนวณพื้นดวง…",
   memory: "กำลังวิเคราะห์เรือนและดาว…",
   writing: "กำลังเขียนคำทำนาย…",
 };
+
+const ANSWER_MODE_KEY = "horasard:answerMode";
+const DRAFT_KEY = "horasard:chatDraft";
+const FEEDBACK_KEY = "horasard:messageFeedback";
+
+function readAnswerMode(): AnswerMode {
+  if (typeof window === "undefined") return "detailed";
+  const saved = window.localStorage.getItem(ANSWER_MODE_KEY);
+  return saved === "brief" ? "brief" : "detailed";
+}
+
+function readDraft(): string {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(DRAFT_KEY) ?? "";
+}
+
+function readFeedbackMap(): Record<string, FeedbackValue> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(FEEDBACK_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, FeedbackValue> = {};
+    for (const [id, value] of Object.entries(parsed)) {
+      if (value === "up" || value === "down") out[id] = value;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 type Message = {
   id: string;
@@ -205,10 +238,15 @@ export function ChatView() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [answerMode, setAnswerMode] = useState<AnswerMode>("detailed");
+  const [feedbackById, setFeedbackById] = useState<
+    Record<string, FeedbackValue>
+  >({});
   const [state, setState] = useState<ChatState>("idle");
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase | null>(
     null,
   );
+  const draftHydratedRef = useRef(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [pendingRetry, setPendingRetry] = useState<PendingRetry | null>(null);
@@ -292,6 +330,41 @@ export function ChatView() {
   useEffect(() => {
     conversationIdRef.current = threadId;
   }, [threadId]);
+
+  // Hydrate answer mode, draft, and thumbs from localStorage once on mount.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage hydrate
+    setAnswerMode(readAnswerMode());
+    setFeedbackById(readFeedbackMap());
+    if (!draftHydratedRef.current) {
+      draftHydratedRef.current = true;
+      const draft = readDraft();
+      if (draft) setInput(draft);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!draftHydratedRef.current) return;
+    if (editingMessageId) return;
+    if (input.trim()) {
+      window.localStorage.setItem(DRAFT_KEY, input);
+    } else {
+      window.localStorage.removeItem(DRAFT_KEY);
+    }
+  }, [input, editingMessageId]);
+
+  function updateAnswerMode(mode: AnswerMode) {
+    setAnswerMode(mode);
+    window.localStorage.setItem(ANSWER_MODE_KEY, mode);
+  }
+
+  function setMessageFeedback(messageId: string, value: FeedbackValue) {
+    setFeedbackById((prev) => {
+      const next = { ...prev, [messageId]: value };
+      window.localStorage.setItem(FEEDBACK_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
 
   // Load past thread when ?thread= is set — soft switch from cache first.
   useEffect(() => {
@@ -666,6 +739,7 @@ export function ChatView() {
       const userMsg: Message = { id: crypto.randomUUID(), role: "user", content };
       setMessages((m) => [...m, userMsg]);
       setInput("");
+      window.localStorage.removeItem(DRAFT_KEY);
     }
 
     setErrorText(null);
@@ -777,6 +851,7 @@ export function ChatView() {
             content,
             editUserMessageId,
             regenerateAssistantMessageId: options.regenerateAssistantMessageId,
+            answerMode,
           }),
           signal: abort.signal,
         },
@@ -1096,6 +1171,13 @@ export function ChatView() {
     void send(userMsg.content, { regenerateAssistantMessageId: assistantId });
   }
 
+  function prefillFromChart(prompt: string) {
+    setEditingMessageId(null);
+    setInput(prompt);
+    window.localStorage.setItem(DRAFT_KEY, prompt);
+    composerRef.current?.focus();
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ChatUsageBar
@@ -1185,6 +1267,7 @@ export function ChatView() {
                   {!isBusy && !m.id.startsWith("stream-") ? (
                     <MessageActions
                       role="user"
+                      messageId={m.id}
                       content={m.content}
                       canEdit
                       onEdit={() => startEditMessage(m.id, m.content)}
@@ -1222,12 +1305,17 @@ export function ChatView() {
                           )}
                         </div>
                         {m.chartSnapshot && (
-                          <ChartEvidenceTable chart={m.chartSnapshot} mode="natal" />
+                          <ChartEvidenceTable
+                            chart={m.chartSnapshot}
+                            mode="natal"
+                            onRowAsk={prefillFromChart}
+                          />
                         )}
                         {m.transitSnapshot && (
                           <ChartEvidenceTable
                             chart={m.transitSnapshot}
                             mode="transit"
+                            onRowAsk={prefillFromChart}
                           />
                         )}
                       </div>
@@ -1252,6 +1340,7 @@ export function ChatView() {
                         {!isBusy && !m.id.startsWith("stream-") ? (
                           <MessageActions
                             role="assistant"
+                            messageId={m.id}
                             content={m.content}
                             canRegenerate={m.status !== "PENDING"}
                             failed={m.status === "FAILED" || m.status === "TIMEOUT"}
@@ -1261,6 +1350,8 @@ export function ChatView() {
                                 ? () => retryFailedAssistant(m.id)
                                 : undefined
                             }
+                            feedback={feedbackById[m.id] ?? null}
+                            onFeedback={(value) => setMessageFeedback(m.id, value)}
                           />
                         ) : (
                           <CopyMessageButton text={m.content} />
@@ -1325,10 +1416,10 @@ export function ChatView() {
           <button
             type="button"
             onClick={() => scrollToBottom("smooth")}
-            className="press-scale fixed bottom-28 right-6 z-20 flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-lg transition hover:border-[var(--primary)] md:right-10"
+            className="press-scale absolute bottom-3 right-3 z-20 flex size-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)]/95 text-[var(--foreground)] shadow-md backdrop-blur transition hover:border-[var(--primary)] md:bottom-4 md:right-4"
             aria-label="เลื่อนลงล่างสุด"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
               <path
                 d="M12 5v14M6 13l6 6 6-6"
                 stroke="currentColor"
@@ -1380,6 +1471,8 @@ export function ChatView() {
             usage?.creditCostPerMessage ?? DEFAULTS.creditCostPerReading
           }
           creditBalance={usage?.balance ?? user?.creditBalance ?? 0}
+          answerMode={answerMode}
+          onAnswerModeChange={updateAnswerMode}
         />
       </div>
     </div>
@@ -1582,6 +1675,8 @@ const Composer = forwardRef<
     categoryLocked?: boolean;
     creditCost?: number;
     creditBalance?: number;
+    answerMode: AnswerMode;
+    onAnswerModeChange: (mode: AnswerMode) => void;
   }
 >(function Composer(
   {
@@ -1595,6 +1690,8 @@ const Composer = forwardRef<
     categoryLocked,
     creditCost,
     creditBalance,
+    answerMode,
+    onAnswerModeChange,
   },
   ref,
 ) {
@@ -1614,6 +1711,43 @@ const Composer = forwardRef<
 
   return (
     <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8">
+      <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between gap-2">
+        <div
+          className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-0.5 text-[11px]"
+          role="group"
+          aria-label="โหมดคำตอบ"
+        >
+          <button
+            type="button"
+            onClick={() => onAnswerModeChange("brief")}
+            disabled={!aiEnabled}
+            className={`rounded-md px-3 py-1 transition ${
+              answerMode === "brief"
+                ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            กระชับ
+          </button>
+          <button
+            type="button"
+            onClick={() => onAnswerModeChange("detailed")}
+            disabled={!aiEnabled}
+            className={`rounded-md px-3 py-1 transition ${
+              answerMode === "detailed"
+                ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            ละเอียด
+          </button>
+        </div>
+        {aiEnabled && creditCost != null && creditCost > 0 ? (
+          <p className="text-[11px] text-[var(--muted)]">
+            ใช้ {creditCost} เครดิต · คงเหลือ {creditBalance ?? 0}
+          </p>
+        ) : null}
+      </div>
       <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 transition-shadow duration-300 focus-within:border-[var(--primary)]/50 focus-within:shadow-[0_0_0_3px_var(--ring)]">
         <textarea
           ref={ref}
@@ -1671,12 +1805,7 @@ const Composer = forwardRef<
           </button>
         )}
       </div>
-      {aiEnabled && creditCost != null && creditCost > 0 ? (
-        <p className="mt-2 text-center text-[11px] text-[var(--muted)]">
-          ใช้ {creditCost} เครดิต · คงเหลือ {creditBalance ?? 0}
-        </p>
-      ) : null}
-      <p className="mt-1 text-center text-[10px] text-[var(--muted-2)]">
+      <p className="mt-1.5 text-center text-[10px] text-[var(--muted-2)]">
         Horasard อาจให้ข้อมูลที่ไม่ถูกต้องเสมอไป โปรดใช้วิจารณญาณ
       </p>
     </div>
