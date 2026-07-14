@@ -213,6 +213,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Edge-swipe: drag in from the left edge to open the drawer, swipe left on the
+  // open drawer to close it — the gesture people reach for on a phone. It never
+  // calls preventDefault, so vertical scrolling is untouched; it only reads the
+  // touch and, once per gesture, decides whether a clear horizontal swipe fired.
+  const swipe = useRef<{
+    x: number;
+    y: number;
+    fromEdge: boolean;
+    fired: boolean;
+  } | null>(null);
+
+  // Plain functions — the React Compiler memoizes them; a manual useCallback
+  // here conflicts with it ("existing memoization could not be preserved").
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    if (!t) return;
+    swipe.current = {
+      x: t.clientX,
+      y: t.clientY,
+      fromEdge: t.clientX <= 28,
+      fired: false,
+    };
+  }
+
+  function onTouchMove(e: React.TouchEvent) {
+    const s = swipe.current;
+    const t = e.touches[0];
+    if (!s || s.fired || !t) return;
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    // Ignore anything that is mostly vertical — that is a scroll, not a swipe.
+    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+    s.fired = true;
+    if (dx > 0 && s.fromEdge && !mobileShown) openMobile();
+    else if (dx < 0 && mobileShown) closeMobile();
+  }
+
   useEffect(() => {
     if (!mobileRender) return;
     function onKey(e: KeyboardEvent) {
@@ -580,7 +617,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden">
+    <div
+      className="flex h-[100dvh] overflow-hidden"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+    >
       {/* Mobile drawer: overlay fades, panel slides. transform/opacity only. */}
       {mobileRender && (
         <div
