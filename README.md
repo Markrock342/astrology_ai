@@ -80,7 +80,14 @@ npm run ci              # typecheck · lint · unit (fast)
 npm run ci:e2e          # browser E2E when you have DATABASE_URL + E2E_* in .env
 ```
 
-Remote deploy still goes through **Vercel** (build fails if TypeScript/build breaks). Re-enable the workflow in `.github/workflows/ci.yml` once the GitHub account billing is cleared.
+**Vercel is the remote gate.** It runs `vercel-build` (`npm run ci && next build`) on every
+push, so a failing typecheck, lint or unit test now fails the build — and a broken commit never
+reaches production. Unlike the pre-push hook this covers *everyone*: teammates who never ran
+`hooks:install`, and anyone who pushes with `--no-verify`.
+
+Not covered there: the browser E2E (`npm run ci:e2e`) — it needs a real session and a browser.
+Run it locally before shipping anything that touches the chat, or clear the GitHub billing lock
+and `.github/workflows/ci.yml` will run it on every push and PR, exactly as written.
 
 ---
 
