@@ -43,6 +43,13 @@ export type ThreadMessage = {
    * derived from this instead of from mount time.
    */
   createdAt?: string;
+  /**
+   * This user's own thumbs verdict on this answer, if any.
+   *
+   * Read from the database, not from localStorage: a verdict left on a phone was
+   * invisible on a laptop, and clearing site data silently un-voted everything.
+   */
+  feedback?: "up" | "down";
 };
 
 export type ThreadDetail = {
@@ -133,6 +140,13 @@ export async function getThreadDetail(
           status: true,
           idempotencyKey: true,
           createdAt: true,
+          // Only the caller's own verdict — one row at most, thanks to the
+          // unique [messageId, userId].
+          feedback: {
+            where: { userId },
+            select: { value: true },
+            take: 1,
+          },
         },
       },
     },
@@ -160,6 +174,12 @@ export async function getThreadDetail(
         idempotencyKey:
           m.status === "PENDING" ? (m.idempotencyKey ?? undefined) : undefined,
         createdAt: m.createdAt.toISOString(),
+        feedback:
+          m.feedback[0]?.value === "UP"
+            ? ("up" as const)
+            : m.feedback[0]?.value === "DOWN"
+              ? ("down" as const)
+              : undefined,
       })),
     };
   }
@@ -179,6 +199,10 @@ export async function getThreadDetail(
     throw new AppError("NOT_FOUND", "ไม่พบประวัติการสนทนานี้");
   }
 
+  // `legacy-` prefix: these ids are synthesised from a HoroscopeReading, not
+  // Message rows, so nothing can be addressed by them — edit, regenerate and
+  // thumbs would all 404. The client recognises the prefix and renders the
+  // actions it CAN honour (copy), instead of buttons that fail on tap.
   return {
     id: reading.id,
     categorySlug: reading.category.slug,
@@ -186,12 +210,12 @@ export async function getThreadDetail(
     mode: "NATAL",
     messages: [
       {
-        id: `${reading.id}-user`,
+        id: `legacy-${reading.id}-user`,
         role: "user",
         content: reading.question,
       },
       {
-        id: `${reading.id}-assistant`,
+        id: `legacy-${reading.id}-assistant`,
         role: "assistant",
         content: reading.responseText,
         modelId: reading.modelId ?? undefined,
@@ -309,7 +333,15 @@ async function supersedeFrom(
       ...LIVE,
       createdAt: from === "at" ? { gte: anchorCreatedAt } : { gt: anchorCreatedAt },
     },
-    data: { deletedAt: new Date() },
+    data: {
+      deletedAt: new Date(),
+      // Release the key as well. It is unique per conversation, and a hidden row
+      // still holds it — so retrying the very turn you just discarded (same
+      // Idempotency-Key) collided with the ghost: a 500, and the question posted
+      // twice. Deleting the row used to free the key for us; hiding it does not.
+      // A discarded turn has no idempotency left to protect.
+      idempotencyKey: null,
+    },
   });
   return count;
 }

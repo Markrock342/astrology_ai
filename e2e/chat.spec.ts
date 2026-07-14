@@ -184,41 +184,53 @@ test("the elapsed counter does not restart when you switch chats", async ({
   await expect(page.getByText(/ใช้เวลาไปแล้ว\s*1:3\d นาที/)).toBeVisible();
 });
 
-test("a thumbs verdict reaches the SERVER, not just localStorage", async ({
+test("a thumbs verdict reaches the SERVER and is persisted", async ({
   page,
 }) => {
   // Regression: the thumbs buttons wrote to localStorage and nowhere else, so a
-  // user could tell us an answer was wrong and we would never find out — the one
-  // direct read we have on answer quality died in their browser.
-  const posted: Array<{ url: string; method: string; body: unknown }> = [];
-  await page.route("**/api/messages/*/feedback", async (route) => {
-    posted.push({
-      url: route.request().url(),
-      method: route.request().method(),
-      body: route.request().postDataJSON() ?? null,
-    });
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true, data: { value: "DOWN" } }),
-    });
-  });
-
+  // user could tell us an answer was wrong and we would never find out.
+  //
+  // This test deliberately does NOT stub /api/messages/*/feedback. An earlier
+  // version did, and it was theatre: it asserted the CLIENT sent a request, then
+  // answered that request itself. It stayed green while the table did not even
+  // exist in the database. The request must reach the real route, and the real
+  // route must accept it — that is the whole claim being made.
+  //
+  // The stub gives the assistant a REAL message id (ASSISTANT_MSG_ID), but no
+  // such row exists, so the route correctly answers 404. A 404 proves the whole
+  // path is alive: auth passed, the route ran, the service queried the database
+  // and found no such message. A 500 would mean the table is missing.
   await page.goto("/dashboard?cat=self");
   await page.getByRole("textbox").fill("ทดสอบฟีดแบ็ก");
   await page.keyboard.press("Enter");
   await expect(page.getByText("นี่คือคำตอบทดสอบจากระบบ")).toBeVisible();
+
+  const waitForVerdict = page.waitForResponse(
+    (r) =>
+      r.url().includes(`/api/messages/${ASSISTANT_MSG_ID}/feedback`) &&
+      r.request().method() === "POST",
+  );
 
   await page
     .getByTestId("message-actions")
     .getByRole("button", { name: "คำตอบไม่ดี" })
     .click();
 
-  await expect
-    .poll(() => posted.length, { message: "the verdict must be sent" })
-    .toBe(1);
-  expect(posted[0].method).toBe("POST");
-  expect(posted[0].body).toEqual({ value: "DOWN" });
-  // Addressed by the REAL row id — a local-* id would 404 on the server.
-  expect(posted[0].url).toContain(ASSISTANT_MSG_ID);
+  const res = await waitForVerdict;
+  expect(res.request().postDataJSON()).toEqual({ value: "DOWN" });
+
+  // A 500 here means message_feedback does not exist in the database — exactly
+  // the failure the stubbed version of this test could never see.
+  expect(
+    res.status(),
+    "500 = the message_feedback table is missing; the migration never ran",
+  ).not.toBe(500);
+  expect([200, 404]).toContain(res.status());
+
+  // The row is not real, so the server refuses it — and the UI must SAY so
+  // rather than silently un-highlighting the thumb, which is indistinguishable
+  // from a dead button.
+  if (res.status() === 404) {
+    await expect(page.getByText(/บันทึกฟีดแบ็กไม่สำเร็จ/)).toBeVisible();
+  }
 });

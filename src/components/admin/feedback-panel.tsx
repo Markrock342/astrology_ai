@@ -53,15 +53,22 @@ export function FeedbackPanel() {
   const [value, setValue] = useState<"" | "UP" | "DOWN">("DOWN");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  // Tracked separately from `data`. Keying the skeleton off `!data` meant a
+  // failed request left it spinning forever — the page looked like it was still
+  // loading when in fact it had already given up.
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setError(null);
+    setLoading(true);
     try {
       const q = new URLSearchParams({ page: String(page) });
       if (value) q.set("value", value);
       setData(await adminFetch<FeedbackList>(`/api/admin/feedback?${q}`));
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดฟีดแบ็กไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   }, [value, page]);
 
@@ -122,17 +129,22 @@ export function FeedbackPanel() {
         </Select>
       </div>
 
+      {/* Error and skeleton are mutually exclusive — showing both said "still
+          loading" about a request that had already failed. */}
       {error ? (
         <Card className="mt-4">
           <p className="text-sm text-[var(--danger)]">{error}</p>
+          <div className="mt-3">
+            <Button variant="ghost" onClick={() => void load()}>
+              ลองใหม่
+            </Button>
+          </div>
         </Card>
-      ) : null}
-
-      {!data ? (
+      ) : loading ? (
         <div className="mt-4">
           <TableSkeleton />
         </div>
-      ) : data.items.length === 0 ? (
+      ) : !data ? null : data.items.length === 0 ? (
         <Card className="mt-4">
           <p className="py-6 text-center text-sm text-[var(--muted)]">
             {value === "DOWN"

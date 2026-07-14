@@ -84,7 +84,13 @@ export async function listFeedbackForAdmin(args: {
   page: number;
   pageSize: number;
 }) {
-  const where = args.value ? { value: args.value } : {};
+  // A verdict on an answer the user has since discarded (edited the question,
+  // regenerated) is noise: they already told us it was wrong by replacing it,
+  // and the answer is no longer in their thread to act on.
+  const where = {
+    message: { deletedAt: null },
+    ...(args.value ? { value: args.value } : {}),
+  };
 
   const [total, rows] = await Promise.all([
     prisma.messageFeedback.count({ where }),
@@ -113,13 +119,17 @@ export async function listFeedbackForAdmin(args: {
   ]);
 
   // The question is the USER row immediately before the answer.
+  //
+  // Deliberately NOT filtered by deletedAt: we want the question that PRODUCED
+  // this answer, and an edit supersedes the original. Filtering it out made the
+  // lookup skip past the real question and attach whatever older one survived —
+  // showing the admin a thumbs-down next to a question that never got that reply.
   const questions = await Promise.all(
     rows.map((r) =>
       prisma.message.findFirst({
         where: {
           conversationId: r.message.conversationId,
           role: "USER",
-          deletedAt: null,
           createdAt: { lt: r.message.createdAt },
         },
         orderBy: { createdAt: "desc" },
@@ -142,9 +152,15 @@ export async function listFeedbackForAdmin(args: {
     },
   }));
 
+  // Same exclusion as the list, or the headline satisfaction number counts
+  // verdicts on answers nobody can act on any more.
   const [up, down] = await Promise.all([
-    prisma.messageFeedback.count({ where: { value: "UP" } }),
-    prisma.messageFeedback.count({ where: { value: "DOWN" } }),
+    prisma.messageFeedback.count({
+      where: { value: "UP", message: { deletedAt: null } },
+    }),
+    prisma.messageFeedback.count({
+      where: { value: "DOWN", message: { deletedAt: null } },
+    }),
   ]);
 
   return {
