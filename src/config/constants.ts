@@ -54,9 +54,15 @@ export const KNOWLEDGE_MAX_CHARS = 4_000;
 export const FREE_MAX_OUTPUT_TOKENS = 1_024;
 export const PRO_MAX_OUTPUT_TOKENS = 2_048;
 
-/** UX Wave F — brief answer mode caps (below plan caps). */
-export const BRIEF_MAX_OUTPUT_TOKENS_FREE = 384;
-export const BRIEF_MAX_OUTPUT_TOKENS_PRO = 512;
+/**
+ * UX Wave F — brief answer mode caps (below plan caps, above the hint length).
+ * Thai runs ~3–4 tokens/word, so the old 384/512 caps physically could not hold
+ * the "~300 คำ" the hint asked for — every brief answer hit MAX_TOKENS and got
+ * cut mid-sentence. Caps now sit above the (shortened) hinted length with
+ * headroom, while staying well under the detailed plan caps to keep brief cheap.
+ */
+export const BRIEF_MAX_OUTPUT_TOKENS_FREE = 640;
+export const BRIEF_MAX_OUTPUT_TOKENS_PRO = 768;
 
 export const BRIEF_ANSWER_HINT =
-  "ตอบกระชับ 2–4 ย่อหน้าสั้น ไม่เกิน ~300 คำ เน้นประเด็นหลัก";
+  "ตอบกระชับ 2–3 ย่อหน้าสั้น ไม่เกิน ~150 คำ เน้นประเด็นหลัก";

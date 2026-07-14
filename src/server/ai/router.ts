@@ -120,14 +120,23 @@ export async function streamWithFallback(
   const config = await prisma.aIProviderConfig.findUnique({ where: { id: configId } });
   if (!config) throw new AppError("AI_PROVIDER_ERROR", "AI config not found");
 
+  // Count what reached the client. If the primary already streamed text and then
+  // failed, running the fallback would push a SECOND full answer down the same
+  // onDelta with no reset — the user would see two answers concatenated.
+  let emittedChars = 0;
+  const countingDelta = (chunk: string) => {
+    emittedChars += chunk.length;
+    onDelta(chunk);
+  };
+
   const attempt = async (cfg: NonNullable<typeof config>) => {
     const adapter = adapterFor(cfg.provider);
     const input = toGenerateInput(cfg, base);
     if (adapter instanceof GeminiAdapter) {
-      return adapter.streamGenerate(input, onDelta, shouldStop);
+      return adapter.streamGenerate(input, countingDelta, shouldStop);
     }
     const result = await adapter.generate(input);
-    if (result.ok && result.rawText) onDelta(result.rawText);
+    if (result.ok && result.rawText) countingDelta(result.rawText);
     return result;
   };
 
@@ -135,6 +144,8 @@ export async function streamWithFallback(
   // A stop is the user's decision, not a provider failure — retrying it on the
   // fallback would restart the answer they just cancelled, and bill them for it.
   if (primary.ok || primary.stopped || !config.fallbackConfigId) return primary;
+  // Primary already painted a partial answer — don't double it with a fallback.
+  if (emittedChars > 0) return primary;
 
   const fallback = await prisma.aIProviderConfig.findUnique({
     where: { id: config.fallbackConfigId },

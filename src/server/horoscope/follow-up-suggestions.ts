@@ -84,9 +84,12 @@ export async function generateFollowUpMeta(input: {
 
 คำตอบ:
 ${answerSnippet}`,
-      maxOutputTokens: 256,
+      // Thai JSON with a summary + 3 questions overran 256 tokens and came back
+      // truncated (unparseable → no chips). It's off the critical path now, so a
+      // shorter timeout just means the chips appear sooner or not at all.
+      maxOutputTokens: 320,
       temperature: 0.4,
-      timeoutMs: 15_000,
+      timeoutMs: 8_000,
       secretReference: CREDIT_SECRET_ENV,
     });
 

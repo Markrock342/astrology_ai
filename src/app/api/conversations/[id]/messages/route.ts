@@ -25,16 +25,20 @@ function sseEncode(event: Record<string, unknown>): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
 
-/** Split a model chunk so proxies flush more often and the UI can type. */
+/**
+ * Split a model chunk so proxies flush more often. The client typewriter
+ * already smooths per-character — tiny 24-char slices just flooded the wire
+ * (~170 events per answer) for no visual gain.
+ */
 function emitDeltaChunks(
   send: (event: Record<string, unknown>) => void,
   text: string,
 ) {
-  if (text.length <= 48) {
+  if (text.length <= 192) {
     send({ type: "delta", text });
     return;
   }
-  const size = 24;
+  const size = 96;
   for (let i = 0; i < text.length; i += size) {
     send({ type: "delta", text: text.slice(i, i + size) });
   }
@@ -200,11 +204,8 @@ export async function POST(
 
           const reading = await generation;
 
-          const meta = reading as {
-            summaryLine?: string;
-            followUps?: string[];
-          } | null | undefined;
-
+          // Send `done` the instant the answer is finalized — the caret drops,
+          // actions appear, and the turn settles without waiting on meta.
           send({
             type: "done",
             reading: {
@@ -223,10 +224,32 @@ export async function POST(
                   ? reading.transitSnapshot
                   : null,
             },
-            ...(meta?.summaryLine ? { summaryLine: meta.summaryLine } : {}),
-            followUps: meta?.followUps ?? [],
+            followUps: [],
             creditCost: reading?.creditCost ?? 0,
           });
+
+          // Follow-up chips + summary line arrive as a separate frame once the
+          // Flash-Lite meta call lands — never blocking the answer above.
+          const metaPromise = (
+            reading as {
+              metaPromise?: Promise<{
+                summaryLine?: string;
+                followUps?: string[];
+              }>;
+            } | null | undefined
+          )?.metaPromise;
+          if (metaPromise) {
+            try {
+              const meta = await metaPromise;
+              send({
+                type: "meta",
+                ...(meta?.summaryLine ? { summaryLine: meta.summaryLine } : {}),
+                followUps: meta?.followUps ?? [],
+              });
+            } catch {
+              /* meta is best-effort — the answer already shipped */
+            }
+          }
           close();
         } catch (err) {
           const code = err instanceof AppError ? err.code : "AI_PROVIDER_ERROR";

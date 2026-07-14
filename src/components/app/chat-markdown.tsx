@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -139,8 +140,12 @@ function sanitizeHref(raw: string): string | null {
   return null;
 }
 
-/** GPT/Grok-style markdown for assistant chat turns (GFM: tables, lists, headings). */
-export function ChatMarkdown({
+/**
+ * GPT/Grok-style markdown for assistant chat turns (GFM: tables, lists, headings).
+ * Memoized: during streaming the whole message list re-renders per frame, and
+ * without memo every settled message re-parsed its markdown on each tick.
+ */
+export const ChatMarkdown = memo(function ChatMarkdown({
   content,
   streaming = false,
 }: {
@@ -159,4 +164,4 @@ export function ChatMarkdown({
       </ReactMarkdown>
     </div>
   );
-}
+});
