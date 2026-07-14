@@ -31,9 +31,16 @@ vi.mock("@/server/db", () => ({
     },
     message: {
       findUnique: mocks.findMessage,
-      // Replayed turns look up the question row so the client still gets real
-      // ids for edit/regenerate.
-      findFirst: mocks.findPriorUserMessage,
+      // acceptMessage now issues TWO findFirst queries, and they must not answer
+      // each other: the live assistant placeholder is looked up by
+      // idempotencyKey (findUnique cannot express `deletedAt: null`), while the
+      // preceding question is looked up by role. Route on the shape of the
+      // query, or the priorUser stub masquerades as an existing turn and the
+      // send short-circuits.
+      findFirst: (args: { where?: Record<string, unknown> }) =>
+        args?.where?.idempotencyKey
+          ? mocks.findMessage(args)
+          : mocks.findPriorUserMessage(args),
       findMany: mocks.findMessages,
       create: vi.fn(),
       update: mocks.messageUpdate,

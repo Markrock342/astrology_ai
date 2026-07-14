@@ -2,7 +2,23 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { MAX_PRIOR_MESSAGES_LOAD } from "@/config/constants";
 import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
-import type { AIProvider, ConversationMode, ReadingStatus } from "@prisma/client";
+import type {
+  AIProvider,
+  ConversationMode,
+  Prisma,
+  ReadingStatus,
+} from "@prisma/client";
+
+/**
+ * Every message still part of the conversation.
+ *
+ * Turns superseded by an edit or a regenerate are soft-deleted, not destroyed
+ * (they used to be destroyed — permanently, with no undo). This is the ONE
+ * definition of "live": use it rather than re-deriving the filter, because a
+ * single query that forgets `deletedAt: null` brings a discarded branch of the
+ * conversation back from the dead — into the thread, or worse, into the prompt.
+ */
+const LIVE = { deletedAt: null } as const;
 
 export type ThreadSummary = {
   id: string;
@@ -106,6 +122,7 @@ export async function getThreadDetail(
       transitDistrict: true,
       category: { select: { slug: true, nameTh: true } },
       messages: {
+        where: LIVE,
         orderBy: { createdAt: "asc" },
         take: 200,
         select: {
@@ -204,7 +221,7 @@ export async function pollThreadForUser(
   }
 
   const pendingCount = await prisma.message.count({
-    where: { conversationId: threadId, status: "PENDING" },
+    where: { conversationId: threadId, status: "PENDING", ...LIVE },
   });
 
   if (pendingCount > 0) {
@@ -269,23 +286,46 @@ export async function updateConversationTitle(
   return { id: conversation.id, title: truncateTitle(trimmed, 120) };
 }
 
-/** Delete a message and every message created after it in the same thread. */
+/**
+ * Hide a message and everything after it, WITHOUT destroying any of it.
+ *
+ * This used to be a deleteMany. Editing a question or regenerating an answer
+ * permanently erased the rest of the conversation — no undo, no trace, and the
+ * user never asked for it. Superseded turns are now marked and filtered out, so
+ * the history survives and can still be recovered or shown as a prior version.
+ *
+ * @param from "at" also hides the anchor; "after" keeps it (an edited question
+ *   stays — it is the row whose text we are replacing).
+ */
+async function supersedeFrom(
+  conversationId: string,
+  anchorCreatedAt: Date,
+  from: "at" | "after",
+  tx: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<number> {
+  const { count } = await tx.message.updateMany({
+    where: {
+      conversationId,
+      ...LIVE,
+      createdAt: from === "at" ? { gte: anchorCreatedAt } : { gt: anchorCreatedAt },
+    },
+    data: { deletedAt: new Date() },
+  });
+  return count;
+}
+
+/** Hide a message and every message created after it in the same thread. */
 export async function truncateMessagesFrom(
   userId: string,
   messageId: string,
 ): Promise<{ conversationId: string }> {
   const anchor = await prisma.message.findFirst({
-    where: { id: messageId, conversation: { userId } },
+    where: { id: messageId, ...LIVE, conversation: { userId } },
     select: { id: true, conversationId: true, createdAt: true },
   });
   if (!anchor) throw new AppError("NOT_FOUND", "ไม่พบข้อความนี้");
 
-  await prisma.message.deleteMany({
-    where: {
-      conversationId: anchor.conversationId,
-      createdAt: { gte: anchor.createdAt },
-    },
-  });
+  await supersedeFrom(anchor.conversationId, anchor.createdAt, "at");
 
   await prisma.conversation.update({
     where: { id: anchor.conversationId },
@@ -295,7 +335,7 @@ export async function truncateMessagesFrom(
   return { conversationId: anchor.conversationId };
 }
 
-/** Edit a user turn: update text and drop all later messages. */
+/** Edit a user turn: update its text and hide everything that followed. */
 export async function editUserMessage(
   userId: string,
   messageId: string,
@@ -305,27 +345,24 @@ export async function editUserMessage(
   if (!trimmed) throw new AppError("VALIDATION", "ข้อความต้องไม่ว่าง");
 
   const message = await prisma.message.findFirst({
-    where: { id: messageId, role: "USER", conversation: { userId } },
+    where: { id: messageId, role: "USER", ...LIVE, conversation: { userId } },
     select: { id: true, conversationId: true, createdAt: true },
   });
   if (!message) throw new AppError("NOT_FOUND", "ไม่พบข้อความผู้ใช้นี้");
 
-  await prisma.$transaction([
-    prisma.message.deleteMany({
-      where: {
-        conversationId: message.conversationId,
-        createdAt: { gt: message.createdAt },
-      },
-    }),
-    prisma.message.update({
+  await prisma.$transaction(async (tx) => {
+    // "after": the edited question itself stays — it is the row being rewritten.
+    // Everything the old wording produced is superseded, not destroyed.
+    await supersedeFrom(message.conversationId, message.createdAt, "after", tx);
+    await tx.message.update({
       where: { id: message.id },
       data: { content: trimmed },
-    }),
-    prisma.conversation.update({
+    });
+    await tx.conversation.update({
       where: { id: message.conversationId },
       data: { updatedAt: new Date() },
-    }),
-  ]);
+    });
+  });
 
   return { conversationId: message.conversationId, content: trimmed };
 }
@@ -342,6 +379,7 @@ export async function prepareRegenerateAssistant(
     where: {
       id: assistantMessageId,
       role: "ASSISTANT",
+      ...LIVE,
       conversation: { userId },
     },
     select: { id: true, conversationId: true, createdAt: true },
@@ -352,6 +390,7 @@ export async function prepareRegenerateAssistant(
     where: {
       conversationId: assistant.conversationId,
       role: "USER",
+      ...LIVE,
       createdAt: { lt: assistant.createdAt },
     },
     orderBy: { createdAt: "desc" },
@@ -361,12 +400,9 @@ export async function prepareRegenerateAssistant(
     throw new AppError("VALIDATION", "ไม่พบคำถามก่อนหน้าสำหรับสร้างคำตอบใหม่");
   }
 
-  await prisma.message.deleteMany({
-    where: {
-      conversationId: assistant.conversationId,
-      createdAt: { gte: assistant.createdAt },
-    },
-  });
+  // "at": the answer being regenerated is superseded too — the new one replaces
+  // it. The old answer is kept in the row, just hidden.
+  await supersedeFrom(assistant.conversationId, assistant.createdAt, "at");
 
   await prisma.conversation.update({
     where: { id: assistant.conversationId },
@@ -455,6 +491,9 @@ export async function finalizeAssistantMessage(input: {
       conversationId: input.conversationId,
       idempotencyKey: input.idempotencyKey,
       role: "ASSISTANT",
+      // The user superseded this turn (edit/regenerate) while it was generating.
+      // Writing the answer back would un-hide a turn they already discarded.
+      ...LIVE,
     },
     data: {
       content: input.content,
@@ -533,6 +572,7 @@ export async function loadPriorMessages(conversationId: string, userId: string) 
   const recent = await prisma.message.findMany({
     where: {
       conversationId,
+      ...LIVE,
       OR: [
         { role: "USER" },
         { role: "ASSISTANT", status: { not: "PENDING" }, NOT: { content: "" } },
@@ -559,6 +599,7 @@ export async function sweepStalePendingAssistants(conversationId: string) {
       conversationId,
       role: "ASSISTANT",
       status: "PENDING",
+      ...LIVE,
       createdAt: { lt: new Date(Date.now() - 2 * 60_000) },
     },
     data: {

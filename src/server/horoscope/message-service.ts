@@ -15,6 +15,13 @@ import {
 } from "@/server/horoscope/thread-service";
 import type { ConversationMode } from "@prisma/client";
 
+/**
+ * Superseded turns (edited question / regenerated answer) are hidden, not
+ * destroyed — see thread-service. Every query here must exclude them, or a
+ * discarded branch walks back into the thread, the quota count, or the prompt.
+ */
+const LIVE = { deletedAt: null } as const;
+
 export type SendMessageInput = {
   conversationId: string;
   userId: string;
@@ -69,7 +76,12 @@ async function assertCanSend(
   // does not get — the chart, the knowledge docs and the history are re-sent on
   // every turn, so an unbounded free thread is an unbounded free bill.
   const priorTurns = await prisma.message.count({
-    where: { conversationId: conversation.id, role: "ASSISTANT", status: "SUCCESS" },
+    where: {
+      conversationId: conversation.id,
+      role: "ASSISTANT",
+      status: "SUCCESS",
+      ...LIVE,
+    },
   });
 
   await assertCanRequestReading({
@@ -123,6 +135,7 @@ export async function acceptMessage(
       conversationId: conversation.id,
       role: "ASSISTANT",
       status: "PENDING",
+      ...LIVE,
       createdAt: { lt: new Date(Date.now() - 90_000) },
     },
     data: {
@@ -138,6 +151,7 @@ export async function acceptMessage(
       conversationId: conversation.id,
       role: "ASSISTANT",
       status: "PENDING",
+      ...LIVE,
       idempotencyKey: { not: input.idempotencyKey },
     },
     data: {
@@ -147,12 +161,13 @@ export async function acceptMessage(
     },
   });
 
-  const existingAssistant = await prisma.message.findUnique({
+  // findFirst, not findUnique: the unique key cannot express `deletedAt: null`,
+  // and a superseded row must not be mistaken for this turn's live placeholder.
+  const existingAssistant = await prisma.message.findFirst({
     where: {
-      conversationId_idempotencyKey: {
-        conversationId: conversation.id,
-        idempotencyKey: input.idempotencyKey,
-      },
+      conversationId: conversation.id,
+      idempotencyKey: input.idempotencyKey,
+      ...LIVE,
     },
   });
 
@@ -187,6 +202,7 @@ export async function acceptMessage(
       where: {
         conversationId: conversation.id,
         role: "USER",
+        ...LIVE,
         createdAt: { lt: existingAssistant.createdAt },
       },
       orderBy: { createdAt: "desc" },
@@ -276,6 +292,7 @@ export async function requestStopGeneration(input: {
       idempotencyKey: input.idempotencyKey,
       role: "ASSISTANT",
       status: "PENDING",
+      ...LIVE,
       conversation: { userId: input.userId },
     },
     select: { id: true, createdAt: true, content: true },
@@ -313,10 +330,8 @@ export async function isStopRequested(
   conversationId: string,
   idempotencyKey: string,
 ): Promise<boolean> {
-  const row = await prisma.message.findUnique({
-    where: {
-      conversationId_idempotencyKey: { conversationId, idempotencyKey },
-    },
+  const row = await prisma.message.findFirst({
+    where: { conversationId, idempotencyKey, ...LIVE },
     select: { stopRequested: true },
   });
   return row?.stopRequested === true;
