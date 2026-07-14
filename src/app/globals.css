@@ -273,6 +273,12 @@ select option {
   }
 }
 
+/* Long unbroken tokens (URLs, hashes) must wrap, not force the chat pane to
+   scroll sideways on a phone. */
+.chat-md {
+  overflow-wrap: anywhere;
+}
+
 /* Visually hidden but read by screen readers (aria-live announcements etc). */
 .sr-only {
   position: absolute;
