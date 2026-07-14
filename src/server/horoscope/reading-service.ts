@@ -27,7 +27,10 @@ import {
   questionWantsTodayTransit,
 } from "@/server/horoscope/daily-transit-service";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
-import { generateFollowUpMeta } from "@/server/horoscope/follow-up-suggestions";
+import {
+  generateFollowUpMeta,
+  type FollowUpMeta,
+} from "@/server/horoscope/follow-up-suggestions";
 import {
   BRIEF_ANSWER_HINT,
   BRIEF_MAX_OUTPUT_TOKENS_FREE,
@@ -359,6 +362,12 @@ async function runReading(
     );
   }
 
+  // A MAX_TOKENS cut ends mid-sentence with no signal. Surface it honestly so
+  // the user knows to ask for the rest, instead of a silently missing ending.
+  const responseText = result.truncated
+    ? `${result.rawText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
+    : result.rawText;
+
   // Success => charge tx: finalize reservation, deduct credit, persist reading.
   const reading = await prisma.$transaction(async (tx) => {
     await lockWalletForUpdate(userId, tx);
@@ -379,7 +388,7 @@ async function runReading(
         categoryId: category.id,
         question,
         responseJson: (result.parsed as object | undefined) ?? undefined,
-        responseText: result.rawText,
+        responseText,
         provider: result.provider,
         modelId: result.modelId,
         promptTemplateId: templateId ?? undefined,
@@ -410,18 +419,25 @@ async function runReading(
     return created;
   });
 
-  const followUpMeta = await generateFollowUpMeta({
-    userId,
-    question,
-    answer: result.rawText,
-    categoryName: category.nameTh,
-  });
+  // Meta (summaryLine + follow-up chips) is a second Flash-Lite call. Awaiting
+  // it here used to hold the SSE `done` event — and with it the caret, the
+  // message actions, and the follow-up chips — hostage for up to its full
+  // timeout AFTER the answer had already finished typing. Kick it off and hand
+  // the promise back so the route can send `done` now and deliver meta later.
+  // Only the streaming path consumes it; the legacy 202 path never ships meta.
+  const metaPromise: Promise<FollowUpMeta> = onDelta
+    ? generateFollowUpMeta({
+        userId,
+        question,
+        answer: result.rawText,
+        categoryName: category.nameTh,
+      })
+    : Promise.resolve({ followUps: [] });
 
   return {
     ...reading,
     chartSnapshot: natalChart,
     transitSnapshot: transitChart,
-    summaryLine: followUpMeta.summaryLine,
-    followUps: followUpMeta.followUps,
+    metaPromise,
   };
 }

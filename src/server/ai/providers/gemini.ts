@@ -6,6 +6,7 @@ import { normalizeGeminiError } from "@/server/ai/provider-alerts";
 type GeminiApiResponse = {
   candidates?: Array<{
     content?: { parts?: Array<{ text?: string }> };
+    finishReason?: string;
   }>;
   usageMetadata?: {
     promptTokenCount?: number;
@@ -141,6 +142,7 @@ export class GeminiAdapter implements AIProviderAdapter {
           outputTokens: data.usageMetadata?.candidatesTokenCount,
         },
         latencyMs,
+        truncated: data.candidates?.[0]?.finishReason === "MAX_TOKENS",
       };
     } catch (err) {
       const isTimeout = err instanceof Error && err.name === "AbortError";
@@ -181,13 +183,25 @@ export class GeminiAdapter implements AIProviderAdapter {
     }
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), input.timeoutMs);
+    // Idle timeout, not a wall clock: a long Thai answer streams for well over a
+    // flat 30s. Aborting on total elapsed threw away everything already streamed
+    // and surfaced it as a provider error. Reset the timer on every received
+    // chunk so only a genuinely stalled upstream (no bytes for timeoutMs) aborts.
+    let timer: ReturnType<typeof setTimeout> = setTimeout(
+      () => controller.abort(),
+      input.timeoutMs,
+    );
+    const armIdleTimeout = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => controller.abort(), input.timeoutMs);
+    };
 
     // Hoisted so a stop can return whatever streamed before it.
     let rawText = "";
     let inputTokens: number | undefined;
     let outputTokens: number | undefined;
     let stopped = false;
+    let finishReason: string | undefined;
 
     // Check stop often enough that the button feels instant (~250ms).
     const STOP_POLL_MS = 250;
@@ -260,6 +274,8 @@ export class GeminiAdapter implements AIProviderAdapter {
         }
         const { done, value } = await reader.read();
         if (done) break;
+        // Bytes are flowing — push the idle deadline out.
+        armIdleTimeout();
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
@@ -283,6 +299,9 @@ export class GeminiAdapter implements AIProviderAdapter {
             }
             if (data.usageMetadata?.candidatesTokenCount != null) {
               outputTokens = data.usageMetadata.candidatesTokenCount;
+            }
+            if (data.candidates?.[0]?.finishReason) {
+              finishReason = data.candidates[0].finishReason;
             }
           } catch {
             /* ignore malformed SSE lines */
@@ -315,6 +334,7 @@ export class GeminiAdapter implements AIProviderAdapter {
         parsed: parseHoroscopeText(text),
         usage: { inputTokens, outputTokens },
         latencyMs,
+        truncated: finishReason === "MAX_TOKENS",
       };
     } catch (err) {
       const isTimeout = err instanceof Error && err.name === "AbortError";
@@ -329,6 +349,20 @@ export class GeminiAdapter implements AIProviderAdapter {
           parsed: parseHoroscopeText(rawText.trim()),
           usage: { inputTokens, outputTokens },
           latencyMs: Date.now() - start,
+        };
+      }
+      // An idle-timeout that already streamed text is a cut answer, not a lost
+      // one — keep what arrived and flag it truncated instead of erroring out.
+      if (isTimeout && rawText.trim()) {
+        return {
+          ok: true,
+          provider: "GEMINI",
+          modelId: input.modelId,
+          rawText: rawText.trim(),
+          parsed: parseHoroscopeText(rawText.trim()),
+          usage: { inputTokens, outputTokens },
+          latencyMs: Date.now() - start,
+          truncated: true,
         };
       }
       return {

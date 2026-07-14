@@ -66,4 +66,9 @@ export type GenerateAIResult = {
    * completed one, so it must never be retried or routed to a fallback.
    */
   stopped?: boolean;
+  /**
+   * The model hit maxOutputTokens (finishReason MAX_TOKENS) — the answer ends
+   * mid-sentence. Callers should surface this instead of a silent cut.
+   */
+  truncated?: boolean;
 };

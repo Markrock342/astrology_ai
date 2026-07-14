@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { ChatMarkdown } from "./chat-markdown";
 
 /**
@@ -9,17 +9,22 @@ import { ChatMarkdown } from "./chat-markdown";
  *
  * Critical: when streaming ends we must NOT snap to full text. Keep typing
  * until the reveal catches up, then drop the caret.
+ *
+ * Only the live streaming turn animates. Settled messages (history, cache
+ * restores, poll refreshes) render their full text immediately — animating
+ * them collapsed every bubble to zero height on mount, which threw the scroll
+ * position to the top of the thread and re-typed the whole history.
  */
-export function SmoothStreamMarkdown({
+export const SmoothStreamMarkdown = memo(function SmoothStreamMarkdown({
   content,
   streaming,
 }: {
   content: string;
   streaming: boolean;
 }) {
-  const [shown, setShown] = useState("");
+  const [shown, setShown] = useState(() => (streaming ? "" : content));
   const [caughtUp, setCaughtUp] = useState(true);
-  const shownLenRef = useRef(0);
+  const shownLenRef = useRef(streaming ? 0 : content.length);
   const contentRef = useRef(content);
   const streamingRef = useRef(streaming);
 
@@ -32,16 +37,13 @@ export function SmoothStreamMarkdown({
     let alive = true;
     let raf = 0;
 
-    const resetEmpty = () => {
-      shownLenRef.current = 0;
-      setShown("");
-      setCaughtUp(true);
-    };
-
     if (!content) {
       // Defer so we don't sync-setState in the effect body (React Compiler lint).
       raf = requestAnimationFrame(() => {
-        if (alive) resetEmpty();
+        if (!alive) return;
+        shownLenRef.current = 0;
+        setShown("");
+        setCaughtUp(true);
       });
       return () => {
         alive = false;
@@ -54,6 +56,21 @@ export function SmoothStreamMarkdown({
     if (cursor > content.length) {
       cursor = 0;
       shownLenRef.current = 0;
+    }
+
+    if (cursor >= content.length) {
+      // Already fully revealed — just sync in case the text changed in place
+      // (same-length server refresh). No animation for settled content.
+      raf = requestAnimationFrame(() => {
+        if (!alive) return;
+        shownLenRef.current = contentRef.current.length;
+        setShown(contentRef.current);
+        setCaughtUp(true);
+      });
+      return () => {
+        alive = false;
+        cancelAnimationFrame(raf);
+      };
     }
 
     const tick = () => {
@@ -99,4 +116,4 @@ export function SmoothStreamMarkdown({
 
   const stillTyping = streaming || !caughtUp;
   return <ChatMarkdown content={shown} streaming={stillTyping} />;
-}
+});

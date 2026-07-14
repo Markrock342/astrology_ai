@@ -464,6 +464,13 @@ export function ChatView() {
     });
   }, [threadId, messages, threadCategorySlug, threadMode]);
 
+  // Mirror for async callbacks (poll) that must compare against the current
+  // list without re-subscribing on every message change.
+  const messagesRef = useRef<Message[]>(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   // Poll while a background reply is still PENDING (leave/return safe).
   const pendingAssistant = messages.find(
     (m) => m.role === "assistant" && m.status === "PENDING",
@@ -529,6 +536,11 @@ export function ChatView() {
 
   useEffect(() => {
     if (!threadId || !pendingAssistantIds) return;
+    // While this tab owns a live SSE turn, the stream is the source of truth.
+    // Polling alongside it raced the accept: the server had no PENDING row yet,
+    // so /poll returned the OLD message list and setMessages() wiped the user's
+    // optimistic bubble and the streaming placeholder mid-answer.
+    if (inFlight) return;
 
     let alive = true;
     const pollStarted = Date.now();
@@ -555,6 +567,29 @@ export function ChatView() {
           setState("processing");
           return;
         }
+
+        // No PENDING on the server, but we are still waiting on a turn. If the
+        // server list does not show that turn settled (a new assistant row, or
+        // our PENDING row flipped to a final status), the accept simply hasn't
+        // persisted yet — keep the optimistic bubbles and poll again instead of
+        // replacing the list with a stale snapshot.
+        const server = poll.messages ?? [];
+        const prev = messagesRef.current;
+        const localPending = prev.some(
+          (m) => m.role === "assistant" && m.status === "PENDING",
+        );
+        const serverSettledOurTurn = server.some(
+          (s) =>
+            s.role === "assistant" &&
+            (!prev.some((p) => p.id === s.id) ||
+              prev.some(
+                (p) =>
+                  p.id === s.id &&
+                  p.status === "PENDING" &&
+                  s.status !== "PENDING",
+              )),
+        );
+        if (localPending && !serverSettledOurTurn) return;
 
         if (poll.messages) {
           setMessages(poll.messages);
@@ -589,7 +624,7 @@ export function ChatView() {
       alive = false;
       window.clearInterval(id);
     };
-  }, [threadId, pendingAssistantIds, refreshLight]);
+  }, [threadId, pendingAssistantIds, inFlight, refreshLight]);
 
   // Reset the thread when the selected category changes (new chat).
   useEffect(() => {
@@ -764,6 +799,9 @@ export function ChatView() {
     // Stream text accumulates on the ref so the catch/stop paths can keep a
     // partial answer without a mutable local the React Compiler flags.
     let activeConversationId: string | null = null;
+    // Set once the turn settles (done/error/stream-end) — a coalesced flush
+    // that fires after that must not repaint stale streaming state.
+    let turnSettled = false;
     assembledRef.current = "";
     explicitStopRef.current = false;
     const abort = new AbortController();
@@ -863,6 +901,11 @@ export function ChatView() {
         },
       );
 
+      // Response headers arrived — the "no SSE at all" watchdog has done its
+      // job. It must NOT keep running: it used to fire mid-stream and cut
+      // every answer longer than 35s, freezing the text partway through.
+      window.clearTimeout(fetchTimeout);
+
       // Non-SSE error JSON
       const contentType = res.headers.get("content-type") ?? "";
       if (!contentType.includes("text/event-stream")) {
@@ -923,11 +966,44 @@ export function ChatView() {
         return;
       }
 
+      // Coalesce deltas: the read loop never blocks on paint. Accumulated text
+      // flushes to React at most once per frame; a hidden tab uses a timer
+      // because rAF doesn't fire there (awaiting rAF per chunk used to stall
+      // the whole stream in a background tab until the turn was declared stuck).
+      let flushScheduled = false;
+      const flushAssembled = () => {
+        flushScheduled = false;
+        if (turnSettled || !ownsView()) return;
+        const assembled = assembledRef.current;
+        setThinkingPhase(null);
+        setState("streaming");
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content: assembled,
+                  status: "PENDING" as const,
+                  idempotencyKey,
+                }
+              : m,
+          ),
+        );
+      };
+      const scheduleFlush = () => {
+        if (flushScheduled) return;
+        flushScheduled = true;
+        if (document.hidden) {
+          window.setTimeout(flushAssembled, 80);
+        } else {
+          window.requestAnimationFrame(flushAssembled);
+        }
+      };
+
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let gotDelta = false;
-      let finished = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -965,6 +1041,11 @@ export function ChatView() {
             continue;
           }
 
+          // Any frame (ping/status/delta) proves the connection is alive —
+          // feed the stale-turn watchdog so it only fires on genuine silence,
+          // not on a model that is still preparing a long answer.
+          lastDeltaAtRef.current = nowMs();
+
           if (event.type === "status" && event.phase) {
             if (!ownsView()) continue;
             if (
@@ -976,29 +1057,11 @@ export function ChatView() {
             }
           } else if (event.type === "delta" && event.text) {
             gotDelta = true;
-            lastDeltaAtRef.current = nowMs();
             assembledRef.current += event.text;
-            const assembled = assembledRef.current;
             if (!ownsView()) continue;
-            setThinkingPhase(null);
-            setState("streaming");
-            // Flush to React every chunk so the typewriter can run frames
-            // between network reads (avoids one giant paint at the end).
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? {
-                      ...m,
-                      content: assembled,
-                      status: "PENDING",
-                      idempotencyKey,
-                    }
-                  : m,
-              ),
-            );
-            await new Promise<void>((r) => requestAnimationFrame(() => r()));
+            scheduleFlush();
           } else if (event.type === "done") {
-            finished = true;
+            turnSettled = true;
             if (!ownsView()) continue;
             const reading = event.reading;
             const assembled = assembledRef.current;
@@ -1039,8 +1102,31 @@ export function ChatView() {
             lastDeltaAtRef.current = null;
             void refreshLight();
             void usageRefreshRef.current?.();
+          } else if (event.type === "meta") {
+            // Follow-up chips + summary land after `done` — attach them to the
+            // now-settled answer without touching its text or status.
+            if (!ownsView()) continue;
+            const followUps = Array.isArray(event.followUps)
+              ? event.followUps
+                  .filter((q): q is string => typeof q === "string")
+                  .map((q) => q.trim())
+                  .filter(Boolean)
+                  .slice(0, 3)
+              : [];
+            const summaryLine =
+              typeof event.summaryLine === "string"
+                ? event.summaryLine.trim() || undefined
+                : undefined;
+            if (!summaryLine && followUps.length === 0) continue;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, summaryLine, followUps }
+                  : m,
+              ),
+            );
           } else if (event.type === "error") {
-            finished = true;
+            turnSettled = true;
             if (!ownsView()) continue;
             setThinkingPhase(null);
             const code = event.code ?? "AI_PROVIDER_ERROR";
@@ -1070,7 +1156,7 @@ export function ChatView() {
       }
 
       // Stream ended without done — recover via PENDING poll.
-      if (!finished) {
+      if (!turnSettled) {
         const partial = assembledRef.current;
         setMessages((prev) =>
           prev.map((m) =>
@@ -1134,6 +1220,9 @@ export function ChatView() {
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
       setState("error");
     } finally {
+      // Whatever path we exited on, the turn is settled — a coalesced flush
+      // still in flight must not repaint streaming state over the final one.
+      turnSettled = true;
       window.clearTimeout(fetchTimeout);
       if (streamAbortRef.current === abort) {
         streamAbortRef.current = null;
