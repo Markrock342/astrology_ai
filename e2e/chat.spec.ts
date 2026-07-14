@@ -70,7 +70,7 @@ test("a sent message streams in full and the answer keeps its actions", async ({
   await page.keyboard.press("Enter");
 
   await expect(page.getByText("จุดแข็งของฉันคืออะไร")).toBeVisible();
-  await expect(page.getByText("นี่คือคำตอบทดสอบจากระบบ")).toBeVisible();
+  await expect(page.locator(".chat-md", { hasText: "นี่คือคำตอบทดสอบจากระบบ" })).toBeVisible();
 
   // The turn settled: composer is free, and the ASSISTANT is actionable —
   // "สร้างใหม่" only renders when the bubble carries a real server id.
@@ -94,7 +94,7 @@ test("editing a message sends the REAL row id and clears the composer", async ({
   await page.goto("/dashboard?cat=self");
   await page.getByRole("textbox").fill("คำถามแรก");
   await page.keyboard.press("Enter");
-  await expect(page.getByText("นี่คือคำตอบทดสอบจากระบบ")).toBeVisible();
+  await expect(page.locator(".chat-md", { hasText: "นี่คือคำตอบทดสอบจากระบบ" })).toBeVisible();
 
   await page.getByRole("button", { name: "แก้ไข" }).click();
   await page.getByRole("textbox").fill("คำถามที่แก้แล้ว");
@@ -203,7 +203,7 @@ test("a thumbs verdict reaches the SERVER and is persisted", async ({
   await page.goto("/dashboard?cat=self");
   await page.getByRole("textbox").fill("ทดสอบฟีดแบ็ก");
   await page.keyboard.press("Enter");
-  await expect(page.getByText("นี่คือคำตอบทดสอบจากระบบ")).toBeVisible();
+  await expect(page.locator(".chat-md", { hasText: "นี่คือคำตอบทดสอบจากระบบ" })).toBeVisible();
 
   const waitForVerdict = page.waitForResponse(
     (r) =>
