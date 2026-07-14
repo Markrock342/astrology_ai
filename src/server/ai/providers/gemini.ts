@@ -183,15 +183,23 @@ export class GeminiAdapter implements AIProviderAdapter {
     }
 
     const controller = new AbortController();
-    // Idle timeout, not a wall clock: a long Thai answer streams for well over a
-    // flat 30s. Aborting on total elapsed threw away everything already streamed
-    // and surfaced it as a provider error. Reset the timer on every received
-    // chunk so only a genuinely stalled upstream (no bytes for timeoutMs) aborts.
+    /**
+     * Deadline on TEXT progress, not on bytes.
+     *
+     * A flat wall clock cut long healthy answers mid-stream. But resetting on
+     * every received chunk was worse: Gemini 3 streams thinking chunks that
+     * carry no text, so the timer was rearmed forever and a model that produced
+     * nothing hung the user indefinitely with no error and no way out.
+     *
+     * So: the first token must arrive within timeoutMs (absolute), and after
+     * that each real text chunk buys another timeoutMs. Thinking-only frames
+     * buy nothing.
+     */
     let timer: ReturnType<typeof setTimeout> = setTimeout(
       () => controller.abort(),
       input.timeoutMs,
     );
-    const armIdleTimeout = () => {
+    const extendOnTextProgress = () => {
       clearTimeout(timer);
       timer = setTimeout(() => controller.abort(), input.timeoutMs);
     };
@@ -274,8 +282,6 @@ export class GeminiAdapter implements AIProviderAdapter {
         }
         const { done, value } = await reader.read();
         if (done) break;
-        // Bytes are flowing — push the idle deadline out.
-        armIdleTimeout();
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
@@ -292,6 +298,8 @@ export class GeminiAdapter implements AIProviderAdapter {
               "";
             if (chunk) {
               rawText += chunk;
+              // Real text — and only real text — buys more time.
+              extendOnTextProgress();
               onDelta(chunk);
             }
             if (data.usageMetadata?.promptTokenCount != null) {
@@ -312,15 +320,25 @@ export class GeminiAdapter implements AIProviderAdapter {
       const latencyMs = Date.now() - start;
       const text = rawText.trim();
       if (!text) {
+        // Gemini 3 draws thinking from the same maxOutputTokens budget. Hitting
+        // the cap with nothing written means the whole allowance went to
+        // reasoning — say so, or it looks like a random provider failure.
+        const starvedByThinking = !stopped && finishReason === "MAX_TOKENS";
         return {
           ok: false,
           provider: "GEMINI",
           modelId: input.modelId,
           latencyMs,
-          errorCode: stopped ? "STOPPED" : "EMPTY_RESPONSE",
+          errorCode: stopped
+            ? "STOPPED"
+            : starvedByThinking
+              ? "OUTPUT_BUDGET_EXHAUSTED"
+              : "EMPTY_RESPONSE",
           errorMessage: stopped
             ? "Stopped before any text arrived"
-            : "Gemini stream returned no text",
+            : starvedByThinking
+              ? `Model spent its entire ${input.maxOutputTokens}-token output budget on thinking and wrote no answer — raise maxOutputTokens for this mode`
+              : "Gemini stream returned no text",
           stopped,
         };
       }
