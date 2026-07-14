@@ -5,6 +5,7 @@ import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CopyCodeButton } from "./copy-code-button";
+import { completeMarkdown } from "./complete-markdown";
 
 const components: Components = {
   h1: ({ children }) => (
@@ -154,13 +155,20 @@ export const ChatMarkdown = memo(function ChatMarkdown({
 }) {
   if (!content) return null;
 
+  // While typing, the parser is handed a PREFIX — syntactically incomplete
+  // markdown, which it renders faithfully as pipe salad and stray asterisks that
+  // then rearrange themselves. Complete the document before it gets there.
+  // A settled message is already whole; leave it strictly alone.
+  const source = streaming ? completeMarkdown(content) : content;
+  if (!source) return null;
+
   return (
     <div
       className={`chat-md max-w-none ${streaming ? "stream-caret" : ""}`}
       data-streaming={streaming ? "true" : undefined}
     >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {content}
+        {source}
       </ReactMarkdown>
     </div>
   );

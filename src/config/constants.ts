@@ -47,12 +47,26 @@ export const MAX_PRIOR_MESSAGES_LOAD = MAX_CONVERSATION_TURNS * 3;
 /** Assistant replies in history are truncated to this many chars to save input tokens. */
 export const HISTORY_ASSISTANT_MAX_CHARS = 600;
 
-/** Total character budget for knowledge docs in the system prompt. */
-export const KNOWLEDGE_MAX_CHARS = 4_000;
+/**
+ * Total character budget for knowledge docs in the system prompt.
+ * Raised from 4,000: docs past the budget were silently dropped, so a rich
+ * knowledge base got truncated to a few entries and the answers read shallow.
+ * ~6,000 chars ≈ 2,000 input tokens — cheap to process, and the difference
+ * between a generic reply and one that cites the tradition.
+ */
+export const KNOWLEDGE_MAX_CHARS = 6_000;
 
-/** Plan-specific output caps (applied on top of Admin AIProviderConfig). */
+/**
+ * Plan-specific output caps (applied on top of Admin AIProviderConfig).
+ *
+ * These bound GENERATION TIME, which is the wait users actually feel: the model
+ * emits ~40–60 tokens/sec, so 2,048 tokens is ~40s of typing. A horoscope answer
+ * does not need 700 words — 1,536 (~520 Thai words) stays complete and thorough
+ * while shaving a quarter off the wait. The client streams it, so the reader is
+ * reading from the second token, not staring at a blank bubble.
+ */
 export const FREE_MAX_OUTPUT_TOKENS = 1_024;
-export const PRO_MAX_OUTPUT_TOKENS = 2_048;
+export const PRO_MAX_OUTPUT_TOKENS = 1_536;
 
 /**
  * UX Wave F — brief answer mode caps.
