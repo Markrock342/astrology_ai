@@ -27,6 +27,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/prompts", label: "บุคลิก AI", aiOnly: true, group: "ai" },
   { href: "/admin/ai-configs", label: "โมเดล AI", aiOnly: true, group: "ai" },
   { href: "/admin/knowledge", label: "คลังความรู้", aiOnly: true, group: "ai" },
+  { href: "/admin/feedback", label: "ฟีดแบ็กคำตอบ", aiOnly: true, group: "ai" },
   { href: "/admin/usage", label: "บันทึกการใช้งาน AI", aiOnly: true, group: "ai" },
   { href: "/admin/costs", label: "ต้นทุนและกำไร", aiOnly: true, group: "users" },
   { href: "/admin/users", label: "ผู้ใช้", group: "users" },

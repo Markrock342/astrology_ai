@@ -1,0 +1,13 @@
+# Migrations now apply themselves to production during the Vercel build, so the
+# migration file IS the production change. A human owner must sign it off before
+# it merges — the destructive-SQL guard (scripts/check-migrations.mjs) stops the
+# obvious catastrophes, but it cannot tell you whether a schema change is right.
+#
+# Requires "Require review from Code Owners" on the protected branch to bite.
+/prisma/                    @Markrock342
+/prisma/migrations/         @Markrock342
+/scripts/check-migrations.mjs @Markrock342
+
+# The build pipeline is what applies those migrations. Same reasoning.
+/package.json               @Markrock342
+/.github/workflows/         @Markrock342

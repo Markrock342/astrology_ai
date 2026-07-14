@@ -398,12 +398,51 @@ export function ChatView() {
     window.localStorage.setItem(ANSWER_MODE_KEY, mode);
   }
 
+  /**
+   * Record a thumbs verdict — and actually TELL the server about it.
+   *
+   * This used to write to localStorage and stop there, so a user could tell us an
+   * answer was wrong and we would never find out: the only direct read we have on
+   * answer quality died in their browser. localStorage is now just the optimistic
+   * cache; the database is the record.
+   *
+   * Tapping the same thumb again withdraws the verdict, which is what people
+   * expect and also the only way to undo a misclick.
+   */
   function setMessageFeedback(messageId: string, value: FeedbackValue) {
+    const previous = feedbackById[messageId] ?? null;
+    const next = previous === value ? null : value;
+
     setFeedbackById((prev) => {
-      const next = { ...prev, [messageId]: value };
-      window.localStorage.setItem(FEEDBACK_KEY, JSON.stringify(next));
-      return next;
+      const map = { ...prev };
+      if (next) map[messageId] = next;
+      else delete map[messageId];
+      window.localStorage.setItem(FEEDBACK_KEY, JSON.stringify(map));
+      return map;
     });
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/messages/${messageId}/feedback`, {
+          method: next ? "POST" : "DELETE",
+          headers: { "Content-Type": "application/json" },
+          ...(next
+            ? { body: JSON.stringify({ value: next === "up" ? "UP" : "DOWN" }) }
+            : {}),
+        });
+        if (res.ok) return;
+        throw new Error(String(res.status));
+      } catch {
+        // The server did not take it, so the UI must not claim it did.
+        setFeedbackById((prev) => {
+          const map = { ...prev };
+          if (previous) map[messageId] = previous;
+          else delete map[messageId];
+          window.localStorage.setItem(FEEDBACK_KEY, JSON.stringify(map));
+          return map;
+        });
+      }
+    })();
   }
 
   // Load past thread when ?thread= is set — soft switch from cache first.

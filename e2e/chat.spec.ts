@@ -183,3 +183,42 @@ test("the elapsed counter does not restart when you switch chats", async ({
   // Derived from the row's createdAt, so it must read ~1:30 — not ~0s.
   await expect(page.getByText(/ใช้เวลาไปแล้ว\s*1:3\d นาที/)).toBeVisible();
 });
+
+test("a thumbs verdict reaches the SERVER, not just localStorage", async ({
+  page,
+}) => {
+  // Regression: the thumbs buttons wrote to localStorage and nowhere else, so a
+  // user could tell us an answer was wrong and we would never find out — the one
+  // direct read we have on answer quality died in their browser.
+  const posted: Array<{ url: string; method: string; body: unknown }> = [];
+  await page.route("**/api/messages/*/feedback", async (route) => {
+    posted.push({
+      url: route.request().url(),
+      method: route.request().method(),
+      body: route.request().postDataJSON() ?? null,
+    });
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, data: { value: "DOWN" } }),
+    });
+  });
+
+  await page.goto("/dashboard?cat=self");
+  await page.getByRole("textbox").fill("ทดสอบฟีดแบ็ก");
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("นี่คือคำตอบทดสอบจากระบบ")).toBeVisible();
+
+  await page
+    .getByTestId("message-actions")
+    .getByRole("button", { name: "คำตอบไม่ดี" })
+    .click();
+
+  await expect
+    .poll(() => posted.length, { message: "the verdict must be sent" })
+    .toBe(1);
+  expect(posted[0].method).toBe("POST");
+  expect(posted[0].body).toEqual({ value: "DOWN" });
+  // Addressed by the REAL row id — a local-* id would 404 on the server.
+  expect(posted[0].url).toContain(ASSISTANT_MSG_ID);
+});
