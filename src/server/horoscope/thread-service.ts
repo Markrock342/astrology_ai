@@ -230,6 +230,13 @@ export async function deleteConversation(userId: string, threadId: string) {
   return { id: conversation.id };
 }
 
+/** Delete every conversation (natal + transit) owned by the user. */
+export async function deleteAllConversations(userId: string) {
+  const result = await prisma.conversation.deleteMany({ where: { userId } });
+  invalidateUserBootstrap(userId);
+  return { deleted: result.count };
+}
+
 /** Rename a conversation thread (sidebar title). */
 export async function updateConversationTitle(
   userId: string,

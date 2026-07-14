@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { addCredits, deductCredits } from "@/server/credit/credit-service";
 import { writeAudit } from "@/server/audit/audit-service";
+import { getMyUsageSummary } from "@/server/account/usage-service";
 
 /**
  * Admin user-management service. Every mutation writes an audit log with the
@@ -95,7 +96,10 @@ export async function getUserDetail(userId: string) {
     },
   });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
-  return user;
+  // Same balance/quota/usage view the user sees on /account, so admins can tell
+  // where a user is against their daily/monthly limits.
+  const usage = await getMyUsageSummary(userId);
+  return { ...user, usage };
 }
 
 export async function setUserStatus(userId: string, status: UserStatus, actor: Actor) {
