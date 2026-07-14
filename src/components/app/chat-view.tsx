@@ -529,11 +529,15 @@ export function ChatView() {
 
   useEffect(() => {
     if (!threadId || !pendingAssistantIds) return;
+    // Active SSE owns the placeholders — polling would overwrite stream ids
+    // with server rows mid-answer and blank the transcript.
+    if (sendingThreadRef.current === threadId) return;
 
     let alive = true;
     const pollStarted = Date.now();
     const tick = async () => {
       try {
+        if (sendingThreadRef.current === threadId) return;
         if (Date.now() - pollStarted > 120_000) {
           if (!alive) return;
           setState("error");
@@ -815,20 +819,14 @@ export function ChatView() {
         setThreadMode("NATAL");
         setThreadLoadError(null);
         setLoadingThread(false);
-        // Native history over router.replace: this only needs the URL to carry
-        // the new thread id. router.replace would run a real navigation — a
-        // fresh RSC request that re-renders the route mid-answer, which is the
-        // "the page refreshed while it was typing" flash. replaceState still
-        // syncs useSearchParams, so threadId lands without any of that.
-        window.history.replaceState(
-          window.history.state,
-          "",
-          `/dashboard?thread=${activeConversationId}&cat=${syncCat}`,
-        );
+        // URL-bar only while streaming: pass existing history.state so Next's
+        // pushState patch sees `__NA` and skips ACTION_RESTORE. Syncing
+        // useSearchParams mid-SSE lets the thread loader/poll clobber local
+        // placeholders and blank the chat. React catches up in `finally`.
+        const href = `/dashboard?thread=${activeConversationId}&cat=${syncCat}`;
+        window.history.replaceState(window.history.state, "", href);
         window.dispatchEvent(
-          new CustomEvent("horasard:soft-nav", {
-            detail: { href: `/dashboard?thread=${activeConversationId}&cat=${syncCat}` },
-          }),
+          new CustomEvent("horasard:soft-nav", { detail: { href } }),
         );
         conversationIdRef.current = activeConversationId;
       }
@@ -1139,7 +1137,18 @@ export function ChatView() {
         streamAbortRef.current = null;
       }
       setInFlight(null);
-      sendingThreadRef.current = null;
+      // Sync useSearchParams to the URL we already wrote, while still claiming
+      // the thread so the loader skips once. Release on the next macrotask.
+      const href = window.location.pathname + window.location.search;
+      window.history.replaceState(null, "", href);
+      window.dispatchEvent(
+        new CustomEvent("horasard:soft-nav", { detail: { href } }),
+      );
+      window.setTimeout(() => {
+        if (sendingThreadRef.current === activeConversationId) {
+          sendingThreadRef.current = null;
+        }
+      }, 0);
     }
   }
 

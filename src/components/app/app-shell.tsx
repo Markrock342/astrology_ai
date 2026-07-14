@@ -557,8 +557,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className={`absolute inset-0 transition-opacity duration-200 ${
             collapsed
               ? "pointer-events-auto opacity-100"
-              : "pointer-events-none opacity-0"
+              : "pointer-events-none invisible opacity-0"
           }`}
+          aria-hidden={!collapsed}
         >
           <CollapsedRail
             activeCat={activeCat}
@@ -578,9 +579,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div
           className={`absolute inset-0 overflow-hidden transition-opacity duration-200 ${
             collapsed
-              ? "pointer-events-none opacity-0"
+              ? "pointer-events-none invisible opacity-0"
               : "pointer-events-auto opacity-100"
           }`}
+          aria-hidden={collapsed}
         >
           <div className="flex h-full w-72 flex-col">{sidebarContent}</div>
         </div>
@@ -723,6 +725,12 @@ function CollapsedRail({
               href={`/dashboard?cat=${cat.slug}`}
               title={cat.label}
               aria-label={cat.label}
+              onClick={(e) => {
+                if (isPlainLeftClick(e)) {
+                  e.preventDefault();
+                  chatNav(`/dashboard?cat=${cat.slug}`);
+                }
+              }}
               className={`flex h-10 w-10 items-center justify-center rounded-lg transition ${
                 active
                   ? "bg-[var(--surface-3)] text-[var(--primary)]"
