@@ -47,12 +47,17 @@ export default defineConfig({
   ],
 
   // Point E2E_BASE_URL at a deployed URL to skip booting a local server.
+  //
+  // Production build, not `next dev`: it is what actually ships, and Turbopack's
+  // dev persistence layer cannot open its cache DB on a non-native volume
+  // ("Failed to open database … invalid digit found in string"), which is where
+  // this repo lives.
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: "npm run dev",
+        command: "npm run build && npm start",
         url: "http://localhost:3000",
         reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
+        timeout: 240_000,
       },
 });

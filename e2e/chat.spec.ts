@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { stubChat, happyTurn, THREAD_ID } from "./helpers/sse";
+import { test, expect, type Page } from "@playwright/test";
+import { stubChat, happyTurn, THREAD_ID, ASSISTANT_MSG_ID } from "./helpers/sse";
 
 /**
  * Regression suite for the chat.
@@ -8,6 +8,17 @@ import { stubChat, happyTurn, THREAD_ID } from "./helpers/sse";
  * production. They exist so that never happens twice — if you break one, this
  * goes red before the push, not after a user does.
  */
+
+/**
+ * The sidebar renders each category twice — once in the collapsed icon rail,
+ * once in the expanded list — so name-only lookups are ambiguous. Address the
+ * real nav item by its href and its visible label.
+ */
+function categoryLink(page: Page, slug: string, label: string) {
+  return page
+    .locator(`a[href="/dashboard?cat=${slug}"]`)
+    .filter({ hasText: label });
+}
 
 test.beforeEach(async ({ page }) => {
   await stubChat(page);
@@ -21,18 +32,15 @@ test("category click updates the sidebar highlight AND the preset chips", async 
   // every useSearchParams consumer stayed frozen on the old category.
   await page.goto("/dashboard");
 
-  const career = page.getByRole("link", { name: /การงาน/ });
-  await career.click();
-
+  await categoryLink(page, "career", "การงาน").click();
   await expect(page).toHaveURL(/cat=career/);
-  // The chips are rendered from the category the CLIENT resolved, so they only
-  // change if useSearchParams actually synced.
+  // Chips come from the category the CLIENT resolved, so they only change if
+  // useSearchParams actually synced.
   await expect(
     page.getByRole("button", { name: /ช่วงนี้ควรเปลี่ยนงานได้ไหม/ }),
   ).toBeVisible();
 
-  const self = page.getByRole("link", { name: /ตัวตน/ });
-  await self.click();
+  await categoryLink(page, "self", "ตัวตน").click();
   await expect(page).toHaveURL(/cat=self/);
   await expect(
     page.getByRole("button", { name: /จุดแข็งของฉันคืออะไร/ }),
@@ -45,8 +53,9 @@ test("preset chips always exist, even when the API sends none", async ({
   // Regression: mapApiCategory did `suggestedQuestions ?? []`, and the DB rows
   // have none — so the empty chat landed with nothing to tap.
   await page.goto("/dashboard?cat=fortune");
-  const chips = page.locator("button", { hasText: /โชคลาภ|ดวง|ระวัง|โฟกัส/ });
-  await expect(chips.first()).toBeVisible();
+  await expect(
+    page.locator("button", { hasText: /โชคลาภ|ดวง|ระวัง|โฟกัส/ }).first(),
+  ).toBeVisible();
 });
 
 test("a sent message streams in full and the answer keeps its actions", async ({
@@ -54,7 +63,7 @@ test("a sent message streams in full and the answer keeps its actions", async ({
 }) => {
   // Regressions: the poll raced the live stream and wiped the optimistic
   // bubbles; a per-delta rAF await stalled the read loop; and the assistant kept
-  // a `stream-*` id so it never got action buttons.
+  // a `stream-*` id, so it never got action buttons.
   await page.goto("/dashboard?cat=self");
 
   await page.getByRole("textbox").fill("จุดแข็งของฉันคืออะไร");
@@ -63,9 +72,10 @@ test("a sent message streams in full and the answer keeps its actions", async ({
   await expect(page.getByText("จุดแข็งของฉันคืออะไร")).toBeVisible();
   await expect(page.getByText("นี่คือคำตอบทดสอบจากระบบ")).toBeVisible();
 
-  // The turn settled: composer is free and the answer is actionable.
+  // The turn settled: composer is free, and the ASSISTANT is actionable —
+  // "สร้างใหม่" only renders when the bubble carries a real server id.
   await expect(page.getByRole("textbox")).toHaveValue("");
-  await expect(page.getByRole("button", { name: /คัดลอก/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "สร้างใหม่" })).toBeVisible();
   // Server-measured duration is surfaced (it used to be nowhere).
   await expect(page.getByText(/ใช้เวลา/)).toBeVisible();
 });
@@ -86,12 +96,12 @@ test("editing a message sends the REAL row id and clears the composer", async ({
   await page.keyboard.press("Enter");
   await expect(page.getByText("นี่คือคำตอบทดสอบจากระบบ")).toBeVisible();
 
-  await page.getByRole("button", { name: /แก้ไข/ }).first().click();
+  await page.getByRole("button", { name: "แก้ไข" }).click();
   await page.getByRole("textbox").fill("คำถามที่แก้แล้ว");
   await page.keyboard.press("Enter");
 
   await expect
-    .poll(() => sends.length, { message: "edit should have been sent" })
+    .poll(() => sends.length, { message: "the edit should have been sent" })
     .toBe(2);
 
   // Never a local id — the server looks this up and 404s on `local-*`.
@@ -104,26 +114,29 @@ test("editing a message sends the REAL row id and clears the composer", async ({
   await expect(page.getByRole("textbox")).toHaveValue("");
 });
 
-test("a stopped turn keeps its server id, so its actions survive", async ({
+test("a turn that FAILS still keeps its server id, so its actions survive", async ({
   page,
 }) => {
-  // Regression: ids arrived only on `done`, so a turn that was stopped or failed
-  // had no server id and the UI hid every action on it — even Copy.
+  // Regression: row ids arrived only on `done`, so a turn that was stopped or
+  // errored never learned them — and the UI hides every action on a bubble with
+  // no server id. The `accepted` frame now delivers them up front, which is what
+  // lets "ลองใหม่" render on a failed answer at all.
   await stubChat(page, {
-    // Accepted + a little text, then nothing: the turn never completes.
-    events: happyTurn("ข้อความ").slice(0, 6),
+    events: [
+      ...happyTurn("x").slice(0, 4), // accepted + the three status phases
+      { type: "error", code: "AI_PROVIDER_ERROR", message: "ระบบทำนายขัดข้อง" },
+    ],
   });
 
   await page.goto("/dashboard?cat=self");
-  await page.getByRole("textbox").fill("ทดสอบหยุด");
+  await page.getByRole("textbox").fill("ทดสอบความล้มเหลว");
   await page.keyboard.press("Enter");
 
-  const stop = page.getByRole("button", { name: /หยุดคำตอบ/ });
-  await expect(stop).toBeVisible();
-  await stop.click();
-
-  // Partial answer is kept AND remains actionable.
-  await expect(page.getByRole("button", { name: /คัดลอก/ })).toBeVisible();
+  // Scoped to the message: the chat-wide ErrorBanner also offers "ลองใหม่", but
+  // only THIS one requires the bubble to know its server id.
+  await expect(
+    page.getByTestId("message-actions").getByRole("button", { name: "ลองใหม่" }),
+  ).toBeVisible();
 });
 
 test("leaving for /account and coming back actually renders the chat", async ({
@@ -136,7 +149,7 @@ test("leaving for /account and coming back actually renders the chat", async ({
   await page.goto("/account");
   await expect(page).toHaveURL(/\/account/);
 
-  await page.getByRole("link", { name: /ตัวตน/ }).click();
+  await categoryLink(page, "self", "ตัวตน").click();
 
   await expect(page).toHaveURL(/\/dashboard\?cat=self/);
   // The composer only exists on the chat route — proof the page really changed.
@@ -151,12 +164,11 @@ test("the elapsed counter does not restart when you switch chats", async ({
   // user watches to decide whether to keep waiting was the one that lied.
   const started = new Date(Date.now() - 90_000).toISOString();
   await stubChat(page, {
-    // A turn that is still generating, started 90s ago.
     events: happyTurn("x").slice(0, 1),
     messages: [
       { id: "u1", role: "user", content: "คำถาม", createdAt: started },
       {
-        id: "a1",
+        id: ASSISTANT_MSG_ID,
         role: "assistant",
         content: "",
         status: "PENDING",
@@ -168,6 +180,6 @@ test("the elapsed counter does not restart when you switch chats", async ({
 
   await page.goto(`/dashboard?thread=${THREAD_ID}&cat=self`);
 
-  // Derived from the row's createdAt, so it must read ~1:30, not ~0s.
+  // Derived from the row's createdAt, so it must read ~1:30 — not ~0s.
   await expect(page.getByText(/ใช้เวลาไปแล้ว\s*1:3\d นาที/)).toBeVisible();
 });

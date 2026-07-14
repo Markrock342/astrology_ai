@@ -40,8 +40,15 @@ export function MessageActions({
 
   return (
     <>
-      {/* Desktop / tablet — inline actions */}
-      <div className="mt-2 hidden flex-wrap items-center gap-0.5 opacity-100 transition md:flex md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+      {/* Desktop / tablet — inline actions.
+          data-testid: these buttons only render once the message carries a real
+          server id, so E2E asserts on them to prove the id was bound. Several
+          labels (ลองใหม่) also appear on the chat-wide ErrorBanner — the testid
+          is what tells the two apart. */}
+      <div
+        data-testid="message-actions"
+        className="mt-2 hidden flex-wrap items-center gap-0.5 opacity-100 transition md:flex md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+      >
         <CopyMessageButton text={content} />
         {role === "user" && canEdit && onEdit ? (
           <ActionButton label="แก้ไข" onClick={onEdit} />
