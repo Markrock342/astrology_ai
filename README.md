@@ -63,9 +63,24 @@ Default admin email (from seed): `admin@horasard.local` — set `SEED_ADMIN_PASS
 | `npm run build`     | Production build                 |
 | `npm run typecheck` | `tsc --noEmit`                   |
 | `npm run lint`      | ESLint                           |
+| `npm run ci`        | Local CI gate (typecheck+lint+unit) — same as GH Actions check job |
+| `npm run ci:e2e`    | Playwright E2E (needs `.env` E2E/DB secrets) |
+| `npm run hooks:install` | Enable pre-push hook to run `npm run ci` |
 | `npm run db:migrate`| Prisma migrate dev               |
 | `npm run db:seed`   | Seed baseline data               |
 | `npm run db:studio` | Prisma Studio (browse DB)        |
+
+### CI while GitHub Actions is unavailable
+
+If GitHub Actions is locked (billing), use the local gate instead of waiting on Actions:
+
+```bash
+npm run hooks:install   # once per clone — block push when checks fail
+npm run ci              # typecheck · lint · unit (fast)
+npm run ci:e2e          # browser E2E when you have DATABASE_URL + E2E_* in .env
+```
+
+Remote deploy still goes through **Vercel** (build fails if TypeScript/build breaks). Re-enable the workflow in `.github/workflows/ci.yml` once the GitHub account billing is cleared.
 
 ---
 
