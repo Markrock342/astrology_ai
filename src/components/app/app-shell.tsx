@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { BrandLockup, BrandMark } from "@/components/brand-logo";
 import { SettingsPopover, type SettingsModal } from "./settings-popover";
 import {
@@ -23,7 +22,11 @@ import {
   TransitIcon,
 } from "./sidebar-icons";
 import { useAppData, isCategoryLocked } from "./app-data-provider";
-import { isPlainLeftClick, useChatNav } from "./chat-nav";
+import {
+  isPlainLeftClick,
+  useChatNav,
+  useChatRouteSearchParams,
+} from "./chat-nav";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { PendingPaymentBanner } from "./pending-payment-banner";
 import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banner";
@@ -47,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [activeModal, setActiveModal] = useState<SettingsModal>(null);
   const profileBtnRef = useRef<HTMLButtonElement>(null);
   const closeMobileTimer = useRef<number | null>(null);
-  const searchParams = useSearchParams();
+  const searchParams = useChatRouteSearchParams();
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
   const { theme, toggleTheme } = useTheme();
