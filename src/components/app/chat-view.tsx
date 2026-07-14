@@ -245,9 +245,14 @@ function applyApiError(
     code === "CHAT_REQUIRES_PRO" && opts?.hasPendingPayment
       ? ERROR_MESSAGES.CHAT_REQUIRES_PRO_PENDING
       : null;
+  // For a KNOWN code, the curated Thai message wins — the raw server string
+  // (often English, e.g. "AI request failed") was shadowing it. Fall back to the
+  // localized server message only for codes we have no copy for.
+  const curated = ERROR_MESSAGES[code];
   setters.setErrorText(
     pendingChatMsg ??
-      localizeApiError(message, ERROR_MESSAGES[code] ?? "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง"),
+      curated ??
+      localizeApiError(message, "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง"),
   );
   setters.setState(
     code === "NO_QUOTA" || code === "QUOTA_EXCEEDED" ? "no-quota" : "error",
@@ -437,14 +442,26 @@ export function ChatView() {
    * cache now; the database is the record, and the record wins.
    */
   function hydrateFeedback(loaded: Message[]) {
-    const fromServer: Record<string, FeedbackValue> = {};
-    for (const m of loaded) {
-      const sid = serverIdOf(m);
-      if (sid && m.feedback) fromServer[sid] = m.feedback;
-    }
-    if (Object.keys(fromServer).length === 0) return;
+    // Authoritative for the messages in this thread: adopt the server's verdict
+    // AND drop any local verdict the server no longer has (withdrawn on another
+    // device). Verdicts for messages NOT in this payload are left untouched.
     setFeedbackById((prev) => {
-      const map = { ...prev, ...fromServer };
+      const map = { ...prev };
+      let changed = false;
+      for (const m of loaded) {
+        const sid = serverIdOf(m);
+        if (!sid) continue;
+        if (m.feedback) {
+          if (map[sid] !== m.feedback) {
+            map[sid] = m.feedback;
+            changed = true;
+          }
+        } else if (sid in map) {
+          delete map[sid];
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
       window.localStorage.setItem(FEEDBACK_KEY, JSON.stringify(map));
       return map;
     });
@@ -688,27 +705,42 @@ export function ChatView() {
     if (inFlight) return;
 
     let alive = true;
+    const timer: { id: number | undefined } = { id: undefined };
     const pollStarted = Date.now();
+    const timedOut = () => Date.now() - pollStarted > 120_000;
+    const giveUp = () => {
+      alive = false;
+      if (timer.id !== undefined) window.clearInterval(timer.id);
+      setState("error");
+      setErrorCode("AI_TIMEOUT");
+      setErrorText(
+        "ใช้เวลานานเกินไป — ลองถามใหม่อีกครั้ง (ยังไม่หักเครดิตถ้ายังไม่มีคำตอบ)",
+      );
+    };
     const tick = async () => {
       try {
-        if (Date.now() - pollStarted > 120_000) {
-          if (!alive) return;
-          setState("error");
-          setErrorCode("AI_TIMEOUT");
-          setErrorText(
-            "ใช้เวลานานเกินไป — ลองถามใหม่อีกครั้ง (ยังไม่หักเครดิตถ้ายังไม่มีคำตอบ)",
-          );
-          return;
-        }
         const res = await fetch(`/api/conversations/${threadId}/poll`);
         const json = await parseApiJson(res);
-        if (!alive || !res.ok || !json?.ok) return;
+        if (!alive || !res.ok || !json?.ok) {
+          // Only give up on the deadline if we could not even reach the server.
+          // A reachable server that has finished is handled below — the old code
+          // checked the clock FIRST and returned, so an answer that landed after
+          // 120s stayed a false timeout (already charged) until a manual reload.
+          if (timedOut() && alive) giveUp();
+          return;
+        }
         const poll = json.data as {
           hasPending: boolean;
           messages: Message[] | null;
         };
 
         if (poll.hasPending) {
+          // Still generating after the deadline — genuinely stuck. Now it is a
+          // real timeout, and we stop polling.
+          if (timedOut()) {
+            giveUp();
+            return;
+          }
           setState("processing");
           // A successful poll IS the heartbeat in poll-only mode (reload / return
           // to a live turn). The stale-turn watchdog is fed only by SSE frames,
@@ -765,9 +797,10 @@ export function ChatView() {
       }
     };
 
-    const id = window.setInterval(() => {
+    timer.id = window.setInterval(() => {
       void tick();
     }, 2000);
+    const id = timer.id;
     void tick();
     return () => {
       alive = false;
@@ -1030,8 +1063,13 @@ export function ChatView() {
         ? await ensureConversation(categorySlug, content, idempotencyKey)
         : (threadId ?? conversationIdRef.current);
       if (!activeConversationId) {
+        // ensureConversation already surfaced the failure via applyApiError
+        // (session expired, rate limit, disabled category, DB blip). Forcing
+        // "idle" here clobbered that error state back off, so the user was left
+        // staring at their own question with no reply, no message and no retry.
+        // Keep the error; drop only the empty assistant placeholder so the
+        // banner + retry render beneath the question.
         setMessages((prev) => prev.filter((m) => m.id !== assistantId));
-        setState("idle");
         processingStartedAtRef.current = null;
         return;
       }
@@ -1625,7 +1663,7 @@ export function ChatView() {
               return m.role === "user" ? (
                 <div key={m.id} className="animate-msg-in group flex flex-col items-end">
                   <div
-                    className={`max-w-[min(85%,42rem)] whitespace-pre-wrap rounded-2xl rounded-br-md px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)] ${
+                    className={`max-w-[min(85%,42rem)] overflow-hidden whitespace-pre-wrap break-words rounded-2xl rounded-br-md px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)] ${
                       editingMessageId === m.id
                         ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/40"
                         : "bg-[var(--surface-3)]"
@@ -2178,7 +2216,10 @@ const Composer = forwardRef<
           }}
           disabled={!aiEnabled}
           placeholder={placeholder}
-          className="max-h-[200px] min-h-[24px] w-full resize-none bg-transparent text-sm leading-6 text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed"
+          // text-base (16px) on mobile: iOS Safari zooms the whole page when a
+          // focused input is under 16px, so the composer must not be text-sm
+          // there. md:text-sm keeps the desktop size.
+          className="max-h-[200px] min-h-[24px] w-full resize-none bg-transparent text-base leading-6 text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed md:text-sm"
         />
         <button
           type="button"
