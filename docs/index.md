@@ -1,6 +1,6 @@
 # HoraSard — Master Index / Architecture Map
 
-สารบัญกลางของโปรเจกต์ (อัปเดต: `main` @ `981010d`, 13 ก.ค. 2026)
+สารบัญกลางของโปรเจกต์ (อัปเดต: `main` @ `83d74af` + branch `fix/dashboard-soft-nav`, 14 ก.ค. 2026)
 
 ## ภาพรวมสถาปัตยกรรม
 
@@ -32,8 +32,9 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 | **M4** — Payment, Dashboard, Deploy | ✅ ปิดแล้ว |
 | **Wave E** — HANDOFF_BE (E0.3, E1.2–E1.6) + quota RESERVED | ✅ **merge บน `main`** |
 | **Perf Wave 3** — pool fix, bootstrap cache, indexes | ✅ บน `main` |
-| **UX Wave F BE** — phased SSE, answerMode, followUps | ✅ P0 บน `be/ux-wave-f` | [UX_WAVE_F_BE.md](../UX_WAVE_F_BE.md) · `follow-up-suggestions.ts` |
-| **UX Wave F FE** — thinking UI, chips | 🟡 รอ FE | [UX_WAVE_F_FE.md](../UX_WAVE_F_FE.md) |
+| **UX Wave F BE** — phased SSE, answerMode, followUps | ✅ **merge บน `main`** (#15) | [UX_WAVE_F_BE.md](../UX_WAVE_F_BE.md) · `follow-up-suggestions.ts` |
+| **UX Wave F FE** — thinking UI, chips, answerMode | ✅ **merge บน `main`** (#16) | [UX_WAVE_F_FE.md](../UX_WAVE_F_FE.md) |
+| **Dashboard soft-nav** — `useChatRouteSearchParams` + hard return จากตั้งค่า | 🟡 `fix/dashboard-soft-nav` | [frontend_app_ui.md](./frontend_app_ui.md) |
 
 **Feature gating:** `src/config/features.ts` — ตั้ง `NEXT_PUBLIC_APP_PHASE=2` บน Vercel จะปิด AI chat + Admin AI CMS; dev ไม่ตั้ง = เปิดทั้งหมด
 
@@ -66,7 +67,8 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 | โมดูล | สถานะ | บันทึก | โค้ดหลัก |
 | ----- | ----- | ------ | -------- |
 | App UI (chat ChatGPT-style, account, admin) | ✅ | [frontend_app_ui.md](./frontend_app_ui.md) | `src/components/app/*`, `admin/*` |
-| UX Wave F (chips, phased thinking) | 🟡 P0 ค้าง | [UX_WAVE_F_FE.md](../UX_WAVE_F_FE.md) | `chat-view.tsx` |
+| UX Wave F (chips, phased thinking) | ✅ PR #16 | [UX_WAVE_F_FE.md](../UX_WAVE_F_FE.md) | `chat-view.tsx` |
+| Soft-nav cat/thread sync | 🟡 fix branch | [frontend_app_ui.md](./frontend_app_ui.md) | `chat-nav.ts` |
 | จังหวัด/อำเภอ (dropdown) | ✅ API + shim | [backend_geo_api.md](./backend_geo_api.md) | `GET /api/geo/thailand` |
 
 ---
@@ -93,7 +95,8 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler บน
 
 | ID | งาน | หมายเหตุ |
 |----|-----|----------|
-| **UX Wave F P0** | SSE phase + chips + answerMode BE | ✅ `be/ux-wave-f` — รอ merge + FE |
+| **UX Wave F P0** | SSE phase + chips + answerMode | ✅ merge บน `main` (#15/#16) |
+| **Dashboard soft-nav** | cat/thread sync + router.push จาก account/onboarding | 🟡 `fix/dashboard-soft-nav` |
 | **Wave E2** | packageId FK, cron, cost tracking | [BE_ASSIGN.md](../BE_ASSIGN.md) § E2 |
 | **Ops** | Resend verify, Upstash env, smoke prod | PM |
 

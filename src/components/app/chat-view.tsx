@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, forwardRef } from "react";
-import { useSearchParams } from "next/navigation";
 import { APP_NAME, DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
 import { ChatThreadSkeleton } from "@/components/app/content-skeleton";
@@ -10,7 +9,10 @@ import {
   useAppData,
   useCategory,
 } from "./app-data-provider";
-
+import {
+  CHAT_SOFT_NAV_EVENT,
+  useChatRouteSearchParams,
+} from "./chat-nav";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import { ChatUsageBar } from "./chat-usage-bar";
@@ -227,7 +229,7 @@ function applyApiError(
 }
 
 export function ChatView() {
-  const searchParams = useSearchParams();
+  const searchParams = useChatRouteSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
   const { user, refreshLight, pendingPayment } = useAppData();
@@ -818,16 +820,13 @@ export function ChatView() {
         // Native history over router.replace: this only needs the URL to carry
         // the new thread id. router.replace would run a real navigation — a
         // fresh RSC request that re-renders the route mid-answer, which is the
-        // "the page refreshed while it was typing" flash. replaceState still
-        // syncs useSearchParams, so threadId lands without any of that.
-        window.history.replaceState(
-          window.history.state,
-          "",
-          `/dashboard?thread=${activeConversationId}&cat=${syncCat}`,
-        );
+        // "the page refreshed while it was typing" flash. useChatRouteSearchParams
+        // listens for horasard:soft-nav so threadId lands without remounting.
+        const threadHref = `/dashboard?thread=${activeConversationId}&cat=${syncCat}`;
+        window.history.replaceState(window.history.state, "", threadHref);
         window.dispatchEvent(
-          new CustomEvent("horasard:soft-nav", {
-            detail: { href: `/dashboard?thread=${activeConversationId}&cat=${syncCat}` },
+          new CustomEvent(CHAT_SOFT_NAV_EVENT, {
+            detail: { href: threadHref },
           }),
         );
         conversationIdRef.current = activeConversationId;
