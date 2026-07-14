@@ -5,6 +5,7 @@ import { addCredits, deductCredits } from "@/server/credit/credit-service";
 import { writeAudit } from "@/server/audit/audit-service";
 import { getMyUsageSummary } from "@/server/account/usage-service";
 import { bangkokBoundaries } from "@/server/credit/quota-service";
+import { getUserCost } from "@/server/admin/cost-admin-service";
 
 /**
  * Admin user-management service. Every mutation writes an audit log with the
@@ -98,9 +99,13 @@ export async function getUserDetail(userId: string) {
   });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
   // Same balance/quota/usage view the user sees on /account, so admins can tell
-  // where a user is against their daily/monthly limits.
-  const usage = await getMyUsageSummary(userId);
-  return { ...user, usage };
+  // where a user is against their daily/monthly limits — plus what serving them
+  // actually costs, which is the number that decides whether the plan works.
+  const [usage, cost] = await Promise.all([
+    getMyUsageSummary(userId),
+    getUserCost(userId),
+  ]);
+  return { ...user, usage, cost };
 }
 
 export async function setUserStatus(userId: string, status: UserStatus, actor: Actor) {

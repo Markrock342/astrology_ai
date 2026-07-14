@@ -108,6 +108,7 @@ ${answerSnippet}`,
       latencyMs: result.latencyMs,
       inputUsage: result.usage?.inputTokens,
       outputUsage: result.usage?.outputTokens,
+      cachedUsage: result.usage?.cachedTokens,
       errorCode: "FOLLOW_UP_META",
     }).catch(() => {});
 

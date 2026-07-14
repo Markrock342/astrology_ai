@@ -10,10 +10,12 @@ import {
   Field,
   PageHeader,
   Select,
+  StatCard,
   TextInput,
   Toggle,
   adminFetch,
 } from "./ui";
+import { formatThb, usdToThb } from "@/config/ai-pricing";
 
 type UserDetail = {
   id: string;
@@ -34,6 +36,18 @@ type UserDetail = {
     monthlyLimit: number | null;
     usedToday: number;
     usedThisMonth: number;
+  } | null;
+  cost?: {
+    plan: "FREE" | "PRO";
+    packageName: string | null;
+    revenueThb: number;
+    readings: number;
+    aiCalls: number;
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+    costPerReadingUsd: number | null;
+    hasUnpricedModel: boolean;
   } | null;
   subscriptions: Array<{
     status: string;
@@ -335,6 +349,82 @@ export function UserDetailManager({
               </Button>
             </div>
           </Card>
+
+          {user.cost ? (
+            <Card className="lg:col-span-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-sm font-semibold">ต้นทุนและกำไร · เดือนนี้</h2>
+                <Link
+                  href="/admin/costs"
+                  className="text-[11px] text-[var(--primary)] hover:underline"
+                >
+                  ดูทุกผู้ใช้ →
+                </Link>
+              </div>
+
+              {(() => {
+                const c = user.cost;
+                const costThb = usdToThb(c.costUsd);
+                const profit = c.revenueThb - costThb;
+                const losing = costThb > c.revenueThb;
+                return (
+                  <>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                      <StatCard
+                        label="รายได้"
+                        value={c.revenueThb > 0 ? `฿${c.revenueThb}` : "—"}
+                        hint={c.packageName ?? "ไม่มีแพ็กเกจ"}
+                        tone="gold"
+                      />
+                      <StatCard
+                        label="ต้นทุน AI"
+                        value={`${formatThb(c.costUsd)}${c.hasUnpricedModel ? "~" : ""}`}
+                        hint={`${c.aiCalls} ครั้งที่เรียกโมเดล`}
+                      />
+                      <StatCard
+                        label={profit >= 0 ? "กำไร" : "ขาดทุน"}
+                        value={`฿${Math.abs(profit).toFixed(profit === 0 ? 0 : 2)}`}
+                        hint={
+                          c.revenueThb > 0
+                            ? `margin ${(((c.revenueThb - costThb) / c.revenueThb) * 100).toFixed(0)}%`
+                            : "ผู้ใช้ฟรี — ต้นทุนล้วน"
+                        }
+                        tone={losing ? "danger" : "green"}
+                      />
+                      <StatCard
+                        label="ต่อคำทำนาย"
+                        value={
+                          c.costPerReadingUsd != null
+                            ? formatThb(c.costPerReadingUsd)
+                            : "—"
+                        }
+                        hint={`${c.readings} คำทำนาย`}
+                      />
+                    </div>
+
+                    <dl className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
+                      <Row
+                        label="Token เข้า (prompt)"
+                        value={c.inputTokens.toLocaleString("th-TH")}
+                      />
+                      <Row
+                        label="Token ออก (คำตอบ)"
+                        value={c.outputTokens.toLocaleString("th-TH")}
+                      />
+                    </dl>
+
+                    <p className="mt-3 text-[10px] leading-relaxed text-[var(--muted-2)]">
+                      Output แพงกว่า input 6 เท่า ($9.00 vs $1.50 ต่อ 1M token) —
+                      ความยาวคำตอบคือตัวชี้ขาดต้นทุน ไม่ใช่ขนาด prompt
+                      {c.aiCalls > c.readings
+                        ? ` · รวมการเรียกโมเดลเสริม ${c.aiCalls - c.readings} ครั้ง (สรุป/คำถามต่อ) ที่ไม่คิดเครดิตแต่มีต้นทุน`
+                        : ""}
+                    </p>
+                  </>
+                );
+              })()}
+            </Card>
+          ) : null}
 
           <Card className="lg:col-span-2">
             <h2 className="text-sm font-semibold">ปรับเครดิต</h2>

@@ -27,6 +27,7 @@ import {
 } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
+import { estimateCostUsd } from "@/config/ai-pricing";
 import {
   assertUsableEngineChart,
   requireReadyNatalChart,
@@ -456,6 +457,16 @@ async function runReading(
           inputUsage: result.usage?.inputTokens,
           outputUsage: result.usage?.outputTokens,
           latencyMs: result.latencyMs,
+          // The billable row is UPDATED from its reservation, so it never passes
+          // through logUsage() — price it here or the one row that actually
+          // costs money is the one row with no cost on it. Cache hits are
+          // priced at 10%, so this is the true bill, not a list-price guess.
+          estimatedCost: estimateCostUsd(
+            result.modelId,
+            result.usage?.inputTokens,
+            result.usage?.outputTokens,
+            result.usage?.cachedTokens,
+          ),
         },
       });
 
