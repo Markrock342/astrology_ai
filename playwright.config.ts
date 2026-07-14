@@ -58,6 +58,7 @@ export default defineConfig({
         command: "npm run build && npm start",
         url: "http://localhost:3000",
         reuseExistingServer: !process.env.CI,
-        timeout: 240_000,
+        // Includes a full production build; CI runners are slower than a laptop.
+        timeout: 420_000,
       },
 });

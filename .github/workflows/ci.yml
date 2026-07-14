@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push supersedes an in-flight run on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast gate: types, lint, unit tests. No database — nothing here talks to one.
+  check:
+    name: typecheck · lint · unit
+    runs-on: ubuntu-latest
+    env:
+      # config/env.ts validates at import time. These are never connected to;
+      # they only have to satisfy the schema.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      AUTH_SECRET: ci-placeholder-not-a-real-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+      - run: npx eslint src e2e
+      - run: npx vitest run
+
+  # The gate that actually would have caught this cycle's regressions: it drives
+  # the real UI in a browser. The AI is stubbed at the network boundary, so this
+  # costs no credits and never flakes on Gemini — but it does need a real signed
+  # -in session, because the app shell is guarded on the server.
+  #
+  # Required repo secrets: DATABASE_URL, AUTH_SECRET, E2E_EMAIL, E2E_PASSWORD
+  # (DIRECT_URL too if your Prisma setup uses it). Without them the job skips
+  # instead of failing, so forks and contributors aren't blocked.
+  e2e:
+    name: e2e (chat flow)
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Are E2E credentials configured?
+        id: guard
+        env:
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+        run: |
+          if [ -n "$E2E_EMAIL" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::E2E secrets not set — skipping. Add E2E_EMAIL / E2E_PASSWORD / DATABASE_URL / AUTH_SECRET to enable."
+          fi
+
+      - if: steps.guard.outputs.ok == 'true'
+        run: npm ci
+
+      - if: steps.guard.outputs.ok == 'true'
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.ts's webServer builds and starts the app itself.
+      - if: steps.guard.outputs.ok == 'true'
+        run: npx playwright test
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+
+      - if: failure() && steps.guard.outputs.ok == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
