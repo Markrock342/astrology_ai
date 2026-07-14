@@ -31,11 +31,21 @@ export function getCachedThread(threadId: string): CachedThreadPayload | null {
   return cache.get(threadId) ?? null;
 }
 
+/**
+ * Warm the cache with what the caller owns, PRESERVING what it doesn't.
+ *
+ * ChatView writes only messages/category/mode as you chat. Replacing the entry
+ * wholesale dropped transitDate/transitTime, and prefetchThread then served
+ * that gutted copy for 30s — so revisiting a ดวงจร thread lost its
+ * "โหมดดวงจร · <date>" header until the cache expired.
+ */
 export function setCachedThread(
   threadId: string,
   payload: Omit<CachedThreadPayload, "fetchedAt"> & { fetchedAt?: number },
 ) {
+  const prev = cache.get(threadId);
   cache.set(threadId, {
+    ...prev,
     ...payload,
     fetchedAt: payload.fetchedAt ?? Date.now(),
   });
@@ -72,6 +82,13 @@ export async function prefetchThread(
         signal: controller.signal,
       });
       const json = await res.json().catch(() => null);
+      // The thread is definitively gone (deleted here, in another tab, or on
+      // another device). Keeping the stale entry made it render as a live chat
+      // forever — a network blip, by contrast, must NOT evict a good copy.
+      if (res.status === 404 || json?.error?.code === "NOT_FOUND") {
+        cache.delete(threadId);
+        return null;
+      }
       if (!res.ok || !json?.ok) return null;
       const payload: CachedThreadPayload = {
         messages: json.data.messages ?? [],

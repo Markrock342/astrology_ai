@@ -189,6 +189,18 @@ export async function POST(
             return;
           }
 
+          // Hand the real row ids over BEFORE generating. Sending them only on
+          // `done` meant a turn that was stopped or errored never learned them,
+          // and the client hides every action (edit, regenerate, even copy) on a
+          // bubble with no server id.
+          send({
+            type: "accepted",
+            messageIds: {
+              user: accepted.userMessageId ?? null,
+              assistant: accepted.assistantMessageId ?? null,
+            },
+          });
+
           const generation = completePendingMessage(
             {
               conversationId: id,
