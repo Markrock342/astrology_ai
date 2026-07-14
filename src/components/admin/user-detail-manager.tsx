@@ -174,6 +174,20 @@ export function UserDetailManager({
     }
   }
 
+  async function resetUsageQuota() {
+    setBusy(true);
+    try {
+      await adminFetch(`/api/admin/users/${userId}/usage/reset`, {
+        method: "POST",
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "รีเซ็ตโควตาการใช้งานไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!user && !error) {
     return (
       <AdminPage>
@@ -256,6 +270,9 @@ export function UserDetailManager({
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <Button variant="ghost" onClick={toggleStatus} disabled={busy}>
                 {user.status === "ACTIVE" ? "ระงับบัญชี" : "เปิดใช้งาน"}
+              </Button>
+              <Button variant="ghost" onClick={resetUsageQuota} disabled={busy}>
+                รีเซ็ตโควตาการใช้งาน
               </Button>
               {user.birthProfile ? (
                 <Button variant="ghost" onClick={resetBirthEdits} disabled={busy}>
