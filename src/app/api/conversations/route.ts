@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { handle, ok } from "@/lib/http";
 import { requireUser } from "@/server/auth/rbac";
-import { listNatalThreads, listTransitThreads } from "@/server/horoscope/thread-service";
+import {
+  deleteAllConversations,
+  listNatalThreads,
+  listTransitThreads,
+} from "@/server/horoscope/thread-service";
 import { createConversation } from "@/server/horoscope/message-service";
 
 const listQuerySchema = z.object({
@@ -45,5 +49,13 @@ export async function POST(req: Request) {
       ...body,
     });
     return ok(conversation);
+  });
+}
+
+/** Clear all of the current user's chat history (natal + transit). */
+export async function DELETE() {
+  return handle(async () => {
+    const user = await requireUser();
+    return ok(await deleteAllConversations(user.id));
   });
 }

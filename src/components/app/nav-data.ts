@@ -86,18 +86,39 @@ export function findCategory(
   return categories.find((c) => c.slug === slug);
 }
 
-/** Map API category row → UI Category. */
+/** Built-in fallback questions per slug — used when the API row has none. */
+const DEFAULT_SUGGESTIONS: Record<string, string[]> = Object.fromEntries(
+  NATAL_CATEGORIES.map((c) => [c.slug, c.suggestedQuestions]),
+);
+
+/** Generic starters for any category the fallback map doesn't cover. */
+const GENERIC_SUGGESTIONS = [
+  "ช่วงนี้ดวงเป็นยังไงบ้าง",
+  "มีอะไรที่ควรระวังไหม",
+  "ช่วงนี้ควรโฟกัสเรื่องอะไร",
+];
+
+/**
+ * Map API category row → UI Category.
+ * The DB rows often ship without `suggestedQuestions`, which left the empty
+ * chat with no starter chips ("ไม่มี preset ให้พิมอะไร"). Fall back to the
+ * per-slug defaults, then a generic set, so there is always something to tap.
+ */
 export function mapApiCategory(c: {
   slug: string;
   nameTh: string;
   accessLevel: string;
   suggestedQuestions?: string[];
 }): Category {
+  const suggested =
+    c.suggestedQuestions && c.suggestedQuestions.length > 0
+      ? c.suggestedQuestions
+      : (DEFAULT_SUGGESTIONS[c.slug] ?? GENERIC_SUGGESTIONS);
   return {
     slug: c.slug,
     label: c.nameTh,
     tier: c.accessLevel === "PRO" ? "PRO" : "FREE",
-    suggestedQuestions: c.suggestedQuestions ?? [],
+    suggestedQuestions: suggested,
   };
 }
 

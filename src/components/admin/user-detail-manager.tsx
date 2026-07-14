@@ -28,6 +28,13 @@ type UserDetail = {
     editCount: number;
   } | null;
   creditWallet: { balance: number } | null;
+  usage?: {
+    balance: number;
+    dailyLimit: number | null;
+    monthlyLimit: number | null;
+    usedToday: number;
+    usedThisMonth: number;
+  } | null;
   subscriptions: Array<{
     status: string;
     package: { code: string; name: string; type: string };
@@ -209,6 +216,30 @@ export function UserDetailManager({
                 }
               />
               <Row label="เครดิตคงเหลือ" value={String(user.creditWallet?.balance ?? 0)} />
+              <Row
+                label="ใช้วันนี้"
+                value={
+                  user.usage
+                    ? `${user.usage.usedToday}${
+                        user.usage.dailyLimit != null
+                          ? ` / ${user.usage.dailyLimit}`
+                          : " (ไม่จำกัด)"
+                      }`
+                    : "—"
+                }
+              />
+              <Row
+                label="ใช้เดือนนี้"
+                value={
+                  user.usage
+                    ? `${user.usage.usedThisMonth}${
+                        user.usage.monthlyLimit != null
+                          ? ` / ${user.usage.monthlyLimit}`
+                          : " (ไม่จำกัด)"
+                      }`
+                    : "—"
+                }
+              />
               <Row
                 label="แพ็กเกจ"
                 value={activeSub?.package.name ?? "Free (ไม่มี subscription)"}

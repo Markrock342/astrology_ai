@@ -93,6 +93,8 @@ type AppDataContextValue = {
   refresh: () => void;
   /** Optimistic remove from sidebar lists (delete chat). */
   removeThreadLocal: (threadId: string) => void;
+  /** Optimistic clear of all sidebar threads (clear history). */
+  clearThreadsLocal: () => void;
   /** After chat — me + thread lists only (much smaller). */
   refreshLight: () => void;
 };
@@ -313,6 +315,11 @@ export function AppDataProvider({
     setTransitThreads((prev) => prev.filter((t) => t.id !== threadId));
   }, []);
 
+  const clearThreadsLocal = useCallback(() => {
+    setNatalThreads([]);
+    setTransitThreads([]);
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -333,6 +340,7 @@ export function AppDataProvider({
       filteredThreads: filteredNatalThreads,
       refresh: load,
       removeThreadLocal,
+      clearThreadsLocal,
       refreshLight,
     }),
     [
@@ -351,6 +359,7 @@ export function AppDataProvider({
       filteredTransitThreads,
       load,
       removeThreadLocal,
+      clearThreadsLocal,
       refreshLight,
     ],
   );

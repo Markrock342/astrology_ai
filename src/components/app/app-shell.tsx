@@ -11,6 +11,7 @@ import {
   RenameModal,
 } from "./settings-modals";
 import { CategoryIcon } from "./category-icon";
+import { ConfirmModal } from "./confirm-modal";
 import {
   CollapseSidebarIcon,
   ExpandSidebarIcon,
@@ -45,6 +46,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [transitOpen, setTransitOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<SettingsModal>(null);
+  // Destructive-action confirm (delete one thread / clear all history) uses a
+  // styled modal instead of window.confirm.
+  const [confirmAction, setConfirmAction] = useState<
+    { kind: "delete"; threadId: string } | { kind: "clear-all" } | null
+  >(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const profileBtnRef = useRef<HTMLButtonElement>(null);
   const closeMobileTimer = useRef<number | null>(null);
   const searchParams = useSearchParams();
@@ -57,6 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     user,
     refresh,
     removeThreadLocal,
+    clearThreadsLocal,
     refreshLight,
     filteredCategories,
     filteredNatalThreads,
@@ -74,8 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     chatNav(`/dashboard?thread=${threadId}${cat}`);
   }
 
-  async function deleteThread(threadId: string) {
-    if (!window.confirm("ลบแชทนี้ทั้งหมด? กู้คืนไม่ได้")) return;
+  async function performDeleteThread(threadId: string) {
     // Optimistic: disappear from sidebar immediately.
     removeThreadLocal(threadId);
     invalidateCachedThread(threadId);
@@ -98,6 +105,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       window.alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
       void refresh();
     }
+  }
+
+  async function performClearAll() {
+    // Optimistic: empty the sidebar, then leave any open thread.
+    clearThreadsLocal();
+    if (activeThread) chatNav("/dashboard");
+    try {
+      const res = await fetch("/api/conversations", { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        window.alert(json?.error?.message ?? "ล้างประวัติไม่สำเร็จ");
+        void refresh();
+        return;
+      }
+      await refreshLight();
+    } catch {
+      window.alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+      void refresh();
+    }
+  }
+
+  async function runConfirm() {
+    if (!confirmAction) return;
+    setConfirmBusy(true);
+    try {
+      if (confirmAction.kind === "delete") {
+        await performDeleteThread(confirmAction.threadId);
+      } else {
+        await performClearAll();
+      }
+    } finally {
+      setConfirmBusy(false);
+      setConfirmAction(null);
+    }
+  }
+
+  function deleteThread(threadId: string) {
+    setConfirmAction({ kind: "delete", threadId });
   }
 
   async function renameThread(threadId: string, currentTitle: string) {
@@ -306,7 +351,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <SidebarDivider />
 
-        <SectionLabel>ประวัติแชท</SectionLabel>
+        <div className="flex items-center justify-between pr-2">
+          <SectionLabel>ประวัติแชท</SectionLabel>
+          {filteredNatalThreads.length > 0 || filteredTransitThreads.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setConfirmAction({ kind: "clear-all" })}
+              className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)]"
+              title="ลบประวัติแชททั้งหมด"
+            >
+              ล้างทั้งหมด
+            </button>
+          ) : null}
+        </div>
         {loadError ? (
           <div className="px-3 py-2 text-xs text-[var(--danger)]">
             <p>{loadError}</p>
@@ -618,6 +675,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmAction !== null}
+        danger
+        busy={confirmBusy}
+        title={
+          confirmAction?.kind === "clear-all"
+            ? "ล้างประวัติแชททั้งหมด?"
+            : "ลบแชทนี้ทั้งหมด?"
+        }
+        message={
+          confirmAction?.kind === "clear-all"
+            ? "จะลบทุกบทสนทนา (พื้นดวงเดิม + ดวงจร) ออกถาวร กู้คืนไม่ได้"
+            : "จะลบบทสนทนานี้ออกถาวร กู้คืนไม่ได้"
+        }
+        confirmLabel={
+          confirmAction?.kind === "clear-all" ? "ล้างทั้งหมด" : "ลบ"
+        }
+        onConfirm={() => void runConfirm()}
+        onCancel={() => setConfirmAction(null)}
+      />
 
       {/* Settings modals — rendered once here so they survive the popover
           closing and never duplicate across sidebar variants. */}
