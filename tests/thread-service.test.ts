@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   appendExchangeToConversation,
+  editUserMessage,
   getThreadDetail,
   listConversationThreads,
   pollThreadForUser,
+  prepareRegenerateAssistant,
 } from "@/server/horoscope/thread-service";
 
 const mocks = vi.hoisted(() => ({
@@ -14,6 +16,9 @@ const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
   messageCreate: vi.fn(),
   messageUpdateMany: vi.fn(),
+  messageUpdate: vi.fn(),
+  // Kept purely so the soft-delete tests can assert it is NEVER called.
+  messageDeleteMany: vi.fn(),
   conversationUpdate: vi.fn(),
 }));
 
@@ -27,10 +32,13 @@ vi.mock("@/server/db", () => ({
     horoscopeReading: { findFirst: mocks.findFirst },
     message: {
       findUnique: mocks.findUnique,
+      findFirst: mocks.findFirst,
       create: mocks.messageCreate,
       count: mocks.count,
       // getThreadDetail sweeps stranded PENDING turns before reading the thread.
       updateMany: mocks.messageUpdateMany,
+      update: mocks.messageUpdate,
+      deleteMany: mocks.messageDeleteMany,
     },
     $transaction: mocks.transaction,
   },
@@ -209,5 +217,76 @@ describe("appendExchangeToConversation (M3)", () => {
     });
 
     expect(mocks.transaction).toHaveBeenCalledOnce();
+  });
+});
+
+describe("soft delete (edit / regenerate must not destroy history)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.conversationUpdate.mockResolvedValue({});
+    mocks.messageUpdateMany.mockResolvedValue({ count: 2 });
+    // $transaction(fn) — run the callback against the same mocked client.
+    mocks.transaction.mockImplementation(
+      async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          message: {
+            updateMany: mocks.messageUpdateMany,
+            update: mocks.messageUpdate,
+          },
+          conversation: { update: mocks.conversationUpdate },
+        }),
+    );
+  });
+
+  it("editUserMessage HIDES the later turns instead of deleting them", async () => {
+    mocks.findFirst.mockResolvedValue({
+      id: "m-user",
+      conversationId: "conv-1",
+      createdAt: new Date("2026-07-14T10:00:00Z"),
+    });
+
+    await editUserMessage("user-1", "m-user", "คำถามที่แก้แล้ว");
+
+    // The whole point: nothing is destroyed.
+    expect(mocks.messageDeleteMany).not.toHaveBeenCalled();
+
+    // Everything AFTER the edited question is marked, not removed — and the
+    // edited question itself survives, because its text is what we rewrite.
+    const [args] = mocks.messageUpdateMany.mock.calls.at(-1)!;
+    expect(args.where.conversationId).toBe("conv-1");
+    expect(args.where.deletedAt).toBeNull();
+    expect(args.where.createdAt).toHaveProperty("gt");
+    expect(args.data.deletedAt).toBeInstanceOf(Date);
+
+    expect(mocks.messageUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "m-user" },
+        data: { content: "คำถามที่แก้แล้ว" },
+      }),
+    );
+  });
+
+  it("prepareRegenerateAssistant hides the old answer and everything after it", async () => {
+    const answeredAt = new Date("2026-07-14T10:05:00Z");
+    mocks.findFirst
+      // the assistant row being regenerated
+      .mockResolvedValueOnce({
+        id: "m-assistant",
+        conversationId: "conv-1",
+        createdAt: answeredAt,
+      })
+      // the question it answered
+      .mockResolvedValueOnce({ content: "คำถามเดิม" });
+
+    const result = await prepareRegenerateAssistant("user-1", "m-assistant");
+
+    expect(result.content).toBe("คำถามเดิม");
+    expect(mocks.messageDeleteMany).not.toHaveBeenCalled();
+
+    // `gte`, not `gt`: the answer being replaced is superseded too.
+    const [args] = mocks.messageUpdateMany.mock.calls.at(-1)!;
+    expect(args.where.createdAt).toEqual({ gte: answeredAt });
+    expect(args.where.deletedAt).toBeNull();
+    expect(args.data.deletedAt).toBeInstanceOf(Date);
   });
 });

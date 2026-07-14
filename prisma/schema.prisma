@@ -639,12 +639,18 @@ model Message {
   // connection (refresh, tab close) must NOT set it — generation carries on.
   stopRequested    Boolean       @default(false)
   createdAt        DateTime      @default(now())
+  /// Soft delete. Editing a question or regenerating an answer used to DESTROY
+  /// every message after it — the user lost the rest of the conversation with no
+  /// undo and no trace. Superseded turns are now hidden, not erased.
+  /// EVERY read path must filter `deletedAt: null`, or hidden turns walk back in.
+  deletedAt        DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, idempotencyKey])
   @@index([conversationId, createdAt])
   @@index([conversationId, status])
+  @@index([conversationId, deletedAt, createdAt])
   @@map("messages")
 }
 
