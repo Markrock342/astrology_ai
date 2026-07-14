@@ -3,20 +3,20 @@
 **Repo:** https://github.com/Markrock342/astrology_ai  
 **คู่กับ:** [UX_WAVE_F_BE.md](./UX_WAVE_F_BE.md) (เพื่อน A)  
 **Production:** https://astrology-ai-three.vercel.app  
-**Branch:** fork → branch ตัวเอง → PR เข้า `main`
+**Branch:** `fe/ux-wave-f` → PR [#16](https://github.com/Markrock342/astrology_ai/pull/16)
 
 ---
 
 ## เป้าวันนี้ (P0)
 
-| ID | งาน | รอ BE? |
-|----|-----|--------|
-| UX-FE-F1.2 | เครดิตก่อนส่งใต้ composer | **ไม่รอ** — เริ่มเลย |
-| UX-FE-F1.1 | Thinking 3 phase จาก SSE | รอ A F1.1 (mock ก่อนได้) |
-| UX-FE-F1.3 | follow-up chips | รอ A F1.2 |
-| UX-FE-F1.4 | สรุป 1 บรรทัด (callout) | รอ A F1.2 |
+| ID | งาน | รอ BE? | สถานะ |
+|----|-----|--------|--------|
+| UX-FE-F1.2 | เครดิตก่อนส่งใต้ composer | **ไม่รอ** — เริ่มเลย | ✅ |
+| UX-FE-F1.1 | Thinking 3 phase จาก SSE | รอ A F1.1 (mock ก่อนได้) | ✅ |
+| UX-FE-F1.3 | follow-up chips | รอ A F1.2 | ✅ |
+| UX-FE-F1.4 | สรุป 1 บรรทัด (callout) | รอ A F1.2 | ✅ |
 
-**P1 ถ้าเหลือเวลา:** toggle สั้น/ละเอียด · คลิกตารางดวง · mobile ⋯ · thumbs · draft
+**P1:** toggle สั้น/ละเอียด · คลิกตารางดวง · mobile ⋯ · thumbs · draft — ✅
 
 ---
 
@@ -63,30 +63,34 @@ npm run typecheck && npm run lint
 ## Checklist
 
 ### UX-FE-F1.2 · เครดิตก่อนส่ง
-- [ ] ใต้ composer: `ใช้ {cost} เครดิต · คงเหลือ {balance}`
-- [ ] ใช้ `useMyUsage` + `DEFAULTS.creditCostPerReading`
-- [ ] หลังตอบเสร็จ — refresh usage bar
+- [x] ใต้ composer: `ใช้ {cost} เครดิต · คงเหลือ {balance}`
+- [x] ใช้ `useMyUsage` + `DEFAULTS.creditCostPerReading`
+- [x] หลังตอบเสร็จ — refresh usage bar
 - ไฟล์: `src/components/app/chat-view.tsx`, `chat-usage-bar.tsx`
 
 ### UX-FE-F1.1 · Staged thinking
-- [ ] parse SSE `{ type:"status", phase }` ใน `chat-view.tsx`
-- [ ] `ThinkingIndicator` แสดงข้อความตาม phase
-- [ ] ยังนับเวลา elapsed เหมือนเดิม
+- [x] parse SSE `{ type:"status", phase }` ใน `chat-view.tsx`
+- [x] `ThinkingIndicator` แสดงข้อความตาม phase
+- [x] ยังนับเวลา elapsed เหมือนเดิม
 
 ### UX-FE-F1.3 · Follow-up chips
-- [ ] chip 0–3 ใต้คำตอบ assistant (หลัง stream จบ)
-- [ ] คลิก → ส่งถามต่อในเธรดเดิม
-- [ ] ซ่อนขณะ streaming
+- [x] chip 0–3 ใต้คำตอบ assistant (หลัง stream จบ)
+- [x] คลิก → ส่งถามต่อในเธรดเดิม
+- [x] ซ่อนขณะ streaming
 
 ### UX-FE-F1.4 · summaryLine callout
-- [ ] กล่องสรุป 1 บรรทัดก่อน markdown หลัก
-- [ ] ไม่พังบนมือถือ
+- [x] กล่องสรุป 1 บรรทัดก่อน markdown หลัก
+- [x] ไม่พังบนมือถือ
 
 ### UX-FE-F2.1 · (P1) toggle กระชับ/ละเอียด + localStorage
+- [x] ส่ง `answerMode` ไป BE · persist ใน localStorage
 
 ### UX-FE-F2.2 · (P1) คลิกแถวใน `chart-evidence-table.tsx` → pre-fill composer
+- [x] แตะแถว → ใส่คำถามใน composer
 
 ### UX-FE-F2.3 · (P1) mobile ⋯ menu · ย้าย scroll FAB
+- [x] ⋯ overflow บนมือถือ · FAB อยู่ใน scroll area
+- [x] draft localStorage · thumbs local (รอ BE feedback API)
 
 ---
 
@@ -122,7 +126,8 @@ npm run lint ต้องผ่าน · เทสมือมือถือ
 
 | ไฟล์ | URL |
 |------|-----|
-| chat-view | https://github.com/Markrock342/astrology_ai/blob/main/src/components/app/chat-view.tsx |
-| chat-usage-bar | https://github.com/Markrock342/astrology_ai/blob/main/src/components/app/chat-usage-bar.tsx |
-| chart-evidence-table | https://github.com/Markrock342/astrology_ai/blob/main/src/components/app/chart-evidence-table.tsx |
-| use-my-usage | https://github.com/Markrock342/astrology_ai/blob/main/src/hooks/use-my-usage.ts |
+| chat-view | https://github.com/Markrock342/astrology_ai/blob/fe/ux-wave-f/src/components/app/chat-view.tsx |
+| chat-usage-bar | https://github.com/Markrock342/astrology_ai/blob/fe/ux-wave-f/src/components/app/chat-usage-bar.tsx |
+| chart-evidence-table | https://github.com/Markrock342/astrology_ai/blob/fe/ux-wave-f/src/components/app/chart-evidence-table.tsx |
+| use-my-usage | https://github.com/Markrock342/astrology_ai/blob/fe/ux-wave-f/src/hooks/use-my-usage.ts |
+| PR | https://github.com/Markrock342/astrology_ai/pull/16 |

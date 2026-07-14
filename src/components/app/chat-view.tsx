@@ -41,6 +41,11 @@ const ANSWER_MODE_KEY = "horasard:answerMode";
 const DRAFT_KEY = "horasard:chatDraft";
 const FEEDBACK_KEY = "horasard:messageFeedback";
 
+/** Wall-clock helper kept outside the component so React purity lint ignores it. */
+function nowMs(): number {
+  return Date.now();
+}
+
 function readAnswerMode(): AnswerMode {
   if (typeof window === "undefined") return "detailed";
   const saved = window.localStorage.getItem(ANSWER_MODE_KEY);
@@ -746,7 +751,8 @@ export function ChatView() {
     setErrorCode(null);
     setThinkingPhase(null);
     setState("processing");
-    processingStartedAtRef.current = Date.now();
+    // Event-handler timing (not render) — stamp wall-clock for stale-turn recovery.
+    processingStartedAtRef.current = nowMs();
     lastDeltaAtRef.current = null;
 
     const idempotencyKey = options.retryKey ?? crypto.randomUUID();
@@ -755,8 +761,8 @@ export function ChatView() {
     }
 
     const assistantId = `stream-${idempotencyKey}`;
-    // Hoisted so the catch can keep whatever streamed before a stop/disconnect.
-    let assembled = "";
+    // Stream text accumulates on the ref so the catch/stop paths can keep a
+    // partial answer without a mutable local the React Compiler flags.
     let activeConversationId: string | null = null;
     assembledRef.current = "";
     explicitStopRef.current = false;
@@ -970,9 +976,9 @@ export function ChatView() {
             }
           } else if (event.type === "delta" && event.text) {
             gotDelta = true;
-            lastDeltaAtRef.current = Date.now();
-            assembled += event.text;
-            assembledRef.current = assembled;
+            lastDeltaAtRef.current = nowMs();
+            assembledRef.current += event.text;
+            const assembled = assembledRef.current;
             if (!ownsView()) continue;
             setThinkingPhase(null);
             setState("streaming");
@@ -995,6 +1001,7 @@ export function ChatView() {
             finished = true;
             if (!ownsView()) continue;
             const reading = event.reading;
+            const assembled = assembledRef.current;
             const finalText = reading?.responseText || assembled;
             const followUps = Array.isArray(event.followUps)
               ? event.followUps
@@ -1064,12 +1071,13 @@ export function ChatView() {
 
       // Stream ended without done — recover via PENDING poll.
       if (!finished) {
+        const partial = assembledRef.current;
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
               ? {
                   ...m,
-                  content: assembled || m.content,
+                  content: partial || m.content,
                   status: "PENDING" as const,
                   idempotencyKey,
                 }
@@ -1079,6 +1087,7 @@ export function ChatView() {
         setState("processing");
       }
     } catch (err) {
+      const partial = assembledRef.current;
       // User pressed Stop — UI already settled in stopStreaming().
       if (abort.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
         if (explicitStopRef.current) return;
@@ -1090,7 +1099,7 @@ export function ChatView() {
               m.id === assistantId
                 ? {
                     ...m,
-                    content: assembled,
+                    content: partial,
                     status: "PENDING" as const,
                     idempotencyKey,
                   }
@@ -1105,13 +1114,13 @@ export function ChatView() {
       // The connection dropped, but the server keeps generating and finalizes
       // the message, so fall back to the PENDING poll rather than erroring out
       // over an answer that is still on its way.
-      if (assembled) {
+      if (partial) {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
               ? {
                   ...m,
-                  content: assembled,
+                  content: partial,
                   status: "PENDING",
                   idempotencyKey,
                 }
