@@ -14,10 +14,11 @@ export function useChatNav() {
     if (typeof window === "undefined") return;
     const next = href.startsWith("/") ? href : `/${href}`;
     if (window.location.pathname + window.location.search === next) return;
-    window.history.pushState(window.history.state, "", next);
-    // Next syncs pushState into useSearchParams; also notify listeners that
-    // treat soft chat switches specially (NavProgress, ChatView resets).
-    window.dispatchEvent(new PopStateEvent("popstate"));
+    // Pass null — NOT window.history.state. Next patches pushState and skips
+    // syncing useSearchParams when data already has `__NA` (internal marker).
+    // null lets the patch copy internals + dispatch ACTION_RESTORE so cat/thread
+    // query updates actually reach AppShell / ChatView.
+    window.history.pushState(null, "", next);
     window.dispatchEvent(
       new CustomEvent("horasard:soft-nav", { detail: { href: next } }),
     );
