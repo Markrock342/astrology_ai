@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Blocks push to main (or any branch) if local CI check fails.
+# Enable once: git config core.hooksPath .githooks
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+echo "[pre-push] running local CI (typecheck · lint · unit)…"
+bash "$ROOT/scripts/ci-local.sh"

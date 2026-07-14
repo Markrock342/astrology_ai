@@ -1,5 +1,10 @@
 name: CI
 
+# Remote gate. If GitHub Actions is billing-locked, use the local stand-in:
+#   npm run ci            # typecheck · lint · unit
+#   npm run hooks:install # pre-push runs the same check
+# See README → "CI while GitHub Actions is unavailable".
+
 on:
   push:
     branches: [main]
