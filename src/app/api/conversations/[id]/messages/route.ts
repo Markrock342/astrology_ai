@@ -120,6 +120,9 @@ export async function POST(
       bodySchema.parse(await req.json());
 
     const encoder = new TextEncoder();
+    // Wall-clock for the whole turn (accept + chart + model), reported on `done`
+    // so the finished answer can say how long it actually took.
+    const turnStartedAt = Date.now();
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         let closed = false;
@@ -162,6 +165,7 @@ export async function POST(
             if (text) emitDeltaChunks(send, text);
             send({
               type: "done",
+              elapsedMs: Date.now() - turnStartedAt,
               // A replayed turn is still a real turn — without the ids the
               // client leaves it with no edit/regenerate/thumbs, forever.
               messageIds: {
@@ -214,6 +218,7 @@ export async function POST(
           // actions appear, and the turn settles without waiting on meta.
           send({
             type: "done",
+            elapsedMs: Date.now() - turnStartedAt,
             // Real row ids for the optimistic bubbles the client is showing —
             // without these, edit/regenerate address ids that never existed.
             messageIds: {

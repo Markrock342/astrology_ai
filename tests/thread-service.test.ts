@@ -71,8 +71,20 @@ describe("getThreadDetail (M3)", () => {
       mode: "NATAL",
       category: { slug: "career", nameTh: "การงาน" },
       messages: [
-        { id: "m1", role: "USER", content: "คำถาม", modelId: null },
-        { id: "m2", role: "ASSISTANT", content: "คำตอบ", modelId: "gemini" },
+        {
+          id: "m1",
+          role: "USER",
+          content: "คำถาม",
+          modelId: null,
+          createdAt: new Date("2026-07-14T10:00:00Z"),
+        },
+        {
+          id: "m2",
+          role: "ASSISTANT",
+          content: "คำตอบ",
+          modelId: "gemini",
+          createdAt: new Date("2026-07-14T10:00:05Z"),
+        },
       ],
     });
 
@@ -83,6 +95,8 @@ describe("getThreadDetail (M3)", () => {
       role: "user",
       content: "คำถาม",
       modelId: undefined,
+      // Drives the elapsed counter for a PENDING turn, so it must round-trip.
+      createdAt: "2026-07-14T10:00:00.000Z",
     });
     expect(detail.mode).toBe("NATAL");
   });
@@ -132,8 +146,22 @@ describe("pollThreadForUser", () => {
         transitDistrict: null,
         category: { slug: "career", nameTh: "การงาน" },
         messages: [
-          { id: "m1", role: "USER", content: "q", modelId: null, status: "SUCCESS" },
-          { id: "m2", role: "ASSISTANT", content: "a", modelId: "g", status: "SUCCESS" },
+          {
+            id: "m1",
+            role: "USER",
+            content: "q",
+            modelId: null,
+            status: "SUCCESS",
+            createdAt: new Date("2026-07-14T10:00:00Z"),
+          },
+          {
+            id: "m2",
+            role: "ASSISTANT",
+            content: "a",
+            modelId: "g",
+            status: "SUCCESS",
+            createdAt: new Date("2026-07-14T10:00:05Z"),
+          },
         ],
       });
 
