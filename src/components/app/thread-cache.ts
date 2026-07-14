@@ -11,6 +11,8 @@ export type CachedChatMessage = {
   status?: "SUCCESS" | "FAILED" | "TIMEOUT" | "PENDING";
   chartSnapshot?: unknown;
   transitSnapshot?: unknown;
+  summaryLine?: string;
+  followUps?: string[];
 };
 
 export type CachedThreadPayload = {

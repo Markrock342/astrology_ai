@@ -18,6 +18,7 @@ import { CopyMessageButton } from "./copy-message-button";
 import { MessageActions } from "./message-actions";
 import { NatalChartBanner } from "./natal-chart-banner";
 import { SmoothStreamMarkdown } from "./smooth-stream-markdown";
+import { useMyUsage } from "@/hooks/use-my-usage";
 import type { ChartJson } from "@/types/chart";
 import {
   getCachedThread,
@@ -25,6 +26,14 @@ import {
   setCachedThread,
   type CachedChatMessage,
 } from "./thread-cache";
+
+type ThinkingPhase = "chart" | "memory" | "writing";
+
+const THINKING_PHASE_LABEL: Record<ThinkingPhase, string> = {
+  chart: "กำลังคำนวณพื้นดวง…",
+  memory: "กำลังวิเคราะห์เรือนและดาว…",
+  writing: "กำลังเขียนคำทำนาย…",
+};
 
 type Message = {
   id: string;
@@ -36,6 +45,8 @@ type Message = {
   transitSnapshot?: ChartJson | null;
   /** Present only while PENDING — the handle the stop endpoint needs. */
   idempotencyKey?: string;
+  summaryLine?: string;
+  followUps?: string[];
 };
 type ChatState =
   | "idle"
@@ -185,10 +196,19 @@ export function ChatView() {
   const category = useCategory(catSlug);
   const locked = isCategoryLocked(category, user?.plan ?? "FREE");
   const hasPendingPayment = Boolean(pendingPayment);
+  const {
+    usage,
+    loading: usageLoading,
+    apiReady: usageApiReady,
+    refresh: refreshUsage,
+  } = useMyUsage();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [state, setState] = useState<ChatState>("idle");
+  const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase | null>(
+    null,
+  );
   const [errorText, setErrorText] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [pendingRetry, setPendingRetry] = useState<PendingRetry | null>(null);
@@ -264,10 +284,10 @@ export function ChatView() {
       setStopping(false);
     }
   }
-  const usageRefreshRef = useRef<(() => void) | null>(null);
-  const registerUsageRefresh = useCallback((fn: () => void) => {
-    usageRefreshRef.current = fn;
-  }, []);
+  const usageRefreshRef = useRef(refreshUsage);
+  useEffect(() => {
+    usageRefreshRef.current = refreshUsage;
+  }, [refreshUsage]);
 
   useEffect(() => {
     conversationIdRef.current = threadId;
@@ -388,6 +408,7 @@ export function ChatView() {
       processingStartedAtRef.current = null;
       lastDeltaAtRef.current = null;
       setInFlight(null);
+      setThinkingPhase(null);
       setMessages((prev) =>
         prev.map((m) =>
           m.role === "assistant" && m.status === "PENDING" && !m.content.trim()
@@ -649,6 +670,7 @@ export function ChatView() {
 
     setErrorText(null);
     setErrorCode(null);
+    setThinkingPhase(null);
     setState("processing");
     processingStartedAtRef.current = Date.now();
     lastDeltaAtRef.current = null;
@@ -844,8 +866,11 @@ export function ChatView() {
           let event: {
             type?: string;
             text?: string;
+            phase?: string;
             code?: string;
             message?: string;
+            summaryLine?: string;
+            followUps?: string[];
             reading?: {
               responseText?: string | null;
               modelId?: string | null;
@@ -859,12 +884,22 @@ export function ChatView() {
             continue;
           }
 
-          if (event.type === "delta" && event.text) {
+          if (event.type === "status" && event.phase) {
+            if (!ownsView()) continue;
+            if (
+              event.phase === "chart" ||
+              event.phase === "memory" ||
+              event.phase === "writing"
+            ) {
+              setThinkingPhase(event.phase);
+            }
+          } else if (event.type === "delta" && event.text) {
             gotDelta = true;
             lastDeltaAtRef.current = Date.now();
             assembled += event.text;
             assembledRef.current = assembled;
             if (!ownsView()) continue;
+            setThinkingPhase(null);
             setState("streaming");
             // Flush to React every chunk so the typewriter can run frames
             // between network reads (avoids one giant paint at the end).
@@ -886,6 +921,18 @@ export function ChatView() {
             if (!ownsView()) continue;
             const reading = event.reading;
             const finalText = reading?.responseText || assembled;
+            const followUps = Array.isArray(event.followUps)
+              ? event.followUps
+                  .filter((q): q is string => typeof q === "string")
+                  .map((q) => q.trim())
+                  .filter(Boolean)
+                  .slice(0, 3)
+              : [];
+            const summaryLine =
+              typeof event.summaryLine === "string"
+                ? event.summaryLine.trim() || undefined
+                : undefined;
+            setThinkingPhase(null);
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
@@ -896,6 +943,8 @@ export function ChatView() {
                       status: "SUCCESS",
                       chartSnapshot: reading?.chartSnapshot ?? null,
                       transitSnapshot: reading?.transitSnapshot ?? null,
+                      summaryLine,
+                      followUps,
                     }
                   : m,
               ),
@@ -907,10 +956,11 @@ export function ChatView() {
             processingStartedAtRef.current = null;
             lastDeltaAtRef.current = null;
             void refreshLight();
-            usageRefreshRef.current?.();
+            void usageRefreshRef.current?.();
           } else if (event.type === "error") {
             finished = true;
             if (!ownsView()) continue;
+            setThinkingPhase(null);
             const code = event.code ?? "AI_PROVIDER_ERROR";
             applyApiError(
               code,
@@ -1048,7 +1098,11 @@ export function ChatView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ChatUsageBar registerRefresh={registerUsageRefresh} />
+      <ChatUsageBar
+        usage={usage}
+        loading={usageLoading}
+        apiReady={usageApiReady}
+      />
       {threadMode === "TRANSIT" && threadTransitLabel ? (
         <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-center text-xs text-[var(--muted)] md:px-8">
           โหมดดวงจร · {threadTransitLabel}
@@ -1179,12 +1233,19 @@ export function ChatView() {
                       </div>
                     )}
                     {isStreamingTurn && !m.content ? (
-                      <ThinkingIndicator />
+                      <ThinkingIndicator phase={thinkingPhase} />
                     ) : (
-                      <SmoothStreamMarkdown
-                        content={m.content}
-                        streaming={isStreamingTurn}
-                      />
+                      <>
+                        {m.summaryLine ? (
+                          <div className="mb-3 rounded-xl border border-[var(--primary)]/25 bg-[var(--primary)]/8 px-3.5 py-2.5 text-[14px] leading-6 text-[var(--foreground)]">
+                            {m.summaryLine}
+                          </div>
+                        ) : null}
+                        <SmoothStreamMarkdown
+                          content={m.content}
+                          streaming={isStreamingTurn}
+                        />
+                      </>
                     )}
                     {!isStreamingTurn && m.content && (
                       <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-[var(--border)]/70 pt-2">
@@ -1211,6 +1272,24 @@ export function ChatView() {
                         )}
                       </div>
                     )}
+                    {!isBusy &&
+                    !isStreamingTurn &&
+                    m.status === "SUCCESS" &&
+                    m.followUps &&
+                    m.followUps.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {m.followUps.map((q) => (
+                          <button
+                            key={q}
+                            type="button"
+                            onClick={() => void send(q)}
+                            className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-left text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)]"
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     {!isStreamingTurn && (
                       <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted-2)]">
                         คำทำนายนี้มีไว้เพื่อความบันเทิงและเป็นแนวทางเท่านั้น
@@ -1225,7 +1304,7 @@ export function ChatView() {
               !(
                 messages[messages.length - 1]?.role === "assistant" &&
                 messages[messages.length - 1]?.status === "PENDING"
-              ) && <ThinkingIndicator />}
+              ) && <ThinkingIndicator phase={thinkingPhase} />}
             {(state === "error" || state === "no-quota") && (
               <ErrorBanner
                 state={state}
@@ -1297,7 +1376,10 @@ export function ChatView() {
           // blocked in send() until the turn settles; Stop replaces the arrow.
           aiEnabled={FEATURES.aiChat}
           categoryLocked={locked}
-          creditCost={DEFAULTS.creditCostPerReading}
+          creditCost={
+            usage?.creditCostPerMessage ?? DEFAULTS.creditCostPerReading
+          }
+          creditBalance={usage?.balance ?? user?.creditBalance ?? 0}
         />
       </div>
     </div>
@@ -1437,8 +1519,12 @@ function formatElapsed(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")} นาที`;
 }
 
-function ThinkingIndicator() {
+function ThinkingIndicator({ phase }: { phase?: ThinkingPhase | null }) {
   const [elapsed, setElapsed] = useState(0);
+  const label =
+    phase && THINKING_PHASE_LABEL[phase]
+      ? THINKING_PHASE_LABEL[phase]
+      : "กำลังเพ่งดวงดาว…";
 
   useEffect(() => {
     const started = Date.now();
@@ -1460,7 +1546,7 @@ function ThinkingIndicator() {
             />
           ))}
         </div>
-        <span className="shimmer-text text-xs font-medium">กำลังเพ่งดวงดาว…</span>
+        <span className="shimmer-text text-xs font-medium">{label}</span>
       </div>
       <p className="pl-0 text-[11px] tabular-nums text-[var(--muted-2)]">
         ใช้เวลาไปแล้ว{" "}
@@ -1495,6 +1581,7 @@ const Composer = forwardRef<
     aiEnabled: boolean;
     categoryLocked?: boolean;
     creditCost?: number;
+    creditBalance?: number;
   }
 >(function Composer(
   {
@@ -1507,6 +1594,7 @@ const Composer = forwardRef<
     aiEnabled,
     categoryLocked,
     creditCost,
+    creditBalance,
   },
   ref,
 ) {
@@ -1583,10 +1671,12 @@ const Composer = forwardRef<
           </button>
         )}
       </div>
-      <p className="mt-2 text-center text-[10px] text-[var(--muted-2)]">
-        {aiEnabled && creditCost != null && creditCost > 0
-          ? `แต่ละคำถามใช้ ${creditCost} เครดิต · `
-          : ""}
+      {aiEnabled && creditCost != null && creditCost > 0 ? (
+        <p className="mt-2 text-center text-[11px] text-[var(--muted)]">
+          ใช้ {creditCost} เครดิต · คงเหลือ {creditBalance ?? 0}
+        </p>
+      ) : null}
+      <p className="mt-1 text-center text-[10px] text-[var(--muted-2)]">
         Horasard อาจให้ข้อมูลที่ไม่ถูกต้องเสมอไป โปรดใช้วิจารณญาณ
       </p>
     </div>
