@@ -350,6 +350,10 @@ export function ChatView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idempotencyKey: target.idempotencyKey }),
+        // The UI already settled optimistically, so this call is best-effort —
+        // but without a deadline a hung request left `stopping` true forever,
+        // and the Stop button never came back for the rest of the session.
+        signal: AbortSignal.timeout(8_000),
       });
     } catch {
       /* server stop is best-effort — UI already settled */
@@ -938,10 +942,21 @@ export function ChatView() {
       }
 
       // Placeholder already added above — ensure idempotency key is wired for stop.
+      // Re-arming a RETRY reuses the failed bubble, so wipe what the last attempt
+      // left in it. Without this the old error text ("ระบบทำนายขัดข้อง…") sat in
+      // the answer with a blinking caret, as if the model were writing it.
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
-            ? { ...m, status: "PENDING" as const, idempotencyKey }
+            ? {
+                ...m,
+                content: "",
+                status: "PENDING" as const,
+                idempotencyKey,
+                summaryLine: undefined,
+                followUps: undefined,
+                elapsedMs: undefined,
+              }
             : m,
         ),
       );
@@ -1117,7 +1132,25 @@ export function ChatView() {
           // not on a model that is still preparing a long answer.
           lastDeltaAtRef.current = nowMs();
 
-          if (event.type === "status" && event.phase) {
+          if (event.type === "accepted") {
+            // Real row ids, before a single token is generated — so a turn that
+            // gets stopped or fails still keeps its actions.
+            if (!ownsView()) continue;
+            const uid = event.messageIds?.user ?? undefined;
+            const aid = event.messageIds?.assistant ?? undefined;
+            if (!uid && !aid) continue;
+            setMessages((prev) =>
+              prev.map((m) => {
+                if (aid && m.id === assistantId) {
+                  return { ...m, serverId: aid };
+                }
+                if (uid && optimisticUserId && m.id === optimisticUserId) {
+                  return { ...m, serverId: uid };
+                }
+                return m;
+              }),
+            );
+          } else if (event.type === "status" && event.phase) {
             if (!ownsView()) continue;
             if (
               event.phase === "chart" ||
