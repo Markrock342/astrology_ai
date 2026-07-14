@@ -1,41 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
-import { useMyUsage } from "@/hooks/use-my-usage";
-import { useAppData } from "@/components/app/app-data-provider";
-import type { UsageLimitsFallback } from "@/types/my-usage";
+import type { MyUsage } from "@/types/my-usage";
 
 export function ChatUsageBar({
-  fallbackLimits,
-  registerRefresh,
+  usage,
+  loading,
+  apiReady,
 }: {
-  fallbackLimits?: UsageLimitsFallback;
-  registerRefresh?: (refresh: () => void) => void;
+  usage: MyUsage | null;
+  loading: boolean;
+  apiReady: boolean;
 }) {
-  const { user } = useAppData();
-  const { usage, loading, apiReady, refresh } = useMyUsage(fallbackLimits);
-
-  useEffect(() => {
-    registerRefresh?.(refresh);
-  }, [registerRefresh, refresh]);
-
-  if (loading && !usage) {
-    // Instant paint from bootstrap balance — don't blank the bar while /usage loads.
-    if (user) {
-      return (
-        <div className="flex shrink-0 items-center justify-center border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-[11px] text-[var(--muted)] md:px-8">
-          <Link href="/account" className="transition hover:text-[var(--primary)]">
-            เครดิต{" "}
-            <span className="font-semibold text-[var(--foreground)]">
-              {user.creditBalance}
-            </span>
-          </Link>
-        </div>
-      );
-    }
-    return null;
-  }
+  if (loading && !usage) return null;
   if (!usage) return null;
 
   const balance = usage.balance;
