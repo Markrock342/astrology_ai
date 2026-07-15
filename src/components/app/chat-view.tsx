@@ -1359,6 +1359,12 @@ export function ChatView() {
               firstDelta.atMs !== null && turnStartedAt !== null
                 ? firstDelta.atMs - turnStartedAt
                 : undefined;
+            // Same clock for both numbers. The server's elapsedMs starts when
+            // the ROUTE starts, the client's TTFT starts at SEND — mixing them
+            // produced "ใช้เวลา 7 วิ (เริ่มตอบใน 18 วิ)", which reads as
+            // nonsense. The user's clock is the one they experienced.
+            const clientElapsedMs =
+              turnStartedAt !== null ? nowMs() - turnStartedAt : undefined;
             setMessages((prev) =>
               prev.map((m) => {
                 if (m.id === assistantId) {
@@ -1373,9 +1379,10 @@ export function ChatView() {
                     summaryLine,
                     followUps,
                     elapsedMs:
-                      typeof event.elapsedMs === "number"
+                      clientElapsedMs ??
+                      (typeof event.elapsedMs === "number"
                         ? event.elapsedMs
-                        : m.elapsedMs,
+                        : m.elapsedMs),
                     firstTokenMs: ttftMs ?? m.firstTokenMs,
                   };
                 }

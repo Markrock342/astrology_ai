@@ -20,6 +20,9 @@ type GeminiApiResponse = {
      * 3.5 Flash), so a zero here is real information: we are not clearing it.
      */
     cachedContentTokenCount?: number;
+    /** Gemini 3 draws thinking from maxOutputTokens but does NOT count it in
+     *  candidatesTokenCount — so a cap hit can look like a short answer. */
+    thoughtsTokenCount?: number;
   };
   error?: { code?: number; message?: string; status?: string };
 };
@@ -221,6 +224,7 @@ export class GeminiAdapter implements AIProviderAdapter {
     let stopped = false;
     let finishReason: string | undefined;
     let firstTokenAt: number | undefined;
+    let thoughtTokens: number | undefined;
 
     // Check stop often enough that the button feels instant (~250ms).
     const STOP_POLL_MS = 250;
@@ -323,6 +327,9 @@ export class GeminiAdapter implements AIProviderAdapter {
             if (data.usageMetadata?.cachedContentTokenCount != null) {
               cachedTokens = data.usageMetadata.cachedContentTokenCount;
             }
+            if (data.usageMetadata?.thoughtsTokenCount != null) {
+              thoughtTokens = data.usageMetadata.thoughtsTokenCount;
+            }
             if (data.candidates?.[0]?.finishReason) {
               finishReason = data.candidates[0].finishReason;
             }
@@ -367,7 +374,15 @@ export class GeminiAdapter implements AIProviderAdapter {
         parsed: parseHoroscopeText(text),
         usage: { inputTokens, outputTokens, cachedTokens },
         latencyMs,
-        truncated: finishReason === "MAX_TOKENS",
+        // Two signals, because the first one demonstrably misses: a real answer
+        // came back cut MID-WORD with finishReason unset while text(661) +
+        // thinking(~600) had exhausted the 1280 budget exactly. Thinking is
+        // drawn from maxOutputTokens but hidden from candidatesTokenCount, so
+        // the budget math is the reliable tell.
+        truncated:
+          finishReason === "MAX_TOKENS" ||
+          (outputTokens ?? 0) + (thoughtTokens ?? 0) >=
+            input.maxOutputTokens - 8,
         firstTokenMs: firstTokenAt !== undefined ? firstTokenAt - start : undefined,
       };
     } catch (err) {
