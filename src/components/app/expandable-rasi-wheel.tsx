@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { CompactRasiWheel } from "./compact-rasi-wheel";
+import {
+  getPlanetMeaning,
+  getPlanetTheme,
+  houseFromLagna,
+  normalizeSignName,
+} from "@/lib/chart-theme";
 import type { ChartJson } from "@/types/chart";
 
 /**
- * Compact wheel that opens a large lightbox on click/tap.
+ * Compact wheel that opens a large lightbox on click/tap. Inside the lightbox
+ * every planet is tappable (touch-friendly) and reveals what it means and where
+ * it sits — the old hover-only `<title>` did nothing on a phone.
  */
 export function ExpandableRasiWheel({
   chart,
@@ -18,7 +26,23 @@ export function ExpandableRasiWheel({
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
   const titleId = useId();
+
+  const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ";
+  const planets = useMemo(
+    () =>
+      chart.planets.map((row) => ({
+        planet: row.planet,
+        sign: normalizeSignName(row.siderealSign),
+        house: houseFromLagna(lagna, row.siderealSign),
+        degreeText: row.degreeText ?? null,
+        theme: getPlanetTheme(row.planet),
+        meaning: getPlanetMeaning(row.planet),
+      })),
+    [chart.planets, lagna],
+  );
+  const selectedRow = planets.find((p) => p.planet === selected) ?? null;
 
   useEffect(() => {
     if (!open) return;
@@ -38,7 +62,10 @@ export function ExpandableRasiWheel({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setSelected(null); // fresh each time the lightbox opens
+          setOpen(true);
+        }}
         className="press-scale group relative rounded-full outline-none ring-[var(--primary)] transition focus-visible:ring-2"
         aria-label={label ? `ขยาย${label}` : "ขยายแผนภูมิราศี"}
         title="แตะเพื่อขยาย"
@@ -73,15 +100,68 @@ export function ExpandableRasiWheel({
                     ✕
                   </button>
                 </div>
-                <div className="flex max-h-[min(80vh,520px)] w-full items-center justify-center overflow-auto py-2">
-                  <CompactRasiWheel chart={chart} size={Math.min(420, typeof window !== "undefined" ? window.innerWidth - 64 : 360)} />
+                <div className="flex w-full items-center justify-center overflow-auto py-1">
+                  <CompactRasiWheel
+                    chart={chart}
+                    size={Math.min(360, typeof window !== "undefined" ? window.innerWidth - 72 : 320)}
+                    onSelectPlanet={(p) =>
+                      setSelected((cur) => (cur === p ? null : p))
+                    }
+                    selectedPlanet={selected}
+                  />
                 </div>
-                <p className="mt-1 max-w-sm text-center text-[11px] leading-relaxed text-[var(--muted)]">
-                  วงล้อราศีจักรจากวันเวลาเกิดของคุณ — ช่องสีทองคือลัคนา
-                  (จุดเริ่มเรือนที่ 1) ตัวเลขคือเรือนชะตา 1–12
-                  และสัญลักษณ์คือดาวที่สถิตในแต่ละราศี (ชี้ที่ดาวเพื่อดูรายละเอียด)
-                </p>
-                <p className="mt-2 text-center text-[11px] text-[var(--muted-2)]">
+
+                {/* Detail of the tapped planet — the touch-friendly replacement
+                    for the hover tooltip that did nothing on a phone. */}
+                {selectedRow ? (
+                  <div className="mt-1 w-full rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/8 px-3.5 py-2.5">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+                      <span style={{ color: selectedRow.theme.color }}>
+                        {selectedRow.theme.symbol}
+                      </span>
+                      {selectedRow.planet}
+                      <span className="text-[11px] font-normal text-[var(--muted)]">
+                        ราศี{selectedRow.sign} · เรือน {selectedRow.house}
+                        {selectedRow.degreeText ? ` · ${selectedRow.degreeText}` : ""}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--muted)]">
+                      {selectedRow.planet}แทน{selectedRow.meaning}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-1 max-w-sm text-center text-[11px] leading-relaxed text-[var(--muted)]">
+                    ช่องสีทองคือลัคนา (จุดเริ่มเรือนที่ 1) ตัวเลขคือเรือนชะตา
+                    1–12 — แตะที่ดาวเพื่อดูความหมายและตำแหน่ง
+                  </p>
+                )}
+
+                {/* Tappable planet legend — always reachable, no aiming at a
+                    tiny glyph required. */}
+                <div className="mt-2.5 flex w-full flex-wrap justify-center gap-1.5">
+                  {planets.map((p) => {
+                    const active = p.planet === selected;
+                    return (
+                      <button
+                        key={p.planet}
+                        type="button"
+                        onClick={() =>
+                          setSelected((cur) => (cur === p.planet ? null : p.planet))
+                        }
+                        className={`press-scale inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                          active
+                            ? "border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--foreground)]"
+                            : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--primary)]/50"
+                        }`}
+                      >
+                        <span style={{ color: p.theme.color }}>{p.theme.symbol}</span>
+                        {p.planet}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="mt-2.5 text-center text-[11px] text-[var(--muted-2)]">
                   แตะพื้นหลังหรือกด Esc เพื่อปิด
                 </p>
               </div>

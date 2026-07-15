@@ -31,10 +31,15 @@ export function CompactRasiWheel({
   chart,
   className = "",
   size = 140,
+  onSelectPlanet,
+  selectedPlanet,
 }: {
   chart: ChartJson;
   className?: string;
   size?: number;
+  /** When set, planet glyphs become tappable (used in the expanded lightbox). */
+  onSelectPlanet?: (planet: string) => void;
+  selectedPlanet?: string | null;
 }) {
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ";
   const lagnaIdx = signIndex(lagna);
@@ -94,7 +99,7 @@ export function CompactRasiWheel({
       height={size}
       className={`shrink-0 ${className}`}
       role="img"
-      aria-hidden="true"
+      aria-hidden={onSelectPlanet ? undefined : "true"}
     >
       <circle
         cx={CX}
@@ -171,13 +176,37 @@ export function CompactRasiWheel({
         const offset = degreeOffset * 1.2 + (idx - (rows.length - 1) / 2) * 8;
         const pos = polar(CX, CY, R_PLANET + offset, midDeg);
         const theme = getPlanetTheme(row.planet);
+        const tappable = Boolean(onSelectPlanet);
+        const isSelected = selectedPlanet === row.planet;
         return (
-          <g key={key}>
+          <g
+            key={key}
+            onClick={tappable ? () => onSelectPlanet?.(row.planet) : undefined}
+            style={tappable ? { cursor: "pointer" } : undefined}
+            role={tappable ? "button" : undefined}
+            aria-label={tappable ? `${row.planet} ในราศี${rowSign}` : undefined}
+          >
+            {/* Enlarged transparent hit target — glyphs are ~26px, below the
+                44px touch minimum, so taps between planets used to miss. */}
+            {tappable && (
+              <circle cx={pos.x} cy={pos.y} r={20} fill="transparent" />
+            )}
+            {isSelected && (
+              <circle
+                cx={pos.x}
+                cy={pos.y}
+                r={17}
+                fill="none"
+                stroke={theme.color}
+                strokeWidth="2"
+                opacity={0.9}
+              />
+            )}
             <circle
               cx={pos.x}
               cy={pos.y}
               r={13}
-              fill="rgba(13,13,15,0.92)"
+              fill={isSelected ? theme.color : "rgba(13,13,15,0.92)"}
               stroke={theme.color}
               strokeWidth="1.2"
             />
@@ -186,7 +215,7 @@ export function CompactRasiWheel({
               y={pos.y + 1}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill={theme.color}
+              fill={isSelected ? "#0d0d0f" : theme.color}
               fontSize="13"
             >
               {theme.symbol}
