@@ -49,14 +49,11 @@ export const HISTORY_ASSISTANT_MAX_CHARS = 600;
 
 /**
  * Total character budget for knowledge docs in the system prompt.
- * Raised from 4,000: docs past the budget were silently dropped, so a rich
- * knowledge base got truncated to a few entries and the answers read shallow.
- * ~12,000 chars ≈ 4,000 input tokens (~฿0.02/question at Flash pricing) —
- * cheap to process, and the difference between a generic reply and one that
- * cites the tradition. Sized to fit one category doc plus the full global
- * doctrine set (planets, houses, dignities/taksa, transits).
+ * Sized for the myhora-style doctrine set (foundation + planets + houses +
+ * taksa/transits + signs) plus one category guide (~20–24k Thai chars).
+ * Docs past the budget are dropped by sortOrder — put critical doctrine first.
  */
-export const KNOWLEDGE_MAX_CHARS = 12_000;
+export const KNOWLEDGE_MAX_CHARS = 24_000;
 
 /**
  * Plan-specific output caps (applied on top of Admin AIProviderConfig).
