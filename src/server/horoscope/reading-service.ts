@@ -463,6 +463,7 @@ async function runReading(
           inputUsage: result.usage?.inputTokens,
           outputUsage: result.usage?.outputTokens,
           latencyMs: result.latencyMs,
+          firstTokenMs: result.firstTokenMs,
           // The billable row is UPDATED from its reservation, so it never passes
           // through logUsage() — price it here or the one row that actually
           // costs money is the one row with no cost on it. Cache hits are

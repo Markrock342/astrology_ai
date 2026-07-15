@@ -99,6 +99,8 @@ type Message = {
   feedback?: FeedbackValue;
   /** How long the finished turn took, server-measured (from the done event). */
   elapsedMs?: number;
+  /** Ms from send to the first streamed character, measured on this client. */
+  firstTokenMs?: number;
 };
 
 /**
@@ -1026,6 +1028,11 @@ export function ChatView() {
     // Set once the turn settles (done/error/stream-end) — a coalesced flush
     // that fires after that must not repaint stale streaming state.
     let turnSettled = false;
+    // When the first character arrived — the number that says whether a slow
+    // turn was slow to START or just a long answer being written. An object
+    // property, not a let: it is read inside a setState updater, and the React
+    // Compiler freezes plain captured variables there.
+    const firstDelta = { atMs: null as number | null };
     // The user can switch threads or start a new chat mid-answer. This stream
     // belongs to the thread it started on; painting its deltas — or its errors
     // and spinners — into whatever happens to be on screen would graft one
@@ -1317,6 +1324,7 @@ export function ChatView() {
               setThinkingPhase(event.phase);
             }
           } else if (event.type === "delta" && event.text) {
+            if (!gotDelta) firstDelta.atMs = nowMs();
             gotDelta = true;
             assembledRef.current += event.text;
             if (!ownsView()) continue;
@@ -1344,6 +1352,13 @@ export function ChatView() {
             // a turn that was just streamed.
             const serverUserId = event.messageIds?.user ?? undefined;
             const serverAssistantId = event.messageIds?.assistant ?? undefined;
+            // Computed OUTSIDE the setMessages updater: the React Compiler
+            // freezes captures inside state updaters, so the mutable tracking
+            // object cannot be read in there.
+            const ttftMs =
+              firstDelta.atMs !== null && turnStartedAt !== null
+                ? firstDelta.atMs - turnStartedAt
+                : undefined;
             setMessages((prev) =>
               prev.map((m) => {
                 if (m.id === assistantId) {
@@ -1361,6 +1376,7 @@ export function ChatView() {
                       typeof event.elapsedMs === "number"
                         ? event.elapsedMs
                         : m.elapsedMs,
+                    firstTokenMs: ttftMs ?? m.firstTokenMs,
                   };
                 }
                 if (
@@ -1782,6 +1798,9 @@ export function ChatView() {
                         {m.elapsedMs != null && (
                           <span className="inline-flex items-center gap-1 text-[10px] text-[var(--muted-2)]">
                             · ใช้เวลา {formatElapsed(Math.round(m.elapsedMs / 1000))}
+                            {m.firstTokenMs != null
+                              ? ` (เริ่มตอบใน ${Math.max(1, Math.round(m.firstTokenMs / 1000))} วิ)`
+                              : ""}
                           </span>
                         )}
                       </div>

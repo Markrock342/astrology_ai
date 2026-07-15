@@ -73,4 +73,8 @@ export type GenerateAIResult = {
    * mid-sentence. Callers should surface this instead of a silent cut.
    */
   truncated?: boolean;
+  /** Ms from the request to the FIRST text token (streaming only). The gap to
+   *  latencyMs is pure generation time — the split that says whether a slow
+   *  turn was slow to start or just a long answer. */
+  firstTokenMs?: number;
 };
