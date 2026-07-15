@@ -220,6 +220,7 @@ export class GeminiAdapter implements AIProviderAdapter {
     let cachedTokens: number | undefined;
     let stopped = false;
     let finishReason: string | undefined;
+    let firstTokenAt: number | undefined;
 
     // Check stop often enough that the button feels instant (~250ms).
     const STOP_POLL_MS = 250;
@@ -307,6 +308,7 @@ export class GeminiAdapter implements AIProviderAdapter {
               data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ??
               "";
             if (chunk) {
+              if (firstTokenAt === undefined) firstTokenAt = Date.now();
               rawText += chunk;
               // Real text — and only real text — buys more time.
               extendOnTextProgress();
@@ -366,6 +368,7 @@ export class GeminiAdapter implements AIProviderAdapter {
         usage: { inputTokens, outputTokens, cachedTokens },
         latencyMs,
         truncated: finishReason === "MAX_TOKENS",
+        firstTokenMs: firstTokenAt !== undefined ? firstTokenAt - start : undefined,
       };
     } catch (err) {
       const isTimeout = err instanceof Error && err.name === "AbortError";

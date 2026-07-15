@@ -573,6 +573,11 @@ model AIUsageLog {
   outputUsage   Int?
   estimatedCost Decimal?    @db.Decimal(12, 6)
   latencyMs     Int?
+  /// Ms from calling the model to its FIRST text token. latencyMs is the whole
+  /// call; the gap between the two is generation time. This is what tells us
+  /// whether a slow turn was slow to START (prep/prefill — fixable) or just a
+  /// long answer being written (a product choice), instead of guessing.
+  firstTokenMs  Int?
   errorCode     String?
   errorMessage  String?
   createdAt     DateTime    @default(now())
