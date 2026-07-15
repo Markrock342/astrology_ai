@@ -7,6 +7,7 @@ import {
   PrivacyConsentText,
   PrivacyPolicyModal,
 } from "@/components/cms/privacy-policy-modal";
+import { WheelColumn, WheelGroup, type WheelOption } from "./wheel-picker";
 import type { CmsDocument } from "@/lib/cms-keys";
 
 const THAI_MONTHS = [
@@ -23,6 +24,24 @@ const THAI_MONTHS = [
   "พฤศจิกายน",
   "ธันวาคม",
 ];
+
+/** Short month labels so three wheels fit a phone's width. */
+const THAI_MONTHS_ABBR = [
+  "ม.ค.",
+  "ก.พ.",
+  "มี.ค.",
+  "เม.ย.",
+  "พ.ค.",
+  "มิ.ย.",
+  "ก.ค.",
+  "ส.ค.",
+  "ก.ย.",
+  "ต.ค.",
+  "พ.ย.",
+  "ธ.ค.",
+];
+
+const PLACEHOLDER: WheelOption = { value: "", label: "—" };
 
 type Era = "BE" | "CE"; // พ.ศ. / ค.ศ.
 
@@ -113,6 +132,51 @@ export function BirthForm({
   const districtOptions = province ? (DISTRICTS[province] ?? []) : [];
   const hasDistrictData = districtOptions.length > 0;
 
+  const dayOptions = useMemo<WheelOption[]>(
+    () => [
+      PLACEHOLDER,
+      ...Array.from({ length: daysInMonth }, (_, i) => ({
+        value: String(i + 1),
+        label: String(i + 1),
+      })),
+    ],
+    [daysInMonth],
+  );
+  const monthOptions = useMemo<WheelOption[]>(
+    () => [
+      PLACEHOLDER,
+      ...THAI_MONTHS.map((m, i) => ({ value: m, label: THAI_MONTHS_ABBR[i] })),
+    ],
+    [],
+  );
+  const yearOptions = useMemo<WheelOption[]>(
+    () => [
+      PLACEHOLDER,
+      ...years.map((y) => ({ value: String(y), label: String(y) })),
+    ],
+    [years],
+  );
+  const hourOptions = useMemo<WheelOption[]>(
+    () => [
+      PLACEHOLDER,
+      ...Array.from({ length: 24 }, (_, i) => ({
+        value: String(i),
+        label: String(i).padStart(2, "0"),
+      })),
+    ],
+    [],
+  );
+  const minuteOptions = useMemo<WheelOption[]>(
+    () => [
+      PLACEHOLDER,
+      ...Array.from({ length: 60 }, (_, i) => ({
+        value: String(i),
+        label: String(i).padStart(2, "0"),
+      })),
+    ],
+    [],
+  );
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -191,67 +255,59 @@ export function BirthForm({
           สู่ฐานโหราศาสตร์ไทย สุริยคติ พิษณุโลกจันทรคติ ลงเลขศาสตร์ยูจิต แม่นระดับสั่งได้
         </p>
 
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
-          <Field label="วันที่เกิด" required>
-            <Select value={safeDay} onChange={setDay} placeholder="วันที่">
-              {Array.from({ length: daysInMonth }, (_, i) => String(i + 1)).map(
-                (d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ),
-              )}
-            </Select>
-          </Field>
-
-          <Field label="เดือนเกิด" required>
-            <Select value={month} onChange={selectMonth} placeholder="เดือน">
-              {THAI_MONTHS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="flex h-5 items-center justify-between">
+        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[11px] text-[var(--muted)]">
-                ปีเกิด <span className="text-[var(--primary)]">*</span>
+                วัน / เดือน / ปีเกิด{" "}
+                <span className="text-[var(--primary)]">*</span>
               </span>
               <span className="flex gap-1">
                 <EraToggle era={era} value="BE" label="พ.ศ." onSelect={selectEra} />
                 <EraToggle era={era} value="CE" label="ค.ศ." onSelect={selectEra} />
               </span>
+            </div>
+            <WheelGroup headers={["วัน", "เดือน", era === "BE" ? "พ.ศ." : "ค.ศ."]}>
+              <WheelColumn
+                options={dayOptions}
+                value={safeDay}
+                onChange={setDay}
+                ariaLabel="วันที่เกิด"
+              />
+              <WheelColumn
+                options={monthOptions}
+                value={month}
+                onChange={selectMonth}
+                ariaLabel="เดือนเกิด"
+              />
+              <WheelColumn
+                options={yearOptions}
+                value={year}
+                onChange={setYear}
+                ariaLabel="ปีเกิด"
+              />
+            </WheelGroup>
+          </div>
+
+          <div className="w-full sm:w-[15rem]">
+            <span className="mb-1.5 flex h-5 items-center text-[11px] text-[var(--muted)]">
+              เวลาเกิด (24 ชม.) <span className="ml-1 text-[var(--primary)]">*</span>
             </span>
-            <Select value={year} onChange={setYear} placeholder="พ.ศ. / ค.ศ.">
-              {years.map((y) => (
-                <option key={y} value={String(y)}>
-                  {y}
-                </option>
-              ))}
-            </Select>
-          </label>
-
-          <Field label="เวลาเกิด" required>
-            <Select value={hour} onChange={setHour} placeholder="ชม.">
-              {Array.from({ length: 24 }, (_, i) => String(i)).map((h) => (
-                <option key={h} value={h}>
-                  {h.padStart(2, "0")}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="&nbsp;">
-            <Select value={minute} onChange={setMinute} placeholder="นาที">
-              {Array.from({ length: 60 }, (_, i) => String(i)).map((m) => (
-                <option key={m} value={m}>
-                  {m.padStart(2, "0")}
-                </option>
-              ))}
-            </Select>
-          </Field>
+            <WheelGroup headers={["ชั่วโมง", "นาที"]}>
+              <WheelColumn
+                options={hourOptions}
+                value={hour}
+                onChange={setHour}
+                ariaLabel="ชั่วโมงเกิด"
+              />
+              <WheelColumn
+                options={minuteOptions}
+                value={minute}
+                onChange={setMinute}
+                ariaLabel="นาทีเกิด"
+              />
+            </WheelGroup>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">

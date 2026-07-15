@@ -45,6 +45,24 @@ export const SIGNS = [
   "มีน",
 ] as const;
 
+/** One-line plain-Thai meaning per planet — for tap-to-learn on the wheel. */
+export const PLANET_MEANING: Record<string, string> = {
+  อาทิตย์: "อำนาจ เกียรติยศ ความเป็นผู้นำ ตัวตน",
+  จันทร์: "จิตใจ อารมณ์ เสน่ห์ ความนิยมจากผู้คน",
+  อังคาร: "พลัง ความกล้า ความขยัน การแข่งขัน",
+  พุธ: "การสื่อสาร ไหวพริบ การค้า การเรียนรู้",
+  พฤหัสบดี: "ปัญญา คุณธรรม ผู้ใหญ่อุปถัมภ์ โชค",
+  ศุกร์: "ความรัก ศิลปะ ความงาม ทรัพย์สิน",
+  เสาร์: "วินัย ความอดทน งานหนัก ที่ดิน",
+  ราหู: "ความลุ่มหลง ลาภลอย สิ่งต่างแดน",
+  เกตุ: "สิ่งเร้นลับ กรรมเก่า สัญชาตญาณ",
+  มฤตยู: "การเปลี่ยนแปลงฉับพลัน เทคโนโลยี อิสระ",
+};
+
+export function getPlanetMeaning(planet: string): string {
+  return PLANET_MEANING[planet] ?? "ดาวในดวงชะตา";
+}
+
 export function getPlanetTheme(planet: string) {
   return (
     PLANET_THEME[planet] ?? {
