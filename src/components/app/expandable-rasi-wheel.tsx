@@ -76,6 +76,11 @@ export function ExpandableRasiWheel({
                 <div className="flex max-h-[min(80vh,520px)] w-full items-center justify-center overflow-auto py-2">
                   <CompactRasiWheel chart={chart} size={Math.min(420, typeof window !== "undefined" ? window.innerWidth - 64 : 360)} />
                 </div>
+                <p className="mt-1 max-w-sm text-center text-[11px] leading-relaxed text-[var(--muted)]">
+                  วงล้อราศีจักรจากวันเวลาเกิดของคุณ — ช่องสีทองคือลัคนา
+                  (จุดเริ่มเรือนที่ 1) ตัวเลขคือเรือนชะตา 1–12
+                  และสัญลักษณ์คือดาวที่สถิตในแต่ละราศี (ชี้ที่ดาวเพื่อดูรายละเอียด)
+                </p>
                 <p className="mt-2 text-center text-[11px] text-[var(--muted-2)]">
                   แตะพื้นหลังหรือกด Esc เพื่อปิด
                 </p>

@@ -2,6 +2,7 @@
 
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
+import { normalizeSignName } from "@/lib/chart-theme";
 
 type Props = {
   chart: ChartJson;
@@ -23,7 +24,7 @@ function pickRows(chart: ChartJson, mode: "natal" | "transit"): MyhoraNatalPlane
 function promptForSamrap(r: MyhoraNatalPlanet, mode: "natal" | "transit"): string {
   const house = r.house ? ` เรือน${r.house}` : "";
   const scope = mode === "transit" ? "ดวงจร" : "พื้นดวง";
-  return `ขอคำอธิบายเพิ่มเกี่ยวกับ${r.planet} ในราศี${r.zodiac}${house} จาก${scope}`;
+  return `ขอคำอธิบายเพิ่มเกี่ยวกับ${r.planet} ในราศี${normalizeSignName(r.zodiac)}${house} จาก${scope}`;
 }
 
 function promptForPlanet(
@@ -31,7 +32,7 @@ function promptForPlanet(
   mode: "natal" | "transit",
 ): string {
   const scope = mode === "transit" ? "ดวงจร" : "พื้นดวง";
-  return `ขอคำอธิบายเพิ่มเกี่ยวกับ${p.planet} ในราศี${p.siderealSign} จาก${scope}`;
+  return `ขอคำอธิบายเพิ่มเกี่ยวกับ${p.planet} ในราศี${normalizeSignName(p.siderealSign)} จาก${scope}`;
 }
 
 /** Evidence table — larger type; source label hidden from users. */
@@ -95,7 +96,7 @@ export function ChartEvidenceTable({
                   title={clickable ? "ถามต่อเกี่ยวกับแถวนี้" : undefined}
                 >
                   <td className="px-3 py-2 text-[var(--fg)]">{r.planet}</td>
-                  <td className="px-3 py-2">{r.zodiac}</td>
+                  <td className="px-3 py-2">{normalizeSignName(r.zodiac)}</td>
                   <td className="px-3 py-2">
                     {r.degree || r.minute ? `${r.degree || "0"}°${r.minute || "0"}'` : "—"}
                   </td>
@@ -132,7 +133,7 @@ export function ChartEvidenceTable({
                   title={clickable ? "ถามต่อเกี่ยวกับแถวนี้" : undefined}
                 >
                   <td className="px-3 py-2 text-[var(--fg)]">{p.planet}</td>
-                  <td className="px-3 py-2">{p.siderealSign}</td>
+                  <td className="px-3 py-2">{normalizeSignName(p.siderealSign)}</td>
                   <td className="px-3 py-2">{p.degreeText ?? "—"}</td>
                 </tr>
               ))}

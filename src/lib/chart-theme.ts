@@ -59,8 +59,24 @@ export function getSignTheme(sign: string) {
   return SIGN_THEME[sign] ?? { hue: "#d4a84b", bg: "rgba(212,168,75,0.12)" };
 }
 
+/**
+ * myhora rows store signs as "07 : พจ" — a 0-based sign index plus an
+ * abbreviation. Users (and the wheel's name lookup) need the full name;
+ * the numeric index is authoritative, the abbreviation is just a hint.
+ * Full names pass through untouched.
+ */
+export function normalizeSignName(raw: string): string {
+  if ((SIGNS as readonly string[]).includes(raw)) return raw;
+  const m = /^(\d{1,2})\s*:/.exec(raw.trim());
+  if (m) {
+    const idx = Number(m[1]);
+    if (idx >= 0 && idx < 12) return SIGNS[idx];
+  }
+  return raw;
+}
+
 export function signIndex(sign: string): number {
-  const i = SIGNS.indexOf(sign as (typeof SIGNS)[number]);
+  const i = SIGNS.indexOf(normalizeSignName(sign) as (typeof SIGNS)[number]);
   return i >= 0 ? i : 0;
 }
 
