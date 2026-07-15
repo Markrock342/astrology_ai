@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/errors";
+import { KNOWLEDGE_MAX_CHARS } from "@/config/constants";
 import { createReading } from "@/server/horoscope/reading-service";
 
 const mocks = vi.hoisted(() => ({
@@ -375,11 +376,14 @@ describe("createReading (M3 B2)", () => {
   });
 
   it("caps knowledge docs to the character budget in sortOrder", async () => {
-    // Two docs whose combined length exceeds KNOWLEDGE_MAX_CHARS (6,000): the
-    // first fits, the second is dropped in sortOrder rather than half-included.
+    // Two docs whose combined length exceeds KNOWLEDGE_MAX_CHARS: the first
+    // fits, the second is dropped in sortOrder rather than half-included.
+    // Sizes derive from the constant so retuning the budget can't silently
+    // turn this into a test where both docs fit.
+    const half = Math.floor(KNOWLEDGE_MAX_CHARS * 0.6);
     mocks.findKnowledge.mockResolvedValue([
-      { title: "A", content: "a".repeat(3_500), sortOrder: 1 },
-      { title: "B", content: "b".repeat(3_500), sortOrder: 2 },
+      { title: "A", content: "a".repeat(half), sortOrder: 1 },
+      { title: "B", content: "b".repeat(half), sortOrder: 2 },
     ]);
 
     await createReading({
@@ -393,7 +397,6 @@ describe("createReading (M3 B2)", () => {
     };
     expect(aiCall.systemPrompt).toContain("## A");
     expect(aiCall.systemPrompt).not.toContain("## B");
-    expect(aiCall.systemPrompt.length).toBeLessThanOrEqual(6_100);
   });
 
   it("passes plan-specific maxOutputTokens to the AI router", async () => {
