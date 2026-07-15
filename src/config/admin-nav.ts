@@ -33,6 +33,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/users", label: "ผู้ใช้", group: "users" },
   { href: "/admin/packages", label: "แพ็กเกจและโควตา", group: "users" },
   { href: "/admin/payments", label: "ตรวจการโอนเงิน", group: "users" },
+  { href: "/admin/errors", label: "Error ของระบบ", group: "system" },
   { href: "/admin/audit-logs", label: "ประวัติแอดมิน", group: "system" },
 ];
 

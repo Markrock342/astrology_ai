@@ -671,6 +671,24 @@ enum FeedbackValue {
 /// The buttons shipped writing to localStorage and nowhere else, so a user could
 /// tell us an answer was bad and we would never know — the one signal we have
 /// about answer quality went into their browser and died there.
+/// Unhandled server errors, captured by lib/http.ts handle().
+///
+/// Production 500s were invisible: they went to console.error on a serverless
+/// instance nobody was watching, and the first report was always a user
+/// complaint. This is the minimal self-hosted alternative to a Sentry account —
+/// the admin sees WHAT broke and WHEN without waiting to be told.
+model AppErrorLog {
+  id        String   @id @default(cuid())
+  /// Error name + message (bounded — never raw user content).
+  message   String
+  /// First lines of the stack, enough to locate the throw.
+  stack     String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("app_error_logs")
+}
+
 model MessageFeedback {
   id        String        @id @default(cuid())
   messageId String

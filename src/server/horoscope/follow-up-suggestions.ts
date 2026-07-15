@@ -1,5 +1,6 @@
 import { DEFAULT_GEMINI_LITE_MODEL_ID } from "@/config/gemini-models";
 import { CREDIT_SECRET_ENV } from "@/config/constants";
+import { prisma } from "@/server/db";
 import { GeminiAdapter } from "@/server/ai/providers/gemini";
 import { logUsage } from "@/server/ai/usage-logger";
 
@@ -56,6 +57,67 @@ export function sanitizeFollowUpMeta(raw: unknown): FollowUpMeta {
   }
 
   return { summaryLine, followUps };
+}
+
+/**
+ * Name a conversation after its first exchange.
+ *
+ * The sidebar used to show the first 48 characters of the question, cut
+ * mid-word — "สรุปสั้น ๆ โชคลาภช่วงนี้เป็นอย่า…". ChatGPT titles threads with a
+ * cheap model; so do we now. Best-effort: on any failure the truncated-question
+ * fallback that appendUserMessage already set simply stays.
+ */
+export async function generateThreadTitle(input: {
+  conversationId: string;
+  userId: string;
+  question: string;
+  answer: string;
+}): Promise<string | null> {
+  try {
+    // Only the FIRST exchange names the thread — and only while the title is
+    // still the auto-truncated question, so a rename by the user is never
+    // overwritten.
+    const [conversation, liveAnswers] = await Promise.all([
+      prisma.conversation.findFirst({
+        where: { id: input.conversationId, userId: input.userId },
+        select: { id: true, title: true },
+      }),
+      prisma.message.count({
+        where: {
+          conversationId: input.conversationId,
+          role: "ASSISTANT",
+          status: "SUCCESS",
+          deletedAt: null,
+        },
+      }),
+    ]);
+    if (!conversation || liveAnswers > 1) return null;
+
+    const adapter = new GeminiAdapter();
+    const result = await adapter.generate({
+      modelId: DEFAULT_GEMINI_LITE_MODEL_ID,
+      systemPrompt:
+        "ตั้งชื่อหัวข้อบทสนทนาดูดวงเป็นภาษาไทย สั้น กระชับ ไม่เกิน 30 ตัวอักษร " +
+        "ตอบเป็นชื่อหัวข้ออย่างเดียว ห้ามใส่เครื่องหมายคำพูด ห้ามอธิบาย",
+      userPrompt: `คำถาม: ${input.question.slice(0, 300)}\n\nคำตอบ (ย่อ): ${input.answer.slice(0, 400)}`,
+      maxOutputTokens: 96,
+      temperature: 0.3,
+      timeoutMs: 6_000,
+      secretReference: CREDIT_SECRET_ENV,
+    });
+    if (!result.ok || !result.rawText) return null;
+
+    const title = result.rawText.trim().replace(/^["'「]+|["'」]+$/g, "").slice(0, 48);
+    if (!title) return null;
+
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { title },
+    });
+    return title;
+  } catch {
+    return null;
+  }
 }
 
 /**

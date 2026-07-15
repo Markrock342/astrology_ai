@@ -9,6 +9,7 @@ import {
   completePendingMessage,
   isStopRequested,
 } from "@/server/horoscope/message-service";
+import { generateThreadTitle } from "@/server/horoscope/follow-up-suggestions";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -257,8 +258,10 @@ export async function POST(
             creditCost: reading?.creditCost ?? 0,
           });
 
-          // Follow-up chips + summary line arrive as a separate frame once the
-          // Flash-Lite meta call lands — never blocking the answer above.
+          // Follow-up chips, summary line and the AI thread title arrive as a
+          // separate frame once the Flash-Lite calls land — never blocking the
+          // answer above. Title only fires on a thread's first exchange (the
+          // service checks), replacing the raw truncated-question sidebar label.
           const metaPromise = (
             reading as {
               metaPromise?: Promise<{
@@ -267,17 +270,27 @@ export async function POST(
               }>;
             } | null | undefined
           )?.metaPromise;
-          if (metaPromise) {
-            try {
-              const meta = await metaPromise;
-              send({
-                type: "meta",
-                ...(meta?.summaryLine ? { summaryLine: meta.summaryLine } : {}),
-                followUps: meta?.followUps ?? [],
-              });
-            } catch {
-              /* meta is best-effort — the answer already shipped */
-            }
+          try {
+            const [metaRes, titleRes] = await Promise.allSettled([
+              metaPromise ?? Promise.resolve(null),
+              generateThreadTitle({
+                conversationId: id,
+                userId: user.id,
+                question: content,
+                answer: reading?.responseText ?? "",
+              }),
+            ]);
+            const meta = metaRes.status === "fulfilled" ? metaRes.value : null;
+            const title =
+              titleRes.status === "fulfilled" ? titleRes.value : null;
+            send({
+              type: "meta",
+              ...(meta?.summaryLine ? { summaryLine: meta.summaryLine } : {}),
+              followUps: meta?.followUps ?? [],
+              ...(title ? { threadTitle: title } : {}),
+            });
+          } catch {
+            /* meta is best-effort — the answer already shipped */
           }
           close();
         } catch (err) {
