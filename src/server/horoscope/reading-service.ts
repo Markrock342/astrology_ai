@@ -259,9 +259,12 @@ async function runReading(
 
   // Memory phase — chart memory, config, knowledge, prompt assembly.
   onPhase?.("memory");
+  // Brief mode routes to the fast lite model (see resolveConfig) — resolved
+  // here so the config fetch already reflects the chosen answer mode.
+  const answerMode = input.answerMode ?? "detailed";
   const [chartMemory, config, knowledgeDocs] = await Promise.all([
     getOrRefreshChartMemory(userId, natalChart),
-    resolveConfig(category.id, plan),
+    resolveConfig(category.id, plan, { preferFast: answerMode === "brief" }),
     prisma.knowledgeDoc.findMany({
       where: {
         enabled: true,
@@ -281,7 +284,6 @@ async function runReading(
   });
   const knowledge = buildKnowledgePrompt(knowledgeDocs);
 
-  const answerMode = input.answerMode ?? "detailed";
   let systemPrompt = buildSystemPrompt({
     ...promptParts,
     knowledge,

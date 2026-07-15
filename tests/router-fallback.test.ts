@@ -57,6 +57,47 @@ describe("resolveConfig (M3 B2)", () => {
     const config = await resolveConfig("cat-1", "PRO");
     expect(config.id).toBe("category");
   });
+
+  it("brief mode (preferFast) drops to the lite model over the heavy Pro one", async () => {
+    mocks.findMany.mockResolvedValue([
+      {
+        id: "pro-heavy",
+        categoryId: null,
+        planScope: "PRO",
+        enabled: true,
+        modelId: "gemini-3.5-flash",
+      },
+      {
+        id: "all-lite",
+        categoryId: null,
+        planScope: "ALL",
+        enabled: true,
+        modelId: "gemini-3.1-flash-lite",
+      },
+    ]);
+
+    const brief = await resolveConfig("cat-1", "PRO", { preferFast: true });
+    expect(brief.id).toBe("all-lite");
+
+    // Detailed mode keeps the heavy Pro model.
+    const detailed = await resolveConfig("cat-1", "PRO");
+    expect(detailed.id).toBe("pro-heavy");
+  });
+
+  it("preferFast falls back to normal resolution when no lite model exists", async () => {
+    mocks.findMany.mockResolvedValue([
+      {
+        id: "pro-only",
+        categoryId: null,
+        planScope: "PRO",
+        enabled: true,
+        modelId: "gemini-3.5-flash",
+      },
+    ]);
+
+    const config = await resolveConfig("cat-1", "PRO", { preferFast: true });
+    expect(config.id).toBe("pro-only");
+  });
 });
 
 describe("generateWithFallback (M3 B2)", () => {
