@@ -24,6 +24,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "knowledge:upsert": "tsx scripts/upsert-knowledge-myhora.ts",
     "db:studio": "prisma studio",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"

@@ -1,4 +1,9 @@
 import type { PrismaClient } from "@prisma/client";
+import {
+  MYHORA_STYLE_CATEGORY_DOCS,
+  MYHORA_STYLE_GLOBAL_DOCS,
+  KNOWLEDGE_IDS_TO_DISABLE,
+} from "./seed-knowledge-myhora";
 
 /** Demo prompts + knowledge for AI chat (editable in Admin CMS). */
 export async function seedAiContent(prisma: PrismaClient) {
@@ -65,40 +70,26 @@ export async function seedAiContent(prisma: PrismaClient) {
     },
   });
 
-  const globalDocs = [
-    {
-      title: "หลักการโหรไทย (Demo)",
-      sortOrder: 1,
-      content:
-        "ระบบใช้หลักโหรไทยสุริยยาตร์ (สุรยยาต) อายนางศ์ลาหิรี " +
-        "คำนวณลัคนาแบบอันโตนาถีสำรับ (ปรับเวลาเกิดเทียบอาทิตย์อุทัย) " +
-        "ราหูใช้กฎ 8 ราศีจากมฤตยู ทักษานับจากกลางลัคนา " +
-        "คำทำนายมีไว้เพื่อการไตร่ตรอง ไม่ใช่คำสั่งขั้นสุดท้าย",
-    },
-    {
-      title: "วิธีอ่านดาว 10 ดวง",
-      sortOrder: 2,
-      content:
-        "อาทิตย์ = ตัวตน เกียรติ บิดา · จันทร์ = จิตใจ แม่ ครอบครัว · อังคาร = ความกล้า การต่อสู้ " +
-        "พุธ = การสื่อสาร การเรียน · พฤหัส = โชค ครู ความรู้ · ศุกร์ = ความรัก ศิลปะ เงิน " +
-        "เสาร์ = ความอดทน อุปสรรค · รahu/เกตุ = กรรม จุดเปลี่ยน · มฤตยู = การเปลี่ยนแปลงใหญ่",
-    },
-    {
-      title: "วิธีใช้ผลคำนวณจาก engine",
-      sortOrder: 99,
-      content:
-        "ระบบคำนวณพื้นดวงด้วยสูตรโหรไทย (ลาหิรี + อันโตนาถี + ทักษา) ก่อนส่งให้ AI " +
-        "โหมดดวงจรจะคำนวณตำแหน่งดาว ณ เวลาที่ถามแยกจากพื้นดวงเดิม " +
-        "ตอบโดยอ้างอิงเฉพาะบล็อกที่ระบบให้มาเท่านั้น",
-    },
-  ];
+  // Disable short demo globals so they don't steal the knowledge budget.
+  for (const oldId of KNOWLEDGE_IDS_TO_DISABLE) {
+    await prisma.knowledgeDoc.updateMany({
+      where: { id: oldId },
+      data: { enabled: false },
+    });
+  }
 
-  for (const doc of globalDocs) {
+  for (const doc of MYHORA_STYLE_GLOBAL_DOCS) {
     await prisma.knowledgeDoc.upsert({
-      where: { id: `seed-knowledge-global-${doc.sortOrder}` },
-      update: { title: doc.title, content: doc.content, sortOrder: doc.sortOrder },
+      where: { id: doc.id },
+      update: {
+        title: doc.title,
+        content: doc.content,
+        sortOrder: doc.sortOrder,
+        categoryId: null,
+        enabled: true,
+      },
       create: {
-        id: `seed-knowledge-global-${doc.sortOrder}`,
+        id: doc.id,
         title: doc.title,
         content: doc.content,
         sortOrder: doc.sortOrder,
@@ -109,57 +100,19 @@ export async function seedAiContent(prisma: PrismaClient) {
   }
 
   const categories = await prisma.horoscopeCategory.findMany();
-  const categoryKnowledge: Record<string, { title: string; content: string }> = {
-    self: {
-      title: "หมวดตัวตน — แนวทางตอบ",
-      content:
-        "เน้นลัคนา อาทิตย์ จันทร์ และดาวในเรือน 1 " +
-        "พูดถึงบุคลิก จุดแข็ง จุดที่ควรระวัง ไม่ตัดสินค่าคนด้วยดาวเดียว",
-    },
-    career: {
-      title: "หมวดการงาน — แนวทางตอบ",
-      content:
-        "ดูอาทิตย์ เสาร์ รahu เรือน 10 และเรือน 6 " +
-        "แนะนำทิศทางอาชีพ จังหวะเปลี่ยนงาน ความอดทน ไม่รับประกันตำแหน่งหรือเงินเดือน",
-    },
-    finance: {
-      title: "หมวดการเงิน — แนวทางตอบ",
-      content:
-        "ดูเรือน 2 11 ศุกร์ พฤหัส เสาร์ " +
-        "พูดเรื่องวินัยการเงิน โอกาส ความเสี่ยง ไม่แนะนำการลงทุนเฉพาะเจาะจง",
-    },
-    love: {
-      title: "หมวดความรัก — แนวทางตอบ",
-      content:
-        "ดูเรือน 7 ศุกร์ จันทร์ อังคาร " +
-        "เน้นการสื่อสาร ความเข้าใจ ไม่ฟันธงแต่ง/หย่า",
-    },
-    health: {
-      title: "หมวดสุขภาพ — แนวทางตอบ",
-      content:
-        "ดูเรือน 6 8 อาทิตย์ จันทร์ เสาร์ " +
-        "แนะนำดูแลตัวเอง ลดความเครียด ไม่วินิจฉัยโรค ไม่แทนแพทย์",
-    },
-    fortune: {
-      title: "หมวดโชคลาภ — แนวทางตอบ",
-      content:
-        "ดูเรือน 9 11 อาทิตย์ พฤหัส ศุกร์ " +
-        "พูดเรื่องจังหวะ โอกาส ความกตัญญู ไม่รับประกันหวยหรือเลขนำโชค",
-    },
-    overview: {
-      title: "หมวดภาพรวมชีวิต — แนวทางตอบ",
-      content:
-        "สรุปลัคนาและดาวสำคัญหลายเรือน ให้ภาพใหญ่ของช่วงชีวิต " +
-        "เชื่อมหลายด้านเข้าด้วยกันอย่างสมดุล",
-    },
-  };
 
   for (const cat of categories) {
-    const k = categoryKnowledge[cat.slug];
+    const k = MYHORA_STYLE_CATEGORY_DOCS[cat.slug];
     if (!k) continue;
     await prisma.knowledgeDoc.upsert({
       where: { id: `seed-knowledge-cat-${cat.slug}` },
-      update: { title: k.title, content: k.content, categoryId: cat.id },
+      update: {
+        title: k.title,
+        content: k.content,
+        categoryId: cat.id,
+        sortOrder: 10,
+        enabled: true,
+      },
       create: {
         id: `seed-knowledge-cat-${cat.slug}`,
         title: k.title,
