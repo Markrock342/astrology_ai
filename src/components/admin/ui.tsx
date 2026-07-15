@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { forwardRef, useEffect, useId, useState } from "react";
 
 /** Small shared primitives for Admin CMS pages (dark HORASARD theme). */
 
@@ -78,16 +78,25 @@ export function Field({
 const inputClass =
   "w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--ring)]";
 
-export function TextInput({
-  className = "",
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`${inputClass} ${className}`} />;
-}
+export const TextInput = forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement>
+>(function TextInput({ className = "", ...props }, ref) {
+  return <input ref={ref} {...props} className={`${inputClass} ${className}`} />;
+});
 
-export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={`${inputClass} min-h-28 resize-y font-mono text-xs leading-relaxed`} />;
-}
+export const TextArea = forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>
+>(function TextArea(props, ref) {
+  return (
+    <textarea
+      ref={ref}
+      {...props}
+      className={`${inputClass} min-h-28 resize-y font-mono text-xs leading-relaxed`}
+    />
+  );
+});
 
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={inputClass} />;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ContentEditorToolbar,
   type ContentRevision,
@@ -58,6 +58,34 @@ export function KnowledgeManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
+  const formCardRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const contentAreaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingRevealRef = useRef(false);
+
+  /** After opening an edit, pin the form to the top of the viewport and
+   *  keep the caret/scroll at the start of the body so long docs are readable. */
+  function revealEditorAtStart() {
+    formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const area = contentAreaRef.current;
+    if (area) {
+      area.scrollTop = 0;
+      try {
+        area.setSelectionRange(0, 0);
+      } catch {
+        /* some browsers reject setSelectionRange when not focused */
+      }
+    }
+    titleInputRef.current?.focus({ preventScroll: true });
+  }
+
+  useEffect(() => {
+    if (!pendingRevealRef.current || !showForm) return;
+    pendingRevealRef.current = false;
+    // Wait one frame so the textarea has the new value painted.
+    const id = requestAnimationFrame(() => revealEditorAtStart());
+    return () => cancelAnimationFrame(id);
+  }, [form.content, showForm, editingId]);
 
   const loadRevisions = useCallback(async (id: string) => {
     setRevisions(
@@ -94,6 +122,11 @@ export function KnowledgeManager() {
     setShowForm(true);
     setBusy(true);
     setError(null);
+    // Jump to the editor immediately (before fetch) so the click on a bottom
+    // row doesn't leave the viewport parked on the list.
+    requestAnimationFrame(() => {
+      formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     try {
       const full = await adminFetch<KnowledgeDoc>(`/api/admin/knowledge/${d.id}`);
       setForm({
@@ -103,6 +136,7 @@ export function KnowledgeManager() {
         enabled: full.enabled,
         sortOrder: full.sortOrder,
       });
+      pendingRevealRef.current = true;
       void loadRevisions(d.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดเนื้อหาไม่สำเร็จ");
@@ -247,6 +281,7 @@ export function KnowledgeManager() {
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 
       {showForm && (
+        <div ref={formCardRef}>
         <Card>
           {editingId && (
             <ContentEditorToolbar
@@ -261,6 +296,7 @@ export function KnowledgeManager() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <Field label="ชื่อเอกสาร">
               <TextInput
+                ref={titleInputRef}
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 placeholder="เช่น ความหมายดาวพฤหัสในแต่ละเรือน"
@@ -290,6 +326,7 @@ export function KnowledgeManager() {
           <div className="mt-3">
             <Field label="เนื้อหา" hint="วางข้อความ FAQ/ตำราได้เลย (สูงสุด 50,000 ตัวอักษร)">
               <TextArea
+                ref={contentAreaRef}
                 rows={12}
                 value={form.content}
                 onChange={(e) => setForm({ ...form, content: e.target.value })}
@@ -315,6 +352,7 @@ export function KnowledgeManager() {
             </div>
           </div>
         </Card>
+        </div>
       )}
 
       {loading && !showForm ? (
