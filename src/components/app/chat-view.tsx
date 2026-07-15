@@ -1278,6 +1278,8 @@ export function ChatView() {
               assistant?: string | null;
             };
             elapsedMs?: number;
+            threadTitle?: string;
+            truncated?: boolean;
             reading?: {
               responseText?: string | null;
               modelId?: string | null;
@@ -1409,6 +1411,9 @@ export function ChatView() {
             // Follow-up chips + summary land after `done` — attach them to the
             // now-settled answer without touching its text or status.
             if (!ownsView()) continue;
+            // The AI just named this thread; the sidebar is still showing the
+            // truncated question. Refresh it.
+            if (event.threadTitle) void refreshLight();
             const followUps = Array.isArray(event.followUps)
               ? event.followUps
                   .filter((q): q is string => typeof q === "string")
@@ -1812,13 +1817,22 @@ export function ChatView() {
                         )}
                       </div>
                     )}
-                    {!isBusy &&
-                    !isStreamingTurn &&
-                    m.status === "SUCCESS" &&
-                    m.followUps &&
-                    m.followUps.length > 0 ? (
+                    {!isBusy && !isStreamingTurn && m.status === "SUCCESS" ? (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {m.followUps.map((q) => (
+                        {/* A truncated answer told the user to TYPE "เล่าต่อ".
+                            Asking someone to type what a button should do is a
+                            button that doesn't exist yet — here it is. The
+                            notice text the server appends IS the signal. */}
+                        {m.content.includes("เพดานของโหมดคำตอบ") ? (
+                          <button
+                            type="button"
+                            onClick={() => void send("เล่าต่อ")}
+                            className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20"
+                          >
+                            เล่าต่อ ▸
+                          </button>
+                        ) : null}
+                        {(m.followUps ?? []).map((q) => (
                           <button
                             key={q}
                             type="button"
