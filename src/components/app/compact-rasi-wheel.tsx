@@ -7,6 +7,7 @@ import {
   getPlanetTheme,
   getSignTheme,
   houseFromLagna,
+  normalizeSignName,
   signIndex,
 } from "@/lib/chart-theme";
 
@@ -60,9 +61,12 @@ export function CompactRasiWheel({
   const planetsBySign = useMemo(() => {
     const map = new Map<string, ChartJson["planets"]>();
     for (const row of chart.planets) {
-      const list = map.get(row.siderealSign) ?? [];
+      // Stored rows use myhora's "07 : พจ" code — group under the full name
+      // the segments are keyed by, or every planet silently vanishes.
+      const sign = normalizeSignName(row.siderealSign);
+      const list = map.get(sign) ?? [];
       list.push(row);
-      map.set(row.siderealSign, list);
+      map.set(sign, list);
     }
     return map;
   }, [chart.planets]);
@@ -161,7 +165,8 @@ export function CompactRasiWheel({
       </text>
 
       {planetGlyphs.map(({ key, midDeg, idx, row }) => {
-        const rows = planetsBySign.get(row.siderealSign) ?? [];
+        const rowSign = normalizeSignName(row.siderealSign);
+        const rows = planetsBySign.get(rowSign) ?? [];
         const degreeOffset = (row.degreeInSign ?? 15) - 15;
         const offset = degreeOffset * 1.2 + (idx - (rows.length - 1) / 2) * 8;
         const pos = polar(CX, CY, R_PLANET + offset, midDeg);
@@ -187,7 +192,7 @@ export function CompactRasiWheel({
               {theme.symbol}
             </text>
             <title>
-              {row.planet} · {row.siderealSign}
+              {row.planet} · ราศี{rowSign}
               {row.degreeText ? ` · ${row.degreeText}` : ""} · เรือน{" "}
               {houseFromLagna(lagna, row.siderealSign)}
             </title>

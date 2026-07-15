@@ -1679,6 +1679,15 @@ export function ChatView() {
             className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-2"
           >
             {messages.map((m, idx) => {
+              // The natal chart never changes within a thread, so the wheel +
+              // evidence table ride only the FIRST answer that carries one.
+              // Repeating the same 10-row table above every reply buried the
+              // actual answers under identical boilerplate.
+              const isFirstChartMessage =
+                (m.chartSnapshot || m.transitSnapshot) &&
+                messages.findIndex(
+                  (x) => x.chartSnapshot || x.transitSnapshot,
+                ) === idx;
               const isStreamingTurn =
                 (state === "streaming" || state === "processing") &&
                 m.role === "assistant" &&
@@ -1723,7 +1732,7 @@ export function ChatView() {
                     <p className="mb-2 text-xs font-semibold tracking-wide text-[var(--primary)]">
                       {APP_NAME}
                     </p>
-                    {(m.chartSnapshot || m.transitSnapshot) && (
+                    {isFirstChartMessage && (
                       <div className="mb-4 flex flex-col gap-2">
                         <div className="flex flex-wrap items-start gap-3">
                           {m.chartSnapshot && (
