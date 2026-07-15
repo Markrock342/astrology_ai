@@ -53,7 +53,7 @@ export const HISTORY_ASSISTANT_MAX_CHARS = 600;
  * taksa/transits + signs) plus one category guide (~20–24k Thai chars).
  * Docs past the budget are dropped by sortOrder — put critical doctrine first.
  */
-export const KNOWLEDGE_MAX_CHARS = 24_000;
+export const KNOWLEDGE_MAX_CHARS = 28_000;
 
 /**
  * Plan-specific output caps (applied on top of Admin AIProviderConfig).

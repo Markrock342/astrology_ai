@@ -120,7 +120,7 @@ async function main() {
     );
   }
   console.log(
-    `\nEnabled: ${enabled.length} · global ≈ ${globalChars} chars (budget 24000)`,
+    `\nEnabled: ${enabled.length} · global ≈ ${globalChars} chars (budget 28000)`,
   );
 }
 
