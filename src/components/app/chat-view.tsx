@@ -1719,17 +1719,25 @@ export function ChatView() {
                   ) : null}
                 </div>
               ) : (
-                <div key={m.id} className="animate-msg-in group flex gap-3 sm:gap-4">
+                <div key={m.id} className="animate-msg-in group flex flex-col gap-1.5 sm:flex-row sm:gap-4">
                   {/* The assistant speaks as the brand, so it wears the brand —
-                      a generic sparkle said nothing about whose answer this is. */}
-                  <div
-                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--primary)]/35 bg-[var(--surface-2)]"
-                    aria-hidden
-                  >
-                    <BrandMark size={20} />
+                      a generic sparkle said nothing about whose answer this is.
+                      On phones the avatar rides the name as a header row so the
+                      answer body drops to full width below it; only on sm+ does
+                      the avatar become a left column that indents the text. */}
+                  <div className="flex items-center gap-2 sm:block">
+                    <div
+                      className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--primary)]/35 bg-[var(--surface-2)] sm:mt-0.5 sm:h-8 sm:w-8"
+                      aria-hidden
+                    >
+                      <BrandMark size={18} />
+                    </div>
+                    <p className="text-xs font-semibold tracking-wide text-[var(--primary)] sm:hidden">
+                      {APP_NAME}
+                    </p>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="mb-2 text-xs font-semibold tracking-wide text-[var(--primary)]">
+                    <p className="mb-2 hidden text-xs font-semibold tracking-wide text-[var(--primary)] sm:block">
                       {APP_NAME}
                     </p>
                     {isFirstChartMessage && (
