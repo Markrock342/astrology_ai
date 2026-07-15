@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, forwardRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  forwardRef,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { APP_NAME, DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
@@ -32,6 +39,23 @@ import {
 type ThinkingPhase = "chart" | "memory" | "writing";
 type AnswerMode = "brief" | "detailed";
 type FeedbackValue = "up" | "down";
+
+// Coarse-pointer (touch) detection as an external store — the compiler-safe way
+// to read matchMedia without setState-in-effect. Drives the composer hint, which
+// must not mention Shift+Enter on phones that have no such shortcut.
+function subscribeCoarsePointer(onChange: () => void): () => void {
+  if (typeof window === "undefined" || !window.matchMedia) return () => {};
+  const mq = window.matchMedia("(pointer: coarse)");
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+function getCoarsePointerSnapshot(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    !!window.matchMedia &&
+    window.matchMedia("(pointer: coarse)").matches
+  );
+}
 
 const THINKING_PHASE_LABEL: Record<ThinkingPhase, string> = {
   chart: "กำลังคำนวณพื้นดวง…",
@@ -2206,11 +2230,21 @@ const Composer = forwardRef<
   },
   ref,
 ) {
+  // Touch devices have no Shift+Enter — that desktop hint only confused phone
+  // users, who send with the keyboard's own return/newline keys.
+  const coarsePointer = useSyncExternalStore(
+    subscribeCoarsePointer,
+    getCoarsePointerSnapshot,
+    () => false,
+  );
+
   const placeholder = !aiEnabled
     ? "เปิดให้ใช้งานในเฟสถัดไป"
     : categoryLocked
       ? "หมวดนี้สำหรับ Pro — เลือก「ตัวตน」หรือ「การงาน」หรืออัปเกรด"
-      : "สอบถามเราได้เลย — Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่";
+      : coarsePointer
+        ? "สอบถามเราได้เลย…"
+        : "สอบถามเราได้เลย — Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่";
 
   useEffect(() => {
     const el = ref && "current" in ref ? ref.current : null;

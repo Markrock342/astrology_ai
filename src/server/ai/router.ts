@@ -28,8 +28,18 @@ function adapterFor(provider: AIProvider): AIProviderAdapter {
  * Resolve the active config for a category + plan scope.
  * Priority: category-specific beats global, and an exact plan match (FREE/PRO)
  * beats ALL — so admins can point Free at a cheaper model than Pro.
+ *
+ * `preferFast` (brief mode): prefer a "lite" model when one is configured.
+ * Measured TTFT told the story — gemini-3.5-flash takes 9–18s to its first
+ * token while the flash-lite fallback answers the same ~9k-token prompt in
+ * ~0.8s. Brief mode trades depth for speed by design, so it should not pay the
+ * heavy model's thinking latency; it drops to the lite model and feels instant.
  */
-export async function resolveConfig(categoryId: string, planScope: "FREE" | "PRO") {
+export async function resolveConfig(
+  categoryId: string,
+  planScope: "FREE" | "PRO",
+  opts?: { preferFast?: boolean },
+) {
   const candidates = await prisma.aIProviderConfig.findMany({
     where: {
       enabled: true,
@@ -43,6 +53,16 @@ export async function resolveConfig(categoryId: string, planScope: "FREE" | "PRO
 
   const score = (c: (typeof candidates)[number]) =>
     (c.categoryId === categoryId ? 2 : 0) + (c.planScope === planScope ? 1 : 0);
+
+  if (opts?.preferFast) {
+    // Keep the category-match preference, but only among lite (fast) models.
+    // Fall through to normal resolution if the admin configured none.
+    const lite = candidates
+      .filter((c) => c.modelId.toLowerCase().includes("lite"))
+      .sort((a, b) => score(b) - score(a));
+    if (lite.length > 0) return lite[0];
+  }
+
   candidates.sort((a, b) => score(b) - score(a));
   return candidates[0];
 }
