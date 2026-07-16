@@ -5,9 +5,11 @@
 - ฟอร์มเพิ่มโมเดล: ช่อง Model ID / ชื่อ / Base URL **ว่างให้พิมพ์เอง** (ไม่มี preset dropdown + ค่าแนะนำ)
 - Health check / ปุ่มทดสอบ: ตรวจโมเดลหลักเท่านั้น (ไม่ผ่านด้วย fallback)
 - ผูกโมเดลต่อหมวด/แพลนที่ฟอร์ม AI Config (ไม่ใช่หน้า Categories)
+- Toolbar CMS: โหลด diff จาก revision โดยไม่ setState ตรงใน effect (ผ่าน CI lint)
 - **คู่มือละเอียดสำหรับเพื่อน/AI:** [`SETTINGS_MODEL_AI.md`](../SETTINGS_MODEL_AI.md) (รากโปรเจกต์)
 
 ## งานที่เพิ่งทำเสร็จ (Recently Completed)
+- แก้ `react-hooks/set-state-in-effect` ใน `content-editor-toolbar.tsx` — reset/load diff ใน event handler; effect แค่ fetch
 - ฟอร์มเพิ่มโมเดล: Model ID เป็นช่องพิมพ์เดียว ไม่พรีฟิลล์ค่าแนะนำ
 - Create ต้องมี `apiKey`; ส่ง `planScope`; highlight แถวใหม่
 - Seed Gemini migrate เป็น encrypted key + scope FREE/PRO/ALL
@@ -22,6 +24,8 @@
 - [ปัญหา]: `planScope` ไม่ถูกบันทึก → แก้แล้ว
 - [ปัญหา]: health เขียวทั้งที่ primary พัง (ผ่าน fallback) → ใช้ primary-only
 - [ปัญหา]: ทดสอบ `gemini-3.5-flash` ได้ TIMEOUT / UNAVAILABLE / free_tier quota 20 → เป็นฝั่ง Google (โหลดหนักหรือเพดานฟรี) ไม่ใช่ key ผิด; ดูคู่มือ §9
+- [ปัญหา]: CI `typecheck · lint · unit` แดงหลัง push — `setDiffSnapshot(null)` ใน useEffect ของ content-editor-toolbar
+- [วิธีที่ลองแก้ไปแล้ว]: ย้าย clear/loading ไป `toggleDiff` event handler; effect โหลดเมื่อมี `diffRevId` เท่านั้น → eslint ผ่าน
 
 ## สิ่งที่ยังค้างอยู่และปัญหาที่ทราบ (Pending & Known Issues)
 - Soft-nav ยังอยู่ branch `fix/dashboard-soft-nav`
@@ -34,3 +38,4 @@
 - [ ] (ถ้าต้องการ) merge soft-nav / Anthropic เป็นงานแยก
 - [x] Repair AI model config (encrypted path + routing/health)
 - [x] คู่มือ `SETTINGS_MODEL_AI.md`
+- [x] แก้ CI lint `content-editor-toolbar` set-state-in-effect
