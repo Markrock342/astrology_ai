@@ -2,8 +2,8 @@
 
 สารบัญกลางของโปรเจกต์ (อัปเดต: 17 ก.ค. 2026)
 
-**ฐาน:** `origin/main` @ `9b24990` + hotfix CI lint (`content-editor-toolbar`)  
-**หมายเหตุ:** `.cursorrules` เป็น local only — ห้าม commit
+**ฐาน:** `origin/main` — hotfix lint + ALLOW_DESTRUCTIVE สำหรับ drop dead `aiConfigId`  
+**หมายเหตุ:** `.cursorrules` เป็น local only — ห้าม commit · GitHub Actions billing-locked (ดู README) — gate จริงคือ Vercel `vercel-build`
 
 ## ภาพรวมสถาปัตยกรรม
 
