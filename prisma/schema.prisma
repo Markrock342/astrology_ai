@@ -480,8 +480,13 @@ model AIProviderConfig {
   provider         AIProvider @default(GEMINI)
   modelId          String
   displayName      String
-  // Name of the env secret holding the API key — NEVER the key itself.
-  secretReference  String
+  // Env var NAME for API key fallback — NEVER the key itself. Optional when
+  // encryptedApiKey is set (admin-managed key stored encrypted in DB).
+  secretReference  String?
+  // AES-256-GCM ciphertext (v1:iv:tag:cipher). Plaintext keys NEVER stored.
+  encryptedApiKey  String?
+  // Last 4 chars of the stored key for masked UI display (••••1234).
+  keyLast4         String?
   enabled          Boolean    @default(true)
   temperature      Float      @default(0.7)
   maxOutputTokens  Int        @default(2048)
@@ -789,6 +794,20 @@ model AppSetting {
   draftUpdatedBy User? @relation("AppSettingDraftEditor", fields: [draftUpdatedById], references: [id])
 
   @@map("app_settings")
+}
+
+/// Public CMS images (logo, landing, OG) — stored in DB so any host works
+/// without Vercel Blob or Supabase Storage credentials.
+model MediaAsset {
+  id           String   @id @default(cuid())
+  contentType  String
+  bytes        Bytes
+  byteSize     Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("media_assets")
 }
 
 model ContentRevision {

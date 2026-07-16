@@ -28,7 +28,9 @@ type AIConfig = {
   provider: "GEMINI" | "OPENAI";
   modelId: string;
   displayName: string;
-  secretReference: string;
+  secretReference: string | null;
+  keyLast4: string | null;
+  hasStoredKey: boolean;
   enabled: boolean;
   temperature: number;
   maxOutputTokens: number;
@@ -116,6 +118,7 @@ const EMPTY_FORM = {
   modelId: DEFAULT_GEMINI_MODEL_ID,
   displayName: "",
   secretReference: "GEMINI_API_KEY",
+  apiKey: "",
   enabled: true,
   temperature: 0.7,
   maxOutputTokens: 2048,
@@ -141,6 +144,13 @@ export function AiConfigsManager() {
   const [status, setStatus] = useState<AiStatusSnapshot | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [healthRunning, setHealthRunning] = useState(false);
+  /** When editing: false = keep existing stored key; true = show input to replace. */
+  const [replaceKey, setReplaceKey] = useState(false);
+  const [keyTestResult, setKeyTestResult] = useState<
+    { ok: boolean; message: string } | "loading" | null
+  >(null);
+  const [editingKeyLast4, setEditingKeyLast4] = useState<string | null>(null);
+  const [editingHasStoredKey, setEditingHasStoredKey] = useState(false);
 
   const loadStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -193,11 +203,16 @@ export function AiConfigsManager() {
 
   function startEdit(cfg: AIConfig) {
     setEditingId(cfg.id);
+    setReplaceKey(false);
+    setKeyTestResult(null);
+    setEditingKeyLast4(cfg.keyLast4);
+    setEditingHasStoredKey(cfg.hasStoredKey);
     setForm({
       provider: cfg.provider,
       modelId: cfg.modelId,
       displayName: cfg.displayName,
-      secretReference: cfg.secretReference,
+      secretReference: cfg.secretReference ?? "",
+      apiKey: "",
       enabled: cfg.enabled,
       temperature: cfg.temperature,
       maxOutputTokens: cfg.maxOutputTokens,
@@ -211,19 +226,72 @@ export function AiConfigsManager() {
     setShowForm(true);
   }
 
+  function startCreate() {
+    setEditingId(null);
+    setReplaceKey(true);
+    setKeyTestResult(null);
+    setEditingKeyLast4(null);
+    setEditingHasStoredKey(false);
+    setForm(EMPTY_FORM);
+    setShowForm(true);
+  }
+
+  async function testRawKey() {
+    if (!form.apiKey.trim()) {
+      setKeyTestResult({ ok: false, message: "กรุณาวาง API key ก่อนทดสอบ" });
+      return;
+    }
+    setKeyTestResult("loading");
+    try {
+      const result = await adminFetch<{
+        ok: boolean;
+        latencyMs: number;
+        errorMessage: string | null;
+        preview: string | null;
+      }>("/api/admin/ai-configs/test-key", {
+        method: "POST",
+        body: JSON.stringify({
+          provider: form.provider,
+          modelId: form.modelId,
+          apiKey: form.apiKey,
+        }),
+      });
+      setKeyTestResult({
+        ok: result.ok,
+        message: result.ok
+          ? `ใช้ได้ (${result.latencyMs}ms)${result.preview ? ` — ${result.preview}` : ""}`
+          : result.errorMessage ?? "ทดสอบไม่สำเร็จ",
+      });
+    } catch (e) {
+      setKeyTestResult({
+        ok: false,
+        message: e instanceof Error ? e.message : "ทดสอบไม่สำเร็จ",
+      });
+    }
+  }
+
   async function save() {
     setBusy(true);
     setError(null);
     try {
-      const payload = {
-        ...form,
+      const payload: Record<string, unknown> = {
+        provider: form.provider,
+        modelId: form.modelId,
+        displayName: form.displayName,
+        secretReference: form.secretReference || null,
+        enabled: form.enabled,
         fallbackConfigId: form.fallbackConfigId || null,
         categoryId: form.categoryId || null,
         promptTemplateId: form.promptTemplateId || null,
         temperature: Number(form.temperature),
         maxOutputTokens: Number(form.maxOutputTokens),
         timeoutMs: Number(form.timeoutMs),
+        notes: form.notes || undefined,
       };
+      // Only send apiKey when creating or explicitly replacing.
+      if ((!editingId || replaceKey) && form.apiKey.trim()) {
+        payload.apiKey = form.apiKey.trim();
+      }
       if (editingId) {
         await adminFetch(`/api/admin/ai-configs/${editingId}`, {
           method: "PATCH",
@@ -238,6 +306,8 @@ export function AiConfigsManager() {
       setShowForm(false);
       setEditingId(null);
       setForm(EMPTY_FORM);
+      setReplaceKey(false);
+      setKeyTestResult(null);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
@@ -303,15 +373,9 @@ export function AiConfigsManager() {
     <AdminPage>
       <PageHeader
         title="AI Models"
-        description="ตั้งค่าว่าหมวดไหน/แพลนไหนใช้โมเดลอะไร — API key อยู่ใน env เท่านั้น DB เก็บแค่ชื่อ secret"
+        description="ตั้งค่าว่าหมวดไหน/แพลนไหนใช้โมเดลอะไร — วาง API key ได้ที่นี่ (เข้ารหัสใน DB) หรือใช้ชื่อ env var เป็น fallback"
         action={
-          <Button
-            onClick={() => {
-              setEditingId(null);
-              setForm(EMPTY_FORM);
-              setShowForm(true);
-            }}
-          >
+          <Button onClick={startCreate}>
             + เพิ่ม Model Config
           </Button>
         }
@@ -538,10 +602,80 @@ export function AiConfigsManager() {
                 placeholder="เช่น Free — Flash Lite"
               />
             </Field>
-            <Field label="Secret (ชื่อ env var)" hint="เช่น GEMINI_API_KEY — ไม่ใช่ตัว key">
+            <Field
+              label="API Key"
+              hint={
+                editingId && editingHasStoredKey && !replaceKey
+                  ? `บันทึกไว้แล้ว: ••••${editingKeyLast4 ?? "????"} — กดเปลี่ยนเพื่อวาง key ใหม่`
+                  : "วาง key จากผู้ให้บริการ AI — จะถูกเข้ารหัสก่อนเก็บในระบบ (ไม่โชว์เต็มอีก)"
+              }
+            >
+              {editingId && editingHasStoredKey && !replaceKey ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 font-mono text-sm text-[var(--muted)]">
+                    ••••{editingKeyLast4 ?? "????"}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setReplaceKey(true);
+                      setKeyTestResult(null);
+                    }}
+                  >
+                    เปลี่ยน key
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <TextInput
+                    type="password"
+                    autoComplete="off"
+                    value={form.apiKey}
+                    onChange={(e) => {
+                      setForm({ ...form, apiKey: e.target.value });
+                      setKeyTestResult(null);
+                    }}
+                    placeholder="วาง API key ที่นี่"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      disabled={!form.apiKey.trim() || keyTestResult === "loading"}
+                      onClick={() => void testRawKey()}
+                    >
+                      {keyTestResult === "loading" ? "กำลังทดสอบ…" : "ทดสอบ key"}
+                    </Button>
+                    {editingId && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setReplaceKey(false);
+                          setForm({ ...form, apiKey: "" });
+                          setKeyTestResult(null);
+                        }}
+                      >
+                        ยกเลิกเปลี่ยน
+                      </Button>
+                    )}
+                    {keyTestResult && keyTestResult !== "loading" && (
+                      <span
+                        className={`text-xs ${keyTestResult.ok ? "text-[var(--secondary-active)]" : "text-[var(--danger)]"}`}
+                      >
+                        {keyTestResult.message}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </Field>
+            <Field
+              label="Env fallback (ชื่อตัวแปร)"
+              hint="ทางเลือก — ถ้ายังไม่วาง API key ในระบบ จะอ่านจาก env นี้ เช่น GEMINI_API_KEY"
+            >
               <TextInput
                 value={form.secretReference}
                 onChange={(e) => setForm({ ...form, secretReference: e.target.value })}
+                placeholder="GEMINI_API_KEY"
               />
             </Field>
             <Field label="ใช้กับแพลน">
@@ -681,6 +815,12 @@ export function AiConfigsManager() {
                   {cfg.planScope === "ALL" ? "ทุกแพลน" : cfg.planScope}
                 </Badge>
                 <Badge>{catName(cfg.categoryId)}</Badge>
+                {cfg.hasStoredKey && (
+                  <Badge tone="green">key ••••{cfg.keyLast4 ?? "????"}</Badge>
+                )}
+                {!cfg.hasStoredKey && cfg.secretReference && (
+                  <Badge tone="muted">env {cfg.secretReference}</Badge>
+                )}
                 {!cfg.enabled && <Badge tone="red">ปิดอยู่</Badge>}
                 <div className="ml-auto flex gap-2">
                   <Button variant="ghost" onClick={() => test(cfg.id)}>
@@ -699,8 +839,12 @@ export function AiConfigsManager() {
               </div>
               <p className="mt-2 text-[11px] text-[var(--muted-2)]">
                 prompt: {promptName(cfg.promptTemplateId)} · temp {cfg.temperature} · max{" "}
-                {cfg.maxOutputTokens} tok · timeout {cfg.timeoutMs / 1000}s · secret{" "}
-                {cfg.secretReference}
+                {cfg.maxOutputTokens} tok · timeout {cfg.timeoutMs / 1000}s
+                {cfg.hasStoredKey
+                  ? ` · key ••••${cfg.keyLast4 ?? "????"}`
+                  : cfg.secretReference
+                    ? ` · env ${cfg.secretReference}`
+                    : " · ไม่มี key"}
               </p>
               {cfg.provider === "GEMINI" && geminiReplacementHint(cfg.modelId) && (
                 <p className="mt-2 text-[11px] text-[var(--danger)]">

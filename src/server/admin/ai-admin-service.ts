@@ -4,6 +4,12 @@ import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/server/audit/audit-service";
 import { recordRevision } from "@/server/admin/content-revision-service";
 import { FEATURES } from "@/config/features";
+import {
+  encryptSecret,
+  isEncryptionConfigured,
+  last4,
+} from "@/lib/crypto/secret-box";
+import { invalidateKeyCache } from "@/server/ai/secret-resolver";
 
 /**
  * Guard the AI CMS behind the current phase (defense in depth — the UI is also
@@ -17,11 +23,28 @@ export function assertAiAdminEnabled() {
 
 /**
  * Admin AI CMS service: CRUD for prompt templates, AI provider configs, and
- * knowledge docs. Every mutation writes an audit log (rule 7). API keys are
- * NEVER stored here — configs hold only the env var NAME (secretReference).
+ * knowledge docs. Every mutation writes an audit log (rule 7).
+ *
+ * API keys: when `apiKey` is provided on create/update it is AES-256-GCM
+ * encrypted (AI_SECRET_ENC_KEY) and stored as `encryptedApiKey`. Plaintext and
+ * ciphertext are never returned to the client — only `keyLast4` + `hasStoredKey`.
+ * Env fallback via `secretReference` remains supported.
  */
 
 type Actor = { id: string; ip?: string };
+
+/** Strip secrets from audit / API payloads. */
+function redactConfigSecrets<T extends Record<string, unknown>>(row: T): Omit<T, "encryptedApiKey"> & {
+  encryptedApiKey?: undefined;
+  hasStoredKey?: boolean;
+} {
+  const { encryptedApiKey, ...rest } = row as T & { encryptedApiKey?: string | null };
+  return {
+    ...rest,
+    encryptedApiKey: undefined,
+    hasStoredKey: Boolean(encryptedApiKey),
+  };
+}
 
 // ---- Prompt templates -------------------------------------------------------
 
@@ -296,7 +319,9 @@ export type AIConfigCreateInput = {
   provider: "GEMINI" | "OPENAI";
   modelId: string;
   displayName: string;
-  secretReference: string;
+  secretReference?: string | null;
+  /** Write-only plaintext key — encrypted before DB write. */
+  apiKey?: string;
   enabled?: boolean;
   temperature?: number;
   maxOutputTokens?: number;
@@ -311,20 +336,77 @@ export type AIConfigCreateInput = {
 
 export type AIConfigUpdateInput = Partial<AIConfigCreateInput>;
 
-export function listAIConfigs() {
-  return prisma.aIProviderConfig.findMany({
+const aiConfigListSelect = {
+  id: true,
+  provider: true,
+  modelId: true,
+  displayName: true,
+  secretReference: true,
+  keyLast4: true,
+  encryptedApiKey: true, // stripped before return — used only for hasStoredKey
+  enabled: true,
+  temperature: true,
+  maxOutputTokens: true,
+  timeoutMs: true,
+  fallbackConfigId: true,
+  planScope: true,
+  categoryId: true,
+  promptTemplateId: true,
+  versionLabel: true,
+  notes: true,
+  createdAt: true,
+  updatedAt: true,
+  promptTemplate: { select: { id: true, name: true } },
+  fallbackConfig: { select: { id: true, displayName: true } },
+} as const;
+
+function toPublicAIConfig<T extends { encryptedApiKey?: string | null }>(row: T) {
+  const { encryptedApiKey, ...rest } = row;
+  return {
+    ...rest,
+    hasStoredKey: Boolean(encryptedApiKey),
+  };
+}
+
+export async function listAIConfigs() {
+  const rows = await prisma.aIProviderConfig.findMany({
     orderBy: { createdAt: "asc" },
-    include: {
-      promptTemplate: { select: { id: true, name: true } },
-      fallbackConfig: { select: { id: true, displayName: true } },
-    },
+    select: aiConfigListSelect,
   });
+  return rows.map(toPublicAIConfig);
+}
+
+function buildSecretFields(apiKey: string | undefined) {
+  if (!apiKey) return null;
+  if (!isEncryptionConfigured()) {
+    throw new AppError(
+      "VALIDATION",
+      "ยังไม่ได้ตั้ง AI_SECRET_ENC_KEY บนโฮสต์ — ไม่สามารถบันทึก API key ในระบบได้ (ใช้ชื่อ env var แทนได้)",
+    );
+  }
+  return {
+    encryptedApiKey: encryptSecret(apiKey),
+    keyLast4: last4(apiKey),
+  };
 }
 
 export async function createAIConfig(input: AIConfigCreateInput, actor: Actor) {
+  const { apiKey, ...rest } = input;
+  if (!apiKey && !rest.secretReference) {
+    throw new AppError(
+      "VALIDATION",
+      "ต้องระบุ API key หรือชื่อ env var (secretReference) อย่างน้อยหนึ่งอย่าง",
+    );
+  }
+  const secretFields = buildSecretFields(apiKey);
+
   return prisma.$transaction(async (tx) => {
     const created = await tx.aIProviderConfig.create({
-      data: input as Prisma.AIProviderConfigUncheckedCreateInput,
+      data: {
+        ...rest,
+        secretReference: rest.secretReference ?? null,
+        ...(secretFields ?? {}),
+      } as Prisma.AIProviderConfigUncheckedCreateInput,
     });
     await writeAudit(
       {
@@ -332,12 +414,13 @@ export async function createAIConfig(input: AIConfigCreateInput, actor: Actor) {
         action: "ai_config.create",
         entityType: "ai_provider_config",
         entityId: created.id,
-        after: created,
+        after: redactConfigSecrets(created as unknown as Record<string, unknown>),
         ipAddress: actor.ip,
       },
       tx,
     );
-    return created;
+    invalidateKeyCache(created.id);
+    return toPublicAIConfig(created);
   });
 }
 
@@ -348,10 +431,16 @@ export async function updateAIConfig(id: string, input: AIConfigUpdateInput, act
     throw new AppError("VALIDATION", "Fallback ต้องเป็น config ตัวอื่น");
   }
 
+  const { apiKey, ...rest } = input;
+  const secretFields = buildSecretFields(apiKey);
+
   return prisma.$transaction(async (tx) => {
     const updated = await tx.aIProviderConfig.update({
       where: { id },
-      data: input as Prisma.AIProviderConfigUncheckedUpdateInput,
+      data: {
+        ...rest,
+        ...(secretFields ?? {}),
+      } as Prisma.AIProviderConfigUncheckedUpdateInput,
     });
     await writeAudit(
       {
@@ -359,13 +448,14 @@ export async function updateAIConfig(id: string, input: AIConfigUpdateInput, act
         action: "ai_config.update",
         entityType: "ai_provider_config",
         entityId: id,
-        before,
-        after: updated,
+        before: redactConfigSecrets(before as unknown as Record<string, unknown>),
+        after: redactConfigSecrets(updated as unknown as Record<string, unknown>),
         ipAddress: actor.ip,
       },
       tx,
     );
-    return updated;
+    invalidateKeyCache(id);
+    return toPublicAIConfig(updated);
   });
 }
 
@@ -392,11 +482,12 @@ export async function deleteAIConfig(id: string, actor: Actor) {
         action: "ai_config.delete",
         entityType: "ai_provider_config",
         entityId: id,
-        before,
+        before: redactConfigSecrets(before as unknown as Record<string, unknown>),
         ipAddress: actor.ip,
       },
       tx,
     );
+    invalidateKeyCache(id);
     return { id };
   });
 }

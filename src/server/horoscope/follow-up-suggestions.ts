@@ -1,5 +1,6 @@
 import { DEFAULT_GEMINI_LITE_MODEL_ID } from "@/config/gemini-models";
 import { CREDIT_SECRET_ENV } from "@/config/constants";
+import { resolveSecret } from "@/config/env";
 import { prisma } from "@/server/db";
 import { GeminiAdapter } from "@/server/ai/providers/gemini";
 import { logUsage } from "@/server/ai/usage-logger";
@@ -103,6 +104,7 @@ export async function generateThreadTitle(input: {
       maxOutputTokens: 96,
       temperature: 0.3,
       timeoutMs: 6_000,
+      apiKey: resolveSecret(CREDIT_SECRET_ENV) ?? "",
       secretReference: CREDIT_SECRET_ENV,
     });
     if (!result.ok || !result.rawText) return null;
@@ -152,6 +154,7 @@ ${answerSnippet}`,
       maxOutputTokens: 320,
       temperature: 0.4,
       timeoutMs: 8_000,
+      apiKey: resolveSecret(CREDIT_SECRET_ENV) ?? "",
       secretReference: CREDIT_SECRET_ENV,
     });
 

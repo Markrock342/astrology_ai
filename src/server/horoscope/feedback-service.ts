@@ -19,7 +19,18 @@ export type SubmitFeedbackInput = {
 
 const REASON_MAX = 500;
 
+/** Prisma client must include MessageFeedback after migration + generate. */
+export function assertFeedbackClient(): void {
+  if (!prisma.messageFeedback) {
+    throw new AppError(
+      "INTERNAL",
+      "Prisma client เก่า — รัน npx prisma generate แล้ว restart dev server",
+    );
+  }
+}
+
 export async function submitMessageFeedback(input: SubmitFeedbackInput) {
+  assertFeedbackClient();
   // Only on YOUR OWN assistant answers, and not on a turn you have discarded.
   const message = await prisma.message.findFirst({
     where: {
@@ -54,6 +65,7 @@ export async function submitMessageFeedback(input: SubmitFeedbackInput) {
 
 /** Withdraw a verdict (tapping the same thumb again). */
 export async function clearMessageFeedback(userId: string, messageId: string) {
+  assertFeedbackClient();
   await prisma.messageFeedback.deleteMany({ where: { messageId, userId } });
   return { messageId, value: null };
 }
@@ -84,6 +96,7 @@ export async function listFeedbackForAdmin(args: {
   page: number;
   pageSize: number;
 }) {
+  assertFeedbackClient();
   // A verdict on an answer the user has since discarded (edited the question,
   // regenerated) is noise: they already told us it was wrong by replacing it,
   // and the answer is no longer in their thread to act on.

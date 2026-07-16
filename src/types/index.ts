@@ -41,8 +41,13 @@ export type GenerateAIInput = {
   temperature: number;
   maxOutputTokens: number;
   timeoutMs: number;
-  /** Env var name that holds the API key (resolved by the adapter, never logged). */
-  secretReference: string;
+  /**
+   * Resolved plaintext API key (from encrypted DB value or env fallback).
+   * Never log this. Adapters must use this field — do not re-resolve secrets.
+   */
+  apiKey: string;
+  /** Env var name used only for error messages / legacy paths (optional). */
+  secretReference?: string;
 };
 
 /** Normalized result returned by every provider adapter. */

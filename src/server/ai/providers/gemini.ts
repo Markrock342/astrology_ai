@@ -1,6 +1,5 @@
 import type { AIProviderAdapter } from "@/server/ai/adapter";
 import type { GenerateAIInput, GenerateAIResult, HoroscopeResponse } from "@/types";
-import { resolveSecret } from "@/config/env";
 import { normalizeGeminiError } from "@/server/ai/provider-alerts";
 
 type GeminiApiResponse = {
@@ -74,7 +73,7 @@ function buildContents(input: GenerateAIInput) {
 export class GeminiAdapter implements AIProviderAdapter {
   async generate(input: GenerateAIInput): Promise<GenerateAIResult> {
     const start = Date.now();
-    const apiKey = resolveSecret(input.secretReference);
+    const apiKey = input.apiKey;
 
     if (!apiKey) {
       return {
@@ -83,7 +82,7 @@ export class GeminiAdapter implements AIProviderAdapter {
         modelId: input.modelId,
         latencyMs: Date.now() - start,
         errorCode: "MISSING_API_KEY",
-        errorMessage: `Secret ${input.secretReference} is not configured`,
+        errorMessage: `API key not configured${input.secretReference ? ` (${input.secretReference})` : ""}`,
       };
     }
 
@@ -181,7 +180,7 @@ export class GeminiAdapter implements AIProviderAdapter {
     shouldStop?: () => Promise<boolean>,
   ): Promise<GenerateAIResult> {
     const start = Date.now();
-    const apiKey = resolveSecret(input.secretReference);
+    const apiKey = input.apiKey;
 
     if (!apiKey) {
       return {
@@ -190,7 +189,7 @@ export class GeminiAdapter implements AIProviderAdapter {
         modelId: input.modelId,
         latencyMs: Date.now() - start,
         errorCode: "MISSING_API_KEY",
-        errorMessage: `Secret ${input.secretReference} is not configured`,
+        errorMessage: `API key not configured${input.secretReference ? ` (${input.secretReference})` : ""}`,
       };
     }
 

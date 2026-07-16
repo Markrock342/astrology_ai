@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BrandLockup, BrandMark } from "@/components/brand-logo";
@@ -51,7 +51,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { kind: "delete"; threadId: string } | { kind: "clear-all" } | null
   >(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
-  const profileBtnRef = useRef<HTMLButtonElement>(null);
+  // Separate anchors: sidebarContent mounts in both the mobile drawer and the
+  // CSS-hidden desktop aside — one shared ref would point at the hidden button.
+  const mobileProfileBtnRef = useRef<HTMLButtonElement>(null);
+  const desktopProfileBtnRef = useRef<HTMLButtonElement>(null);
   const closeMobileTimer = useRef<number | null>(null);
   const mobileDrawerRef = useRef<HTMLElement>(null);
   // What had focus before the drawer opened, so we can hand it back on close.
@@ -292,6 +295,61 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setActiveModal(m);
     setSettingsOpen(false);
     closeMobile();
+  }
+
+  const onSettingsNavigate = useCallback(() => {
+    setSettingsOpen(false);
+    closeMobile();
+  }, [closeMobile]);
+
+  function renderProfileFooter(
+    anchorRef: RefObject<HTMLButtonElement | null>,
+  ) {
+    return (
+      <div className="relative border-t border-[var(--border)] p-3">
+        {settingsOpen && !collapsed && (
+          <SettingsPopover
+            onClose={() => setSettingsOpen(false)}
+            onOpenModal={openModal}
+            onNavigate={onSettingsNavigate}
+            anchorRef={anchorRef}
+          />
+        )}
+        <div className="flex items-center gap-1 rounded-xl px-1 py-1">
+          <button
+            ref={anchorRef}
+            type="button"
+            onClick={() => setSettingsOpen((v) => !v)}
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-[var(--surface-2)]"
+            aria-label="เปิดการตั้งค่า"
+            aria-expanded={settingsOpen}
+            title="การตั้งค่า"
+          >
+            <UserAvatar name={displayName} image={user?.image} size={36} />
+            <div className="min-w-0 leading-tight">
+              <p className="max-w-[120px] truncate text-sm font-medium text-[var(--foreground)]">
+                {displayName}
+              </p>
+              <p className="text-[11px] text-[var(--muted-2)]">{planLabel}</p>
+            </div>
+          </button>
+          {user != null && (
+            <Link
+              href="/account"
+              onClick={closeMobile}
+              className="shrink-0 rounded-lg px-2 py-1.5 text-[11px] text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+              title="ดูเครดิต / แพ็กเกจ"
+            >
+              เครดิต{" "}
+              <span className="font-semibold tabular-nums text-[var(--foreground)]">
+                {user.creditBalance}
+              </span>
+            </Link>
+          )}
+          <ThemePicker />
+        </div>
+      </div>
+    );
   }
 
   const sidebarContent = (
@@ -593,49 +651,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </nav>
       </div>
-
-      <div className="relative border-t border-[var(--border)] p-3">
-        {settingsOpen && !collapsed && (
-          <SettingsPopover
-            onClose={() => setSettingsOpen(false)}
-            onOpenModal={openModal}
-            anchorRef={profileBtnRef}
-          />
-        )}
-        <div className="flex items-center gap-1 rounded-xl px-1 py-1">
-          <button
-            ref={profileBtnRef}
-            type="button"
-            onClick={() => setSettingsOpen((v) => !v)}
-            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-[var(--surface-2)]"
-            aria-label="เปิดการตั้งค่า"
-            aria-expanded={settingsOpen}
-            title="การตั้งค่า"
-          >
-            <UserAvatar name={displayName} image={user?.image} size={36} />
-            <div className="min-w-0 leading-tight">
-              <p className="max-w-[120px] truncate text-sm font-medium text-[var(--foreground)]">
-                {displayName}
-              </p>
-              <p className="text-[11px] text-[var(--muted-2)]">{planLabel}</p>
-            </div>
-          </button>
-          {user != null && (
-            <Link
-              href="/account"
-              onClick={closeMobile}
-              className="shrink-0 rounded-lg px-2 py-1.5 text-[11px] text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-              title="ดูเครดิต / แพ็กเกจ"
-            >
-              เครดิต{" "}
-              <span className="font-semibold tabular-nums text-[var(--foreground)]">
-                {user.creditBalance}
-              </span>
-            </Link>
-          )}
-          <ThemePicker />
-        </div>
-      </div>
     </>
   );
 
@@ -671,7 +686,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             }`}
             aria-hidden={!mobileShown}
           >
-            {sidebarContent}
+            <div className="flex h-full flex-col">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                {sidebarContent}
+              </div>
+              {renderProfileFooter(mobileProfileBtnRef)}
+            </div>
           </aside>
         </div>
       )}
@@ -695,6 +715,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             settingsOpen={settingsOpen && collapsed}
             onToggleSettings={() => setSettingsOpen((v) => !v)}
             onCloseSettings={() => setSettingsOpen(false)}
+            onSettingsNavigate={onSettingsNavigate}
             onExpand={() => setCollapsed(false)}
             onOpenModal={openModal}
             displayName={displayName}
@@ -711,7 +732,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           }`}
           aria-hidden={collapsed}
         >
-          <div className="flex h-full w-72 flex-col">{sidebarContent}</div>
+          <div className="flex h-full w-72 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              {sidebarContent}
+            </div>
+            {renderProfileFooter(desktopProfileBtnRef)}
+          </div>
         </div>
       </aside>
 
@@ -803,6 +829,7 @@ function CollapsedRail({
   settingsOpen,
   onToggleSettings,
   onCloseSettings,
+  onSettingsNavigate,
   onExpand,
   onOpenModal,
   displayName,
@@ -813,6 +840,7 @@ function CollapsedRail({
   settingsOpen: boolean;
   onToggleSettings: () => void;
   onCloseSettings: () => void;
+  onSettingsNavigate: () => void;
   onExpand: () => void;
   onOpenModal: (m: SettingsModal) => void;
   displayName: string;
@@ -897,6 +925,7 @@ function CollapsedRail({
           <SettingsPopover
             onClose={onCloseSettings}
             onOpenModal={onOpenModal}
+            onNavigate={onSettingsNavigate}
             anchorRef={railBtnRef}
           />
         )}
