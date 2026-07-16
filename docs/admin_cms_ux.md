@@ -28,6 +28,8 @@
 - [วิธีที่ลองแก้ไปแล้ว]: ย้าย clear/loading ไป `toggleDiff` event handler; effect โหลดเมื่อมี `diffRevId` เท่านั้น → eslint ผ่าน
 - [ปัญหา]: Vercel Production แดงแม้ lint แก้แล้ว — `migrations:check` บล็อก `DROP COLUMN aiConfigId`
 - [วิธีที่ลองแก้ไปแล้ว]: ใส่ `-- ALLOW_DESTRUCTIVE:` ใน migration (คอลัมน์ตาย ไม่มี traffic พึ่งพา) → check ผ่าน
+- [ปัญหา]: Vercel `vercel-build` ล้มที่ `set: pipefail: invalid option name` — `scripts/ci-local.sh` เป็น CRLF จาก Windows
+- [วิธีที่ลองแก้ไปแล้ว]: ย้าย `npm run ci` ไป `node scripts/ci-local.mjs` + `.gitattributes` บังคับ LF สำหรับ `*.sh`
 
 ## สิ่งที่ยังค้างอยู่และปัญหาที่ทราบ (Pending & Known Issues)
 - Soft-nav ยังอยู่ branch `fix/dashboard-soft-nav`
@@ -44,3 +46,4 @@
 - [x] คู่มือ `SETTINGS_MODEL_AI.md`
 - [x] แก้ CI lint `content-editor-toolbar` set-state-in-effect
 - [x] ปลด `migrations:check` สำหรับ drop dead `aiConfigId`
+- [x] แก้ `vercel-build` / CRLF `ci-local.sh` → Node CI script

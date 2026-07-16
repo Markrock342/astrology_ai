@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "ci": "bash scripts/ci-local.sh",
+    "ci": "node scripts/ci-local.mjs",
     "migrations:check": "tsx scripts/check-migrations.ts",
     "ci:e2e": "playwright test",
     "hooks:install": "git config core.hooksPath .githooks",
