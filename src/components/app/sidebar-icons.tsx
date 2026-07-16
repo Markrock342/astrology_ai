@@ -99,6 +99,24 @@ export function MoonIcon({ size = 18, className = "" }: IconProps) {
   );
 }
 
+/** Custom theme — palette swatches. */
+export function PaletteIcon({ size = 18, className = "" }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} aria-hidden>
+      <path
+        d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2.2-.9 2.2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3a2.2 2.2 0 0 1 2.2-2.2H17A4.5 4.5 0 0 0 12 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <circle cx="7.5" cy="10" r="1.1" fill="currentColor" />
+      <circle cx="9.2" cy="7" r="1.1" fill="currentColor" />
+      <circle cx="12.5" cy="6.2" r="1.1" fill="currentColor" />
+      <circle cx="15.5" cy="8.2" r="1.1" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function LockIcon({ size = 13, className = "" }: IconProps) {
   return (
     <svg {...base(size)} className={className} aria-hidden>

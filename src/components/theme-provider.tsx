@@ -10,6 +10,11 @@ import {
 
 export type Theme = "dark" | "light";
 
+export const THEME_OPTIONS: { id: Theme; label: string }[] = [
+  { id: "dark", label: "มืด" },
+  { id: "light", label: "สว่าง" },
+];
+
 const STORAGE_KEY = "hora-theme";
 
 type ThemeContextValue = {
@@ -20,14 +25,20 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function applyTheme(theme: Theme) {
+function isTheme(value: string | null): value is Theme {
+  return value === "light" || value === "dark";
+}
+
+function applyThemeAttr(theme: Theme) {
   document.documentElement.setAttribute("data-theme", theme);
 }
 
 function readStoredTheme(): Theme {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark") return stored;
+    if (isTheme(stored)) return stored;
+    // Migrate away from removed "custom" local mode.
+    if (stored === "custom") return "dark";
   } catch {
     /* ignore */
   }
@@ -63,7 +74,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 
   useLayoutEffect(() => {
-    applyTheme(theme);
+    applyThemeAttr(theme);
   }, [theme]);
 
   const setTheme = useCallback((next: Theme) => {
@@ -72,7 +83,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch {
       /* ignore */
     }
-    applyTheme(next);
+    applyThemeAttr(next);
     emitThemeChange();
   }, []);
 

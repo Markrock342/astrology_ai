@@ -21,7 +21,6 @@ import {
 import { BrandMark } from "@/components/brand-logo";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
-import { ChatUsageBar } from "./chat-usage-bar";
 import { CopyMessageButton } from "./copy-message-button";
 import { MessageActions } from "./message-actions";
 import { NatalChartBanner } from "./natal-chart-banner";
@@ -298,12 +297,7 @@ export function ChatView() {
   const category = useCategory(catSlug);
   const locked = isCategoryLocked(category, user?.plan ?? "FREE");
   const hasPendingPayment = Boolean(pendingPayment);
-  const {
-    usage,
-    loading: usageLoading,
-    apiReady: usageApiReady,
-    refresh: refreshUsage,
-  } = useMyUsage();
+  const { usage, refresh: refreshUsage } = useMyUsage();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -1632,11 +1626,6 @@ export function ChatView() {
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {liveAnnounce}
       </div>
-      <ChatUsageBar
-        usage={usage}
-        loading={usageLoading}
-        apiReady={usageApiReady}
-      />
       {threadMode === "TRANSIT" && threadTransitLabel ? (
         <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-center text-xs text-[var(--muted)] md:px-8">
           โหมดดวงจร · {threadTransitLabel}

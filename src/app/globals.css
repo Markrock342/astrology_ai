@@ -1,50 +1,58 @@
 @import "tailwindcss";
 
-/* HoraSard — near-black + gold + turquoise theme (confirmed design). No violet. */
-:root,
-[data-theme="dark"] {
-  --background: #0d0d0f;
-  --surface: #14141a;
-  --surface-2: #1c1c24;
-  --surface-3: #23232d;
-  --border: #2a2a33;
-  --foreground: #ececf2;
-  --muted: #9a9ab0;
-  --muted-2: #6f6f82;
-  --primary: #c9a24b; /* gold */
-  --primary-hover: #d8b25c;
-  --primary-foreground: #1a1508;
-  --accent: #c9a24b; /* gold (alias) */
-  --secondary: #1f8f7a; /* turquoise green */
-  --secondary-active: #12b886; /* active turquoise */
-  --secondary-foreground: #04120e;
-  --danger: #f87171;
-  --ring: rgba(201, 162, 75, 0.45);
+/*
+  Theme tokens live in `@layer theme` (not bare `:root`).
+  Tailwind v4 otherwise collapses `:root, [data-theme=…]` into a single
+  `:root { …dark… }` and drops the light overrides — toggle appears broken.
+*/
+@layer theme {
+  /* HoraSard — near-black + gold + turquoise (confirmed design). No violet. */
+  :root,
+  [data-theme="dark"] {
+    --background: #0d0d0f;
+    --surface: #14141a;
+    --surface-2: #1c1c24;
+    --surface-3: #23232d;
+    --border: #2a2a33;
+    --foreground: #ececf2;
+    --muted: #9a9ab0;
+    --muted-2: #6f6f82;
+    --primary: #c9a24b; /* gold */
+    --primary-hover: #d8b25c;
+    --primary-foreground: #1a1508;
+    --accent: #c9a24b; /* gold (alias) */
+    --secondary: #1f8f7a; /* turquoise green */
+    --secondary-active: #12b886; /* active turquoise */
+    --secondary-foreground: #04120e;
+    --danger: #f87171;
+    --ring: rgba(201, 162, 75, 0.45);
 
-  /* Motion system */
-  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-}
+    /* Motion system */
+    --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  }
 
-/* Light theme — cool stone + gold (not cream/terracotta AI cliché). */
-[data-theme="light"] {
-  --background: #f3f4f6;
-  --surface: #ffffff;
-  --surface-2: #eef0f3;
-  --surface-3: #e4e7ec;
-  --border: #d5d9e0;
-  --foreground: #16181d;
-  --muted: #5c6370;
-  --muted-2: #8b929e;
-  --primary: #b8923a;
-  --primary-hover: #a07e2f;
-  --primary-foreground: #1a1508;
-  --accent: #b8923a;
-  --secondary: #0f7668;
-  --secondary-active: #0d9488;
-  --secondary-foreground: #f0fdfa;
-  --danger: #dc2626;
-  --ring: rgba(184, 146, 58, 0.4);
+  /* Light — cool stone + gold (not cream/terracotta AI cliché). */
+  [data-theme="light"] {
+    --background: #f3f4f6;
+    --surface: #ffffff;
+    --surface-2: #eef0f3;
+    --surface-3: #e4e7ec;
+    --border: #d5d9e0;
+    --foreground: #16181d;
+    --muted: #5c6370;
+    --muted-2: #8b929e;
+    --primary: #b8923a;
+    --primary-hover: #a07e2f;
+    --primary-foreground: #1a1508;
+    --accent: #b8923a;
+    --secondary: #0f7668;
+    --secondary-active: #0d9488;
+    --secondary-foreground: #f0fdfa;
+    --danger: #dc2626;
+    --ring: rgba(184, 146, 58, 0.4);
+  }
+
 }
 
 @theme inline {
