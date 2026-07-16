@@ -102,7 +102,7 @@ export type CmsSiteFooter = {
   socialLinks: CmsFooterLink[];
 };
 
-/** Site-wide brand colors — admin sets once, all users see the same. */
+/** Site-wide brand colors + optional custom logo URLs — admin sets once. */
 export type CmsSiteTheme = {
   /** When true, override default palette for every visitor. */
   enabled: boolean;
@@ -110,6 +110,10 @@ export type CmsSiteTheme = {
   secondary: string;
   backgroundDark: string;
   backgroundLight: string;
+  /** Public URL for brand mark (top-left icon). Null/empty = /logo.png */
+  markUrl?: string | null;
+  /** Public URL for wordmark. Null/empty = /wordmark.png */
+  wordmarkUrl?: string | null;
 };
 
 export const CMS_KEYS = {
@@ -505,6 +509,8 @@ export const CMS_DEFAULTS: Record<CmsKey, unknown> = {
     secondary: "#1f8f7a",
     backgroundDark: "#0d0d0f",
     backgroundLight: "#f3f4f6",
+    markUrl: null,
+    wordmarkUrl: null,
   } satisfies CmsSiteTheme,
 };
 
@@ -517,7 +523,7 @@ export const CMS_LABELS: Record<CmsKey, string> = {
   [CMS_KEYS.consentBirthEditLimit]: "ฟอร์มวันเกิด — แจ้งแก้ได้ 1 ครั้ง",
   [CMS_KEYS.contact]: "อีเมลติดต่อทีมงาน",
   [CMS_KEYS.maintenanceMode]: "ปิดระบบชั่วคราว",
-  [CMS_KEYS.siteTheme]: "สีธีมเว็บ",
+  [CMS_KEYS.siteTheme]: "โลโก้ & ธีม",
   [CMS_KEYS.paymentInfo]: "วิธีโอนเงิน Pro",
   [CMS_KEYS.seoHome]: "SEO — หน้าแรก",
   [CMS_KEYS.seoPrivacy]: "SEO — นโยบาย",
@@ -609,7 +615,7 @@ export const CMS_META: Record<CmsKey, CmsMeta> = {
   },
   [CMS_KEYS.siteTheme]: {
     group: "system",
-    help: "สีแบรนด์ทั้งเว็บ — เปิดใช้แล้วผู้ใช้ทุกคนเห็นสีเดียวกัน (ตั้งง่ายที่ /admin/theme)",
+    help: "โลโก้ซ้ายบน + สีแบรนด์ทั้งเว็บ — ตั้งที่ /admin/theme",
     where: "ทุกหน้าของเว็บ",
     previewPath: "/dashboard",
   },

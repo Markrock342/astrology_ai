@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import {
   APP_NAME_TH,
@@ -5,15 +7,17 @@ import {
   APP_TAGLINE_TH,
   APP_WORDMARK,
 } from "@/config/constants";
+import { useSiteBrand } from "@/components/site-brand-provider";
 
 /** Native aspect ratio of public/wordmark.png (700 x 113). */
 const WORDMARK_RATIO = 700 / 113;
 
-/** Brand mark — client's gold monogram (public/logo.png). */
+/** Brand mark — CMS override or client's gold monogram (public/logo.png). */
 export function BrandMark({ size = 40 }: { size?: number }) {
+  const { markUrl } = useSiteBrand();
   return (
     <Image
-      src="/logo.png"
+      src={markUrl}
       alt={APP_NAME_TH}
       width={size}
       height={size}
@@ -25,8 +29,7 @@ export function BrandMark({ size = 40 }: { size?: number }) {
 }
 
 /**
- * Latin wordmark from the client design — rendered as the exact artwork
- * (public/wordmark.png) rather than a font, so it always matches the brand.
+ * Latin wordmark from the client design — CMS override or public/wordmark.png.
  */
 export function BrandWordmark({
   className = "",
@@ -35,9 +38,10 @@ export function BrandWordmark({
   className?: string;
   height?: number;
 }) {
+  const { wordmarkUrl } = useSiteBrand();
   return (
     <Image
-      src="/wordmark.png"
+      src={wordmarkUrl}
       alt={APP_WORDMARK}
       width={Math.round(height * WORDMARK_RATIO)}
       height={height}

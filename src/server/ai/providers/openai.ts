@@ -1,6 +1,5 @@
 import type { AIProviderAdapter } from "@/server/ai/adapter";
 import type { GenerateAIInput, GenerateAIResult, HoroscopeResponse } from "@/types";
-import { resolveSecret } from "@/config/env";
 
 type OpenAIApiResponse = {
   choices?: Array<{ message?: { content?: string } }>;
@@ -23,13 +22,13 @@ function parseHoroscopeText(raw: string): HoroscopeResponse | undefined {
 
 /**
  * OpenAI chat-completions adapter (server-only). Enabled by creating an
- * AIProviderConfig with provider=OPENAI + secretReference=OPENAI_API_KEY in the
- * Admin CMS. Never throws; returns ok:false on errors.
+ * AIProviderConfig with provider=OPENAI in the Admin CMS. Never throws;
+ * returns ok:false on errors. Expects `input.apiKey` already resolved.
  */
 export class OpenAIAdapter implements AIProviderAdapter {
   async generate(input: GenerateAIInput): Promise<GenerateAIResult> {
     const start = Date.now();
-    const apiKey = resolveSecret(input.secretReference);
+    const apiKey = input.apiKey;
 
     if (!apiKey) {
       return {
@@ -38,7 +37,7 @@ export class OpenAIAdapter implements AIProviderAdapter {
         modelId: input.modelId,
         latencyMs: Date.now() - start,
         errorCode: "MISSING_API_KEY",
-        errorMessage: `Secret ${input.secretReference} is not configured`,
+        errorMessage: `API key not configured${input.secretReference ? ` (${input.secretReference})` : ""}`,
       };
     }
 

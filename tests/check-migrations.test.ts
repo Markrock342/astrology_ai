@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isDestructive } from "../scripts/check-migrations.mjs";
+import { isDestructive } from "../scripts/migration-guard";
 
 /**
  * Migrations now auto-apply to production during the build, so this guard is the

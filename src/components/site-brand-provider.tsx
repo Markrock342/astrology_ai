@@ -1,12 +1,26 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useTheme } from "@/components/theme-provider";
 import { CMS_KEYS, type CmsSiteTheme } from "@/lib/cms-keys";
 import {
   THEME_VAR_KEYS,
   buildThemeVars,
 } from "@/lib/theme-colors";
+import {
+  DEFAULT_BRAND_MARK,
+  DEFAULT_BRAND_WORDMARK,
+  resolveBrandUrls,
+} from "@/lib/brand-assets";
+
+export { resolveBrandUrls } from "@/lib/brand-assets";
 
 function applyThemeVars(vars: Record<string, string>) {
   const root = document.documentElement;
@@ -32,7 +46,27 @@ function varsForMode(theme: CmsSiteTheme, mode: "dark" | "light") {
   });
 }
 
-/** Applies admin-published brand colors site-wide for every visitor. */
+export type SiteBrandAssets = {
+  markUrl: string;
+  wordmarkUrl: string;
+  theme: CmsSiteTheme;
+};
+
+const SiteBrandContext = createContext<SiteBrandAssets>({
+  markUrl: DEFAULT_BRAND_MARK,
+  wordmarkUrl: DEFAULT_BRAND_WORDMARK,
+  theme: {
+    enabled: false,
+    primary: "#c9a24b",
+    secondary: "#1f8f7a",
+    backgroundDark: "#0d0d0f",
+    backgroundLight: "#f3f4f6",
+    markUrl: null,
+    wordmarkUrl: null,
+  },
+});
+
+/** Applies admin-published brand colors + exposes logo URLs site-wide. */
 export function SiteBrandProvider({
   initialTheme,
   children,
@@ -75,5 +109,17 @@ export function SiteBrandProvider({
     else clearThemeVars();
   }, [siteTheme, mode]);
 
-  return children;
+  const value = useMemo<SiteBrandAssets>(() => {
+    const urls = resolveBrandUrls(siteTheme);
+    return { ...urls, theme: siteTheme };
+  }, [siteTheme]);
+
+  return (
+    <SiteBrandContext.Provider value={value}>{children}</SiteBrandContext.Provider>
+  );
+}
+
+/** Brand mark / wordmark URLs from CMS (with static fallbacks). */
+export function useSiteBrand(): SiteBrandAssets {
+  return useContext(SiteBrandContext);
 }

@@ -5,6 +5,7 @@ import { GeminiAdapter } from "@/server/ai/providers/gemini";
 import { OpenAIAdapter } from "@/server/ai/providers/openai";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
+import { resolveApiKey } from "@/server/ai/secret-resolver";
 
 /**
  * Model router (spec 3 / 6.5). Resolves an AIProviderConfig from the DB, picks
@@ -69,7 +70,7 @@ export async function resolveConfig(
 
 type RunInput = Omit<
   GenerateAIInput,
-  "modelId" | "temperature" | "maxOutputTokens" | "timeoutMs" | "secretReference"
+  "modelId" | "temperature" | "maxOutputTokens" | "timeoutMs" | "secretReference" | "apiKey"
 > & {
   systemPrompt: string;
   userPrompt: string;
@@ -78,16 +79,25 @@ type RunInput = Omit<
   maxOutputTokens?: number;
 };
 
-function toGenerateInput(
+async function toGenerateInput(
   cfg: {
+    id: string;
     modelId: string;
     temperature: number;
     maxOutputTokens: number;
     timeoutMs: number;
-    secretReference: string;
+    secretReference: string | null;
+    encryptedApiKey: string | null;
   },
   base: RunInput,
-): GenerateAIInput {
+): Promise<GenerateAIInput> {
+  const apiKey = await resolveApiKey(cfg);
+  if (!apiKey) {
+    throw new AppError(
+      "AI_PROVIDER_ERROR",
+      `API key missing for config ${cfg.id} (set encrypted key in admin or env ${cfg.secretReference ?? "—"})`,
+    );
+  }
   return {
     modelId: cfg.modelId,
     systemPrompt: base.systemPrompt,
@@ -96,7 +106,8 @@ function toGenerateInput(
     temperature: cfg.temperature,
     maxOutputTokens: base.maxOutputTokens ?? cfg.maxOutputTokens,
     timeoutMs: cfg.timeoutMs,
-    secretReference: cfg.secretReference,
+    apiKey,
+    secretReference: cfg.secretReference ?? undefined,
   };
 }
 
@@ -112,8 +123,22 @@ export async function generateWithFallback(
   if (!config) throw new AppError("AI_PROVIDER_ERROR", "AI config not found");
 
   const attempt = async (cfg: NonNullable<typeof config>) => {
-    const adapter = adapterFor(cfg.provider);
-    return adapter.generate(toGenerateInput(cfg, base));
+    try {
+      const adapter = adapterFor(cfg.provider);
+      return await adapter.generate(await toGenerateInput(cfg, base));
+    } catch (err) {
+      if (err instanceof AppError && err.code === "AI_PROVIDER_ERROR") {
+        return {
+          ok: false as const,
+          provider: cfg.provider,
+          modelId: cfg.modelId,
+          latencyMs: 0,
+          errorCode: "MISSING_API_KEY",
+          errorMessage: err.message,
+        };
+      }
+      throw err;
+    }
   };
 
   const primary = await attempt(config);
@@ -150,14 +175,28 @@ export async function streamWithFallback(
   };
 
   const attempt = async (cfg: NonNullable<typeof config>) => {
-    const adapter = adapterFor(cfg.provider);
-    const input = toGenerateInput(cfg, base);
-    if (adapter instanceof GeminiAdapter) {
-      return adapter.streamGenerate(input, countingDelta, shouldStop);
+    try {
+      const adapter = adapterFor(cfg.provider);
+      const input = await toGenerateInput(cfg, base);
+      if (adapter instanceof GeminiAdapter) {
+        return adapter.streamGenerate(input, countingDelta, shouldStop);
+      }
+      const result = await adapter.generate(input);
+      if (result.ok && result.rawText) countingDelta(result.rawText);
+      return result;
+    } catch (err) {
+      if (err instanceof AppError && err.code === "AI_PROVIDER_ERROR") {
+        return {
+          ok: false as const,
+          provider: cfg.provider,
+          modelId: cfg.modelId,
+          latencyMs: 0,
+          errorCode: "MISSING_API_KEY",
+          errorMessage: err.message,
+        };
+      }
+      throw err;
     }
-    const result = await adapter.generate(input);
-    if (result.ok && result.rawText) countingDelta(result.rawText);
-    return result;
   };
 
   const primary = await attempt(config);

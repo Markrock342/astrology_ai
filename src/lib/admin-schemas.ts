@@ -183,12 +183,31 @@ const hexColor = z
   .string()
   .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "ต้องเป็นสี hex เช่น #c9a24b");
 
+/** Absolute http(s) URL or same-origin path like /api/media/:id */
+const cmsImageRef = z
+  .string()
+  .max(2000)
+  .refine(
+    (v) =>
+      v === "" ||
+      v.startsWith("/") ||
+      /^https?:\/\//i.test(v),
+    { message: "ต้องเป็น URL หรือ path ภายในไซต์ เช่น /api/media/..." },
+  )
+  .optional()
+  .or(z.literal(""))
+  .nullable();
+
 export const cmsSiteThemeSchema = z.object({
   enabled: z.boolean(),
   primary: hexColor,
   secondary: hexColor,
   backgroundDark: hexColor,
   backgroundLight: hexColor,
+  /** Brand mark URL or /api/media/:id. Null/empty = use /logo.png */
+  markUrl: cmsImageRef,
+  /** Wordmark URL or /api/media/:id. Null/empty = use /wordmark.png */
+  wordmarkUrl: cmsImageRef,
 });
 
 export const settingUpdateSchema = z.object({
@@ -302,8 +321,10 @@ export const aiConfigCreateSchema = z.object({
   provider: z.enum(["GEMINI", "OPENAI"]).default("GEMINI"),
   modelId: z.string().min(1).max(120),
   displayName: z.string().min(1).max(120),
-  // Env var NAME only — the key value never touches the database.
-  secretReference: z.string().min(1).max(120),
+  // Env var NAME for fallback — optional when apiKey is provided.
+  secretReference: z.string().min(1).max(120).nullish(),
+  // Write-only plaintext API key — encrypted before persistence, never returned.
+  apiKey: z.string().min(1).max(500).optional(),
   enabled: z.boolean().default(true),
   temperature: z.number().min(0).max(2).default(0.7),
   maxOutputTokens: z.number().int().min(64).max(32_768).default(2048),
@@ -317,6 +338,13 @@ export const aiConfigCreateSchema = z.object({
 });
 
 export const aiConfigUpdateSchema = aiConfigCreateSchema.partial();
+
+/** Test a raw API key before saving (does not persist). */
+export const aiConfigTestKeySchema = z.object({
+  provider: z.enum(["GEMINI", "OPENAI"]),
+  modelId: z.string().min(1).max(120),
+  apiKey: z.string().min(1).max(500),
+});
 
 export const knowledgeCreateSchema = z.object({
   title: z.string().min(1).max(200),

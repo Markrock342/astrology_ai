@@ -105,6 +105,15 @@ export function AdminShell({
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-3">{sidebar}</div>
+            <div className="border-t border-[var(--border)] p-4">
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileOpen(false)}
+                className="text-xs text-[var(--muted)] transition hover:text-[var(--secondary-active)]"
+              >
+                ← กลับแอปผู้ใช้
+              </Link>
+            </div>
           </aside>
         </div>
       )}
@@ -112,20 +121,20 @@ export function AdminShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <ProviderAlertBanner />
         <header className="flex items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3 lg:px-6">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="rounded-lg border border-[var(--border)] p-2 text-[var(--muted)] lg:hidden"
+              className="shrink-0 rounded-lg border border-[var(--border)] p-2 text-[var(--muted)] lg:hidden"
               aria-label="เปิดเมนู"
             >
               ☰
             </button>
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wide text-[var(--muted-2)]">
                 ระบบจัดการ
               </p>
-              <p className="text-sm font-medium text-[var(--foreground)]">
+              <p className="truncate text-sm font-medium text-[var(--foreground)]">
                 {userName ?? "แอดมิน"}
                 {userRole && (
                   <span className="ml-2 text-xs font-normal text-[var(--muted)]">
@@ -136,9 +145,11 @@ export function AdminShell({
             </div>
             {maintenanceOn && <Badge tone="red">ปิดระบบชั่วคราว</Badge>}
           </div>
+          {/* Always visible — was `hidden sm:inline-flex`, so phones had no way
+              back to /dashboard (desktop sidebar link is lg-only). */}
           <Link
             href="/dashboard"
-            className="hidden rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] sm:inline-flex"
+            className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)]"
           >
             กลับแอป
           </Link>

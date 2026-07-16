@@ -24,9 +24,15 @@ const serverEnvSchema = z.object({
   TURNSTILE_SECRET_KEY: z.string().optional(),
 
   // AI keys are read by name via secretReference; kept optional so the app can
-  // boot without them during early Milestone 1 work.
+  // boot without them during early Milestone 1 work. Prefer admin-managed
+  // encrypted keys in DB when AI_SECRET_ENC_KEY is set.
   GEMINI_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+
+  // Master key for AES-256-GCM encryption of admin-managed AI API keys in DB.
+  // 32 bytes as base64 (`openssl rand -base64 32`) or 64-char hex. Set once
+  // on the host — admins never touch this; they paste provider keys in the UI.
+  AI_SECRET_ENC_KEY: z.string().optional(),
 
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -42,6 +48,20 @@ const serverEnvSchema = z.object({
 
   // Payment slip uploads (Vercel Blob). Required for POST /api/payments/proof.
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
+
+  // Supabase Storage (admin CMS images: logo, landing, OG). Server-only.
+  SUPABASE_URL: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().url().optional(),
+  ),
+  NEXT_PUBLIC_SUPABASE_URL: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().url().optional(),
+  ),
+  SUPABASE_SERVICE_ROLE_KEY: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().optional(),
+  ),
 
   // Admin alerts — email + Web Push (PWA).
   ADMIN_ALERT_EMAIL: z.string().email().optional(),

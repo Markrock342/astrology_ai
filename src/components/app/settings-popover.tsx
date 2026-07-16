@@ -4,6 +4,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useAppData } from "./app-data-provider";
+import {
+  SETTINGS_POPOVER_ATTR,
+  isOutsideSettingsPopover,
+} from "./settings-popover-outside";
 
 // Total birthday settings allowed = 1 initial + 1 edit (design shows x/2).
 const BIRTH_TOTAL = 2;
@@ -13,10 +17,13 @@ export type SettingsModal = "rename" | "password" | "cancel" | null;
 export function SettingsPopover({
   onClose,
   onOpenModal,
+  onNavigate,
   anchorRef,
 }: {
   onClose: () => void;
   onOpenModal: (m: SettingsModal) => void;
+  /** Close drawer / settings before leaving /dashboard (account, onboarding, admin). */
+  onNavigate?: () => void;
   anchorRef?: React.RefObject<HTMLElement | null>;
 }) {
   const router = useRouter();
@@ -85,9 +92,14 @@ export function SettingsPopover({
     const timer = window.setTimeout(() => {
       if (!mounted) return;
       function onPointerDown(e: PointerEvent) {
-        const target = e.target as Node;
-        if (anchorRef?.current?.contains(target)) return;
-        if (ref.current && !ref.current.contains(target)) onClose();
+        if (
+          isOutsideSettingsPopover(e.target, {
+            popoverEl: ref.current,
+            anchorEl: anchorRef?.current ?? null,
+          })
+        ) {
+          onClose();
+        }
       }
       function onKey(e: KeyboardEvent) {
         if (e.key === "Escape") onClose();
@@ -106,6 +118,12 @@ export function SettingsPopover({
     };
   }, [onClose, anchorRef]);
 
+  function go(href: string) {
+    onNavigate?.();
+    onClose();
+    router.push(href);
+  }
+
   const birthUnlimited = unlimitedEdits || isStaff || user?.birthEditsUnlimited;
   const birthExhausted = !birthUnlimited && editsRemaining === 0;
   const birthCurrent = BIRTH_TOTAL - (editsRemaining ?? BIRTH_TOTAL - 1);
@@ -120,6 +138,7 @@ export function SettingsPopover({
   return (
     <div
       ref={ref}
+      {...{ [SETTINGS_POPOVER_ATTR]: "" }}
       style={pos ? { left: pos.left, bottom: pos.bottom } : undefined}
       className={`animate-fade-up fixed z-[60] w-[340px] max-w-[calc(100vw-24px)] overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface-2)] p-3 shadow-2xl ${
         pos ? "" : "invisible pointer-events-none"
@@ -138,10 +157,7 @@ export function SettingsPopover({
             label="แผงควบคุมแอดมิน"
             hint="(/admin)"
             highlight
-            onClick={() => {
-              onClose();
-              router.push("/admin");
-            }}
+            onClick={() => go("/admin")}
           />
         ) : null}
         <Row
@@ -161,18 +177,12 @@ export function SettingsPopover({
           label="เปลี่ยนวันเกิด"
           hint={birthHint}
           disabled={birthExhausted}
-          onClick={() => {
-            onClose();
-            router.push("/onboarding");
-          }}
+          onClick={() => go("/onboarding")}
         />
         <Row
           icon={<PackageIcon />}
           label="จัดการแพ็กเกจ"
-          onClick={() => {
-            onClose();
-            router.push("/account");
-          }}
+          onClick={() => go("/account")}
         />
         <Row
           icon={<LogoutIcon />}

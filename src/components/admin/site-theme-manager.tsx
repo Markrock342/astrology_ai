@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   Field,
+  ImageUploadField,
   InfoBox,
   PageHeader,
   Toggle,
@@ -52,10 +53,17 @@ const DEFAULTS: CmsSiteTheme = {
   secondary: "#1f8f7a",
   backgroundDark: "#0d0d0f",
   backgroundLight: "#f3f4f6",
+  markUrl: null,
+  wordmarkUrl: null,
 };
 
 export function SiteThemeManager({ initial }: { initial: CmsSiteTheme }) {
-  const [form, setForm] = useState<CmsSiteTheme>(initial);
+  const [form, setForm] = useState<CmsSiteTheme>({
+    ...DEFAULTS,
+    ...initial,
+    markUrl: initial.markUrl ?? null,
+    wordmarkUrl: initial.wordmarkUrl ?? null,
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -65,11 +73,16 @@ export function SiteThemeManager({ initial }: { initial: CmsSiteTheme }) {
     setError(null);
     setSaved(null);
     try {
+      const value: CmsSiteTheme = {
+        ...form,
+        markUrl: form.markUrl?.trim() || null,
+        wordmarkUrl: form.wordmarkUrl?.trim() || null,
+      };
       await adminFetch(`/api/admin/settings/${CMS_KEYS.siteTheme}`, {
         method: "PUT",
-        body: JSON.stringify({ value: form }),
+        body: JSON.stringify({ value }),
       });
-      setSaved("เผยแพร่แล้ว — ผู้ใช้ทุกคนจะเห็นสีนี้ทั้งเว็บ");
+      setSaved("เผยแพร่แล้ว — ผู้ใช้ทุกคนจะเห็นโลโก้และสีนี้ทั้งเว็บ");
     } catch (e) {
       setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
     } finally {
@@ -77,11 +90,15 @@ export function SiteThemeManager({ initial }: { initial: CmsSiteTheme }) {
     }
   }
 
+  function clearLogos() {
+    setForm((f) => ({ ...f, markUrl: null, wordmarkUrl: null }));
+  }
+
   return (
     <AdminPage>
       <PageHeader
-        title="สีธีมเว็บ"
-        description="ตั้งสีแบรนด์ครั้งเดียว ทั้งเว็บเปลี่ยนตาม — ผู้ใช้ทั่วไปเห็นเหมือนกัน (ยังสลับมืด/สว่างเองได้)"
+        title="Logo & Theme"
+        description="อัปโหลดโลโก้มุมซ้ายบน (ไอคอน + คำ) และตั้งสีแบรนด์ — ผู้ใช้ทั่วไปเห็นเหมือนกัน (ยังสลับมืด/สว่างเองได้)"
         action={
           <div className="flex flex-wrap gap-2">
             <Button
@@ -99,12 +116,54 @@ export function SiteThemeManager({ initial }: { initial: CmsSiteTheme }) {
       />
 
       <InfoBox>
-        เปิดสวิตช์ด้านล่างแล้วกดเผยแพร่ — สีจะทับธีมเดิมทั้งหน้าแรก แชท และแผงแอดมิน
-        ผู้ใช้ยังเลือกโหมดมืด/สว่างส่วนตัวได้
+        โลโก้ที่อัปโหลดจะแทนที่รูปในมุมซ้ายบน (แชท / หน้าเข้าสู่ระบบ) — ถ้ายังไม่อัปโหลดหรือกดลบ
+        ระบบกลับไปใช้โลโก้เดิมอัตโนมัติ เปิดสวิตช์สีด้านล่างแล้วกดเผยแพร่เพื่อทับธีมทั้งเว็บ
       </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
       {saved && <p className="mb-4 text-sm text-[var(--secondary-active)]">{saved}</p>}
+
+      <Card className="mb-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium text-[var(--foreground)]">โลโก้เว็บ (มุมซ้ายบน)</p>
+          <Button variant="ghost" disabled={busy} onClick={clearLogos}>
+            ลบโลโก้ (กลับค่าเริ่มต้น)
+          </Button>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ImageUploadField
+            label="ไอคอน (mark)"
+            hint="แนะนำสี่เหลี่ยม / PNG หรือ WebP — ว่าง = ใช้ /logo.png"
+            value={form.markUrl ?? ""}
+            onChange={(markUrl) =>
+              setForm((f) => ({ ...f, markUrl: markUrl || null }))
+            }
+          />
+          <ImageUploadField
+            label="คำแบรนด์ (wordmark)"
+            hint="ตัวอักษรแนวนอนข้างไอคอน — ว่าง = ใช้ /wordmark.png"
+            value={form.wordmarkUrl ?? ""}
+            onChange={(wordmarkUrl) =>
+              setForm((f) => ({ ...f, wordmarkUrl: wordmarkUrl || null }))
+            }
+          />
+        </div>
+        <div className="mt-4 flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={form.markUrl?.trim() || "/logo.png"}
+            alt="preview mark"
+            className="h-8 w-8 object-contain"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={form.wordmarkUrl?.trim() || "/wordmark.png"}
+            alt="preview wordmark"
+            className="h-5 w-auto object-contain"
+          />
+          <span className="text-[10px] text-[var(--muted)]">ตัวอย่าง lockup</span>
+        </div>
+      </Card>
 
       <Card className="mb-4">
         <Toggle
