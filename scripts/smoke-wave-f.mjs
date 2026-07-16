@@ -134,11 +134,12 @@ async function main() {
       fail("credit before send", "expected `ใช้ N เครดิต · คงเหลือ M`");
     }
 
-    // —— Usage bar (top) ——
-    if (/เครดิต\s*\d+/.test(body) || page.locator('a[href="/account"]').filter({ hasText: /เครดิต/ }).first()) {
-      pass("usage bar / account credit link");
+    // —— Sidebar credit next to profile ——
+    const sidebarCredit = page.locator('a[href="/account"]').filter({ hasText: /เครดิต/ }).first();
+    if ((await sidebarCredit.count()) > 0 || /เครดิต\s*\d+/.test(body)) {
+      pass("sidebar credit / account link");
     } else {
-      fail("usage bar / account credit link");
+      fail("sidebar credit / account link");
     }
 
     // —— Answer mode toggle + localStorage ——

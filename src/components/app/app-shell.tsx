@@ -504,6 +504,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <p className="text-[11px] text-[var(--muted-2)]">{planLabel}</p>
             </div>
           </button>
+          {user != null && (
+            <Link
+              href="/account"
+              onClick={closeMobile}
+              className="shrink-0 rounded-lg px-2 py-1.5 text-[11px] text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+              title="ดูเครดิต / แพ็กเกจ"
+            >
+              เครดิต{" "}
+              <span className="font-semibold tabular-nums text-[var(--foreground)]">
+                {user.creditBalance}
+              </span>
+            </Link>
+          )}
           <button
             type="button"
             onClick={toggleTheme}
@@ -573,6 +586,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             themeLabel={themeLabel}
             displayName={displayName}
             image={user?.image}
+            creditBalance={user?.creditBalance}
           />
         </div>
 
@@ -657,6 +671,7 @@ function CollapsedRail({
   themeLabel,
   displayName,
   image,
+  creditBalance,
 }: {
   activeCat: string | null;
   settingsOpen: boolean;
@@ -669,6 +684,7 @@ function CollapsedRail({
   themeLabel: string;
   displayName: string;
   image?: string | null;
+  creditBalance?: number;
 }) {
   const { filteredCategories } = useAppData();
   const chatNav = useChatNav();
@@ -750,6 +766,16 @@ function CollapsedRail({
             onOpenModal={onOpenModal}
             anchorRef={railBtnRef}
           />
+        )}
+        {creditBalance != null && (
+          <Link
+            href="/account"
+            className="rounded-md px-1 py-0.5 text-[10px] font-semibold tabular-nums text-[var(--foreground)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+            title={`เครดิต ${creditBalance}`}
+            aria-label={`เครดิต ${creditBalance}`}
+          >
+            {creditBalance}
+          </Link>
         )}
         <button
           type="button"
