@@ -26,16 +26,21 @@
 - [ปัญหา]: ทดสอบ `gemini-3.5-flash` ได้ TIMEOUT / UNAVAILABLE / free_tier quota 20 → เป็นฝั่ง Google (โหลดหนักหรือเพดานฟรี) ไม่ใช่ key ผิด; ดูคู่มือ §9
 - [ปัญหา]: CI `typecheck · lint · unit` แดงหลัง push — `setDiffSnapshot(null)` ใน useEffect ของ content-editor-toolbar
 - [วิธีที่ลองแก้ไปแล้ว]: ย้าย clear/loading ไป `toggleDiff` event handler; effect โหลดเมื่อมี `diffRevId` เท่านั้น → eslint ผ่าน
+- [ปัญหา]: Vercel Production แดงแม้ lint แก้แล้ว — `migrations:check` บล็อก `DROP COLUMN aiConfigId`
+- [วิธีที่ลองแก้ไปแล้ว]: ใส่ `-- ALLOW_DESTRUCTIVE:` ใน migration (คอลัมน์ตาย ไม่มี traffic พึ่งพา) → check ผ่าน
 
 ## สิ่งที่ยังค้างอยู่และปัญหาที่ทราบ (Pending & Known Issues)
 - Soft-nav ยังอยู่ branch `fix/dashboard-soft-nav`
 - Anthropic/Claude ยังไม่รองรับ
 - Smoke staging/prod ยัง manual
 - OpenAI-compatible ต้องสร้างแถวใน DB เองจากฟอร์ม (ยังไม่มี seed GPT)
+- GitHub Actions check แดงเร็ว (~5s) เพราะ **billing lock** — gate จริงคือ Vercel `vercel-build` + `npm run ci` ท้องถิ่น
 
 ## Checklist งานต่อไป (Next Steps)
 - [ ] Smoke staging: สร้าง OpenAI-compatible + Base URL, health รายโมเดล, chat Free/Pro routing
 - [ ] (ถ้าต้องการ) merge soft-nav / Anthropic เป็นงานแยก
+- [ ] ปลด GitHub Actions billing lock (optional — ไม่บล็อก deploy ถ้า Vercel ผ่าน)
 - [x] Repair AI model config (encrypted path + routing/health)
 - [x] คู่มือ `SETTINGS_MODEL_AI.md`
 - [x] แก้ CI lint `content-editor-toolbar` set-state-in-effect
+- [x] ปลด `migrations:check` สำหรับ drop dead `aiConfigId`
