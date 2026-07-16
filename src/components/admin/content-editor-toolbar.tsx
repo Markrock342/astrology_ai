@@ -62,13 +62,21 @@ export function ContentEditorToolbar({
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!diffRevId) {
+  function toggleDiff(revId: string) {
+    if (diffRevId === revId) {
+      setDiffRevId(null);
       setDiffSnapshot(null);
+      setDiffLoading(false);
       return;
     }
-    let alive = true;
+    setDiffRevId(revId);
+    setDiffSnapshot(null);
     setDiffLoading(true);
+  }
+
+  useEffect(() => {
+    if (!diffRevId) return;
+    let alive = true;
     fetch(`/api/admin/revisions/${diffRevId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
@@ -180,9 +188,7 @@ export function ContentEditorToolbar({
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   <Button
                     variant="ghost"
-                    onClick={() =>
-                      setDiffRevId((id) => (id === rev.id ? null : rev.id))
-                    }
+                    onClick={() => toggleDiff(rev.id)}
                   >
                     {diffRevId === rev.id ? "ซ่อน diff" : "ดู diff"}
                   </Button>

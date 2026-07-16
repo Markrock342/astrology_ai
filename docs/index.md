@@ -2,7 +2,7 @@
 
 สารบัญกลางของโปรเจกต์ (อัปเดต: 17 ก.ค. 2026)
 
-**ฐาน:** `origin/main` @ `914e450` + งาน BN รวมเข้า main รอบนี้  
+**ฐาน:** `origin/main` @ `9b24990` + hotfix CI lint (`content-editor-toolbar`)  
 **หมายเหตุ:** `.cursorrules` เป็น local only — ห้าม commit
 
 ## ภาพรวมสถาปัตยกรรม
