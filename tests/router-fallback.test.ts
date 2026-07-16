@@ -33,6 +33,11 @@ vi.mock("@/server/ai/providers/openai", () => ({
   }),
 }));
 
+vi.mock("@/server/ai/secret-resolver", () => ({
+  resolveApiKey: vi.fn().mockResolvedValue("test-api-key"),
+  invalidateKeyCache: vi.fn(),
+}));
+
 describe("resolveConfig (M3 B2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
