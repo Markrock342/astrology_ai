@@ -297,10 +297,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     closeMobile();
   }
 
-  const onSettingsNavigate = useCallback(() => {
+  // Plain function — React Compiler memoizes; avoid useCallback (eslint preserve-manual-memoization).
+  function onSettingsNavigate() {
     setSettingsOpen(false);
     closeMobile();
-  }, [closeMobile]);
+  }
 
   function renderProfileFooter(
     anchorRef: RefObject<HTMLButtonElement | null>,
