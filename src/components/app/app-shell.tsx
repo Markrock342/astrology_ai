@@ -16,10 +16,8 @@ import {
   ExpandSidebarIcon,
   LockIcon,
   MenuIcon,
-  MoonIcon,
   NewChatIcon,
   SearchIcon,
-  SunIcon,
   TransitIcon,
 } from "./sidebar-icons";
 import { useAppData, isCategoryLocked } from "./app-data-provider";
@@ -28,7 +26,7 @@ import { VerifyEmailBanner } from "./verify-email-banner";
 import { PendingPaymentBanner } from "./pending-payment-banner";
 import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banner";
 import { UserAvatar } from "./user-avatar";
-import { useTheme } from "@/components/theme-provider";
+import { ThemePicker } from "./theme-picker";
 import { TransitFormModal } from "./transit-form-modal";
 import {
   invalidateCachedThread,
@@ -50,7 +48,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
-  const { theme, toggleTheme } = useTheme();
   const chatNav = useChatNav();
 
   const {
@@ -129,8 +126,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     : user?.plan === "PRO"
       ? "Pro"
       : "Free";
-  const themeLabel = theme === "dark" ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด";
-
   const openMobile = useCallback(() => {
     // Cancel a pending unmount — otherwise open-after-close within 240ms
     // gets killed by the previous close timer (feels like taps don't stick).
@@ -229,19 +224,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <div className="flex flex-col gap-1 px-3 pt-4">
-        <Link
-          href="/dashboard"
-          onClick={(e) => {
-            if (isPlainLeftClick(e)) {
-              e.preventDefault();
-              chatNav("/dashboard");
-            }
-            closeMobile();
-          }}
-          className="press-scale flex items-center gap-2.5 rounded-full border border-[var(--secondary)]/45 bg-[var(--secondary)]/10 px-3.5 py-2.5 text-sm font-semibold text-[var(--secondary-active)] transition hover:bg-[var(--secondary)]/15"
-        >
-          <NewChatIcon /> เริ่มสนทนาใหม่
-        </Link>
         <button
           type="button"
           onClick={() => setSearchOpen((v) => !v)}
@@ -394,6 +376,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <SidebarDivider />
 
+        <Link
+          href="/dashboard"
+          onClick={(e) => {
+            if (isPlainLeftClick(e)) {
+              e.preventDefault();
+              chatNav("/dashboard");
+            }
+            closeMobile();
+          }}
+          className="press-scale mb-3 flex items-center gap-2.5 rounded-full border border-[var(--secondary)]/45 bg-[var(--secondary)]/10 px-3.5 py-2.5 text-sm font-semibold text-[var(--secondary-active)] transition hover:bg-[var(--secondary)]/15"
+        >
+          <NewChatIcon /> เริ่มสนทนาใหม่
+        </Link>
+
         <SectionLabel>ดวงจร</SectionLabel>
         <button
           type="button"
@@ -517,15 +513,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
             </Link>
           )}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="shrink-0 rounded-full p-2 text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-            aria-label={themeLabel}
-            title={themeLabel}
-          >
-            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-          </button>
+          <ThemePicker />
         </div>
       </div>
     </>
@@ -581,9 +569,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onCloseSettings={() => setSettingsOpen(false)}
             onExpand={() => setCollapsed(false)}
             onOpenModal={openModal}
-            onToggleTheme={toggleTheme}
-            theme={theme}
-            themeLabel={themeLabel}
             displayName={displayName}
             image={user?.image}
             creditBalance={user?.creditBalance}
@@ -666,9 +651,6 @@ function CollapsedRail({
   onCloseSettings,
   onExpand,
   onOpenModal,
-  onToggleTheme,
-  theme,
-  themeLabel,
   displayName,
   image,
   creditBalance,
@@ -679,9 +661,6 @@ function CollapsedRail({
   onCloseSettings: () => void;
   onExpand: () => void;
   onOpenModal: (m: SettingsModal) => void;
-  onToggleTheme: () => void;
-  theme: "dark" | "light";
-  themeLabel: string;
   displayName: string;
   image?: string | null;
   creditBalance?: number;
@@ -777,15 +756,7 @@ function CollapsedRail({
             {creditBalance}
           </Link>
         )}
-        <button
-          type="button"
-          onClick={onToggleTheme}
-          className="rounded-full p-2 text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-          aria-label={themeLabel}
-          title={themeLabel}
-        >
-          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-        </button>
+        <ThemePicker align="center" />
         <button
           ref={railBtnRef}
           type="button"
