@@ -20,6 +20,7 @@ export const ADMIN_NAV_GROUPS: {
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/dashboard", label: "ภาพรวม", group: "system" },
   { href: "/admin/landing", label: "หน้าแรกและการตลาด", group: "content" },
+  { href: "/admin/theme", label: "สีธีมเว็บ", group: "content" },
   { href: "/admin/settings", label: "ข้อความเว็บ", group: "content" },
   { href: "/admin/faq", label: "คำถามที่พบบ่อย", group: "content" },
   { href: "/admin/announcements", label: "ประกาศแบนเนอร์", group: "content" },

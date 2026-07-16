@@ -10,6 +10,7 @@ import type {
   CmsPaymentInfo,
   CmsSection,
   CmsSeo,
+  CmsSiteTheme,
   CmsText,
 } from "@/lib/cms-keys";
 import {
@@ -430,6 +431,48 @@ function SettingEditor({
             onChange={(e) => onChange({ ...v, message: e.target.value })}
           />
         </Field>
+      </div>
+    );
+  }
+  if (settingKey === CMS_KEYS.siteTheme) {
+    const v = value as CmsSiteTheme;
+    return (
+      <div className="flex flex-col gap-3">
+        <InfoBox>
+          แนะนำตั้งที่{" "}
+          <Link href="/admin/theme" className="text-[var(--primary)] underline">
+            /admin/theme
+          </Link>{" "}
+          — หน้านี้รองรับ draft/publish เหมือนคอนเทนต์อื่น
+        </InfoBox>
+        <Toggle
+          checked={v.enabled}
+          onChange={(enabled) => onChange({ ...v, enabled })}
+          label="ใช้สีคัสตอมทั้งเว็บ"
+        />
+        {(
+          [
+            ["primary", "สีหลัก"],
+            ["secondary", "สีรอง"],
+            ["backgroundDark", "พื้นหลังโหมดมืด"],
+            ["backgroundLight", "พื้นหลังโหมดสว่าง"],
+          ] as const
+        ).map(([key, label]) => (
+          <Field key={key} label={label}>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={v[key]}
+                onChange={(e) => onChange({ ...v, [key]: e.target.value })}
+                className="h-10 w-12 cursor-pointer rounded border border-[var(--border)] bg-transparent p-0.5"
+              />
+              <TextInput
+                value={v[key]}
+                onChange={(e) => onChange({ ...v, [key]: e.target.value })}
+              />
+            </div>
+          </Field>
+        ))}
       </div>
     );
   }

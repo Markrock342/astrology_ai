@@ -179,6 +179,18 @@ export const cmsSiteFooterSchema = z.object({
     .max(10),
 });
 
+const hexColor = z
+  .string()
+  .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "ต้องเป็นสี hex เช่น #c9a24b");
+
+export const cmsSiteThemeSchema = z.object({
+  enabled: z.boolean(),
+  primary: hexColor,
+  secondary: hexColor,
+  backgroundDark: hexColor,
+  backgroundLight: hexColor,
+});
+
 export const settingUpdateSchema = z.object({
   value: z.unknown(),
 });
