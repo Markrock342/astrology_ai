@@ -2,7 +2,7 @@
 
 สารบัญกลางของโปรเจกต์ (อัปเดต: 17 ก.ค. 2026)
 
-**ฐาน:** `origin/main` — hotfix lint + ALLOW_DESTRUCTIVE สำหรับ drop dead `aiConfigId`  
+**ฐาน:** `origin/main` — hotfix deploy (lint · ALLOW_DESTRUCTIVE · Node `ci-local.mjs`)  
 **หมายเหตุ:** `.cursorrules` เป็น local only — ห้าม commit · GitHub Actions billing-locked (ดู README) — gate จริงคือ Vercel `vercel-build`
 
 ## ภาพรวมสถาปัตยกรรม
