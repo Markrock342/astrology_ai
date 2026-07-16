@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  assertSafeOpenAiBaseUrl,
+  isAllowedAiSecretRef,
+} from "@/lib/ai-config-guards";
 
 /**
  * Zod schemas for Admin CMS endpoints. Kept separate from the user-facing
@@ -280,7 +284,6 @@ export const categoryCreateSchema = z.object({
   sortOrder: z.number().int().default(0),
   suggestedQuestions: z.array(z.string().min(1).max(200)).max(10).optional(),
   promptTemplateId: z.string().nullish(),
-  aiConfigId: z.string().nullish(),
 });
 
 export const categoryUpdateSchema = categoryCreateSchema.partial();
@@ -317,33 +320,113 @@ export const promptCreateSchema = z.object({
 
 export const promptUpdateSchema = promptCreateSchema.omit({ code: true }).partial();
 
-export const aiConfigCreateSchema = z.object({
-  provider: z.enum(["GEMINI", "OPENAI"]).default("GEMINI"),
-  modelId: z.string().min(1).max(120),
-  displayName: z.string().min(1).max(120),
-  // Env var NAME for fallback — optional when apiKey is provided.
-  secretReference: z.string().min(1).max(120).nullish(),
-  // Write-only plaintext API key — encrypted before persistence, never returned.
-  apiKey: z.string().min(1).max(500).optional(),
-  enabled: z.boolean().default(true),
-  temperature: z.number().min(0).max(2).default(0.7),
-  maxOutputTokens: z.number().int().min(64).max(32_768).default(2048),
-  timeoutMs: z.number().int().min(1000).max(120_000).default(30_000),
-  fallbackConfigId: z.string().nullish(),
-  planScope: z.enum(["FREE", "PRO", "ALL"]).default("ALL"),
-  categoryId: z.string().nullish(),
-  promptTemplateId: z.string().nullish(),
-  versionLabel: z.string().max(60).optional(),
-  notes: z.string().max(500).optional(),
-});
+const aiSecretReferenceSchema = z
+  .string()
+  .min(1)
+  .max(120)
+  .nullish()
+  .refine((v) => v == null || v === "" || isAllowedAiSecretRef(v), {
+    message: "secretReference ต้องเป็น GEMINI_API_KEY หรือ OPENAI_API_KEY เท่านั้น",
+  });
 
-export const aiConfigUpdateSchema = aiConfigCreateSchema.partial();
+const aiBaseUrlSchema = z
+  .string()
+  .max(300)
+  .nullish()
+  .transform((v, ctx) => {
+    if (v == null || v === "") return null;
+    try {
+      return assertSafeOpenAiBaseUrl(v);
+    } catch (err) {
+      ctx.addIssue({
+        code: "custom",
+        message: err instanceof Error ? err.message : "Base URL ไม่ถูกต้อง",
+      });
+      return z.NEVER;
+    }
+  });
+
+export const aiConfigCreateSchema = z
+  .object({
+    provider: z.enum(["GEMINI", "OPENAI"]).default("GEMINI"),
+    modelId: z.string().min(1).max(120),
+    displayName: z.string().min(1).max(120),
+    baseUrl: aiBaseUrlSchema,
+    // Legacy env fallback — optional; create path requires apiKey instead.
+    secretReference: aiSecretReferenceSchema,
+    // Write-only plaintext API key — encrypted before persistence, never returned.
+    apiKey: z.string().min(1).max(500),
+    enabled: z.boolean().default(true),
+    temperature: z.number().min(0).max(2).default(0.7),
+    maxOutputTokens: z.number().int().min(64).max(32_768).default(2048),
+    timeoutMs: z.number().int().min(1000).max(120_000).default(30_000),
+    fallbackConfigId: z.string().nullish(),
+    planScope: z.enum(["FREE", "PRO", "ALL"]).default("ALL"),
+    categoryId: z.string().nullish(),
+    promptTemplateId: z.string().nullish(),
+    versionLabel: z.string().max(60).optional(),
+    notes: z.string().max(500).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.provider === "GEMINI" && data.baseUrl) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["baseUrl"],
+        message: "Base URL ใช้ได้เฉพาะ OpenAI-compatible",
+      });
+    }
+  });
+
+export const aiConfigUpdateSchema = z
+  .object({
+    provider: z.enum(["GEMINI", "OPENAI"]).optional(),
+    modelId: z.string().min(1).max(120).optional(),
+    displayName: z.string().min(1).max(120).optional(),
+    baseUrl: aiBaseUrlSchema,
+    secretReference: aiSecretReferenceSchema,
+    apiKey: z.string().min(1).max(500).optional(),
+    enabled: z.boolean().optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    maxOutputTokens: z.number().int().min(64).max(32_768).optional(),
+    timeoutMs: z.number().int().min(1000).max(120_000).optional(),
+    fallbackConfigId: z.string().nullish(),
+    planScope: z.enum(["FREE", "PRO", "ALL"]).optional(),
+    categoryId: z.string().nullish(),
+    promptTemplateId: z.string().nullish(),
+    versionLabel: z.string().max(60).optional(),
+    notes: z.string().max(500).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.provider === "GEMINI" && data.baseUrl) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["baseUrl"],
+        message: "Base URL ใช้ได้เฉพาะ OpenAI-compatible",
+      });
+    }
+  });
 
 /** Test a raw API key before saving (does not persist). */
-export const aiConfigTestKeySchema = z.object({
-  provider: z.enum(["GEMINI", "OPENAI"]),
-  modelId: z.string().min(1).max(120),
-  apiKey: z.string().min(1).max(500),
+export const aiConfigTestKeySchema = z
+  .object({
+    provider: z.enum(["GEMINI", "OPENAI"]),
+    modelId: z.string().min(1).max(120),
+    baseUrl: aiBaseUrlSchema,
+    apiKey: z.string().min(1).max(500),
+  })
+  .superRefine((data, ctx) => {
+    if (data.provider === "GEMINI" && data.baseUrl) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["baseUrl"],
+        message: "Base URL ใช้ได้เฉพาะ OpenAI-compatible",
+      });
+    }
+  });
+
+/** Test a saved config, optionally with a shorter timeout for health probes. */
+export const aiConfigRunTestSchema = z.object({
+  timeoutMs: z.number().int().min(1000).max(120_000).optional(),
 });
 
 export const knowledgeCreateSchema = z.object({

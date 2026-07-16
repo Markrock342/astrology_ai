@@ -173,9 +173,13 @@ export function FaqManager({ initialItems }: { initialItems?: FaqSummary[] | nul
 
   async function remove(id: string) {
     if (!window.confirm("ลบคำถามนี้?")) return;
-    await adminFetch(`/api/admin/faq/${id}`, { method: "DELETE" });
-    if (editingId === id) setShowForm(false);
-    await load();
+    try {
+      await adminFetch(`/api/admin/faq/${id}`, { method: "DELETE" });
+      if (editingId === id) setShowForm(false);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ลบไม่สำเร็จ");
+    }
   }
 
   const editingItem = editingId ? items.find((i) => i.id === editingId) : null;

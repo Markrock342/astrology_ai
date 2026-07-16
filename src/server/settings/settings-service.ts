@@ -28,9 +28,16 @@ type SettingRow = {
 export async function getPublishedSetting<K extends CmsKey>(
   key: K,
 ): Promise<(typeof CMS_DEFAULTS)[K]> {
-  const row = await prisma.appSetting.findUnique({ where: { key } });
-  if (row?.valueJson != null) {
-    return row.valueJson as (typeof CMS_DEFAULTS)[K];
+  try {
+    const row = await prisma.appSetting.findUnique({ where: { key } });
+    if (row?.valueJson != null) {
+      return row.valueJson as (typeof CMS_DEFAULTS)[K];
+    }
+  } catch (err) {
+    console.warn(
+      `[cms] getPublishedSetting(${key}) failed — using default:`,
+      err instanceof Error ? err.message : err,
+    );
   }
   return CMS_DEFAULTS[key];
 }
@@ -118,9 +125,16 @@ export async function upsertSetting(
 }
 
 export async function getDraftSetting<K extends CmsKey>(key: K) {
-  const row = await prisma.appSetting.findUnique({ where: { key } });
-  if (row?.draftValueJson != null) {
-    return row.draftValueJson as (typeof CMS_DEFAULTS)[K];
+  try {
+    const row = await prisma.appSetting.findUnique({ where: { key } });
+    if (row?.draftValueJson != null) {
+      return row.draftValueJson as (typeof CMS_DEFAULTS)[K];
+    }
+  } catch (err) {
+    console.warn(
+      `[cms] getDraftSetting(${key}) failed — falling back to published/default:`,
+      err instanceof Error ? err.message : err,
+    );
   }
   return getPublishedSetting(key);
 }
@@ -205,37 +219,53 @@ export async function getActiveAnnouncements(now = new Date()) {
 }
 
 export async function getPublishedFaqItems() {
-  return prisma.faqItem.findMany({
-    where: { enabled: true },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { id: true, question: true, answer: true, category: true },
-  });
+  try {
+    return await prisma.faqItem.findMany({
+      where: { enabled: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, question: true, answer: true, category: true },
+    });
+  } catch (err) {
+    console.warn(
+      "[cms] getPublishedFaqItems failed — using empty list:",
+      err instanceof Error ? err.message : err,
+    );
+    return [];
+  }
 }
 
 /**
  * Public FAQ list. In preview mode, prefer draft Q/A when present.
  */
 export async function getFaqForPublic(preview?: boolean) {
-  const useDraft = preview ?? (await isPreviewMode());
-  if (!useDraft) return getPublishedFaqItems();
+  try {
+    const useDraft = preview ?? (await isPreviewMode());
+    if (!useDraft) return getPublishedFaqItems();
 
-  const rows = await prisma.faqItem.findMany({
-    where: { enabled: true },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: {
-      id: true,
-      question: true,
-      answer: true,
-      category: true,
-      draftQuestion: true,
-      draftAnswer: true,
-    },
-  });
+    const rows = await prisma.faqItem.findMany({
+      where: { enabled: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        question: true,
+        answer: true,
+        category: true,
+        draftQuestion: true,
+        draftAnswer: true,
+      },
+    });
 
-  return rows.map((row) => ({
-    id: row.id,
-    question: row.draftQuestion ?? row.question,
-    answer: row.draftAnswer ?? row.answer,
-    category: row.category,
-  }));
+    return rows.map((row) => ({
+      id: row.id,
+      question: row.draftQuestion ?? row.question,
+      answer: row.draftAnswer ?? row.answer,
+      category: row.category,
+    }));
+  } catch (err) {
+    console.warn(
+      "[cms] getFaqForPublic failed — using empty list:",
+      err instanceof Error ? err.message : err,
+    );
+    return [];
+  }
 }

@@ -127,9 +127,12 @@ export function SiteThemeManager({ initial }: { initial: CmsSiteTheme }) {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-medium text-[var(--foreground)]">โลโก้เว็บ (มุมซ้ายบน)</p>
           <Button variant="ghost" disabled={busy} onClick={clearLogos}>
-            ลบโลโก้ (กลับค่าเริ่มต้น)
+            ลบโลโก้ออกจากฟอร์ม (ยังไม่เผยแพร่)
           </Button>
         </div>
+        <p className="mb-3 text-[11px] text-[var(--muted-2)]">
+          การลบโลโก้ที่นี่แก้เฉพาะในฟอร์ม — กด &quot;บันทึกและเผยแพร่&quot; จึงจะมีผลกับผู้ใช้จริง
+        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <ImageUploadField
             label="ไอคอน (mark)"

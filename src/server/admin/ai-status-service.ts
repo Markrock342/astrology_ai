@@ -1,6 +1,6 @@
 import type { Prisma, UsageStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
-import { generateWithFallback } from "@/server/ai/router";
+import { generateOnce } from "@/server/ai/router";
 import { classifyProviderFailure } from "@/server/ai/provider-alerts";
 
 /** Hybrid Gemini status: Google Cloud incidents + our usage logs + on-demand health checks. */
@@ -174,16 +174,16 @@ async function getUsageHealth() {
   const [totals, failureCounts, recentFailures] = await Promise.all([
     prisma.aIUsageLog.groupBy({
       by: ["modelId"],
-      where: { createdAt: { gte: since }, provider: "GEMINI" },
+      where: { createdAt: { gte: since } },
       _count: { _all: true },
     }),
     prisma.aIUsageLog.groupBy({
       by: ["modelId"],
-      where: { createdAt: { gte: since }, provider: "GEMINI", ...isRealFailure },
+      where: { createdAt: { gte: since }, ...isRealFailure },
       _count: { _all: true },
     }),
     prisma.aIUsageLog.findMany({
-      where: { createdAt: { gte: since }, provider: "GEMINI", ...isRealFailure },
+      where: { createdAt: { gte: since }, ...isRealFailure },
       orderBy: { createdAt: "desc" },
       take: 8,
       select: {
@@ -237,9 +237,30 @@ async function getUsageHealth() {
 const HEALTH_PROMPT = {
   systemPrompt: "คุณคือผู้ช่วยทดสอบระบบ ตอบสั้นๆ 1 ประโยค",
   userPrompt: "ทดสอบการเชื่อมต่อ: ทักทายเป็นภาษาไทยสั้นๆ",
+  /** Cap probe wait so admin UI does not hang for minutes. */
+  timeoutMs: 12_000,
+  maxOutputTokens: 64,
 };
 
-const HEALTH_CHECK_MAX_CONFIGS = 3;
+const HEALTH_CHECK_CONCURRENCY = 4;
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+) {
+  const results: R[] = [];
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await mapper(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 
 export async function runConfigHealthChecks(force = false) {
   const now = Date.now();
@@ -254,16 +275,14 @@ export async function runConfigHealthChecks(force = false) {
   const configs = await prisma.aIProviderConfig.findMany({
     where: { enabled: true },
     orderBy: [{ provider: "asc" }, { displayName: "asc" }],
-    take: HEALTH_CHECK_MAX_CONFIGS,
     select: { id: true, displayName: true, modelId: true, provider: true },
   });
 
   const checkedAt = new Date().toISOString();
-  const results: ConfigHealthCheck[] = [];
-  for (const cfg of configs) {
+  const results = await mapWithConcurrency(configs, HEALTH_CHECK_CONCURRENCY, async (cfg) => {
     try {
-      const result = await generateWithFallback(cfg.id, HEALTH_PROMPT);
-      results.push({
+      const result = await generateOnce(cfg.id, HEALTH_PROMPT);
+      return {
         configId: cfg.id,
         displayName: cfg.displayName,
         modelId: result.modelId || cfg.modelId,
@@ -273,9 +292,9 @@ export async function runConfigHealthChecks(force = false) {
         errorCode: result.errorCode ?? null,
         errorMessage: result.errorMessage ?? null,
         checkedAt,
-      });
+      };
     } catch (e) {
-      results.push({
+      return {
         configId: cfg.id,
         displayName: cfg.displayName,
         modelId: cfg.modelId,
@@ -285,9 +304,9 @@ export async function runConfigHealthChecks(force = false) {
         errorCode: "CHECK_FAILED",
         errorMessage: e instanceof Error ? e.message : "health check failed",
         checkedAt,
-      });
+      };
     }
-  }
+  });
 
   healthCache = { at: Date.now(), results };
   return { checkedAt, stale: false, results };
@@ -329,14 +348,14 @@ async function getProviderAlert(): Promise<AiStatusSnapshot["providerAlert"]> {
     const titles = {
       BILLING: "เครดิต Gemini อาจหมด — แชททั้งระบบพังได้",
       QUOTA: "โควต้า Gemini เต็ม — คำขอถูกปฏิเสธ",
-      KEY: "API key Gemini ใช้ไม่ได้",
+      KEY: "API key ใช้ไม่ได้ — ตรวจ key ในหน้าโมเดล AI หรือชื่อ env fallback ของ config",
     } as const;
     const messages = {
       BILLING:
         "พบ error แบบ billing/credits จาก Google ในช่วง 6 ชม.ที่ผ่านมา เติม Prepay ใน AI Studio ทันที แล้วตั้ง Budget alert ใน Cloud Billing",
       QUOTA:
         "พบ error โควต้า/rate-limit จาก Google — รอรีเซ็ตหรือขอเพิ่มโควต้าใน AI Studio",
-      KEY: "ตรวจ GEMINI_API_KEY บน Vercel ว่าถูกต้องและยังใช้งานได้",
+      KEY: "ตรวจ API key ที่บันทึกใน Admin หรือ env fallback ของ config ที่เปิดใช้อยู่",
     } as const;
 
     return {

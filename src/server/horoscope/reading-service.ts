@@ -494,6 +494,8 @@ async function runReading(
           question,
           answer: result.rawText,
           categoryName: category.nameTh,
+          categoryId: category.id,
+          planScope: plan,
         })
       : Promise.resolve({ followUps: [] });
 

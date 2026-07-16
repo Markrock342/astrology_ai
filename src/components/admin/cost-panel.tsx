@@ -64,13 +64,18 @@ export function CostPanel() {
   const [data, setData] = useState<Summary | null>(null);
   const [months, setMonths] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setError(null);
+    setLoading(true);
     try {
       setData(await adminFetch<Summary>(`/api/admin/costs?months=${months}`));
     } catch (e) {
+      setData(null);
       setError(e instanceof Error ? e.message : "โหลดข้อมูลต้นทุนไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
   }, [months]);
 
@@ -111,9 +116,9 @@ export function CostPanel() {
         </Card>
       ) : null}
 
-      {!data ? (
+      {loading ? (
         <TableSkeleton />
-      ) : (
+      ) : !data ? null : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard

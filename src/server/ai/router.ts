@@ -30,11 +30,11 @@ function adapterFor(provider: AIProvider): AIProviderAdapter {
  * Priority: category-specific beats global, and an exact plan match (FREE/PRO)
  * beats ALL — so admins can point Free at a cheaper model than Pro.
  *
+ * Tie-break (deterministic): higher score → newer updatedAt → id asc.
+ * When multiple configs share the same top score, a warning is logged so ops
+ * can remove overlapping rows.
+ *
  * `preferFast` (brief mode): prefer a "lite" model when one is configured.
- * Measured TTFT told the story — gemini-3.5-flash takes 9–18s to its first
- * token while the flash-lite fallback answers the same ~9k-token prompt in
- * ~0.8s. Brief mode trades depth for speed by design, so it should not pay the
- * heavy model's thinking latency; it drops to the lite model and feels instant.
  */
 export async function resolveConfig(
   categoryId: string,
@@ -47,6 +47,7 @@ export async function resolveConfig(
       OR: [{ categoryId }, { categoryId: null }],
       planScope: { in: [planScope, "ALL"] },
     },
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
   });
   if (candidates.length === 0) {
     throw new AppError("AI_PROVIDER_ERROR", "No AI config available");
@@ -55,28 +56,52 @@ export async function resolveConfig(
   const score = (c: (typeof candidates)[number]) =>
     (c.categoryId === categoryId ? 2 : 0) + (c.planScope === planScope ? 1 : 0);
 
+  const pickDeterministic = (pool: typeof candidates) => {
+    const ranked = [...pool].sort((a, b) => {
+      const scoreDiff = score(b) - score(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      const timeDiff = b.updatedAt.getTime() - a.updatedAt.getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return a.id.localeCompare(b.id);
+    });
+    const winner = ranked[0];
+    const topScore = score(winner);
+    const ties = ranked.filter((c) => score(c) === topScore);
+    if (ties.length > 1) {
+      console.warn(
+        `[ai-router] overlapping configs for category=${categoryId} plan=${planScope}: ${ties
+          .map((c) => c.id)
+          .join(", ")} — using ${winner.id}`,
+      );
+    }
+    return winner;
+  };
+
   if (opts?.preferFast) {
-    // Keep the category-match preference, but only among lite (fast) models.
-    // Fall through to normal resolution if the admin configured none.
-    const lite = candidates
-      .filter((c) => c.modelId.toLowerCase().includes("lite"))
-      .sort((a, b) => score(b) - score(a));
-    if (lite.length > 0) return lite[0];
+    const lite = candidates.filter((c) => c.modelId.toLowerCase().includes("lite"));
+    if (lite.length > 0) return pickDeterministic(lite);
   }
 
-  candidates.sort((a, b) => score(b) - score(a));
-  return candidates[0];
+  return pickDeterministic(candidates);
 }
 
 type RunInput = Omit<
   GenerateAIInput,
-  "modelId" | "temperature" | "maxOutputTokens" | "timeoutMs" | "secretReference" | "apiKey"
+  | "modelId"
+  | "temperature"
+  | "maxOutputTokens"
+  | "timeoutMs"
+  | "secretReference"
+  | "apiKey"
+  | "baseUrl"
 > & {
   systemPrompt: string;
   userPrompt: string;
   conversationHistory?: GenerateAIInput["conversationHistory"];
   /** Override Admin maxOutputTokens (e.g. plan-specific cap). */
   maxOutputTokens?: number;
+  /** Override Admin timeoutMs (e.g. short health probes). */
+  timeoutMs?: number;
 };
 
 async function toGenerateInput(
@@ -86,6 +111,7 @@ async function toGenerateInput(
     temperature: number;
     maxOutputTokens: number;
     timeoutMs: number;
+    baseUrl: string | null;
     secretReference: string | null;
     encryptedApiKey: string | null;
   },
@@ -105,10 +131,40 @@ async function toGenerateInput(
     conversationHistory: base.conversationHistory,
     temperature: cfg.temperature,
     maxOutputTokens: base.maxOutputTokens ?? cfg.maxOutputTokens,
-    timeoutMs: cfg.timeoutMs,
+    timeoutMs: base.timeoutMs ?? cfg.timeoutMs,
+    baseUrl: cfg.baseUrl ?? undefined,
     apiKey,
     secretReference: cfg.secretReference ?? undefined,
   };
+}
+
+/**
+ * Generate using exactly one config (no fallback). Used by admin health/test
+ * so a broken primary cannot look healthy via its fallback.
+ */
+export async function generateOnce(
+  configId: string,
+  base: RunInput,
+): Promise<GenerateAIResult> {
+  const config = await prisma.aIProviderConfig.findUnique({ where: { id: configId } });
+  if (!config) throw new AppError("AI_PROVIDER_ERROR", "AI config not found");
+
+  try {
+    const adapter = adapterFor(config.provider);
+    return await adapter.generate(await toGenerateInput(config, base));
+  } catch (err) {
+    if (err instanceof AppError && err.code === "AI_PROVIDER_ERROR") {
+      return {
+        ok: false as const,
+        provider: config.provider,
+        modelId: config.modelId,
+        latencyMs: 0,
+        errorCode: "MISSING_API_KEY",
+        errorMessage: err.message,
+      };
+    }
+    throw err;
+  }
 }
 
 /**
@@ -122,26 +178,7 @@ export async function generateWithFallback(
   const config = await prisma.aIProviderConfig.findUnique({ where: { id: configId } });
   if (!config) throw new AppError("AI_PROVIDER_ERROR", "AI config not found");
 
-  const attempt = async (cfg: NonNullable<typeof config>) => {
-    try {
-      const adapter = adapterFor(cfg.provider);
-      return await adapter.generate(await toGenerateInput(cfg, base));
-    } catch (err) {
-      if (err instanceof AppError && err.code === "AI_PROVIDER_ERROR") {
-        return {
-          ok: false as const,
-          provider: cfg.provider,
-          modelId: cfg.modelId,
-          latencyMs: 0,
-          errorCode: "MISSING_API_KEY",
-          errorMessage: err.message,
-        };
-      }
-      throw err;
-    }
-  };
-
-  const primary = await attempt(config);
+  const primary = await generateOnce(configId, base);
   if (primary.ok || !config.fallbackConfigId) return primary;
 
   const fallback = await prisma.aIProviderConfig.findUnique({
@@ -149,7 +186,7 @@ export async function generateWithFallback(
   });
   if (!fallback || !fallback.enabled) return primary;
 
-  return attempt(fallback);
+  return generateOnce(fallback.id, base);
 }
 
 /**

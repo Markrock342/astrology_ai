@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAllowedAiSecretRef } from "@/lib/ai-config-guards";
 
 /**
  * Server-side environment validation. Import this ONLY from server code.
@@ -84,8 +85,9 @@ export const env = parsed.data;
 
 /**
  * Resolve an AI provider API key by its secret reference (the env var NAME).
- * The database only stores the reference string, never the key value.
+ * Only whitelisted names are read — arbitrary env keys are ignored.
  */
 export function resolveSecret(secretReference: string): string | undefined {
+  if (!isAllowedAiSecretRef(secretReference)) return undefined;
   return process.env[secretReference];
 }

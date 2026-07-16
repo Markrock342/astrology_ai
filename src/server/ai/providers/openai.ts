@@ -7,6 +7,12 @@ type OpenAIApiResponse = {
   error?: { message?: string; type?: string; code?: string };
 };
 
+const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
+
+function normalizeBaseUrl(baseUrl: string | undefined) {
+  return (baseUrl?.trim() || OPENAI_DEFAULT_BASE_URL).replace(/\/+$/, "");
+}
+
 /** Best-effort parse; horoscope output may be plain Thai prose if JSON parse fails. */
 function parseHoroscopeText(raw: string): HoroscopeResponse | undefined {
   const jsonMatch = raw.trim().match(/\{[\s\S]*\}/);
@@ -49,8 +55,9 @@ export class OpenAIAdapter implements AIProviderAdapter {
         role: turn.role === "assistant" ? ("assistant" as const) : ("user" as const),
         content: turn.content,
       }));
+      const baseUrl = normalizeBaseUrl(input.baseUrl);
 
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

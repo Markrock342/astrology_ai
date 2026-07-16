@@ -23,7 +23,6 @@ export type CategoryCreateInput = {
   sortOrder: number;
   suggestedQuestions?: string[];
   promptTemplateId?: string | null;
-  aiConfigId?: string | null;
 };
 
 export type CategoryUpdateInput = Partial<CategoryCreateInput>;

@@ -1,11 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  DEFAULT_GEMINI_MODEL_ID,
-  GEMINI_MODEL_PRESETS,
-  geminiReplacementHint,
-} from "@/config/gemini-models";
+import { providerLabel, type SupportedAIProvider } from "@/config/ai-provider-models";
+import { geminiReplacementHint } from "@/config/gemini-models";
 import {
   adminFetch,
   AdminPage,
@@ -25,9 +22,10 @@ type Category = { id: string; nameTh: string; slug: string };
 type Prompt = { id: string; name: string; type: string; enabled: boolean };
 type AIConfig = {
   id: string;
-  provider: "GEMINI" | "OPENAI";
+  provider: SupportedAIProvider;
   modelId: string;
   displayName: string;
+  baseUrl: string | null;
   secretReference: string | null;
   keyLast4: string | null;
   hasStoredKey: boolean;
@@ -44,9 +42,11 @@ type AIConfig = {
 
 type TestResult = {
   ok: boolean;
+  provider?: SupportedAIProvider;
   modelId: string;
   latencyMs: number;
   reply: string | null;
+  errorCode?: string | null;
   errorMessage: string | null;
 };
 
@@ -91,10 +91,14 @@ type AiStatusSnapshot = {
     stale: boolean;
     results: Array<{
       configId: string;
+      displayName: string;
+      modelId: string;
+      provider: SupportedAIProvider;
       ok: boolean;
       latencyMs: number;
       errorCode: string | null;
       errorMessage: string | null;
+      checkedAt: string;
     }>;
   };
   providerAlert: {
@@ -114,10 +118,11 @@ function fmtWhen(iso: string) {
 }
 
 const EMPTY_FORM = {
-  provider: "GEMINI" as "GEMINI" | "OPENAI",
-  modelId: DEFAULT_GEMINI_MODEL_ID,
+  provider: "GEMINI" as SupportedAIProvider,
+  modelId: "",
   displayName: "",
-  secretReference: "GEMINI_API_KEY",
+  baseUrl: "",
+  secretReference: "",
   apiKey: "",
   enabled: true,
   temperature: 0.7,
@@ -151,6 +156,20 @@ export function AiConfigsManager() {
   >(null);
   const [editingKeyLast4, setEditingKeyLast4] = useState<string | null>(null);
   const [editingHasStoredKey, setEditingHasStoredKey] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [showLegacyEnv, setShowLegacyEnv] = useState(false);
+
+  function setProvider(provider: SupportedAIProvider) {
+    setKeyTestResult(null);
+    setForm((current) => ({
+      ...current,
+      provider,
+      // Keep what the admin already typed; only clear Base URL when leaving OpenAI.
+      baseUrl: provider === "OPENAI" ? current.baseUrl : "",
+      secretReference: "",
+    }));
+  }
 
   const loadStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -186,19 +205,71 @@ export function AiConfigsManager() {
     void loadStatus();
   }, [load, loadStatus]);
 
+  function setHealthSnapshot(
+    checkedAt: string,
+    results: AiStatusSnapshot["health"]["results"],
+  ) {
+    setStatus((s) => ({
+      google: s?.google ?? {
+        fetchedAt: new Date().toISOString(),
+        fetchError: null,
+        activeIncidents: [],
+        recentIncidents: [],
+      },
+      usage: s?.usage ?? { periodDays: 7, byModel: [], recentFailures: [] },
+      providerAlert: s?.providerAlert ?? null,
+      health: { checkedAt, stale: false, results },
+    }));
+  }
+
+  function upsertHealthResult(result: AiStatusSnapshot["health"]["results"][number]) {
+    setStatus((s) => {
+      const currentResults = s?.health.results ?? [];
+      const nextResults = [
+        ...currentResults.filter((item) => item.configId !== result.configId),
+        result,
+      ];
+      return {
+        google: s?.google ?? {
+          fetchedAt: new Date().toISOString(),
+          fetchError: null,
+          activeIncidents: [],
+          recentIncidents: [],
+        },
+        usage: s?.usage ?? { periodDays: 7, byModel: [], recentFailures: [] },
+        providerAlert: s?.providerAlert ?? null,
+        health: { checkedAt: result.checkedAt, stale: false, results: nextResults },
+      };
+    });
+  }
+
   async function runHealthChecks() {
     setHealthRunning(true);
+    setError(null);
     try {
-      const health = await adminFetch<AiStatusSnapshot["health"]>(
+      const snapshot = await adminFetch<AiStatusSnapshot["health"]>(
         "/api/admin/ai-status/health",
-        { method: "POST" },
+        { method: "POST", timeoutMs: 120_000 },
       );
-      setStatus((s) => (s ? { ...s, health } : s));
+      setHealthSnapshot(snapshot.checkedAt ?? new Date().toISOString(), snapshot.results);
+      await loadStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : "ตรวจสอบสุขภาพไม่สำเร็จ");
     } finally {
       setHealthRunning(false);
     }
+  }
+
+  function cancelForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setReplaceKey(false);
+    setKeyTestResult(null);
+    setEditingKeyLast4(null);
+    setEditingHasStoredKey(false);
+    setAdvancedOpen(false);
+    setShowLegacyEnv(false);
   }
 
   function startEdit(cfg: AIConfig) {
@@ -207,10 +278,13 @@ export function AiConfigsManager() {
     setKeyTestResult(null);
     setEditingKeyLast4(cfg.keyLast4);
     setEditingHasStoredKey(cfg.hasStoredKey);
+    setAdvancedOpen(false);
+    setShowLegacyEnv(Boolean(cfg.secretReference));
     setForm({
       provider: cfg.provider,
       modelId: cfg.modelId,
       displayName: cfg.displayName,
+      baseUrl: cfg.baseUrl ?? "",
       secretReference: cfg.secretReference ?? "",
       apiKey: "",
       enabled: cfg.enabled,
@@ -232,6 +306,8 @@ export function AiConfigsManager() {
     setKeyTestResult(null);
     setEditingKeyLast4(null);
     setEditingHasStoredKey(false);
+    setAdvancedOpen(false);
+    setShowLegacyEnv(false);
     setForm(EMPTY_FORM);
     setShowForm(true);
   }
@@ -253,6 +329,7 @@ export function AiConfigsManager() {
         body: JSON.stringify({
           provider: form.provider,
           modelId: form.modelId,
+          baseUrl: form.baseUrl || null,
           apiKey: form.apiKey,
         }),
       });
@@ -274,12 +351,20 @@ export function AiConfigsManager() {
     setBusy(true);
     setError(null);
     try {
+      const creating = !editingId;
+      if (creating && !form.apiKey.trim()) {
+        throw new Error("กรุณาวาง API key ก่อนสร้างโมเดล");
+      }
+      if (editingId && replaceKey && !form.apiKey.trim() && !editingHasStoredKey) {
+        throw new Error("กรุณาวาง API key หรือยกเลิกการเปลี่ยน key");
+      }
       const payload: Record<string, unknown> = {
         provider: form.provider,
         modelId: form.modelId,
         displayName: form.displayName,
-        secretReference: form.secretReference || null,
+        baseUrl: form.provider === "OPENAI" ? form.baseUrl || null : null,
         enabled: form.enabled,
+        planScope: form.planScope,
         fallbackConfigId: form.fallbackConfigId || null,
         categoryId: form.categoryId || null,
         promptTemplateId: form.promptTemplateId || null,
@@ -292,23 +377,41 @@ export function AiConfigsManager() {
       if ((!editingId || replaceKey) && form.apiKey.trim()) {
         payload.apiKey = form.apiKey.trim();
       }
+      // Legacy env fallback is opt-in and never required for new configs.
+      if (showLegacyEnv && form.secretReference.trim() && !(creating || (replaceKey && form.apiKey.trim()))) {
+        payload.secretReference = form.secretReference.trim();
+      } else if (creating || (replaceKey && form.apiKey.trim())) {
+        payload.secretReference = null;
+      }
+      let savedId = editingId;
       if (editingId) {
         await adminFetch(`/api/admin/ai-configs/${editingId}`, {
           method: "PATCH",
           body: JSON.stringify(payload),
         });
       } else {
-        await adminFetch("/api/admin/ai-configs", {
+        const created = await adminFetch<{ id: string }>("/api/admin/ai-configs", {
           method: "POST",
           body: JSON.stringify(payload),
         });
+        savedId = created.id;
       }
       setShowForm(false);
       setEditingId(null);
       setForm(EMPTY_FORM);
       setReplaceKey(false);
       setKeyTestResult(null);
+      setAdvancedOpen(false);
+      setShowLegacyEnv(false);
       await load();
+      if (savedId) {
+        setHighlightId(savedId);
+        requestAnimationFrame(() => {
+          document
+            .getElementById(`ai-config-row-${savedId}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
     } finally {
@@ -339,12 +442,28 @@ export function AiConfigsManager() {
   }
 
   async function test(id: string) {
+    const cfg = configs.find((item) => item.id === id);
     setTestResults((r) => ({ ...r, [id]: "loading" }));
     try {
       const result = await adminFetch<TestResult>(`/api/admin/ai-configs/${id}/test`, {
         method: "POST",
+        timeoutMs: 45_000,
+        body: JSON.stringify({ timeoutMs: 30_000 }),
       });
       setTestResults((r) => ({ ...r, [id]: result }));
+      if (cfg) {
+        upsertHealthResult({
+          configId: cfg.id,
+          displayName: cfg.displayName,
+          modelId: result.modelId || cfg.modelId,
+          provider: result.provider ?? cfg.provider,
+          ok: result.ok,
+          latencyMs: result.latencyMs,
+          errorCode: result.errorCode ?? null,
+          errorMessage: result.errorMessage ?? null,
+          checkedAt: new Date().toISOString(),
+        });
+      }
     } catch (e) {
       setTestResults((r) => ({
         ...r,
@@ -353,16 +472,28 @@ export function AiConfigsManager() {
           modelId: "",
           latencyMs: 0,
           reply: null,
+          errorCode: "CHECK_FAILED",
           errorMessage: e instanceof Error ? e.message : "ทดสอบไม่สำเร็จ",
         },
       }));
+      if (cfg) {
+        upsertHealthResult({
+          configId: cfg.id,
+          displayName: cfg.displayName,
+          modelId: cfg.modelId,
+          provider: cfg.provider,
+          ok: false,
+          latencyMs: 0,
+          errorCode: "CHECK_FAILED",
+          errorMessage: e instanceof Error ? e.message : "ทดสอบไม่สำเร็จ",
+          checkedAt: new Date().toISOString(),
+        });
+      }
     }
   }
 
   const catName = (id: string | null) =>
     id ? (categories.find((c) => c.id === id)?.nameTh ?? id) : "ทุกหมวด";
-  const promptName = (id: string | null) =>
-    id ? (prompts.find((p) => p.id === id)?.name ?? id) : "—";
 
   const usageByModel = new Map(status?.usage.byModel.map((m) => [m.modelId, m]) ?? []);
   const healthByConfig = new Map(status?.health.results.map((h) => [h.configId, h]) ?? []);
@@ -373,7 +504,7 @@ export function AiConfigsManager() {
     <AdminPage>
       <PageHeader
         title="AI Models"
-        description="ตั้งค่าว่าหมวดไหน/แพลนไหนใช้โมเดลอะไร — วาง API key ได้ที่นี่ (เข้ารหัสใน DB) หรือใช้ชื่อ env var เป็น fallback"
+        description="ตั้งค่าว่าหมวดไหน/แพลนไหนใช้โมเดลอะไร — วาง API key ที่นี่ (เข้ารหัสใน DB). เลือก OpenAI-compatible เพื่อใช้ GPT / Cursor Composer"
         action={
           <Button onClick={startCreate}>
             + เพิ่ม Model Config
@@ -386,10 +517,12 @@ export function AiConfigsManager() {
       <Card className="mb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-[var(--foreground)]">สถานะ Gemini / AI</h2>
+            <h2 className="text-sm font-semibold text-[var(--foreground)]">
+              สถานะการเชื่อมต่อ AI
+            </h2>
             <p className="mt-1 text-[11px] text-[var(--muted-2)]">
-              ชั้น 1: Google Cloud incidents · ชั้น 2: log ระบบเรา + health check · ชั้น 3: เตือน
-              billing/quota
+              ตรวจโมเดลที่เปิดใช้งานจริงทุกตัว · แสดงผลรายโมเดลในตารางด้านล่าง · ใช้ token
+              เล็กน้อยต่อการทดสอบ
             </p>
           </div>
           <div className="flex gap-2">
@@ -401,6 +534,25 @@ export function AiConfigsManager() {
             </Button>
           </div>
         </div>
+        {healthRunning && (
+          <p className="mt-2 text-[11px] text-[var(--muted)]">
+            กำลังยิงทดสอบจริงไปยังโมเดลที่เปิดใช้ (primary เท่านั้น ไม่ผ่าน fallback) —
+            ผลจะขึ้นในตารางด้านล่าง
+          </p>
+        )}
+        {status?.health.results && status.health.results.length > 0 && !healthRunning && (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {status.health.results.map((h) => (
+              <li key={h.configId}>
+                <Badge tone={h.ok ? "green" : "red"}>
+                  {h.ok
+                    ? `${h.displayName} OK ${h.latencyMs}ms`
+                    : `${h.displayName} ล้มเหลว${h.errorCode ? ` (${h.errorCode})` : ""}`}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {status?.providerAlert ? (
           <div className="mt-3 rounded-lg border border-[var(--danger)]/50 bg-[var(--danger)]/10 px-3 py-2">
@@ -495,7 +647,7 @@ export function AiConfigsManager() {
             </p>
             {recentFailures.length === 0 ? (
               <p className="mt-2 text-[11px] text-[var(--secondary-active)]">
-                ไม่มี error จริงจาก log Gemini ในช่วงนี้ (ผู้ใช้กดหยุดเองไม่นับ)
+                ไม่มี error จริงจาก log ระบบในช่วงนี้ (ผู้ใช้กดหยุดเองไม่นับ)
               </p>
             ) : (
               <ul className="mt-2 space-y-1.5">
@@ -545,243 +697,309 @@ export function AiConfigsManager() {
         </div>
 
         <InfoBox>
-          เราใช้ Google AI Developer API (ไม่ใช่ Vertex) — สถานะ Google เป็นแนวโน้มเท่านั้น
-          log และ health check ด้านล่างสะท้อนประสบการณ์จริงของแอปมากกว่า
+          Google Cloud status เป็นสัญญาณประกอบสำหรับ Gemini เท่านั้น ส่วนผล health check
+          และปุ่มทดสอบในตารางคือการยิง API จริงของ config ที่เราใช้งานอยู่
         </InfoBox>
       </Card>
 
       {showForm && (
-        <Card>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            <Field label="Provider">
-              <Select
-                value={form.provider}
-                onChange={(e) =>
-                  setForm({ ...form, provider: e.target.value as "GEMINI" | "OPENAI" })
-                }
-              >
-                <option value="GEMINI">Gemini</option>
-                <option value="OPENAI">OpenAI</option>
-              </Select>
-            </Field>
-            <Field label="Model ID" hint="เลือกจากรายการ หรือพิมพ์เอง — Google ยกเลิก 2.5 แล้ว">
-              <Select
-                value={
-                  GEMINI_MODEL_PRESETS.some((p) => p.id === form.modelId)
-                    ? form.modelId
-                    : "__custom__"
-                }
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v !== "__custom__") setForm({ ...form, modelId: v });
-                }}
-                className="mb-2"
-              >
-                {GEMINI_MODEL_PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-                <option value="__custom__">อื่น ๆ (พิมพ์เอง)</option>
-              </Select>
-              <TextInput
-                value={form.modelId}
-                onChange={(e) => setForm({ ...form, modelId: e.target.value })}
-                placeholder="gemini-3.5-flash"
-              />
-              {form.provider === "GEMINI" && geminiReplacementHint(form.modelId) && (
-                <p className="mt-1 text-[10px] text-[var(--danger)]">
-                  {geminiReplacementHint(form.modelId)}
-                </p>
-              )}
-            </Field>
-            <Field label="ชื่อที่แสดง">
-              <TextInput
-                value={form.displayName}
-                onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                placeholder="เช่น Free — Flash Lite"
-              />
-            </Field>
-            <Field
-              label="API Key"
-              hint={
-                editingId && editingHasStoredKey && !replaceKey
-                  ? `บันทึกไว้แล้ว: ••••${editingKeyLast4 ?? "????"} — กดเปลี่ยนเพื่อวาง key ใหม่`
-                  : "วาง key จากผู้ให้บริการ AI — จะถูกเข้ารหัสก่อนเก็บในระบบ (ไม่โชว์เต็มอีก)"
-              }
-            >
-              {editingId && editingHasStoredKey && !replaceKey ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 font-mono text-sm text-[var(--muted)]">
-                    ••••{editingKeyLast4 ?? "????"}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setReplaceKey(true);
-                      setKeyTestResult(null);
-                    }}
-                  >
-                    เปลี่ยน key
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <TextInput
-                    type="password"
-                    autoComplete="off"
-                    value={form.apiKey}
-                    onChange={(e) => {
-                      setForm({ ...form, apiKey: e.target.value });
-                      setKeyTestResult(null);
-                    }}
-                    placeholder="วาง API key ที่นี่"
-                  />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      disabled={!form.apiKey.trim() || keyTestResult === "loading"}
-                      onClick={() => void testRawKey()}
-                    >
-                      {keyTestResult === "loading" ? "กำลังทดสอบ…" : "ทดสอบ key"}
-                    </Button>
-                    {editingId && (
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
-                          setReplaceKey(false);
-                          setForm({ ...form, apiKey: "" });
-                          setKeyTestResult(null);
-                        }}
-                      >
-                        ยกเลิกเปลี่ยน
-                      </Button>
-                    )}
-                    {keyTestResult && keyTestResult !== "loading" && (
-                      <span
-                        className={`text-xs ${keyTestResult.ok ? "text-[var(--secondary-active)]" : "text-[var(--danger)]"}`}
-                      >
-                        {keyTestResult.message}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </Field>
-            <Field
-              label="Env fallback (ชื่อตัวแปร)"
-              hint="ทางเลือก — ถ้ายังไม่วาง API key ในระบบ จะอ่านจาก env นี้ เช่น GEMINI_API_KEY"
-            >
-              <TextInput
-                value={form.secretReference}
-                onChange={(e) => setForm({ ...form, secretReference: e.target.value })}
-                placeholder="GEMINI_API_KEY"
-              />
-            </Field>
-            <Field label="ใช้กับแพลน">
-              <Select
-                value={form.planScope}
-                onChange={(e) =>
-                  setForm({ ...form, planScope: e.target.value as "FREE" | "PRO" | "ALL" })
-                }
-              >
-                <option value="ALL">ทุกแพลน</option>
-                <option value="FREE">Free เท่านั้น</option>
-                <option value="PRO">Pro เท่านั้น</option>
-              </Select>
-            </Field>
-            <Field label="ใช้กับหมวด">
-              <Select
-                value={form.categoryId}
-                onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-              >
-                <option value="">ทุกหมวด</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nameTh}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Prompt template">
-              <Select
-                value={form.promptTemplateId}
-                onChange={(e) => setForm({ ...form, promptTemplateId: e.target.value })}
-              >
-                <option value="">ไม่ระบุ (ใช้ default)</option>
-                {prompts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Fallback config" hint="ใช้ตัวไหนแทนถ้าโมเดลนี้ล่ม">
-              <Select
-                value={form.fallbackConfigId}
-                onChange={(e) => setForm({ ...form, fallbackConfigId: e.target.value })}
-              >
-                <option value="">ไม่มี</option>
-                {configs
-                  .filter((c) => c.id !== editingId)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.displayName}
-                    </option>
-                  ))}
-              </Select>
-            </Field>
-            <Field label="Temperature (0-2)">
-              <TextInput
-                type="number"
-                step="0.1"
-                min={0}
-                max={2}
-                value={form.temperature}
-                onChange={(e) => setForm({ ...form, temperature: Number(e.target.value) })}
-              />
-            </Field>
-            <Field label="Max output tokens">
-              <TextInput
-                type="number"
-                min={64}
-                value={form.maxOutputTokens}
-                onChange={(e) =>
-                  setForm({ ...form, maxOutputTokens: Number(e.target.value) })
-                }
-              />
-            </Field>
-            <Field label="Timeout (ms)">
-              <TextInput
-                type="number"
-                min={1000}
-                value={form.timeoutMs}
-                onChange={(e) => setForm({ ...form, timeoutMs: Number(e.target.value) })}
-              />
-            </Field>
-            <Field label="โน้ต">
-              <TextInput
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-            </Field>
-          </div>
-          <div className="mt-4 flex items-center gap-3">
-            <Toggle
-              checked={form.enabled}
-              onChange={(v) => setForm({ ...form, enabled: v })}
-              label="เปิดใช้งาน"
-            />
-            <div className="ml-auto flex gap-2">
-              <Button variant="ghost" onClick={() => setShowForm(false)}>
+        <div className="mb-4 rounded-xl border-2 border-[var(--primary)]/40 bg-[var(--surface)] p-4 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-3">
+            <div>
+              <h2 className="text-base font-semibold text-[var(--foreground)]">
+                {editingId
+                  ? `แก้ไข: ${form.displayName || "โมเดล"}`
+                  : "เพิ่มโมเดลใหม่"}
+              </h2>
+              <p className="mt-0.5 text-[11px] text-[var(--muted-2)]">
+                กรอกเองทั้งหมด — เลือกโปรโตคอลแล้วพิมพ์ Model ID / ชื่อ / API key
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={cancelForm}>
                 ยกเลิก
               </Button>
-              <Button onClick={save} disabled={busy || !form.modelId || !form.displayName}>
+              <Button
+                onClick={() => void save()}
+                disabled={
+                  busy ||
+                  !form.modelId ||
+                  !form.displayName ||
+                  (!editingId && !form.apiKey.trim())
+                }
+              >
                 {busy ? "กำลังบันทึก…" : editingId ? "บันทึกการแก้ไข" : "สร้าง config"}
               </Button>
             </div>
           </div>
-        </Card>
+
+          <section className="mb-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted-2)]">
+              A · ตัวตนโมเดล
+            </h3>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+              <Field
+                label="โปรโตคอล API (เจ้าของ)"
+                hint="เลือกวิธีเรียก API จริง: Gemini หรือ OpenAI-compatible"
+              >
+                <Select
+                  value={form.provider}
+                  onChange={(e) => setProvider(e.target.value as SupportedAIProvider)}
+                >
+                  <option value="GEMINI">Gemini</option>
+                  <option value="OPENAI">OpenAI-compatible</option>
+                </Select>
+              </Field>
+              {form.provider === "OPENAI" && (
+                <Field
+                  label="Base URL"
+                  hint="ที่อยู่ API ของเจ้าที่ใช้อยู่ — ว่างได้ถ้าเป็น OpenAI ทางการ"
+                >
+                  <TextInput
+                    value={form.baseUrl}
+                    onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
+                  />
+                </Field>
+              )}
+              <Field label="Model ID" hint="ชื่อโมเดลตามที่ provider กำหนด">
+                <TextInput
+                  value={form.modelId}
+                  onChange={(e) => setForm({ ...form, modelId: e.target.value })}
+                />
+                {form.provider === "GEMINI" && geminiReplacementHint(form.modelId) && (
+                  <p className="mt-1 text-[10px] text-[var(--danger)]">
+                    {geminiReplacementHint(form.modelId)}
+                  </p>
+                )}
+              </Field>
+              <Field label="ชื่อที่แสดง" hint="ชื่อที่แอดมินเห็นในตาราง">
+                <TextInput
+                  value={form.displayName}
+                  onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+                />
+              </Field>
+            </div>
+            <div className="mt-3">
+              <Toggle
+                checked={form.enabled}
+                onChange={(v) => setForm({ ...form, enabled: v })}
+                label="เปิดใช้งาน"
+              />
+            </div>
+          </section>
+
+          <section className="mb-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted-2)]">
+              B · API key
+            </h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Field
+                label="API Key"
+                hint={
+                  editingId && editingHasStoredKey && !replaceKey
+                    ? `บันทึกไว้แล้ว: ••••${editingKeyLast4 ?? "????"} — กดเปลี่ยนเพื่อวาง key ใหม่`
+                    : `วาง key สำหรับ ${providerLabel(form.provider)} — จะถูกเข้ารหัสก่อนเก็บในระบบ (ไม่โชว์เต็มอีก)`
+                }
+              >
+                {editingId && editingHasStoredKey && !replaceKey ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 font-mono text-sm text-[var(--muted)]">
+                      ••••{editingKeyLast4 ?? "????"}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setReplaceKey(true);
+                        setKeyTestResult(null);
+                      }}
+                    >
+                      เปลี่ยน key
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <TextInput
+                      type="password"
+                      autoComplete="off"
+                      value={form.apiKey}
+                      onChange={(e) => {
+                        setForm({ ...form, apiKey: e.target.value });
+                        setKeyTestResult(null);
+                      }}
+                      placeholder="วาง API key ที่นี่"
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        disabled={!form.apiKey.trim() || keyTestResult === "loading"}
+                        onClick={() => void testRawKey()}
+                      >
+                        {keyTestResult === "loading" ? "กำลังทดสอบ…" : "ทดสอบ key"}
+                      </Button>
+                      {editingId && (
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setReplaceKey(false);
+                            setForm({ ...form, apiKey: "" });
+                            setKeyTestResult(null);
+                          }}
+                        >
+                          ยกเลิกเปลี่ยน
+                        </Button>
+                      )}
+                      {keyTestResult && keyTestResult !== "loading" && (
+                        <span
+                          className={`text-xs ${keyTestResult.ok ? "text-[var(--secondary-active)]" : "text-[var(--danger)]"}`}
+                        >
+                          {keyTestResult.message}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </Field>
+            </div>
+            <p className="mt-2 text-[10px] text-[var(--muted-2)]">
+              คีย์หลักเก็บเข้ารหัสใน DB — ไม่ใช้ชื่อตัวแปร env ในฟอร์มสร้างโมเดลใหม่
+              {editingId && form.secretReference
+                ? ` (legacy env ที่เหลือ: ${form.secretReference})`
+                : ""}
+            </p>
+            {(editingId || showLegacyEnv) && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className="text-[11px] text-[var(--primary)] hover:underline"
+                  onClick={() => setShowLegacyEnv((v) => !v)}
+                >
+                  {showLegacyEnv ? "ซ่อน" : "แสดง"} ตัวเลือก legacy env fallback
+                </button>
+                {showLegacyEnv && (
+                  <Field
+                    label="Env fallback (ชื่อตัวแปร)"
+                    hint="เฉพาะ rollback ชั่วคราว — ค่าที่อนุญาต: GEMINI_API_KEY หรือ OPENAI_API_KEY"
+                  >
+                    <TextInput
+                      value={form.secretReference}
+                      onChange={(e) => setForm({ ...form, secretReference: e.target.value })}
+                      placeholder="GEMINI_API_KEY หรือ OPENAI_API_KEY"
+                    />
+                  </Field>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section className="mb-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted-2)]">
+              C · ขอบเขตแพลน / หมวด
+            </h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <Field label="ใช้กับแพลน">
+                <Select
+                  value={form.planScope}
+                  onChange={(e) =>
+                    setForm({ ...form, planScope: e.target.value as "FREE" | "PRO" | "ALL" })
+                  }
+                >
+                  <option value="ALL">ทุกแพลน</option>
+                  <option value="FREE">Free เท่านั้น</option>
+                  <option value="PRO">Pro เท่านั้น</option>
+                </Select>
+              </Field>
+              <Field label="ใช้กับหมวด">
+                <Select
+                  value={form.categoryId}
+                  onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                >
+                  <option value="">ทุกหมวด</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nameTh}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Prompt template">
+                <Select
+                  value={form.promptTemplateId}
+                  onChange={(e) => setForm({ ...form, promptTemplateId: e.target.value })}
+                >
+                  <option value="">ไม่ระบุ (ใช้ default)</option>
+                  {prompts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          </section>
+
+          <section>
+            <button
+              type="button"
+              className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--primary)] hover:underline"
+              onClick={() => setAdvancedOpen((o) => !o)}
+            >
+              D · พารามิเตอร์ขั้นสูง {advancedOpen ? "▾" : "▸"}
+            </button>
+            {advancedOpen && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <Field label="Fallback config" hint="ใช้ตัวไหนแทนถ้าโมเดลนี้ล่ม">
+                  <Select
+                    value={form.fallbackConfigId}
+                    onChange={(e) => setForm({ ...form, fallbackConfigId: e.target.value })}
+                  >
+                    <option value="">ไม่มี</option>
+                    {configs
+                      .filter((c) => c.id !== editingId)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.displayName}
+                        </option>
+                      ))}
+                  </Select>
+                </Field>
+                <Field label="Temperature (0-2)">
+                  <TextInput
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    max={2}
+                    value={form.temperature}
+                    onChange={(e) => setForm({ ...form, temperature: Number(e.target.value) })}
+                  />
+                </Field>
+                <Field label="Max output tokens">
+                  <TextInput
+                    type="number"
+                    min={64}
+                    value={form.maxOutputTokens}
+                    onChange={(e) =>
+                      setForm({ ...form, maxOutputTokens: Number(e.target.value) })
+                    }
+                  />
+                </Field>
+                <Field label="Timeout (ms)">
+                  <TextInput
+                    type="number"
+                    min={1000}
+                    value={form.timeoutMs}
+                    onChange={(e) => setForm({ ...form, timeoutMs: Number(e.target.value) })}
+                  />
+                </Field>
+                <Field label="โน้ต">
+                  <TextInput
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  />
+                </Field>
+              </div>
+            )}
+          </section>
+        </div>
       )}
 
       {loading && !showForm ? (
@@ -790,94 +1008,133 @@ export function AiConfigsManager() {
           <CardSkeleton />
         </div>
       ) : (
-      <div className="mt-4 flex flex-col gap-3">
-        {configs.map((cfg) => {
-          const result = testResults[cfg.id];
-          const usage = usageByModel.get(cfg.modelId);
-          const health = healthByConfig.get(cfg.id);
-          return (
-            <Card key={cfg.id}>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-[var(--foreground)]">
-                  {cfg.displayName}
-                </span>
-                <Badge tone="gold">{cfg.provider}</Badge>
-                <Badge>{cfg.modelId}</Badge>
-                {health && (
-                  <Badge tone={health.ok ? "green" : "red"}>
-                    {health.ok ? `live OK ${health.latencyMs}ms` : "live ล้มเหลว"}
-                  </Badge>
-                )}
-                {usage && usage.failures7d > 0 && (
-                  <Badge tone="red">log {usage.failures7d}/{usage.total7d} fail</Badge>
-                )}
-                <Badge tone={cfg.planScope === "PRO" ? "gold" : cfg.planScope === "FREE" ? "green" : "muted"}>
-                  {cfg.planScope === "ALL" ? "ทุกแพลน" : cfg.planScope}
-                </Badge>
-                <Badge>{catName(cfg.categoryId)}</Badge>
-                {cfg.hasStoredKey && (
-                  <Badge tone="green">key ••••{cfg.keyLast4 ?? "????"}</Badge>
-                )}
-                {!cfg.hasStoredKey && cfg.secretReference && (
-                  <Badge tone="muted">env {cfg.secretReference}</Badge>
-                )}
-                {!cfg.enabled && <Badge tone="red">ปิดอยู่</Badge>}
-                <div className="ml-auto flex gap-2">
-                  <Button variant="ghost" onClick={() => test(cfg.id)}>
-                    {result === "loading" ? "กำลังทดสอบ…" : "ทดสอบ"}
-                  </Button>
-                  <Button variant="ghost" onClick={() => toggleEnabled(cfg)}>
-                    {cfg.enabled ? "ปิด" : "เปิด"}
-                  </Button>
-                  <Button variant="ghost" onClick={() => startEdit(cfg)}>
-                    แก้ไข
-                  </Button>
-                  <Button variant="danger" onClick={() => remove(cfg.id)}>
-                    ลบ
-                  </Button>
-                </div>
-              </div>
-              <p className="mt-2 text-[11px] text-[var(--muted-2)]">
-                prompt: {promptName(cfg.promptTemplateId)} · temp {cfg.temperature} · max{" "}
-                {cfg.maxOutputTokens} tok · timeout {cfg.timeoutMs / 1000}s
-                {cfg.hasStoredKey
-                  ? ` · key ••••${cfg.keyLast4 ?? "????"}`
-                  : cfg.secretReference
-                    ? ` · env ${cfg.secretReference}`
-                    : " · ไม่มี key"}
-              </p>
-              {cfg.provider === "GEMINI" && geminiReplacementHint(cfg.modelId) && (
-                <p className="mt-2 text-[11px] text-[var(--danger)]">
-                  ⚠ {geminiReplacementHint(cfg.modelId)}
-                </p>
-              )}
-              {result && result !== "loading" && (
-                <div
-                  className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
-                    result.ok
-                      ? "border-[var(--secondary-active)]/40 text-[var(--foreground)]"
-                      : "border-[var(--danger)]/40 text-[var(--danger)]"
-                  }`}
-                >
-                  {result.ok ? (
-                    <>
-                      <span className="text-[var(--secondary-active)]">
-                        ผ่าน ({result.latencyMs} ms)
-                      </span>{" "}
-                      — {result.reply}
-                    </>
-                  ) : (
-                    <>ล้มเหลว: {result.errorMessage}</>
-                  )}
-                </div>
-              )}
-            </Card>
-          );
-        })}
-        {configs.length === 0 && !showForm && (
-          <p className="text-sm text-[var(--muted-2)]">ยังไม่มี config</p>
-        )}
-      </div>
+        <div className="mt-4 overflow-x-auto rounded-xl border border-[var(--border)]">
+          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)] bg-[var(--surface-2)] text-[11px] uppercase tracking-wide text-[var(--muted-2)]">
+                <th className="px-3 py-2 font-medium">ชื่อ</th>
+                <th className="px-3 py-2 font-medium">Provider / Model</th>
+                <th className="px-3 py-2 font-medium">Key</th>
+                <th className="px-3 py-2 font-medium">สถานะ</th>
+                <th className="px-3 py-2 font-medium text-right">การทำงาน</th>
+              </tr>
+            </thead>
+            <tbody>
+              {configs.map((cfg) => {
+                const result = testResults[cfg.id];
+                const usage = usageByModel.get(cfg.modelId);
+                const health = healthByConfig.get(cfg.id);
+                const selected = showForm && editingId === cfg.id;
+                const highlighted = highlightId === cfg.id;
+                return (
+                  <tr
+                    id={`ai-config-row-${cfg.id}`}
+                    key={cfg.id}
+                    className={`border-b border-[var(--border)] last:border-0 ${
+                      selected || highlighted
+                        ? "bg-[var(--primary)]/8 ring-1 ring-inset ring-[var(--primary)]/30"
+                        : ""
+                    }`}
+                  >
+                    <td className="px-3 py-2.5 align-top">
+                      <p className="font-medium text-[var(--foreground)]">{cfg.displayName}</p>
+                      <p className="mt-0.5 text-[10px] text-[var(--muted-2)]">
+                        {cfg.planScope === "ALL" ? "ทุกแพลน" : cfg.planScope} · {catName(cfg.categoryId)}
+                      </p>
+                    </td>
+                    <td className="px-3 py-2.5 align-top">
+                      <div className="flex flex-wrap gap-1">
+                        <Badge tone="gold">{providerLabel(cfg.provider)}</Badge>
+                        <Badge>{cfg.modelId}</Badge>
+                      </div>
+                      {cfg.provider === "OPENAI" && (
+                        <p className="mt-1 text-[10px] text-[var(--muted-2)]">
+                          {cfg.baseUrl ? cfg.baseUrl : "OpenAI default endpoint"}
+                        </p>
+                      )}
+                      {cfg.provider === "GEMINI" && geminiReplacementHint(cfg.modelId) && (
+                        <p className="mt-1 text-[10px] text-[var(--danger)]">
+                          {geminiReplacementHint(cfg.modelId)}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 align-top">
+                      {cfg.hasStoredKey ? (
+                        <Badge tone="green">••••{cfg.keyLast4 ?? "????"}</Badge>
+                      ) : cfg.secretReference ? (
+                        <Badge tone="muted">env {cfg.secretReference}</Badge>
+                      ) : (
+                        <Badge tone="red">ไม่มี key</Badge>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 align-top">
+                      <div className="flex flex-wrap gap-1">
+                        {!cfg.enabled && <Badge tone="red">ปิดอยู่</Badge>}
+                        {cfg.enabled && <Badge tone="green">เปิด</Badge>}
+                        {health && (
+                          <Badge tone={health.ok ? "green" : "red"}>
+                            {health.ok
+                              ? `เชื่อมต่อได้ ${health.latencyMs}ms`
+                              : `เชื่อมต่อไม่ได้${health.errorCode ? ` (${health.errorCode})` : ""}`}
+                          </Badge>
+                        )}
+                        {cfg.enabled && !health && (
+                          <Badge tone="muted">
+                            {healthRunning ? "รอตรวจ" : "ยังไม่ตรวจ"}
+                          </Badge>
+                        )}
+                        {usage && usage.failures7d > 0 && (
+                          <Badge tone="red">
+                            log {usage.failures7d}/{usage.total7d}
+                          </Badge>
+                        )}
+                      </div>
+                      {result && result !== "loading" && (
+                        <p
+                          className={`mt-1 text-[10px] ${
+                            result.ok ? "text-[var(--secondary-active)]" : "text-[var(--danger)]"
+                          }`}
+                        >
+                          {result.ok
+                            ? `ทดสอบผ่าน (${result.latencyMs}ms)`
+                            : `ทดสอบล้ม: ${result.errorCode ? `${result.errorCode} — ` : ""}${result.errorMessage}`}
+                        </p>
+                      )}
+                      {health && !health.ok && health.errorMessage && (
+                        <p className="mt-1 text-[10px] text-[var(--danger)]">
+                          {health.errorMessage}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 align-top">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          onClick={() => void test(cfg.id)}
+                          disabled={result === "loading"}
+                        >
+                          {result === "loading" ? "กำลังทดสอบ…" : "ทดสอบ"}
+                        </Button>
+                        <Button variant="ghost" onClick={() => void toggleEnabled(cfg)}>
+                          {cfg.enabled ? "ปิด" : "เปิด"}
+                        </Button>
+                        <Button variant="ghost" onClick={() => startEdit(cfg)}>
+                          แก้ไข
+                        </Button>
+                        <Button variant="danger" onClick={() => void remove(cfg.id)}>
+                          ลบ
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {configs.length === 0 && (
+            <p className="px-3 py-6 text-sm text-[var(--muted-2)]">ยังไม่มี config</p>
+          )}
+        </div>
       )}
     </AdminPage>
   );

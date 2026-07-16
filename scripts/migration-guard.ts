@@ -5,7 +5,9 @@ import { join } from "node:path";
 export function stripComments(sql: string): string {
   return sql
     .replace(/\/\*[\s\S]*?\*\//g, "")
-    .split("\n")
+    // Windows migrations use CRLF; `.` does not match `\r`, so split on `\r?\n`
+    // or `-- comment\r` would never match `/--.*$/` and false-positive on prose.
+    .split(/\r?\n/)
     .map((line) => line.replace(/--.*$/, ""))
     .join("\n");
 }

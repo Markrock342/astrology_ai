@@ -26,6 +26,7 @@ export async function POST(req: Request) {
       temperature: 0.2,
       maxOutputTokens: 64,
       timeoutMs: 20_000,
+      baseUrl: body.baseUrl ?? undefined,
       apiKey: body.apiKey,
     });
 
