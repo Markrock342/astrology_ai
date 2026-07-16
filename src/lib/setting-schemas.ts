@@ -11,6 +11,7 @@ import {
   cmsPaymentInfoSchema,
   cmsSeoSchema,
   cmsSiteFooterSchema,
+  cmsSiteThemeSchema,
   cmsTextSchema,
 } from "@/lib/admin-schemas";
 import type { z } from "zod";
@@ -25,6 +26,7 @@ export const SETTING_VALUE_SCHEMA_BY_KEY: Record<string, z.ZodType> = {
   [CMS_KEYS.consentBirthEditLimit]: cmsTextSchema,
   [CMS_KEYS.contact]: cmsContactSchema,
   [CMS_KEYS.maintenanceMode]: cmsMaintenanceSchema,
+  [CMS_KEYS.siteTheme]: cmsSiteThemeSchema,
   [CMS_KEYS.paymentInfo]: cmsPaymentInfoSchema,
   [CMS_KEYS.seoHome]: cmsSeoSchema,
   [CMS_KEYS.seoPrivacy]: cmsSeoSchema,
