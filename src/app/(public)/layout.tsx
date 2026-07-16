@@ -1,7 +1,7 @@
 import { PreviewBanner } from "@/components/cms/preview-banner";
 import { PublicAnnouncementBanner } from "@/components/marketing/public-announcement-banner";
 import { SiteFooter } from "@/components/marketing/site-footer";
-import { CMS_KEYS, type CmsSiteFooter } from "@/lib/cms-keys";
+import { CMS_DEFAULTS, CMS_KEYS, type CmsSiteFooter } from "@/lib/cms-keys";
 import { isPreviewMode } from "@/server/cms/preview-mode";
 import {
   getActiveAnnouncements,
@@ -20,7 +20,8 @@ export default async function PublicLayout({
   const [footer, announcements] = await Promise.all([
     (preview
       ? getDraftSetting(CMS_KEYS.siteFooter)
-      : getPublishedSetting(CMS_KEYS.siteFooter)) as Promise<CmsSiteFooter>,
+      : getPublishedSetting(CMS_KEYS.siteFooter)
+    ).catch(() => CMS_DEFAULTS[CMS_KEYS.siteFooter]) as Promise<CmsSiteFooter>,
     getActiveAnnouncements().catch(() => []),
   ]);
 

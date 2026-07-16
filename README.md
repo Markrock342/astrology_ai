@@ -9,14 +9,15 @@ payments and usage logs.
 > **Scope guardrails (do not violate):**
 > - Phase 2 features are **out of scope** (voice/STT/TTS, payment gateway, file
 >   upload/RAG, native apps, etc.). Do not build them.
-> - **Never** call Gemini directly from the browser — all AI goes through the
+> - **Never** call Gemini/OpenAI directly from the browser — all AI goes through the
 >   server adapter/router.
-> - **Never** store API keys in the DB as plain text — the DB stores only a
->   `secretReference` (env var name).
+> - **Never** store API keys in the DB as plain text — admin keys are AES-GCM
+>   encrypted (`encryptedApiKey`); legacy env names (`secretReference`) are fallback only.
+>   See [`docs/backend_ai_admin.md`](./docs/backend_ai_admin.md).
 > - **Never** double-charge credit on AI error or duplicate click — deduct only
 >   after a validated success, guarded by an `Idempotency-Key`.
 
-> **Canonical project reference:** [`PROJECT_STRUCTURE.md`](./PROJECT_STRUCTURE.md) — folder layout, DB, API, AI strategy, Phase boundaries, milestones.
+> **Canonical project reference:** [`docs/index.md`](./docs/index.md) (live status) · [`PROJECT_STRUCTURE.md`](./PROJECT_STRUCTURE.md) — folder layout, DB, API, AI strategy, Phase boundaries, milestones.
 
 ---
 
@@ -164,10 +165,9 @@ Owns the service layer, API routes, DB, and AI integration.
   optimistic locking + immutable ledger — reuse it everywhere; don't bypass it.
 - **Reading flow** (`src/server/horoscope/reading-service.ts`): the full
   charge-after-success + idempotency orchestration is written — wire the real AI.
-- **AI** (`src/server/ai`): implement the real Gemini call in
-  `providers/gemini.ts` (Milestone 3) using `resolveSecret(secretReference)` +
-  `AbortController(timeoutMs)`; return normalized results (never throw on
-  provider errors — return `ok:false` so no credit is charged).
+- **AI** (`src/server/ai`): Gemini + OpenAI-compatible adapters; keys via
+  `resolveApiKey` (encrypted DB key first, then whitelisted env fallback).
+  Provider errors return `ok:false` so no credit is charged.
 - **Admin services**: user management, category/package/prompt/ai-config CRUD,
   manual payments, usage aggregation. Every sensitive change → `writeAudit(...)`.
 

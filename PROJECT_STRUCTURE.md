@@ -78,7 +78,7 @@ hora_ai/
 
 1. **UI ไม่มี business logic** — `src/app/*` เรียก `src/server/*` เท่านั้น
 2. **ห้ามเรียก Gemini จาก browser** — ผ่าน adapter/router ฝั่ง server
-3. **API key อยู่ใน env** — DB เก็บแค่ `secretReference` (ชื่อ env var)
+3. **API key เข้ารหัสใน DB** — `encryptedApiKey` + `AI_SECRET_ENC_KEY`; legacy `secretReference` เป็น whitelist fallback เท่านั้น (ดู `docs/backend_ai_admin.md`)
 4. **หักเครดิตหลัง AI สำเร็จเท่านั้น** — ใช้ `Idempotency-Key` กันกดซ้ำ
 5. **ทุกการเปลี่ยนเครดิตผ่าน `credit-service`** — ห้ามแก้ `balance` ตรง
 6. **ทุก admin mutation เรียก `requireAdmin()` + `writeAudit()`**

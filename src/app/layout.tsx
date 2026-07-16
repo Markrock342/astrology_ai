@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Script from "next/script";
 import { Geist_Mono, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { APP_NAME_TH, APP_TAGLINE_TH } from "@/config/constants";
@@ -67,7 +68,9 @@ export default async function RootLayout({
       className={`${notoThai.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        <Script id="hora-theme-boot" strategy="beforeInteractive">
+          {themeBootScript}
+        </Script>
         <meta name="theme-color" content={siteTheme.primary} />
         <link rel="manifest" href="/manifest.webmanifest" />
       </head>

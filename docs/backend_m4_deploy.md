@@ -66,7 +66,7 @@
 
 | `UPSTASH_*` | rate-limit ใช้ in-memory per instance |
 
-| `OPENAI_API_KEY` | ไม่มี OpenAI fallback ใน Admin CMS |
+| `OPENAI_API_KEY` | ไม่มีค่าใน env สำหรับ OpenAI-compatible config ที่ยังอ้าง `secretReference` นี้ (หรือยังไม่มี encrypted key) |
 
 
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useId, useState } from "react";
+import { adminFetchTimeoutMessage } from "@/lib/admin-fetch-timeout";
 
 /** Small shared primitives for Admin CMS pages (dark HORASARD theme). */
 
@@ -355,17 +356,44 @@ export function CardSkeleton() {
   );
 }
 
-/** Uniform fetch helper for admin API routes. Throws on { ok: false }. */
-export async function adminFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  const json = await res.json();
-  if (!res.ok || !json.ok) {
-    throw new Error(json?.error?.message ?? `Request failed (${res.status})`);
+/** Default client timeout for long admin ops (health / AI test). */
+export const ADMIN_FETCH_DEFAULT_TIMEOUT_MS = 90_000;
+
+/**
+ * Uniform fetch helper for admin API routes. Throws on { ok: false }.
+ * Pass `timeoutMs` (or AbortSignal) to avoid hung buttons.
+ */
+export async function adminFetch<T>(
+  url: string,
+  init?: RequestInit & { timeoutMs?: number },
+): Promise<T> {
+  const { timeoutMs, signal: userSignal, ...rest } = init ?? {};
+  const ms = timeoutMs ?? 0;
+  const controller = ms > 0 ? new AbortController() : null;
+  const timer =
+    controller && ms > 0
+      ? setTimeout(() => controller.abort(), ms)
+      : null;
+
+  try {
+    const res = await fetch(url, {
+      ...rest,
+      signal: controller?.signal ?? userSignal,
+      headers: { "Content-Type": "application/json", ...rest.headers },
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      throw new Error(json?.error?.message ?? `Request failed (${res.status})`);
+    }
+    return json.data as T;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error(adminFetchTimeoutMessage(ms));
+    }
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-  return json.data as T;
 }
 
 export function Modal({

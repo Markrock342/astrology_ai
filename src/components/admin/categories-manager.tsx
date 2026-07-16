@@ -29,11 +29,9 @@ type Category = {
   sortOrder: number;
   suggestedQuestions: string[] | null;
   promptTemplateId: string | null;
-  aiConfigId: string | null;
 };
 
 type PromptOption = { id: string; code: string; name: string };
-type AiConfigOption = { id: string; displayName: string; modelId: string };
 
 function linesToArray(text: string): string[] {
   return text
@@ -56,7 +54,6 @@ export function CategoriesManager({
     })),
   );
   const [prompts, setPrompts] = useState<PromptOption[]>([]);
-  const [aiConfigs, setAiConfigs] = useState<AiConfigOption[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
@@ -70,7 +67,6 @@ export function CategoriesManager({
     sortOrder: 0,
     suggestedText: "",
     promptTemplateId: "",
-    aiConfigId: "",
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,12 +75,9 @@ export function CategoriesManager({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [rows, p, a] = await Promise.all([
+      const [rows, p] = await Promise.all([
         adminFetch<Category[]>("/api/admin/categories"),
         adminFetch<PromptOption[]>("/api/admin/prompts").catch(() => [] as PromptOption[]),
-        adminFetch<AiConfigOption[]>("/api/admin/ai-configs").catch(
-          () => [] as AiConfigOption[],
-        ),
       ]);
       setCategories(
         rows.map((c) => ({
@@ -95,9 +88,6 @@ export function CategoriesManager({
         })),
       );
       setPrompts(p.map((x) => ({ id: x.id, code: x.code, name: x.name })));
-      setAiConfigs(
-        a.map((x) => ({ id: x.id, displayName: x.displayName, modelId: x.modelId })),
-      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
     } finally {
@@ -107,18 +97,11 @@ export function CategoriesManager({
 
   useEffect(() => {
     if (initialCategories) {
-      // Still load prompts/configs in background for edit form options.
-      void Promise.all([
-        adminFetch<PromptOption[]>("/api/admin/prompts").catch(() => [] as PromptOption[]),
-        adminFetch<AiConfigOption[]>("/api/admin/ai-configs").catch(
-          () => [] as AiConfigOption[],
-        ),
-      ]).then(([p, a]) => {
-        setPrompts(p.map((x) => ({ id: x.id, code: x.code, name: x.name })));
-        setAiConfigs(
-          a.map((x) => ({ id: x.id, displayName: x.displayName, modelId: x.modelId })),
-        );
-      });
+      void adminFetch<PromptOption[]>("/api/admin/prompts")
+        .catch(() => [] as PromptOption[])
+        .then((p) => {
+          setPrompts(p.map((x) => ({ id: x.id, code: x.code, name: x.name })));
+        });
       return;
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -139,7 +122,6 @@ export function CategoriesManager({
       sortOrder: cat.sortOrder,
       suggestedText: (cat.suggestedQuestions ?? []).join("\n"),
       promptTemplateId: cat.promptTemplateId ?? "",
-      aiConfigId: cat.aiConfigId ?? "",
     });
   }
 
@@ -157,7 +139,6 @@ export function CategoriesManager({
       sortOrder: categories.length,
       suggestedText: "",
       promptTemplateId: "",
-      aiConfigId: "",
     });
   }
 
@@ -175,7 +156,6 @@ export function CategoriesManager({
       sortOrder: Number(form.sortOrder),
       suggestedQuestions: linesToArray(form.suggestedText),
       promptTemplateId: form.promptTemplateId || null,
-      aiConfigId: form.aiConfigId || null,
     };
     try {
       if (editingId) {
@@ -196,6 +176,27 @@ export function CategoriesManager({
       setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function remove(id: string, nameTh: string) {
+    if (
+      !window.confirm(
+        `ลบหมวด «${nameTh}»?\n\nถ้าหมวดถูกใช้งานอยู่ ระบบจะปิดใช้งานแทนการลบถาวร`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await adminFetch(`/api/admin/categories/${id}`, { method: "DELETE" });
+      if (editingId === id) {
+        setEditingId(null);
+        setShowCreate(false);
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ลบไม่สำเร็จ");
     }
   }
 
@@ -292,47 +293,25 @@ export function CategoriesManager({
               onChange={(e) => setForm({ ...form, suggestedText: e.target.value })}
             />
           </Field>
-          {(prompts.length > 0 || aiConfigs.length > 0) && (
-            <div className="grid gap-3 md:grid-cols-2">
-              {prompts.length > 0 && (
-                <Field
-                  label="บุคลิก AI ของหมวดนี้"
-                  hint="เลือกสไตล์การตอบ — ว่าง = ใช้ค่าเริ่มต้นระบบ"
-                >
-                  <Select
-                    value={form.promptTemplateId}
-                    onChange={(e) =>
-                      setForm({ ...form, promptTemplateId: e.target.value })
-                    }
-                  >
-                    <option value="">— ค่าเริ่มต้นระบบ —</option>
-                    {prompts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.code})
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              )}
-              {aiConfigs.length > 0 && (
-                <Field
-                  label="โมเดล AI ของหมวดนี้"
-                  hint="เลือกโมเดลที่ใช้ตอบ — ว่าง = ใช้ค่าเริ่มต้นระบบ"
-                >
-                  <Select
-                    value={form.aiConfigId}
-                    onChange={(e) => setForm({ ...form, aiConfigId: e.target.value })}
-                  >
-                    <option value="">— ค่าเริ่มต้นระบบ —</option>
-                    {aiConfigs.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.displayName} ({c.modelId})
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              )}
-            </div>
+          {prompts.length > 0 && (
+            <Field
+              label="บุคลิก AI ของหมวดนี้"
+              hint="เลือกสไตล์การตอบ — ว่าง = ใช้ค่าเริ่มต้นระบบ · ผูกโมเดลที่หน้า โมเดล AI"
+            >
+              <Select
+                value={form.promptTemplateId}
+                onChange={(e) =>
+                  setForm({ ...form, promptTemplateId: e.target.value })
+                }
+              >
+                <option value="">— ค่าเริ่มต้นระบบ —</option>
+                {prompts.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.code})
+                  </option>
+                ))}
+              </Select>
+            </Field>
           )}
           <div className="mt-3 flex items-center gap-3">
             <Toggle
@@ -369,9 +348,12 @@ export function CategoriesManager({
               </Badge>
               <Badge>{cat.creditCost} เครดิต</Badge>
               {!cat.enabled && <Badge tone="red">ปิด</Badge>}
-              <div className="ml-auto">
+              <div className="ml-auto flex gap-2">
                 <Button variant="ghost" onClick={() => startEdit(cat)}>
                   แก้ไข
+                </Button>
+                <Button variant="danger" onClick={() => void remove(cat.id, cat.nameTh)}>
+                  ลบ
                 </Button>
               </div>
             </div>

@@ -1,6 +1,6 @@
 # HoraSard — Master Index / Architecture Map
 
-สารบัญกลางของโปรเจกต์ (อัปเดต: 16 ก.ค. 2026)
+สารบัญกลางของโปรเจกต์ (อัปเดต: 17 ก.ค. 2026)
 
 **ฐาน:** `origin/main` @ `914e450` + งาน BN รวมเข้า main รอบนี้  
 **หมายเหตุ:** `.cursorrules` เป็น local only — ห้าม commit
@@ -14,7 +14,7 @@ Service (src/server/*)        →  business logic ทั้งหมด
 DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 ```
 
-**กฎเหล็ก:** ห้ามเรียก AI จาก browser · API key เข้ารหัสใน DB (หรือ env fallback) · หักเครดิตหลัง AI สำเร็จ + `Idempotency-Key` · โลโก้ CMS เก็บใน DB เสิร์ฟ `/api/media/:id` (ไม่ผูก Vercel Blob)
+**กฎเหล็ก:** ห้ามเรียก AI จาก browser · API key เข้ารหัสใน DB (legacy env whitelist เป็น fallback) · หักเครดิตหลัง AI สำเร็จ + `Idempotency-Key` · โลโก้ CMS เก็บใน DB เสิร์ฟ `/api/media/:id` (ไม่ผูก Vercel Blob)
 
 **เอกสารอ้างอิง:** `README.md` · `PROJECT_STRUCTURE.md` · `BACKEND_TASKS.md` · `FRONTEND_TASKS.md` · **`M4_HANDOFF.md`**
 
@@ -26,7 +26,9 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 **UX Wave F:** [UX_WAVE_F_ASSIGN.md](../UX_WAVE_F_ASSIGN.md) · [UX_WAVE_F_BE.md](../UX_WAVE_F_BE.md) · [UX_WAVE_F_FE.md](../UX_WAVE_F_FE.md)  
 **Gemini billing ops:** [ops_gemini_billing_alerts.md](./ops_gemini_billing_alerts.md)  
 **App UI / mobile:** [frontend_app_ui.md](./frontend_app_ui.md)  
-**Admin AI + keys:** [backend_ai_admin.md](./backend_ai_admin.md)
+**Admin CMS UX (preview / health / models):** [admin_cms_ux.md](./admin_cms_ux.md)  
+**Admin AI + keys:** [backend_ai_admin.md](./backend_ai_admin.md)  
+**คู่มือหน้าโมเดล AI (ละเอียด / สำหรับเพื่อนโยน AI):** [`SETTINGS_MODEL_AI.md`](../SETTINGS_MODEL_AI.md)
 
 ## Milestone ปัจจุบัน
 
@@ -38,6 +40,10 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 | **Mobile settings nav + admin กลับแอป** | ✅ |
 | **Admin encrypted API keys** | ✅ `/admin/ai-configs` + `AI_SECRET_ENC_KEY` |
 | **Logo & Theme (host-agnostic upload)** | ✅ DB `media_assets` + `/api/media/:id` |
+| **Admin CMS UX reliability** | ✅ preview · health รายโมเดล · Base URL · follow-up ใช้ AI config routing |
+| **Dev runtime (landing overlays)** | ✅ soft-fail CMS · `next/script` theme · Prisma host log · JWT cookie note |
+| **AI model config repair** | ✅ create ต้องมี key · planScope · primary-only health · migrate seed encrypted · drop dead category aiConfigId |
+| **คู่มือโมเดล AI** | ✅ [`SETTINGS_MODEL_AI.md`](../SETTINGS_MODEL_AI.md) ที่รากโปรเจกต์ |
 
 **Feature gating:** `src/config/features.ts` — `NEXT_PUBLIC_APP_PHASE=2` ปิด AI chat + Admin AI CMS; ไม่ตั้ง = เปิดทั้งหมด
 
@@ -58,13 +64,14 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 | ----- | ----- | ------ | -------- |
 | App UI (chat, account, theme, credit) | ✅ | [frontend_app_ui.md](./frontend_app_ui.md) | `app-shell.tsx`, `chat-view.tsx` |
 | Logo & Theme + mobile settings | ✅ | [frontend_app_ui.md](./frontend_app_ui.md) | `site-theme-manager.tsx`, `brand-logo.tsx`, `settings-popover*.ts(x)` |
+| Admin CMS UX (preview / AI health / models) | ✅ | [admin_cms_ux.md](./admin_cms_ux.md) | `page.tsx` (landing), `ai-configs-manager.tsx`, `OpenAIAdapter`, `adminFetch` |
 | Dashboard soft-nav | 🟡 branch แยก | `fix/dashboard-soft-nav` | ยังไม่รวม |
 
 ---
 
 ## API ที่เพิ่มรอบนี้
 
-- `POST /api/admin/ai-configs/test-key` — ทดสอบ API key ก่อนบันทึก
+- `POST /api/admin/ai-configs/test-key` — ทดสอบ API key ก่อนบันทึก (รองรับ OpenAI-compatible `baseUrl`)
 - `GET /api/media/:id` — เสิร์ฟรูป CMS จาก DB
 - `POST /api/admin/upload` — บันทึกรูปลง `media_assets` (ไม่ใช้ Vercel Blob)
 
@@ -91,4 +98,8 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 - [x] Logo & Theme upload host-agnostic (DB media)
 - [x] Mobile settings dual-mount fix + admin «กลับแอป»
 - [x] `assertFeedbackClient` + migration guard TS
-- [x] Migrations: `ai_config_encrypted_key`, `media_assets`
+- [x] Migrations: `ai_config_encrypted_key`, `media_assets`, `ai_config_base_url`
+- [x] Admin AI Models revamp (Base URL / health per model / provider defaults)
+- [x] Follow-up + thread title ใช้ AI config router (ไม่ hardcode Gemini env)
+- [x] AI model config repair: encrypted-only create, planScope, primary health, seed migrate, drop category.aiConfigId
+- [x] คู่มือหน้าโมเดล AI: `SETTINGS_MODEL_AI.md`

@@ -9,6 +9,10 @@ import {
   isEncryptionConfigured,
   last4,
 } from "@/lib/crypto/secret-box";
+import {
+  assertSafeOpenAiBaseUrl,
+  isAllowedAiSecretRef,
+} from "@/lib/ai-config-guards";
 import { invalidateKeyCache } from "@/server/ai/secret-resolver";
 
 /**
@@ -319,9 +323,10 @@ export type AIConfigCreateInput = {
   provider: "GEMINI" | "OPENAI";
   modelId: string;
   displayName: string;
+  baseUrl?: string | null;
   secretReference?: string | null;
-  /** Write-only plaintext key — encrypted before DB write. */
-  apiKey?: string;
+  /** Write-only plaintext key — encrypted before DB write. Required on create. */
+  apiKey: string;
   enabled?: boolean;
   temperature?: number;
   maxOutputTokens?: number;
@@ -334,13 +339,16 @@ export type AIConfigCreateInput = {
   notes?: string;
 };
 
-export type AIConfigUpdateInput = Partial<AIConfigCreateInput>;
+export type AIConfigUpdateInput = Partial<Omit<AIConfigCreateInput, "apiKey">> & {
+  apiKey?: string;
+};
 
 const aiConfigListSelect = {
   id: true,
   provider: true,
   modelId: true,
   displayName: true,
+  baseUrl: true,
   secretReference: true,
   keyLast4: true,
   encryptedApiKey: true, // stripped before return — used only for hasStoredKey
@@ -381,7 +389,7 @@ function buildSecretFields(apiKey: string | undefined) {
   if (!isEncryptionConfigured()) {
     throw new AppError(
       "VALIDATION",
-      "ยังไม่ได้ตั้ง AI_SECRET_ENC_KEY บนโฮสต์ — ไม่สามารถบันทึก API key ในระบบได้ (ใช้ชื่อ env var แทนได้)",
+      "ยังไม่ได้ตั้ง AI_SECRET_ENC_KEY บนโฮสต์ — ไม่สามารถบันทึก API key ในระบบได้",
     );
   }
   return {
@@ -390,22 +398,57 @@ function buildSecretFields(apiKey: string | undefined) {
   };
 }
 
-export async function createAIConfig(input: AIConfigCreateInput, actor: Actor) {
-  const { apiKey, ...rest } = input;
-  if (!apiKey && !rest.secretReference) {
+function normalizeSecretReference(
+  secretReference: string | null | undefined,
+): string | null {
+  if (!secretReference) return null;
+  if (!isAllowedAiSecretRef(secretReference)) {
     throw new AppError(
       "VALIDATION",
-      "ต้องระบุ API key หรือชื่อ env var (secretReference) อย่างน้อยหนึ่งอย่าง",
+      "secretReference ต้องเป็น GEMINI_API_KEY หรือ OPENAI_API_KEY เท่านั้น",
     );
   }
-  const secretFields = buildSecretFields(apiKey);
+  return secretReference;
+}
+
+function normalizeBaseUrlForProvider(
+  provider: "GEMINI" | "OPENAI",
+  baseUrl: string | null | undefined,
+): string | null {
+  if (provider === "GEMINI") return null;
+  try {
+    return assertSafeOpenAiBaseUrl(baseUrl);
+  } catch (err) {
+    throw new AppError(
+      "VALIDATION",
+      err instanceof Error ? err.message : "Base URL ไม่ถูกต้อง",
+    );
+  }
+}
+
+export async function createAIConfig(input: AIConfigCreateInput, actor: Actor) {
+  const { apiKey, ...rest } = input;
+  if (!apiKey?.trim()) {
+    throw new AppError(
+      "VALIDATION",
+      "ต้องวาง API key เมื่อสร้างโมเดลใหม่ (ระบบจะเข้ารหัสเก็บใน DB)",
+    );
+  }
+  const secretFields = buildSecretFields(apiKey.trim());
+  if (!secretFields) {
+    throw new AppError("VALIDATION", "ไม่สามารถเข้ารหัส API key ได้");
+  }
+  const provider = rest.provider ?? "GEMINI";
 
   return prisma.$transaction(async (tx) => {
     const created = await tx.aIProviderConfig.create({
       data: {
         ...rest,
-        secretReference: rest.secretReference ?? null,
-        ...(secretFields ?? {}),
+        provider,
+        baseUrl: normalizeBaseUrlForProvider(provider, rest.baseUrl),
+        // New configs store encrypted keys only — do not keep env fallback.
+        secretReference: null,
+        ...secretFields,
       } as Prisma.AIProviderConfigUncheckedCreateInput,
     });
     await writeAudit(
@@ -432,15 +475,30 @@ export async function updateAIConfig(id: string, input: AIConfigUpdateInput, act
   }
 
   const { apiKey, ...rest } = input;
-  const secretFields = buildSecretFields(apiKey);
+  const secretFields = buildSecretFields(apiKey?.trim());
+  const nextProvider = rest.provider ?? before.provider;
+  const data: Prisma.AIProviderConfigUncheckedUpdateInput = {
+    ...rest,
+  };
+  if ("baseUrl" in rest || rest.provider) {
+    data.baseUrl = normalizeBaseUrlForProvider(
+      nextProvider,
+      "baseUrl" in rest ? rest.baseUrl : before.baseUrl,
+    );
+  }
+  if ("secretReference" in rest) {
+    data.secretReference = normalizeSecretReference(rest.secretReference);
+  }
+  if (secretFields) {
+    Object.assign(data, secretFields);
+    // Replacing the key clears legacy env fallback so runtime uses DB key only.
+    data.secretReference = null;
+  }
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.aIProviderConfig.update({
       where: { id },
-      data: {
-        ...rest,
-        ...(secretFields ?? {}),
-      } as Prisma.AIProviderConfigUncheckedUpdateInput,
+      data,
     });
     await writeAudit(
       {
@@ -463,14 +521,13 @@ export async function deleteAIConfig(id: string, actor: Actor) {
   const before = await prisma.aIProviderConfig.findUnique({ where: { id } });
   if (!before) throw new AppError("NOT_FOUND", "AI config not found");
 
-  const [cats, fallbacks] = await Promise.all([
-    prisma.horoscopeCategory.count({ where: { aiConfigId: id } }),
+  const [fallbacks] = await Promise.all([
     prisma.aIProviderConfig.count({ where: { fallbackConfigId: id } }),
   ]);
-  if (cats > 0 || fallbacks > 0) {
+  if (fallbacks > 0) {
     throw new AppError(
       "VALIDATION",
-      "Config นี้ถูกใช้งานอยู่ (หมวดหมู่/fallback) กรุณาปิดการใช้งานแทนการลบ",
+      "Config นี้ถูกใช้งานเป็น fallback ของ config อื่น กรุณาปิดการใช้งานแทนการลบ",
     );
   }
 
@@ -661,7 +718,7 @@ export async function publishKnowledgeDoc(id: string, input: KnowledgeCreateInpu
     await recordRevision({
       entityType: "KNOWLEDGE_DOC",
       entityId: id,
-      snapshotJson: { title: updated.title, content: updated.content.slice(0, 2000) },
+      snapshotJson: { title: updated.title, content: updated.content },
       action: "PUBLISH",
       actor,
     });

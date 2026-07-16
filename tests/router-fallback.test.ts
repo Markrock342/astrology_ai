@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { generateWithFallback, resolveConfig } from "@/server/ai/router";
+import {
+  generateOnce,
+  generateWithFallback,
+  resolveConfig,
+} from "@/server/ai/router";
 
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
@@ -38,6 +42,9 @@ vi.mock("@/server/ai/secret-resolver", () => ({
   invalidateKeyCache: vi.fn(),
 }));
 
+const t0 = new Date("2026-01-01T00:00:00Z");
+const t1 = new Date("2026-06-01T00:00:00Z");
+
 describe("resolveConfig (M3 B2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -50,12 +57,14 @@ describe("resolveConfig (M3 B2)", () => {
         categoryId: null,
         planScope: "ALL",
         enabled: true,
+        updatedAt: t0,
       },
       {
         id: "category",
         categoryId: "cat-1",
         planScope: "PRO",
         enabled: true,
+        updatedAt: t0,
       },
     ]);
 
@@ -71,6 +80,7 @@ describe("resolveConfig (M3 B2)", () => {
         planScope: "PRO",
         enabled: true,
         modelId: "gemini-3.5-flash",
+        updatedAt: t1,
       },
       {
         id: "all-lite",
@@ -78,6 +88,7 @@ describe("resolveConfig (M3 B2)", () => {
         planScope: "ALL",
         enabled: true,
         modelId: "gemini-3.1-flash-lite",
+        updatedAt: t0,
       },
     ]);
 
@@ -97,39 +108,75 @@ describe("resolveConfig (M3 B2)", () => {
         planScope: "PRO",
         enabled: true,
         modelId: "gemini-3.5-flash",
+        updatedAt: t0,
       },
     ]);
 
     const config = await resolveConfig("cat-1", "PRO", { preferFast: true });
     expect(config.id).toBe("pro-only");
   });
+
+  it("tie-breaks equal scores by newer updatedAt then id", async () => {
+    mocks.findMany.mockResolvedValue([
+      {
+        id: "older-all",
+        categoryId: null,
+        planScope: "ALL",
+        enabled: true,
+        modelId: "gemini-a",
+        updatedAt: t0,
+      },
+      {
+        id: "newer-all",
+        categoryId: null,
+        planScope: "ALL",
+        enabled: true,
+        modelId: "gemini-b",
+        updatedAt: t1,
+      },
+    ]);
+
+    const config = await resolveConfig("cat-1", "FREE");
+    expect(config.id).toBe("newer-all");
+  });
 });
+
+const primaryRow = {
+  id: "primary",
+  provider: "GEMINI",
+  modelId: "gemini-primary",
+  temperature: 0.7,
+  maxOutputTokens: 100,
+  timeoutMs: 1000,
+  baseUrl: null,
+  encryptedApiKey: null,
+  secretReference: "GEMINI_API_KEY",
+  fallbackConfigId: "fallback",
+  enabled: true,
+};
+
+const fallbackRow = {
+  id: "fallback",
+  provider: "OPENAI",
+  modelId: "gpt-fallback",
+  temperature: 0.7,
+  maxOutputTokens: 100,
+  timeoutMs: 1000,
+  baseUrl: "https://example.test/v1",
+  encryptedApiKey: null,
+  secretReference: "OPENAI_API_KEY",
+  enabled: true,
+  fallbackConfigId: null,
+};
 
 describe("generateWithFallback (M3 B2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.findUnique
-      .mockResolvedValueOnce({
-        id: "primary",
-        provider: "GEMINI",
-        modelId: "gemini-primary",
-        temperature: 0.7,
-        maxOutputTokens: 100,
-        timeoutMs: 1000,
-        secretReference: "GEMINI_API_KEY",
-        fallbackConfigId: "fallback",
-        enabled: true,
-      })
-      .mockResolvedValueOnce({
-        id: "fallback",
-        provider: "OPENAI",
-        modelId: "gpt-fallback",
-        temperature: 0.7,
-        maxOutputTokens: 100,
-        timeoutMs: 1000,
-        secretReference: "OPENAI_API_KEY",
-        enabled: true,
-      });
+    mocks.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => {
+      if (where.id === "primary") return primaryRow;
+      if (where.id === "fallback") return fallbackRow;
+      return null;
+    });
     mocks.primaryGenerate.mockResolvedValue({
       ok: false,
       provider: "GEMINI",
@@ -156,5 +203,31 @@ describe("generateWithFallback (M3 B2)", () => {
     expect(result.rawText).toBe("fallback answer");
     expect(mocks.primaryGenerate).toHaveBeenCalledOnce();
     expect(mocks.fallbackGenerate).toHaveBeenCalledOnce();
+  });
+});
+
+describe("generateOnce (health/test)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.findUnique.mockResolvedValue(primaryRow);
+    mocks.primaryGenerate.mockResolvedValue({
+      ok: false,
+      provider: "GEMINI",
+      modelId: "gemini-primary",
+      latencyMs: 50,
+      errorCode: "PROVIDER_ERROR",
+    });
+  });
+
+  it("does not call fallback when primary fails", async () => {
+    const result = await generateOnce("primary", {
+      systemPrompt: "sys",
+      userPrompt: "user",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.modelId).toBe("gemini-primary");
+    expect(mocks.primaryGenerate).toHaveBeenCalledOnce();
+    expect(mocks.fallbackGenerate).not.toHaveBeenCalled();
   });
 });

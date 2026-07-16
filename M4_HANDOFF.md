@@ -63,8 +63,8 @@
 |------|--------|----------|
 | `/admin/prompts` **บุคลิก AI** | แก้ system / persona / output format (draft → publish) | เข้า `buildSystemPrompt` ทุกครั้งที่ยิง Gemini |
 | `/admin/knowledge` **คลังความรู้** | ตำรา/FAQ ต่อหมวดหรือทั้งระบบ (เปิดใช้ + publish) | inject เป็นบล็อก “ความรู้อ้างอิง” ใน system prompt |
-| `/admin/ai-configs` **โมเดล AI** | เลือก Gemini model, ผูก persona, test endpoint | `secretReference` = ชื่อ env เช่น `GEMINI_API_KEY` |
-| `/admin/categories` | ผูก `promptTemplateId` / โมเดลต่อหมวด | หมวดใช้บุคลิกเฉพาะได้ |
+| `/admin/ai-configs` **โมเดล AI** | Gemini / OpenAI-compatible + Base URL, วาง API key (เข้ารหัส), test/health รายโมเดล | สร้างต้องมี `apiKey`; ผูกหมวด/แพลนที่ฟอร์มนี้ |
+| `/admin/categories` | ผูก `promptTemplateId` ต่อหมวด | ผูกโมเดลทำที่ AI Configs → หมวด ไม่ใช่หน้านี้ |
 | `/admin/usage` | ดู log การเรียก AI | ไม่หักเครดิตตอน test |
 
 เงื่อนไข: `NEXT_PUBLIC_APP_PHASE≥3` (หรือไม่ตั้งใน dev) → `FEATURES.aiAdmin` + `aiChat` เปิด  

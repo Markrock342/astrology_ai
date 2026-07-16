@@ -57,8 +57,24 @@ function databaseUrl(): string | undefined {
   return url;
 }
 
+function safeUrlHostPort(url: string): string {
+  try {
+    const parsed = new URL(url.replace(/^postgresql:/i, "http:"));
+    return `${parsed.hostname}:${parsed.port || "5432"}`;
+  } catch {
+    return "(unparseable)";
+  }
+}
+
 function createPrismaClient(): PrismaClient {
   const url = databaseUrl();
+  if (process.env.NODE_ENV === "development") {
+    if (!url) {
+      console.warn("[prisma] DATABASE_URL is unset — Prisma will fail to connect");
+    } else {
+      console.info(`[prisma] using DATABASE_URL host ${safeUrlHostPort(url)}`);
+    }
+  }
   return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
     ...(url ? { datasources: { db: { url } } } : {}),

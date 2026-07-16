@@ -58,22 +58,31 @@ export function ContentEditorToolbar({
   } | null>(null);
   const [diffRevId, setDiffRevId] = useState<string | null>(null);
   const [diffSnapshot, setDiffSnapshot] = useState<Record<string, unknown> | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
   const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!diffRevId) return;
+    if (!diffRevId) {
+      setDiffSnapshot(null);
+      return;
+    }
     let alive = true;
+    setDiffLoading(true);
     fetch(`/api/admin/revisions/${diffRevId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
-        if (!alive || !json?.ok) return;
-        const snap = json.data?.snapshotJson;
+        if (!alive) return;
+        const snap = json?.data?.snapshotJson;
         setDiffSnapshot(
           snap && typeof snap === "object" ? (snap as Record<string, unknown>) : null,
         );
       })
       .catch(() => {
         if (alive) setDiffSnapshot(null);
+      })
+      .finally(() => {
+        if (alive) setDiffLoading(false);
       });
     return () => {
       alive = false;
@@ -88,12 +97,27 @@ export function ContentEditorToolbar({
   async function handlePreview() {
     if (!previewHref) return;
     setPreviewBusy(true);
+    setPreviewError(null);
     try {
-      if (onEnablePreview) await onEnablePreview();
-      else {
-        await fetch("/api/admin/preview/enable", { method: "POST" }).catch(() => {});
+      if (onEnablePreview) {
+        await onEnablePreview();
+      } else {
+        const res = await fetch("/api/admin/preview/enable", { method: "POST" });
+        const json = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: { message?: string };
+        } | null;
+        if (!res.ok || json?.ok === false) {
+          throw new Error(
+            json?.error?.message ?? "เปิดโหมดดูตัวอย่างไม่สำเร็จ",
+          );
+        }
       }
       window.open(previewHref, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      setPreviewError(
+        e instanceof Error ? e.message : "เปิดโหมดดูตัวอย่างไม่สำเร็จ",
+      );
     } finally {
       setPreviewBusy(false);
     }
@@ -113,6 +137,9 @@ export function ContentEditorToolbar({
           >
             {previewBusy ? "กำลังเปิด…" : "ดูตัวอย่าง ↗"}
           </button>
+        )}
+        {previewError && (
+          <span className="text-[11px] text-[var(--danger)]">{previewError}</span>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
           {hasDraft && onDiscardDraft && (
@@ -151,16 +178,14 @@ export function ContentEditorToolbar({
                   </span>
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-1">
-                  {rev.snapshotJson && (
-                    <Button
-                      variant="ghost"
-                      onClick={() =>
-                        setDiffRevId((id) => (id === rev.id ? null : rev.id))
-                      }
-                    >
-                      {diffRevId === rev.id ? "ซ่อน diff" : "ดู diff"}
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    onClick={() =>
+                      setDiffRevId((id) => (id === rev.id ? null : rev.id))
+                    }
+                  >
+                    {diffRevId === rev.id ? "ซ่อน diff" : "ดู diff"}
+                  </Button>
                   <Button
                     variant="ghost"
                     onClick={() => setPendingRestore({ id: rev.id, mode: "draft" })}
@@ -176,7 +201,9 @@ export function ContentEditorToolbar({
                 </div>
                 {diffRevId === rev.id && (
                   <div className="mt-2 max-h-40 overflow-auto rounded border border-[var(--border)] bg-[var(--surface)] p-2 font-mono text-[10px]">
-                    {diffs.length === 0 ? (
+                    {diffLoading ? (
+                      <p>กำลังโหลด diff…</p>
+                    ) : diffs.length === 0 ? (
                       <p>ไม่พบความต่างของฟิลด์</p>
                     ) : (
                       diffs.map((d) => (

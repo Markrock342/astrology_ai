@@ -41,6 +41,8 @@ export type GenerateAIInput = {
   temperature: number;
   maxOutputTokens: number;
   timeoutMs: number;
+  /** Optional OpenAI-compatible endpoint root, e.g. https://api.openai.com/v1. */
+  baseUrl?: string;
   /**
    * Resolved plaintext API key (from encrypted DB value or env fallback).
    * Never log this. Adapters must use this field — do not re-resolve secrets.

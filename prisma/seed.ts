@@ -169,25 +169,55 @@ async function main() {
     },
   });
 
-  // ---- Gemini AI configs (key referenced by env NAME only) ----
+  // ---- Gemini AI configs (encrypted key preferred; no env secretReference) ----
   // Free/Pro use different models: Free gets flash-lite, Pro gets 3.5 flash.
   // Both editable from Admin CMS (/admin/ai-configs).
+  const geminiPlain = process.env.GEMINI_API_KEY?.trim();
+  const canEncryptAiKey =
+    Boolean(geminiPlain) &&
+    Boolean(process.env.AI_SECRET_ENC_KEY?.trim());
+  let seedSecretFields:
+    | { encryptedApiKey: string; keyLast4: string; secretReference: null }
+    | { encryptedApiKey?: undefined; keyLast4?: undefined; secretReference: null } = {
+    secretReference: null,
+  };
+  if (canEncryptAiKey && geminiPlain) {
+    const { encryptSecret, last4 } = await import("../src/lib/crypto/secret-box");
+    seedSecretFields = {
+      encryptedApiKey: encryptSecret(geminiPlain),
+      keyLast4: last4(geminiPlain),
+      secretReference: null,
+    };
+  } else {
+    console.warn(
+      "[seed] GEMINI_API_KEY or AI_SECRET_ENC_KEY missing — AI configs created without stored key; paste key in Admin → โมเดล AI",
+    );
+  }
+
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-default" },
     update: {
       modelId: "gemini-3.1-flash-lite",
       displayName: "Gemini 3.1 Flash Lite (fallback ทุกแพลน)",
+      planScope: "ALL",
+      secretReference: null,
+      ...(seedSecretFields.encryptedApiKey
+        ? {
+            encryptedApiKey: seedSecretFields.encryptedApiKey,
+            keyLast4: seedSecretFields.keyLast4,
+          }
+        : {}),
     },
     create: {
       id: "seed-gemini-default",
       provider: "GEMINI",
       modelId: "gemini-3.1-flash-lite",
       displayName: "Gemini 3.1 Flash Lite (fallback ทุกแพลน)",
-      secretReference: "GEMINI_API_KEY",
       planScope: "ALL",
       promptTemplateId: undefined,
       versionLabel: "v1",
       notes: "Seed default. Model id is editable from Admin CMS.",
+      ...seedSecretFields,
     },
   });
 
@@ -196,19 +226,27 @@ async function main() {
     update: {
       modelId: "gemini-3.1-flash-lite",
       displayName: "Free — Gemini 3.1 Flash Lite (ประหยัด)",
+      planScope: "FREE",
+      secretReference: null,
+      ...(seedSecretFields.encryptedApiKey
+        ? {
+            encryptedApiKey: seedSecretFields.encryptedApiKey,
+            keyLast4: seedSecretFields.keyLast4,
+          }
+        : {}),
     },
     create: {
       id: "seed-gemini-free",
       provider: "GEMINI",
       modelId: "gemini-3.1-flash-lite",
       displayName: "Free — Gemini 3.1 Flash Lite (ประหยัด)",
-      secretReference: "GEMINI_API_KEY",
       planScope: "FREE",
       maxOutputTokens: 1024,
       fallbackConfigId: "seed-gemini-default",
       promptTemplateId: undefined,
       versionLabel: "v1",
       notes: "Free users: cheaper model, shorter answers.",
+      ...seedSecretFields,
     },
   });
 
@@ -217,19 +255,27 @@ async function main() {
     update: {
       modelId: "gemini-3.5-flash",
       displayName: "Pro — Gemini 3.5 Flash (ละเอียด)",
+      planScope: "PRO",
+      secretReference: null,
+      ...(seedSecretFields.encryptedApiKey
+        ? {
+            encryptedApiKey: seedSecretFields.encryptedApiKey,
+            keyLast4: seedSecretFields.keyLast4,
+          }
+        : {}),
     },
     create: {
       id: "seed-gemini-pro",
       provider: "GEMINI",
       modelId: "gemini-3.5-flash",
       displayName: "Pro — Gemini 3.5 Flash (ละเอียด)",
-      secretReference: "GEMINI_API_KEY",
       planScope: "PRO",
       maxOutputTokens: 4096,
       fallbackConfigId: "seed-gemini-default",
       promptTemplateId: undefined,
       versionLabel: "v1",
       notes: "Pro users: fuller model, longer answers.",
+      ...seedSecretFields,
     },
   });
 

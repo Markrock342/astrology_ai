@@ -305,13 +305,33 @@ export function SettingsManager({
                   <button
                     type="button"
                     onClick={() => {
-                      void fetch("/api/admin/preview/enable", { method: "POST" })
-                        .then(() =>
-                          window.open(meta.previewPath, "_blank", "noopener,noreferrer"),
-                        )
-                        .catch(() =>
-                          window.open(meta.previewPath, "_blank", "noopener,noreferrer"),
-                        );
+                      void (async () => {
+                        try {
+                          const res = await fetch("/api/admin/preview/enable", {
+                            method: "POST",
+                          });
+                          const json = (await res.json().catch(() => null)) as {
+                            ok?: boolean;
+                            error?: { message?: string };
+                          } | null;
+                          if (!res.ok || json?.ok === false) {
+                            throw new Error(
+                              json?.error?.message ?? "เปิดโหมดดูตัวอย่างไม่สำเร็จ",
+                            );
+                          }
+                          window.open(
+                            meta.previewPath,
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
+                        } catch (e) {
+                          setError(
+                            e instanceof Error
+                              ? e.message
+                              : "เปิดโหมดดูตัวอย่างไม่สำเร็จ",
+                          );
+                        }
+                      })();
                     }}
                     className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] text-[var(--primary)] hover:bg-[var(--surface-2)]"
                   >

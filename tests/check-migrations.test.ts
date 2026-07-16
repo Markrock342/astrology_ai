@@ -88,4 +88,13 @@ describe("migration guard — must ALLOW", () => {
     ].join("\n");
     expect(isDestructive(sql)).toEqual([]);
   });
+
+  it("ignores CRLF comment prose that mentions drop/recreate", () => {
+    const sql = [
+      "-- also wanted to drop and recreate three unrelated indexes",
+      "-- Dropping a live index just to re-add it is downtime",
+      'ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3);',
+    ].join("\r\n");
+    expect(isDestructive(sql)).toEqual([]);
+  });
 });

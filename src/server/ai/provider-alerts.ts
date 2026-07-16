@@ -87,7 +87,7 @@ export function providerAlertUserMessage(kind: ProviderAlertKind): string | null
     return "ระบบ AI ถูกจำกัดโควต้าชั่วคราว กรุณาลองใหม่ในอีกสักครู่ หรือเพิ่มโควต้าใน Google AI Studio";
   }
   if (kind === "KEY") {
-    return "ระบบ AI ตั้งค่าไม่ครบ (API key) — แอดมินต้องตรวจ env GEMINI_API_KEY";
+    return "ระบบ AI ตั้งค่าไม่ครบ (API key) — แอดมินต้องตรวจ API key ในหน้าโมเดล AI หรือ env fallback";
   }
   return null;
 }

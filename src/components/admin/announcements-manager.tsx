@@ -129,8 +129,12 @@ export function AnnouncementsManager({
 
   async function remove(id: string) {
     if (!window.confirm("ลบประกาศนี้?")) return;
-    await adminFetch(`/api/admin/announcements/${id}`, { method: "DELETE" });
-    await load();
+    try {
+      await adminFetch(`/api/admin/announcements/${id}`, { method: "DELETE" });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ลบไม่สำเร็จ");
+    }
   }
 
   return (

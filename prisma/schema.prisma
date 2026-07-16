@@ -357,12 +357,10 @@ model HoroscopeCategory {
   // Suggested starter questions shown in the chat UI (array of Thai strings).
   suggestedQuestions Json?
   promptTemplateId   String?
-  aiConfigId         String?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
   promptTemplate PromptTemplate?    @relation(fields: [promptTemplateId], references: [id])
-  aiConfig       AIProviderConfig?  @relation(fields: [aiConfigId], references: [id])
   readings       HoroscopeReading[]
   conversations  Conversation[]
   knowledgeDocs  KnowledgeDoc[]
@@ -480,6 +478,9 @@ model AIProviderConfig {
   provider         AIProvider @default(GEMINI)
   modelId          String
   displayName      String
+  // Optional OpenAI-compatible endpoint root, e.g. https://api.openai.com/v1
+  // or an OpenRouter/Groq/self-hosted compatible base URL.
+  baseUrl          String?
   // Env var NAME for API key fallback — NEVER the key itself. Optional when
   // encryptedApiKey is set (admin-managed key stored encrypted in DB).
   secretReference  String?
@@ -503,7 +504,6 @@ model AIProviderConfig {
   fallbackConfig AIProviderConfig?   @relation("AIConfigFallback", fields: [fallbackConfigId], references: [id])
   fallbackFor    AIProviderConfig[]  @relation("AIConfigFallback")
   promptTemplate PromptTemplate?     @relation(fields: [promptTemplateId], references: [id])
-  categories     HoroscopeCategory[]
 
   @@index([enabled, planScope])
   @@map("ai_provider_configs")
