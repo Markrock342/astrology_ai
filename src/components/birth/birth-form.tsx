@@ -9,6 +9,7 @@ import {
 } from "@/components/cms/privacy-policy-modal";
 import { WheelColumn, WheelGroup, type WheelOption } from "./wheel-picker";
 import type { CmsDocument } from "@/lib/cms-keys";
+import type { BirthFormInitialValues } from "@/lib/birth-profile-form";
 
 const THAI_MONTHS = [
   "มกราคม",
@@ -61,23 +62,28 @@ export function BirthForm({
   consentBirthPrivacy = "ฉันได้อ่านและยอมรับนโยบายความเป็นส่วนตัว",
   consentBirthEditLimit = "ฉันรับทราบว่าสามารถแก้ไขข้อมูลวันเกิดได้อีก 1 ครั้ง",
   privacyPolicy,
+  initialValues,
 }: {
   editCount?: number;
   consentBirthPrivacy?: string;
   consentBirthEditLimit?: string;
   privacyPolicy?: CmsDocument;
+  initialValues?: BirthFormInitialValues;
 }) {
   const router = useRouter();
+  const editing = Boolean(initialValues);
 
-  const [day, setDay] = useState("");
-  const [month, setMonth] = useState("");
-  const [era, setEra] = useState<Era>("BE");
-  const [year, setYear] = useState("");
-  const [hour, setHour] = useState("");
-  const [minute, setMinute] = useState("");
-  const [country, setCountry] = useState("ไทย");
-  const [province, setProvince] = useState("");
-  const [district, setDistrict] = useState("");
+  const [day, setDay] = useState(initialValues?.day ?? "");
+  const [month, setMonth] = useState(
+    initialValues?.month ? THAI_MONTHS[initialValues.month - 1] : "",
+  );
+  const [era, setEra] = useState<Era>(initialValues?.era ?? "BE");
+  const [year, setYear] = useState(initialValues?.year ?? "");
+  const [hour, setHour] = useState(initialValues?.hour ?? "");
+  const [minute, setMinute] = useState(initialValues?.minute ?? "");
+  const [country, setCountry] = useState(initialValues?.country ?? "ไทย");
+  const [province, setProvince] = useState(initialValues?.province ?? "");
+  const [district, setDistrict] = useState(initialValues?.district ?? "");
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [acceptEditLimit, setAcceptEditLimit] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
@@ -249,7 +255,7 @@ export function BirthForm({
         className="animate-fade-up stagger-1 w-full max-w-2xl rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 shadow-2xl backdrop-blur"
       >
         <h2 className="text-lg font-semibold text-[var(--primary)]">
-          กรอกข้อมูลวันเกิด
+          {editing ? "แก้ไขข้อมูลวันเกิด" : "กรอกข้อมูลวันเกิด"}
         </h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
           สู่ฐานโหราศาสตร์ไทย สุริยคติ พิษณุโลกจันทรคติ ลงเลขศาสตร์ยูจิต แม่นระดับสั่งได้
@@ -388,7 +394,11 @@ export function BirthForm({
           disabled={submitting}
           className="press-scale mt-6 self-start rounded-xl bg-[var(--primary)] px-10 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
         >
-          {submitting ? "กำลังบันทึก…" : "ทำนาย"}
+          {submitting
+            ? "กำลังบันทึก…"
+            : editing
+              ? "บันทึกการแก้ไข"
+              : "ทำนาย"}
         </button>
       </form>
 

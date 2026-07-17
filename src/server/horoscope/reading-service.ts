@@ -214,17 +214,19 @@ async function runReading(
     throw new AppError("NO_QUOTA", "Not enough credit");
   }
 
+  const natalChart = assertUsableEngineChart(natalChartRaw);
+  const birthInput = natalChart.input;
   const snapshot: BirthProfileSnapshot = {
     nickname: profile.nickname,
-    birthDate: profile.birthDate.toISOString(),
+    // Never expose the storage UTC instant as the user's civil birth date.
+    // Before 07:00 in Thailand its ISO date is the previous day.
+    birthDate: `${birthInput.day}/${birthInput.month}/${birthInput.year + 543} (พ.ศ.; ${birthInput.year} ค.ศ. ตามวันที่ท้องถิ่นไทย)`,
     birthTime: profile.birthTime,
     birthTimeKnown: profile.birthTimeKnown,
     gender: profile.gender,
     birthLocation: profile.birthLocation,
     additionalInfo: profile.additionalInfo,
   };
-
-  const natalChart = assertUsableEngineChart(natalChartRaw);
 
   async function loadTransitChart(): Promise<ChartJson | null> {
     if (mode === "TRANSIT") {

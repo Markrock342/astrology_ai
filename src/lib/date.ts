@@ -5,6 +5,27 @@ export const BUDDHIST_YEAR_OFFSET = 543;
 
 export type YearEra = "BE" | "CE";
 
+/** Read a UTC instant as calendar fields in the configured display timezone. */
+export function getDisplayDateParts(date: Date): {
+  year: number;
+  month: number;
+  day: number;
+} {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: DISPLAY_TIMEZONE,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(date);
+  const value = (type: "year" | "month" | "day") =>
+    Number(parts.find((part) => part.type === type)?.value);
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+  };
+}
+
 /**
  * Storage is always UTC (business rule 13). Use these helpers for display in
  * Thailand time. Prefer Intl over hard-coded offsets so DST/edge cases stay

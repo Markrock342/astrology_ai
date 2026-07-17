@@ -11,6 +11,7 @@ import {
   getConsentTexts,
   getPrivacyDocument,
 } from "@/server/settings/settings-service";
+import { birthProfileToFormValues } from "@/lib/birth-profile-form";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,9 @@ export default async function OnboardingPage() {
       </div>
       <BirthForm
         editCount={profile?.editCount ?? 0}
+        initialValues={
+          profile ? birthProfileToFormValues(profile) : undefined
+        }
         consentBirthPrivacy={birthPrivacy.text}
         consentBirthEditLimit={
           staff
