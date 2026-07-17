@@ -334,7 +334,10 @@ const aiBaseUrlSchema = z
   .max(300)
   .nullish()
   .transform((v, ctx) => {
-    if (v == null || v === "") return null;
+    // Preserve an omitted PATCH field. Converting undefined to null here would
+    // silently clear a saved custom endpoint on unrelated updates (e.g. toggle).
+    if (v === undefined) return undefined;
+    if (v === null || v === "") return null;
     try {
       return assertSafeOpenAiBaseUrl(v);
     } catch (err) {
@@ -424,9 +427,33 @@ export const aiConfigTestKeySchema = z
     }
   });
 
+/** List model IDs visible to a raw key before saving it. */
+export const aiConfigDiscoverModelsSchema = z
+  .object({
+    action: z.literal("discover"),
+    provider: z.enum(["GEMINI", "OPENAI"]),
+    baseUrl: aiBaseUrlSchema,
+    apiKey: z.string().min(1).max(500),
+  })
+  .superRefine((data, ctx) => {
+    if (data.provider === "GEMINI" && data.baseUrl) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["baseUrl"],
+        message: "Base URL ใช้ได้เฉพาะ OpenAI-compatible",
+      });
+    }
+  });
+
 /** Test a saved config, optionally with a shorter timeout for health probes. */
 export const aiConfigRunTestSchema = z.object({
+  action: z.literal("test").optional(),
   timeoutMs: z.number().int().min(1000).max(120_000).optional(),
+});
+
+/** List model IDs using the encrypted key from an existing config. */
+export const aiConfigDiscoverSavedModelsSchema = z.object({
+  action: z.literal("discover"),
 });
 
 export const knowledgeCreateSchema = z.object({

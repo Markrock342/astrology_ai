@@ -1,9 +1,13 @@
 import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
 import { assertAiAdminEnabled } from "@/server/admin/ai-admin-service";
-import { aiConfigTestKeySchema } from "@/lib/admin-schemas";
+import {
+  aiConfigDiscoverModelsSchema,
+  aiConfigTestKeySchema,
+} from "@/lib/admin-schemas";
 import { GeminiAdapter } from "@/server/ai/providers/gemini";
 import { OpenAIAdapter } from "@/server/ai/providers/openai";
+import { discoverProviderModels } from "@/server/ai/provider-model-discovery";
 
 /**
  * POST /api/admin/ai-configs/test-key — fire a short real request with a raw
@@ -15,7 +19,19 @@ export async function POST(req: Request) {
     assertAiAdminEnabled();
     await requireAdmin();
 
-    const body = aiConfigTestKeySchema.parse(await req.json());
+    const json = await req.json();
+    if (json?.action === "discover") {
+      const body = aiConfigDiscoverModelsSchema.parse(json);
+      return ok(
+        await discoverProviderModels({
+          provider: body.provider,
+          baseUrl: body.baseUrl,
+          apiKey: body.apiKey,
+        }),
+      );
+    }
+
+    const body = aiConfigTestKeySchema.parse(json);
     const adapter =
       body.provider === "OPENAI" ? new OpenAIAdapter() : new GeminiAdapter();
 

@@ -32,8 +32,16 @@ describe("ai-config-guards", () => {
     expect(() => assertSafeOpenAiBaseUrl("https://localhost/v1")).toThrow(/localhost|ภายใน/);
     expect(() => assertSafeOpenAiBaseUrl("https://127.0.0.1/v1")).toThrow(/localhost|ภายใน/);
     expect(() => assertSafeOpenAiBaseUrl("https://192.168.1.1/v1")).toThrow(/ภายใน/);
+    expect(() => assertSafeOpenAiBaseUrl("https://[::1]/v1")).toThrow(/ภายใน/);
+    expect(() => assertSafeOpenAiBaseUrl("https://[fc00::1]/v1")).toThrow(/ภายใน/);
     expect(() => assertSafeOpenAiBaseUrl("https://user:pass@api.openai.com/v1")).toThrow(
       /username|password/,
+    );
+    expect(() =>
+      assertSafeOpenAiBaseUrl("https://api.example.com/v1/chat/completions"),
+    ).toThrow(/API root/);
+    expect(() => assertSafeOpenAiBaseUrl("https://api.example.com/v1?key=x")).toThrow(
+      /query string/,
     );
   });
 });
@@ -81,6 +89,11 @@ describe("AI config create/update schemas", () => {
         secretReference: "DATABASE_URL",
       }),
     ).toThrow();
+  });
+
+  it("preserves an omitted Base URL on partial updates", () => {
+    const parsed = aiConfigUpdateSchema.parse({ enabled: false });
+    expect(parsed).not.toHaveProperty("baseUrl");
   });
 
   it("rejects private base URL on test-key", () => {

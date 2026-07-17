@@ -146,7 +146,17 @@ Whitelist ที่อนุญาตเป็น `secretReference`: `GEMINI_API
 พิมพ์แค่ Model ID ไม่พอถ้าไม่รู้โปรโตคอล
 
 **Base URL จำกัดความปลอดภัย**  
-ต้องเป็น HTTPS, ไม่มี username/password ใน URL, ห้าม localhost / private network (`assertSafeOpenAiBaseUrl`)
+ต้องเป็น HTTPS, ไม่มี username/password/query/fragment, ต้องเป็น API root (ไม่ลงท้าย
+`/models` หรือ `/chat/completions`) และห้าม localhost / private network
+(`assertSafeOpenAiBaseUrl`) การเรียก provider ไม่ตาม redirect
+
+**ตรวจ Model ID ก่อนบันทึก**
+
+- กด **ดึงโมเดล** เพื่อเรียก `GET /models` ของ OpenAI-compatible หรือ Gemini Models API
+- ระบบแสดงเฉพาะ Gemini models ที่รองรับ `generateContent`
+- เลือกจากรายการได้ แต่ยังพิมพ์เองได้ เพราะบาง gateway ไม่รองรับ `GET /models`
+- หลังเลือกแล้วกด **ทดสอบ key** เพื่อยิง generation จริง — ขั้นนี้เป็นคำตอบสุดท้ายว่า
+  key + Base URL + Model ID ใช้งานร่วมกันได้จริง
 
 ### 3.3 ส่วน B · API Key
 
@@ -154,6 +164,7 @@ Whitelist ที่อนุญาตเป็น `secretReference`: `GEMINI_API
 |----------|----------|
 | วาง key | ส่งเป็น `apiKey` ตอน POST/PATCH — เข้ารหัสฝั่งเซิร์ฟเวอร์ก่อนเข้า DB |
 | **ทดสอบ key** | `POST /api/admin/ai-configs/test-key` — ยิงจริงด้วย key ที่พิมพ์ **ไม่บันทึก** |
+| **ดึงโมเดล** | endpoint เดียวกันพร้อม `action=discover` — อ่านรายการโดยไม่บันทึก key |
 | สร้างโดยไม่มี key | ถูกปฏิเสธทั้งฝั่ง UI และ service |
 | Legacy env | ซ่อนไว้; config ใหม่ที่วาง key จะตั้ง `secretReference = null` |
 
@@ -230,6 +241,14 @@ flowchart LR
 - `POST /api/admin/ai-configs/:id/test` ด้วย timeout ยาวกว่า health เล็กน้อย  
 - อัปเดต badge ของแถวนั้น  
 - เช่นกัน: primary-only
+
+### 5.4 ดึงรายชื่อโมเดล
+
+- ตอนสร้าง/เปลี่ยน key: ใช้ raw key ที่อยู่ในฟอร์มและไม่บันทึก
+- ตอนแก้ config เดิม: ใช้ encrypted key ที่บันทึกไว้ผ่าน route ของ config
+- OpenAI-compatible บางเจ้าไม่มี `GET /models`; กรณีนี้ยังพิมพ์ Model ID เองแล้วใช้
+  ปุ่มทดสอบ generation ได้
+- รายการโมเดลเป็น advisory; ผล generation จริงเป็น authoritative validation
 
 ---
 
@@ -315,8 +334,8 @@ flowchart LR
 | POST | `/api/admin/ai-configs` | สร้าง (ต้องมี `apiKey`) |
 | PATCH | `/api/admin/ai-configs/:id` | แก้ไข |
 | DELETE | `/api/admin/ai-configs/:id` | ลบ |
-| POST | `/api/admin/ai-configs/test-key` | ทดสอบ key ที่พิมพ์ ก่อนบันทึก |
-| POST | `/api/admin/ai-configs/:id/test` | ทดสอบ config ที่บันทึกแล้ว (primary) |
+| POST | `/api/admin/ai-configs/test-key` | ทดสอบ key หรือดึง models ด้วย raw key ก่อนบันทึก |
+| POST | `/api/admin/ai-configs/:id/test` | ทดสอบ config หรือดึง models ด้วย key ที่บันทึกแล้ว |
 | GET | `/api/admin/ai-status` | รีเฟรชแผงสถานะ |
 | POST | `/api/admin/ai-status/health` | ตรวจการเชื่อมต่อทุกตัวที่เปิด |
 
@@ -350,11 +369,40 @@ flowchart LR
 ## 12. สรุปสั้นสำหรับส่งต่อเพื่อน / AI
 
 1. หน้า `/admin/ai-configs` คือศูนย์ควบคุมโมเดล + key  
-2. **สร้างโมเดล = พิมพ์เอง**: Model ID, ชื่อ, API key (และ Base URL ถ้าเป็น OpenAI-compatible)  
+2. **สร้างโมเดล**: ดึงรายการจาก provider แล้วเลือก หรือพิมพ์ Model ID เอง จากนั้นทดสอบ generation จริง
 3. **`AI_SECRET_ENC_KEY` = กุญแจเข้ารหัสโฮสต์** ไม่ใช่ Gemini key และห้ามวางในฟอร์ม  
 4. Runtime อ่าน key จาก DB (ถอดรหัส) เป็นหลัก; env เป็น legacy  
 5. แชทใช้ fallback config ได้; ปุ่มทดสอบ/health ยิง primary ตรง ๆ เพื่อไม่หลอกเขียว  
 6. Error แบบ UNAVAILABLE / free-tier quota มาจาก Google ไม่ใช่ระบบใส่ key ผิด  
 7. ผูกหมวด/แพลนที่ฟอร์มนี้ — ไม่ใช่หน้า Categories  
+
+---
+
+## 13. ผลตรวจและข้อเสนอแนะ
+
+### ทำแล้ว
+
+- Admin เพิ่ม Gemini และ OpenAI-compatible provider config ได้
+- กรอก Base URL, key, Model ID และทดสอบก่อนบันทึกได้
+- ดึงรายชื่อ model IDs ที่ key เข้าถึงได้จาก provider
+- ทดสอบ config ที่บันทึกแล้วแบบ primary-only
+- API key เข้ารหัสก่อนเก็บและไม่ส่ง plaintext/ciphertext กลับ browser
+- เปลี่ยน Provider แล้วต้องวาง key ใหม่ ป้องกันเอา Gemini key ไปใช้กับ OpenAI หรือกลับกัน
+- PATCH ฟิลด์อื่นไม่ล้าง custom Base URL โดยไม่ตั้งใจ
+- Custom OpenAI-compatible endpoint ใช้ `max_tokens`; OpenAI ทางการใช้
+  `max_completion_tokens`
+- Base URL ปฏิเสธ completion-level path, query, fragment, private literal IP และ redirect
+
+### ข้อจำกัดที่ตั้งใจไว้
+
+- `provider` ยังรองรับสอง protocol families: Gemini และ OpenAI-compatible เท่านั้น
+  ชื่อบริการอื่นใช้ได้เมื่อ API เข้ากันกับ OpenAI Chat Completions จริง
+- การดึง models เป็น advisory เพราะบาง gateway ไม่ทำ `GET /models`; ปุ่ม generation test
+  เป็นตัวตรวจที่เชื่อถือได้กว่า
+- OpenAI-compatible ยังตอบแบบ one-shot ใน chat ไม่ได้ stream token ทีละส่วนเหมือน Gemini
+- การกัน SSRF ตรวจ private IP/hostname ที่เห็นใน URL แล้ว แต่ยังควรเพิ่ม DNS-resolution
+  enforcement ที่ network/egress layer สำหรับ production ที่เปิดรับ Base URL จากผู้ดูแล
+- โมเดลที่ไม่อยู่ใน pricing catalog จะประเมินต้นทุนได้ไม่แม่น ต้องเพิ่มราคาใน
+  `src/config/ai-pricing.ts` ก่อนใช้รายงานค่าใช้จ่ายจริง
 
 จบคู่มือ

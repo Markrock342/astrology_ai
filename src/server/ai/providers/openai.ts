@@ -56,6 +56,7 @@ export class OpenAIAdapter implements AIProviderAdapter {
         content: turn.content,
       }));
       const baseUrl = normalizeBaseUrl(input.baseUrl);
+      const isOfficialOpenAI = baseUrl === OPENAI_DEFAULT_BASE_URL;
 
       const res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
@@ -64,6 +65,7 @@ export class OpenAIAdapter implements AIProviderAdapter {
           Authorization: `Bearer ${apiKey}`,
         },
         signal: controller.signal,
+        redirect: "error",
         body: JSON.stringify({
           model: input.modelId,
           messages: [
@@ -72,7 +74,11 @@ export class OpenAIAdapter implements AIProviderAdapter {
             { role: "user", content: input.userPrompt },
           ],
           temperature: input.temperature,
-          max_completion_tokens: input.maxOutputTokens,
+          // New OpenAI reasoning models use max_completion_tokens; most
+          // compatible gateways still implement the established max_tokens.
+          ...(isOfficialOpenAI
+            ? { max_completion_tokens: input.maxOutputTokens }
+            : { max_tokens: input.maxOutputTokens }),
         }),
       });
 
