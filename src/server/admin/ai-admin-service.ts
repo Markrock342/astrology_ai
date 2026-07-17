@@ -399,6 +399,7 @@ function buildSecretFields(apiKey: string | undefined) {
 }
 
 function normalizeSecretReference(
+  provider: "GEMINI" | "OPENAI",
   secretReference: string | null | undefined,
 ): string | null {
   if (!secretReference) return null;
@@ -406,6 +407,13 @@ function normalizeSecretReference(
     throw new AppError(
       "VALIDATION",
       "secretReference ต้องเป็น GEMINI_API_KEY หรือ OPENAI_API_KEY เท่านั้น",
+    );
+  }
+  const expected = provider === "GEMINI" ? "GEMINI_API_KEY" : "OPENAI_API_KEY";
+  if (secretReference !== expected) {
+    throw new AppError(
+      "VALIDATION",
+      `${provider} ต้องใช้ env fallback ชื่อ ${expected}`,
     );
   }
   return secretReference;
@@ -477,6 +485,12 @@ export async function updateAIConfig(id: string, input: AIConfigUpdateInput, act
   const { apiKey, ...rest } = input;
   const secretFields = buildSecretFields(apiKey?.trim());
   const nextProvider = rest.provider ?? before.provider;
+  if (rest.provider && rest.provider !== before.provider && !secretFields) {
+    throw new AppError(
+      "VALIDATION",
+      "เมื่อเปลี่ยน Provider ต้องวาง API key ของ Provider ใหม่ด้วย",
+    );
+  }
   const data: Prisma.AIProviderConfigUncheckedUpdateInput = {
     ...rest,
   };
@@ -487,7 +501,7 @@ export async function updateAIConfig(id: string, input: AIConfigUpdateInput, act
     );
   }
   if ("secretReference" in rest) {
-    data.secretReference = normalizeSecretReference(rest.secretReference);
+    data.secretReference = normalizeSecretReference(nextProvider, rest.secretReference);
   }
   if (secretFields) {
     Object.assign(data, secretFields);

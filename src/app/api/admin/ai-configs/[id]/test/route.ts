@@ -1,10 +1,15 @@
 import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
 import { AppError } from "@/lib/errors";
-import { aiConfigRunTestSchema } from "@/lib/admin-schemas";
+import {
+  aiConfigDiscoverSavedModelsSchema,
+  aiConfigRunTestSchema,
+} from "@/lib/admin-schemas";
 import { prisma } from "@/server/db";
 import { generateOnce } from "@/server/ai/router";
 import { assertAiAdminEnabled } from "@/server/admin/ai-admin-service";
+import { resolveApiKey } from "@/server/ai/secret-resolver";
+import { discoverProviderModels } from "@/server/ai/provider-model-discovery";
 
 /**
  * POST /api/admin/ai-configs/:id/test — fire a short real request at the model
@@ -20,7 +25,24 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const config = await prisma.aIProviderConfig.findUnique({ where: { id } });
     if (!config) throw new AppError("NOT_FOUND", "AI config not found");
     const rawBody = await req.text();
-    const body = rawBody ? aiConfigRunTestSchema.parse(JSON.parse(rawBody)) : {};
+    const json = rawBody ? JSON.parse(rawBody) : {};
+
+    if (json?.action === "discover") {
+      aiConfigDiscoverSavedModelsSchema.parse(json);
+      const apiKey = await resolveApiKey(config);
+      if (!apiKey) {
+        throw new AppError("AI_PROVIDER_ERROR", "API key not configured");
+      }
+      return ok(
+        await discoverProviderModels({
+          provider: config.provider,
+          baseUrl: config.baseUrl,
+          apiKey,
+        }),
+      );
+    }
+
+    const body = aiConfigRunTestSchema.parse(json);
 
     const result = await generateOnce(id, {
       systemPrompt: "คุณคือผู้ช่วยทดสอบระบบ ตอบสั้นๆ 1 ประโยค",

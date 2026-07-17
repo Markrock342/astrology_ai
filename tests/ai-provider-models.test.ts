@@ -72,7 +72,14 @@ describe("OpenAIAdapter baseUrl", () => {
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer test-key" }),
+        redirect: "error",
       }),
     );
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      model: "composer-2.5",
+      max_tokens: 64,
+    });
+    expect(JSON.parse(String(request.body))).not.toHaveProperty("max_completion_tokens");
   });
 });

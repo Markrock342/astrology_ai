@@ -50,6 +50,14 @@ type TestResult = {
   errorMessage: string | null;
 };
 
+type ModelDiscoveryResult = {
+  ok: boolean;
+  models: string[];
+  latencyMs: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+};
+
 type AiStatusSnapshot = {
   google: {
     fetchedAt: string;
@@ -156,12 +164,21 @@ export function AiConfigsManager() {
   >(null);
   const [editingKeyLast4, setEditingKeyLast4] = useState<string | null>(null);
   const [editingHasStoredKey, setEditingHasStoredKey] = useState(false);
+  const [editingOriginalProvider, setEditingOriginalProvider] =
+    useState<SupportedAIProvider | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [showLegacyEnv, setShowLegacyEnv] = useState(false);
+  const [modelDiscovery, setModelDiscovery] = useState<
+    ModelDiscoveryResult | "loading" | null
+  >(null);
 
   function setProvider(provider: SupportedAIProvider) {
     setKeyTestResult(null);
+    setModelDiscovery(null);
+    if (editingId && provider !== editingOriginalProvider) {
+      setReplaceKey(true);
+    }
     setForm((current) => ({
       ...current,
       provider,
@@ -268,8 +285,10 @@ export function AiConfigsManager() {
     setKeyTestResult(null);
     setEditingKeyLast4(null);
     setEditingHasStoredKey(false);
+    setEditingOriginalProvider(null);
     setAdvancedOpen(false);
     setShowLegacyEnv(false);
+    setModelDiscovery(null);
   }
 
   function startEdit(cfg: AIConfig) {
@@ -278,8 +297,10 @@ export function AiConfigsManager() {
     setKeyTestResult(null);
     setEditingKeyLast4(cfg.keyLast4);
     setEditingHasStoredKey(cfg.hasStoredKey);
+    setEditingOriginalProvider(cfg.provider);
     setAdvancedOpen(false);
     setShowLegacyEnv(Boolean(cfg.secretReference));
+    setModelDiscovery(null);
     setForm({
       provider: cfg.provider,
       modelId: cfg.modelId,
@@ -306,8 +327,10 @@ export function AiConfigsManager() {
     setKeyTestResult(null);
     setEditingKeyLast4(null);
     setEditingHasStoredKey(false);
+    setEditingOriginalProvider(null);
     setAdvancedOpen(false);
     setShowLegacyEnv(false);
+    setModelDiscovery(null);
     setForm(EMPTY_FORM);
     setShowForm(true);
   }
@@ -315,6 +338,10 @@ export function AiConfigsManager() {
   async function testRawKey() {
     if (!form.apiKey.trim()) {
       setKeyTestResult({ ok: false, message: "กรุณาวาง API key ก่อนทดสอบ" });
+      return;
+    }
+    if (!form.modelId.trim()) {
+      setKeyTestResult({ ok: false, message: "กรุณาเลือกหรือพิมพ์ Model ID ก่อนทดสอบ" });
       return;
     }
     setKeyTestResult("loading");
@@ -347,6 +374,49 @@ export function AiConfigsManager() {
     }
   }
 
+  async function discoverModels() {
+    if (!form.apiKey.trim() && !editingId) {
+      setModelDiscovery({
+        ok: false,
+        models: [],
+        latencyMs: 0,
+        errorCode: "MISSING_API_KEY",
+        errorMessage: "กรุณาวาง API key ก่อนดึงรายชื่อโมเดล",
+      });
+      return;
+    }
+
+    setModelDiscovery("loading");
+    try {
+      const usingRawKey = Boolean(form.apiKey.trim());
+      const path = usingRawKey
+        ? "/api/admin/ai-configs/test-key"
+        : `/api/admin/ai-configs/${editingId}/test`;
+      const body = usingRawKey
+        ? {
+            action: "discover",
+            provider: form.provider,
+            baseUrl: form.provider === "OPENAI" ? form.baseUrl || null : null,
+            apiKey: form.apiKey.trim(),
+          }
+        : { action: "discover" };
+      const result = await adminFetch<ModelDiscoveryResult>(path, {
+        method: "POST",
+        body: JSON.stringify(body),
+        timeoutMs: 30_000,
+      });
+      setModelDiscovery(result);
+    } catch (e) {
+      setModelDiscovery({
+        ok: false,
+        models: [],
+        latencyMs: 0,
+        errorCode: "DISCOVERY_FAILED",
+        errorMessage: e instanceof Error ? e.message : "ดึงรายชื่อโมเดลไม่สำเร็จ",
+      });
+    }
+  }
+
   async function save() {
     setBusy(true);
     setError(null);
@@ -357,6 +427,13 @@ export function AiConfigsManager() {
       }
       if (editingId && replaceKey && !form.apiKey.trim() && !editingHasStoredKey) {
         throw new Error("กรุณาวาง API key หรือยกเลิกการเปลี่ยน key");
+      }
+      if (
+        editingId &&
+        form.provider !== editingOriginalProvider &&
+        !form.apiKey.trim()
+      ) {
+        throw new Error("เมื่อเปลี่ยน Provider ต้องวาง API key ของ Provider ใหม่");
       }
       const payload: Record<string, unknown> = {
         provider: form.provider,
@@ -400,9 +477,11 @@ export function AiConfigsManager() {
       setEditingId(null);
       setForm(EMPTY_FORM);
       setReplaceKey(false);
+      setEditingOriginalProvider(null);
       setKeyTestResult(null);
       setAdvancedOpen(false);
       setShowLegacyEnv(false);
+      setModelDiscovery(null);
       await load();
       if (savedId) {
         setHighlightId(savedId);
@@ -725,7 +804,10 @@ export function AiConfigsManager() {
                   busy ||
                   !form.modelId ||
                   !form.displayName ||
-                  (!editingId && !form.apiKey.trim())
+                  (!editingId && !form.apiKey.trim()) ||
+                  (Boolean(editingId) &&
+                    form.provider !== editingOriginalProvider &&
+                    !form.apiKey.trim())
                 }
               >
                 {busy ? "กำลังบันทึก…" : editingId ? "บันทึกการแก้ไข" : "สร้าง config"}
@@ -757,15 +839,82 @@ export function AiConfigsManager() {
                 >
                   <TextInput
                     value={form.baseUrl}
-                    onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, baseUrl: e.target.value });
+                      setModelDiscovery(null);
+                    }}
                   />
                 </Field>
               )}
               <Field label="Model ID" hint="ชื่อโมเดลตามที่ provider กำหนด">
-                <TextInput
-                  value={form.modelId}
-                  onChange={(e) => setForm({ ...form, modelId: e.target.value })}
-                />
+                <div className="flex gap-2">
+                  <TextInput
+                    list="available-ai-models"
+                    value={form.modelId}
+                    onChange={(e) => {
+                      setForm({ ...form, modelId: e.target.value });
+                      setKeyTestResult(null);
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    disabled={
+                      modelDiscovery === "loading" ||
+                      (!form.apiKey.trim() && !editingId)
+                    }
+                    onClick={() => void discoverModels()}
+                  >
+                    {modelDiscovery === "loading" ? "กำลังดึง…" : "ดึงโมเดล"}
+                  </Button>
+                </div>
+                {modelDiscovery &&
+                  modelDiscovery !== "loading" &&
+                  (modelDiscovery.ok ? (
+                    <div className="mt-2">
+                      {modelDiscovery.models.length > 0 ? (
+                        <>
+                          <Select
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setForm({ ...form, modelId: e.target.value });
+                                setKeyTestResult(null);
+                              }
+                            }}
+                          >
+                            <option value="">
+                              เลือกจาก {modelDiscovery.models.length} โมเดลที่เข้าถึงได้
+                            </option>
+                            {modelDiscovery.models.map((model) => (
+                              <option key={model} value={model}>
+                                {model}
+                              </option>
+                            ))}
+                          </Select>
+                          <datalist id="available-ai-models">
+                            {modelDiscovery.models.map((model) => (
+                              <option key={model} value={model} />
+                            ))}
+                          </datalist>
+                          <p className="mt-1 text-[10px] text-[var(--secondary-active)]">
+                            เชื่อมต่อได้ · พบ {modelDiscovery.models.length} โมเดล (
+                            {modelDiscovery.latencyMs}ms)
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-[var(--muted-2)]">
+                          {modelDiscovery.errorMessage ??
+                            "เชื่อมต่อได้ แต่ provider ไม่คืนรายชื่อโมเดล — พิมพ์ Model ID แล้วกดทดสอบ key"}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-[var(--danger)]">
+                      ดึงโมเดลไม่สำเร็จ
+                      {modelDiscovery.errorCode ? ` (${modelDiscovery.errorCode})` : ""}:{" "}
+                      {modelDiscovery.errorMessage ?? "ไม่ทราบสาเหตุ"}
+                    </p>
+                  ))}
                 {form.provider === "GEMINI" && geminiReplacementHint(form.modelId) && (
                   <p className="mt-1 text-[10px] text-[var(--danger)]">
                     {geminiReplacementHint(form.modelId)}
@@ -825,13 +974,18 @@ export function AiConfigsManager() {
                       onChange={(e) => {
                         setForm({ ...form, apiKey: e.target.value });
                         setKeyTestResult(null);
+                        setModelDiscovery(null);
                       }}
                       placeholder="วาง API key ที่นี่"
                     />
                     <div className="flex flex-wrap items-center gap-2">
                       <Button
                         variant="ghost"
-                        disabled={!form.apiKey.trim() || keyTestResult === "loading"}
+                        disabled={
+                          !form.apiKey.trim() ||
+                          !form.modelId.trim() ||
+                          keyTestResult === "loading"
+                        }
                         onClick={() => void testRawKey()}
                       >
                         {keyTestResult === "loading" ? "กำลังทดสอบ…" : "ทดสอบ key"}
