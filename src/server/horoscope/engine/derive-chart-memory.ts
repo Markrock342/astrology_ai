@@ -258,10 +258,8 @@ export function formatMemoryForPrompt(
       : options;
 
   const lines: string[] = [
-    "[memory] ความจำพื้นดวงผู้ใช้ (derive จาก engine — ใช้ประกอบการตอบ ห้ามแต่งดาว)",
+    "[memory] ข้อมูลพื้นดวงผู้ใช้ (ใช้ประกอบการตอบ ห้ามแต่งดาว)",
     `ลัคนา: ${memory.lagna}`,
-    `แหล่ง: ${memory.source ?? "engine"}`,
-    `อัปเดต: ${memory.computedAt}`,
   ];
 
   if (memory.taksa.length) {

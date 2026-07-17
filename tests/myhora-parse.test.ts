@@ -82,7 +82,9 @@ describe("myhora HTML parsers", () => {
     expect(chart.myhora?.natalPlanets?.length).toBeGreaterThan(0);
     const text = formatChartForPrompt(chart);
     expect(text).toContain("ตารางสมผุส");
-    expect(text).toContain("myhora");
+    expect(text).not.toMatch(
+      /myhora|scrape|fallback|formula-pipeline|แหล่งคำนวณ/i,
+    );
   });
 
   it("extractNatalTableData returns null on garbage", () => {

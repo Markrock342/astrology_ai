@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/errors";
 import { KNOWLEDGE_MAX_CHARS } from "@/config/constants";
-import { createReading } from "@/server/horoscope/reading-service";
+import {
+  buildKnowledgePrompt,
+  createReading,
+} from "@/server/horoscope/reading-service";
 
 const mocks = vi.hoisted(() => ({
   findReading: vi.fn(),
@@ -445,5 +448,19 @@ describe("createReading (M3 B2)", () => {
       maxOutputTokens: number;
     };
     expect(aiCall.maxOutputTokens).toBe(1024);
+  });
+});
+
+describe("buildKnowledgePrompt public wording", () => {
+  it("removes internal provider and retrieval terms before prompting AI", () => {
+    const prompt = buildKnowledgePrompt([
+      {
+        title: "แนว MyHora.com",
+        content: "ข้อมูลจาก myhora scrape และ fallback ภายใน",
+      },
+    ]);
+
+    expect(prompt).not.toMatch(/myhora|scrape|fallback/i);
+    expect(prompt).toContain("หลักโหราศาสตร์ไทย");
   });
 });

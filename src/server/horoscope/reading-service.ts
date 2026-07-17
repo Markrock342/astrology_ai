@@ -83,7 +83,15 @@ export function buildKnowledgePrompt(
   let used = header.length;
 
   for (const doc of docs) {
-    const block = `## ${doc.title}\n${doc.content}`;
+    // Provider/source names are internal implementation details and must never
+    // be echoed by the model into the customer-facing reading.
+    const publicText = (text: string) =>
+      text
+        .replace(/myhora(?:\.com)?/gi, "หลักโหราศาสตร์ไทย")
+        .replace(/\bweb[\s-]*scrap(?:e|ed|ing)?\b/gi, "การรวบรวมข้อมูล")
+        .replace(/\bscrap(?:e|ed|ing)?\b/gi, "การรวบรวมข้อมูล")
+        .replace(/\bfallback\b/gi, "แนวทางสำรอง");
+    const block = `## ${publicText(doc.title)}\n${publicText(doc.content)}`;
     const separator = parts.length > 0 ? 2 : 0;
     if (used + separator + block.length > maxChars) break;
     parts.push(block);
