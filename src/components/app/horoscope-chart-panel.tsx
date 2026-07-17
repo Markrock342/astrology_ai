@@ -92,10 +92,7 @@ function EvidenceGrid({
   );
 }
 
-/**
- * Deterministic chart atlas attached to the first answer in a thread.
- * MyHora supplies positions; HoraSard owns the rendering and interaction.
- */
+/** Deterministic chart atlas attached to the first answer in a thread. */
 export function HoroscopeChartPanel({
   natal,
   transit,
@@ -106,7 +103,6 @@ export function HoroscopeChartPanel({
   const d1 = useMemo(() => baseChart(natal), [natal]);
   const d9 = useMemo(() => deriveDivisionalChart(natal, "navamsa"), [natal]);
   const d3 = useMemo(() => deriveDivisionalChart(natal, "drekkana"), [natal]);
-  const fromMyhora = natal.meta.calculationSource === "myhora-scrape";
   const taksa = natal.myhora?.taksa ?? [];
   const triwai = natal.myhora?.triwaiNatal ?? [];
   const hasEvidenceGrids =
@@ -115,7 +111,7 @@ export function HoroscopeChartPanel({
 
   return (
     <section className="mb-4 overflow-hidden rounded-2xl border border-[var(--primary)]/25 bg-[var(--surface)]">
-      <header className="flex flex-wrap items-start justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
+      <header className="border-b border-[var(--border)] px-4 py-3">
         <div>
           <h3 className="text-sm font-semibold text-[var(--foreground)]">
             ผังดวงชะตา
@@ -124,15 +120,6 @@ export function HoroscopeChartPanel({
             ตำแหน่งดาวชุดเดียวกับที่ใช้วิเคราะห์คำตอบ
           </p>
         </div>
-        <span
-          className={`rounded-full px-2 py-1 text-[10px] ${
-            fromMyhora
-              ? "bg-[var(--secondary-active)]/12 text-[var(--secondary-active)]"
-              : "bg-[var(--surface-2)] text-[var(--muted)]"
-          }`}
-        >
-          {fromMyhora ? "ข้อมูลเทียบ MyHora" : "สูตรสำรอง HoraSard"}
-        </span>
       </header>
 
       <div className="flex flex-wrap items-start justify-center gap-5 px-4 py-5">

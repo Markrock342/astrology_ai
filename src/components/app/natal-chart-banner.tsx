@@ -53,7 +53,7 @@ export function NatalChartBanner() {
   if (natalChartStatus.status === "FAILED") {
     return (
       <div className="mb-4 text-center text-[11px] text-[var(--danger)]">
-        {natalChartStatus.note ?? "คำนวณไม่สำเร็จ"}
+        คำนวณพื้นดวงไม่สำเร็จ กรุณาตรวจสอบข้อมูลวันเกิดแล้วลองใหม่
       </div>
     );
   }

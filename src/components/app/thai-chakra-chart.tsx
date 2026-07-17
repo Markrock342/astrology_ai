@@ -162,7 +162,15 @@ function ThaiChakraFigure({
           const planets = planetsBySign.get(sign) ?? [];
           const isLagna = sign === lagna;
           const labels = [
-            ...(isLagna ? [{ planet: "ลัคนา", symbol: "ลั", color: "var(--primary)" }] : []),
+            ...(isLagna
+              ? [
+                  {
+                    planet: "ลัคนา",
+                    symbol: "ลัคนา",
+                    color: "var(--primary)",
+                  },
+                ]
+              : []),
             ...planets.map((planet) => ({
               planet: planet.planet,
               symbol: getPlanetTheme(planet.planet).symbol,
@@ -197,7 +205,7 @@ function ThaiChakraFigure({
                     textAnchor="middle"
                     dominantBaseline="middle"
                     fill={item.color}
-                    fontSize={item.planet === "ลัคนา" ? "11" : "14"}
+                    fontSize={item.planet === "ลัคนา" ? "8.5" : "14"}
                     fontWeight={item.planet === "ลัคนา" ? "600" : "400"}
                   >
                     {item.symbol}
@@ -308,7 +316,7 @@ export function ThaiChakraChart(props: ThaiChakraChartProps) {
                   )}
                 />
                 <p className="mt-1 text-center text-[11px] text-[var(--muted-2)]">
-                  แตะพื้นหลังหรือกด Esc เพื่อปิด
+                  ลัคนา = จุดเริ่มต้นเรือนที่ 1 · แตะพื้นหลังหรือกด Esc เพื่อปิด
                 </p>
               </div>
             </div>,

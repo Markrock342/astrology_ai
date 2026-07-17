@@ -51,6 +51,9 @@ describe("natal chart engine (formula path)", () => {
     expect(text).toContain("เรือน");
     expect(text).toContain("ทักษา");
     expect(text).toContain("สัมพันธ์ดาว");
+    expect(text).not.toMatch(
+      /myhora|scrape|fallback|formula-pipeline|แหล่งคำนวณ/i,
+    );
     expect(chart.chart?.taksa?.length).toBeGreaterThanOrEqual(6);
   });
 

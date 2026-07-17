@@ -46,7 +46,7 @@ function pad(s: string, n: number): string {
 
 function formatSamrapTable(rows: MyhoraNatalPlanet[]): string[] {
   const lines = [
-    "ตารางสมผุส (myhora):",
+    "ตารางสมผุส:",
     `${pad("ดาว", 12)} | ${pad("ราศี", 8)} | ${pad("องศา", 6)} | ${pad("เรือน", 5)} | ${pad("นวางศ์", 6)} | ${pad("ฤกษ์", 8)} | มาตรฐานฤกษ์`,
     `${"-".repeat(12)}-+-${"-".repeat(8)}-+-${"-".repeat(6)}-+-${"-".repeat(5)}-+-${"-".repeat(6)}-+-${"-".repeat(8)}-+-${"-".repeat(10)}`,
   ];
@@ -67,7 +67,7 @@ function formatSamrapTable(rows: MyhoraNatalPlanet[]): string[] {
 
 function formatTaksaGrid(taksa: (MyhoraTaksaCell | null)[][]): string[] {
   if (!taksa.length) return [];
-  const lines = ["", "ทักษา (ตาราง myhora):"];
+  const lines = ["", "ทักษา:"];
   for (const row of taksa) {
     const cells = row
       .filter(Boolean)
@@ -109,25 +109,18 @@ function formatDateDetail(chart: ChartJson, kind: "natal" | "transit"): string[]
 
 /**
  * Turn chartJson into a readable Thai table for the AI prompt.
- * When myhora scrape tables exist, prefer those as the evidence block.
+ * Prefer structured evidence rows when present.
  */
 export function formatChartForPrompt(
   chart: ChartJson,
   options: FormatChartOptions = {},
 ): string {
-  const fromScrape = chart.meta.calculationSource === "myhora-scrape";
   const title =
     options.title ??
-    (fromScrape
-      ? "[natal] พื้นดวงจาก myhora (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)"
-      : "[natal] พื้นดวง (คำนวณในเครื่อง — ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)");
+    "[natal] พื้นดวง (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)";
 
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "—";
-  const lines: string[] = [
-    title,
-    `ลัคนา: ${lagna}`,
-    `แหล่งคำนวณ: ${chart.meta.calculationSource ?? "formula-pipeline"}`,
-  ];
+  const lines: string[] = [title, `ลัคนา: ${lagna}`];
 
   if (chart.meta.birthDisplay) lines.push(`วันเวลา: ${chart.meta.birthDisplay}`);
   if (chart.meta.locationDisplay) lines.push(`สถานที่: ${chart.meta.locationDisplay}`);

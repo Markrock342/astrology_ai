@@ -239,6 +239,9 @@ async function parseApiJson(res: Response) {
 function localizeApiError(message: string | undefined, fallback: string): string {
   if (!message?.trim()) return fallback;
   const trimmed = message.trim();
+  if (/myhora|scrap(?:e|ed|ing)?|formula-pipeline/i.test(trimmed)) {
+    return fallback;
+  }
   if (
     trimmed === "Something went wrong" ||
     trimmed.includes("connection pool") ||
