@@ -20,6 +20,7 @@ import {
 
 import { BrandMark } from "@/components/brand-logo";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
+import { HoroscopeChartPanel } from "./horoscope-chart-panel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import { CopyMessageButton } from "./copy-message-button";
 import { MessageActions } from "./message-actions";
@@ -1755,22 +1756,20 @@ export function ChatView() {
                     </p>
                     {isFirstChartMessage && (
                       <div className="mb-4 flex flex-col gap-2">
-                        <div className="flex flex-wrap items-start gap-3">
-                          {m.chartSnapshot && (
-                            <ExpandableRasiWheel
-                              chart={m.chartSnapshot}
-                              size={168}
-                              label="พื้นดวงเดิม"
-                            />
-                          )}
-                          {m.transitSnapshot && (
+                        {m.chartSnapshot ? (
+                          <HoroscopeChartPanel
+                            natal={m.chartSnapshot}
+                            transit={m.transitSnapshot}
+                          />
+                        ) : m.transitSnapshot ? (
+                          <div className="flex flex-wrap items-start gap-3">
                             <ExpandableRasiWheel
                               chart={m.transitSnapshot}
                               size={168}
                               label="ดวงจร"
                             />
-                          )}
-                        </div>
+                          </div>
+                        ) : null}
                         {m.chartSnapshot && (
                           <ChartEvidenceTable
                             chart={m.chartSnapshot}
