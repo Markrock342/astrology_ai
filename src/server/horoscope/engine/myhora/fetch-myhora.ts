@@ -128,6 +128,8 @@ export interface FetchMyhoraOptions {
   transit?: TransitInput;
   /** Skip embed iframes (taksa/triwai/charts) — much faster for AI prompts. */
   lite?: boolean;
+  /** In lite mode, still fetch the two compact evidence grids for cached natal UI. */
+  includeGrids?: boolean;
 }
 
 export async function fetchMyhoraThaiChart(
@@ -154,7 +156,13 @@ export async function fetchMyhoraThaiChart(
   const contentPaths = parseMyhoraContentPaths(resultHtml);
 
   if (options.lite) {
-    const tables = mergeMyhoraTables(resultHtml, "", "", {
+    const [taksaHtml, triwaiHtml] = options.includeGrids
+      ? await Promise.all([
+          embeds.taksa ? fetchText(embeds.taksa) : Promise.resolve(""),
+          embeds.triwai ? fetchText(embeds.triwai) : Promise.resolve(""),
+        ])
+      : ["", ""];
+    const tables = mergeMyhoraTables(resultHtml, taksaHtml, triwaiHtml, {
       chartEmbeds: {
         natalAnalysis: null,
         natalSvg: null,

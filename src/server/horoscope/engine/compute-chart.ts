@@ -13,6 +13,7 @@ import {
   isMyhoraScrapeEnabled,
 } from "./myhora/fetch-myhora";
 import { mapScrapeToChartJson } from "./myhora/map-to-chart";
+import { chartFromMyhoraRows } from "@/lib/chart-derivations";
 
 function toChartJsonFromFormula(input: BirthInputSnapshot): ChartJson {
   const place = resolvePlaceCoords(input.country, input.province, input.district);
@@ -56,6 +57,7 @@ export async function computeNatalChart(
         fetchMyhoraThaiChart(input, {
           transit: options?.transit,
           lite: true,
+          includeGrids: true,
         }),
         new Promise<never>((_, reject) => {
           setTimeout(
@@ -108,13 +110,28 @@ export async function computeTransitChart(
       const chart = mapScrapeToChartJson(input, scrape);
       // Prefer transit planet table when present.
       if (scrape.tables.transitPlanets?.length) {
+        const transitRows = chartFromMyhoraRows(
+          scrape.tables.transitPlanets,
+          {
+            lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
+            planets: chart.planets,
+          },
+        );
         return {
           ...chart,
+          planets: transitRows?.planets ?? chart.planets,
+          chart: chart.chart
+            ? {
+                ...chart.chart,
+                lagna: transitRows?.lagna ?? chart.chart.lagna,
+              }
+            : chart.chart,
           meta: {
             ...chart.meta,
             birthDisplay: formatBirthDisplay(input),
             locationDisplay: formatLocationDisplay(input),
             calculationSource: "myhora-scrape",
+            lagna: transitRows?.lagna ?? chart.meta.lagna,
           },
         };
       }

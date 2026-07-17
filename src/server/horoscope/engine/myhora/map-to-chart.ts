@@ -6,6 +6,7 @@ import {
   formatLocationDisplay,
 } from "@/server/horoscope/engine/newhora/dateTimeUtils";
 import { computeTaksaFromLagna } from "@/server/horoscope/engine/newhora/formulas/taksa";
+import { chartFromMyhoraRows } from "@/lib/chart-derivations";
 import { myhoraAbbrToSign } from "./sign-codes";
 import type { MyhoraScrapeResult } from "./fetch-myhora";
 
@@ -74,7 +75,15 @@ export function mapScrapeToChartJson(
   scrape: MyhoraScrapeResult,
 ): ChartJson {
   const lagna = scrape.lagna ?? scrape.tables.lagnaSign ?? "—";
-  const planets = enrichPlanetsFromSamrap(scrape.planets, scrape.tables.natalPlanets);
+  const enriched = enrichPlanetsFromSamrap(
+    scrape.planets,
+    scrape.tables.natalPlanets,
+  );
+  const planets =
+    chartFromMyhoraRows(scrape.tables.natalPlanets, {
+      lagna,
+      planets: enriched,
+    })?.planets ?? enriched;
   const taksa = computeTaksaFromLagna(lagna);
 
   return {
