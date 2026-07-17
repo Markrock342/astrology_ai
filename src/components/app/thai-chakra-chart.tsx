@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { DerivedChart } from "@/lib/chart-derivations";
 import {
   getPlanetTheme,
@@ -54,17 +55,19 @@ function polar(radius: number, degree: number) {
   };
 }
 
-export function ThaiChakraChart({
-  chart,
-  title,
-  centerLabel,
-  size = 224,
-}: {
+type ThaiChakraChartProps = {
   chart: DerivedChart;
   title: string;
   centerLabel: string;
   size?: number;
-}) {
+};
+
+function ThaiChakraFigure({
+  chart,
+  title,
+  centerLabel,
+  size = 224,
+}: ThaiChakraChartProps) {
   const planetsBySign = useMemo(() => {
     const grouped = new Map<string, DerivedChart["planets"]>();
     for (const planet of chart.planets) {
@@ -77,10 +80,10 @@ export function ThaiChakraChart({
   const lagna = normalizeSignName(chart.lagna);
 
   return (
-    <figure className="min-w-0">
-      <figcaption className="mb-2 text-center text-xs font-semibold tracking-wide text-[var(--primary)]">
+    <div className="min-w-0">
+      <p className="mb-2 text-center text-xs font-semibold tracking-wide text-[var(--primary)]">
         {title}
-      </figcaption>
+      </p>
       <svg
         viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
         width={size}
@@ -230,6 +233,88 @@ export function ThaiChakraChart({
           ลัคนา {lagna}
         </text>
       </svg>
-    </figure>
+    </div>
+  );
+}
+
+/** Compact chart that opens a readable, touch-friendly lightbox. */
+export function ThaiChakraChart(props: ThaiChakraChartProps) {
+  const [open, setOpen] = useState(false);
+  const titleId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        type="button"
+        className="press-scale group relative block w-full rounded-xl outline-none ring-[var(--primary)] transition focus-visible:ring-2"
+        onClick={() => setOpen(true)}
+        aria-label={`ขยาย${props.title}`}
+      >
+        <ThaiChakraFigure {...props} />
+        <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/65 px-2 py-0.5 text-[9px] text-[var(--primary)] opacity-80 transition group-hover:opacity-100">
+          แตะเพื่อขยาย
+        </span>
+      </button>
+
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-3"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) setOpen(false);
+              }}
+            >
+              <div className="animate-fade-up w-full max-w-xl rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-2xl">
+                <div className="mb-2 flex items-center justify-between">
+                  <h2
+                    id={titleId}
+                    className="text-sm font-semibold text-[var(--foreground)]"
+                  >
+                    {props.title}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="rounded-md px-2 py-1 text-sm text-[var(--muted)] hover:bg-[var(--surface-3)] hover:text-[var(--foreground)]"
+                    aria-label="ปิด"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <ThaiChakraFigure
+                  {...props}
+                  size={Math.min(
+                    520,
+                    typeof window !== "undefined"
+                      ? window.innerWidth - 48
+                      : 440,
+                  )}
+                />
+                <p className="mt-1 text-center text-[11px] text-[var(--muted-2)]">
+                  แตะพื้นหลังหรือกด Esc เพื่อปิด
+                </p>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }

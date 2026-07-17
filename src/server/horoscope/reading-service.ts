@@ -98,6 +98,10 @@ export type AnswerMode = "brief" | "detailed";
 
 /** UX Wave F — staged thinking phases emitted over SSE before the first delta. */
 export type ChatPrepPhase = "chart" | "memory" | "writing";
+export type ChatChartSnapshots = {
+  chartSnapshot: ChartJson;
+  transitSnapshot: ChartJson | null;
+};
 
 export function resolveMaxOutputTokens(
   plan: "FREE" | "PRO",
@@ -124,6 +128,8 @@ export type CreateReadingInput = {
   answerMode?: AnswerMode;
   /** Optional hook for SSE phased status (chart → memory → writing). */
   onPhase?: (phase: ChatPrepPhase) => void;
+  /** Emit deterministic chart UI as soon as chart preparation completes. */
+  onCharts?: (charts: ChatChartSnapshots) => void;
 };
 
 export async function createReading(input: CreateReadingInput) {
@@ -151,6 +157,7 @@ async function runReading(
     idempotencyKey,
     priorMessages,
     onPhase,
+    onCharts,
   } = input;
   const mode = input.mode ?? "NATAL";
 
@@ -256,6 +263,10 @@ async function runReading(
   }
 
   const transitChart = await loadTransitChart();
+  onCharts?.({
+    chartSnapshot: natalChart,
+    transitSnapshot: transitChart,
+  });
 
   // Memory phase — chart memory, config, knowledge, prompt assembly.
   onPhase?.("memory");
