@@ -1,7 +1,10 @@
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/server/db";
 import type { ChartJson } from "@/types/chart";
-import { birthProfileToChartInput } from "@/server/horoscope/engine/birth-input-mapper";
+import {
+  birthProfileToChartInput,
+  chartInputMatches,
+} from "@/server/horoscope/engine/birth-input-mapper";
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";
 import { upgradeNatalChartFromScrape } from "@/server/horoscope/natal-chart-service";
 import { upsertChartMemory } from "@/server/horoscope/chart-memory-service";
@@ -42,15 +45,20 @@ export async function loadChartForUser(userId: string): Promise<ChartJson | null
  * Always returns a chart with lagna + planets so every prompt can cite the engine.
  */
 export async function requireReadyNatalChart(userId: string): Promise<ChartJson> {
-  const existing = await loadChartForUser(userId);
-  if (existing) return existing;
-
-  const profile = await prisma.birthProfile.findUnique({ where: { userId } });
+  const [existing, profile] = await Promise.all([
+    loadChartForUser(userId),
+    prisma.birthProfile.findUnique({ where: { userId } }),
+  ]);
   if (!profile) {
     throw new AppError("VALIDATION", "Birth profile is required");
   }
 
   const input = birthProfileToChartInput(profile);
+  // Charts created before the timezone fix used UTC calendar fields. For Thai
+  // births before 07:00 that shifted the input to the previous civil date.
+  // Repair stale cached charts automatically on the next chat request.
+  if (existing && chartInputMatches(existing.input, input)) return existing;
+
   const formula = computeNatalChartFormula(input);
   assertUsableEngineChart(formula);
 
