@@ -1299,6 +1299,8 @@ export function ChatView() {
             elapsedMs?: number;
             threadTitle?: string;
             truncated?: boolean;
+            chartSnapshot?: ChartJson | null;
+            transitSnapshot?: ChartJson | null;
             reading?: {
               responseText?: string | null;
               modelId?: string | null;
@@ -1344,6 +1346,22 @@ export function ChatView() {
             ) {
               setThinkingPhase(event.phase);
             }
+          } else if (event.type === "charts" && event.chartSnapshot) {
+            // Charts are deterministic engine output, not model prose. Paint
+            // them as soon as chart preparation finishes instead of waiting
+            // for the final `done` frame after a potentially long generation.
+            if (!ownsView()) continue;
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantId
+                  ? {
+                      ...message,
+                      chartSnapshot: event.chartSnapshot,
+                      transitSnapshot: event.transitSnapshot ?? null,
+                    }
+                  : message,
+              ),
+            );
           } else if (event.type === "delta" && event.text) {
             if (!gotDelta) firstDelta.atMs = nowMs();
             gotDelta = true;
@@ -1395,8 +1413,10 @@ export function ChatView() {
                     content: finalText,
                     modelId: reading?.modelId ?? DEFAULTS.defaultGeminiModelId,
                     status: "SUCCESS" as const,
-                    chartSnapshot: reading?.chartSnapshot ?? null,
-                    transitSnapshot: reading?.transitSnapshot ?? null,
+                    chartSnapshot:
+                      reading?.chartSnapshot ?? m.chartSnapshot ?? null,
+                    transitSnapshot:
+                      reading?.transitSnapshot ?? m.transitSnapshot ?? null,
                     summaryLine,
                     followUps,
                     elapsedMs:

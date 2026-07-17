@@ -375,6 +375,39 @@ describe("createReading (M3 B2)", () => {
     );
   });
 
+  it("emits chart snapshots before starting AI generation", async () => {
+    const order: string[] = [];
+    const onCharts = vi.fn(() => order.push("charts"));
+    mocks.generateWithFallback.mockImplementationOnce(async () => {
+      order.push("ai");
+      return {
+        ok: true,
+        rawText: "คำตอบจาก AI",
+        provider: "GEMINI",
+        modelId: "gemini-2.5-flash",
+        latencyMs: 120,
+        usage: { inputTokens: 10, outputTokens: 20 },
+      };
+    });
+
+    await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "เรื่องงานเป็นอย่างไร",
+      onCharts,
+    });
+
+    expect(order).toEqual(["charts", "ai"]);
+    expect(onCharts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chartSnapshot: expect.objectContaining({
+          meta: expect.objectContaining({ lagna: "เมษ" }),
+        }),
+        transitSnapshot: null,
+      }),
+    );
+  });
+
   it("caps knowledge docs to the character budget in sortOrder", async () => {
     // Two docs whose combined length exceeds KNOWLEDGE_MAX_CHARS: the first
     // fits, the second is dropped in sortOrder rather than half-included.

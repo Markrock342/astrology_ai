@@ -217,6 +217,9 @@ export async function POST(
             (phase) => {
               send({ type: "status", phase });
             },
+            (charts) => {
+              send({ type: "charts", ...charts });
+            },
           );
 
           after(() =>
