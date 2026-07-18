@@ -6,9 +6,11 @@
 - Health check / ปุ่มทดสอบ: ตรวจโมเดลหลักเท่านั้น (ไม่ผ่านด้วย fallback)
 - ผูกโมเดลต่อหมวด/แพลนที่ฟอร์ม AI Config (ไม่ใช่หน้า Categories)
 - Toolbar CMS: โหลด diff จาก revision โดยไม่ setState ตรงใน effect (ผ่าน CI lint)
+- **Landing hero background:** ใช้ได้จริง — ดู [admin_landing_hero.md](./admin_landing_hero.md)
 - **คู่มือละเอียดสำหรับเพื่อน/AI:** [`SETTINGS_MODEL_AI.md`](../SETTINGS_MODEL_AI.md) (รากโปรเจกต์)
 
 ## งานที่เพิ่งทำเสร็จ (Recently Completed)
+- Landing Hero: validation URL/YouTube, พรีวิวย่อ, «ดูในแท็บนี้», ตัวอย่างธีม, `revalidatePath("/")`
 - แก้ `react-hooks/set-state-in-effect` ใน `content-editor-toolbar.tsx` — reset/load diff ใน event handler; effect แค่ fetch
 - ฟอร์มเพิ่มโมเดล: Model ID เป็นช่องพิมพ์เดียว ไม่พรีฟิลล์ค่าแนะนำ
 - Create ต้องมี `apiKey`; ส่ง `planScope`; highlight แถวใหม่
@@ -30,6 +32,7 @@
 - [วิธีที่ลองแก้ไปแล้ว]: ใส่ `-- ALLOW_DESTRUCTIVE:` ใน migration (คอลัมน์ตาย ไม่มี traffic พึ่งพา) → check ผ่าน
 - [ปัญหา]: Vercel `vercel-build` ล้มที่ `set: pipefail: invalid option name` — `scripts/ci-local.sh` เป็น CRLF จาก Windows
 - [วิธีที่ลองแก้ไปแล้ว]: ย้าย `npm run ci` ไป `node scripts/ci-local.mjs` + `.gitattributes` บังคับ LF สำหรับ `*.sh`
+- [ปัญหา]: Landing hero background “ทำแล้วใช้ไม่ได้” → ดู [admin_landing_hero.md](./admin_landing_hero.md)
 
 ## สิ่งที่ยังค้างอยู่และปัญหาที่ทราบ (Pending & Known Issues)
 - Soft-nav ยังอยู่ branch `fix/dashboard-soft-nav`
@@ -37,6 +40,7 @@
 - Smoke staging/prod ยัง manual
 - OpenAI-compatible ต้องสร้างแถวใน DB เองจากฟอร์ม (ยังไม่มี seed GPT)
 - GitHub Actions check แดงเร็ว (~5s) เพราะ **billing lock** — gate จริงคือ Vercel `vercel-build` + `npm run ci` ท้องถิ่น
+- อัปโหลดไฟล์วิดีโอ CMS ยังไม่มี (ใช้ URL ไฟล์เท่านั้น)
 
 ## Checklist งานต่อไป (Next Steps)
 - [ ] Smoke staging: สร้าง OpenAI-compatible + Base URL, health รายโมเดล, chat Free/Pro routing
@@ -47,3 +51,4 @@
 - [x] แก้ CI lint `content-editor-toolbar` set-state-in-effect
 - [x] ปลด `migrations:check` สำหรับ drop dead `aiConfigId`
 - [x] แก้ `vercel-build` / CRLF `ci-local.sh` → Node CI script
+- [x] Landing hero background CMS usable + sample theme

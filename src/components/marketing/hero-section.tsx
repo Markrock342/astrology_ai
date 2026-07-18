@@ -2,28 +2,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-logo";
 import type { CmsLandingHero } from "@/lib/cms-keys";
-
-function mediaSrc(url?: string | null) {
-  const v = url?.trim();
-  return v ? v : null;
-}
+import { resolveHeroBackground } from "@/lib/landing-hero-bg";
 
 export function HeroSection({ hero }: { hero: CmsLandingHero }) {
-  const bgType = hero.backgroundType ?? "none";
-  const bgImage = mediaSrc(hero.backgroundImageUrl);
-  const bgVideo = mediaSrc(hero.backgroundVideoUrl);
-  const overlay = Math.min(80, Math.max(0, hero.backgroundOverlay ?? 55));
-  const hasBgImage = bgType === "image" && Boolean(bgImage);
-  const hasBgVideo = bgType === "video" && Boolean(bgVideo);
-  const hasFullBleed = hasBgImage || hasBgVideo;
-  const insetImage = !hasFullBleed ? mediaSrc(hero.imageUrl) : null;
+  const bg = resolveHeroBackground(hero);
 
   return (
     <section className="relative flex min-h-[100dvh] flex-col overflow-hidden">
-      {hasBgImage ? (
+      {bg.imageSrc ? (
         <div className="absolute inset-0" aria-hidden>
           <Image
-            src={bgImage!}
+            src={bg.imageSrc}
             alt=""
             fill
             priority
@@ -33,11 +22,11 @@ export function HeroSection({ hero }: { hero: CmsLandingHero }) {
           />
         </div>
       ) : null}
-      {hasBgVideo ? (
+      {bg.videoSrc ? (
         <video
           aria-hidden
           className="absolute inset-0 h-full w-full object-cover"
-          src={bgVideo!}
+          src={bg.videoSrc}
           autoPlay
           muted
           loop
@@ -46,11 +35,11 @@ export function HeroSection({ hero }: { hero: CmsLandingHero }) {
         />
       ) : null}
 
-      {hasFullBleed ? (
+      {bg.hasFullBleed ? (
         <div
           aria-hidden
           className="absolute inset-0"
-          style={{ background: `rgba(8, 8, 12, ${overlay / 100})` }}
+          style={{ background: `rgba(8, 8, 12, ${bg.overlay / 100})` }}
         />
       ) : (
         <div
@@ -89,10 +78,10 @@ export function HeroSection({ hero }: { hero: CmsLandingHero }) {
           </Link>
         </div>
 
-        {insetImage ? (
+        {bg.insetImage ? (
           <div className="animate-fade-up stagger-5 relative mt-14 w-full max-w-3xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl shadow-black/30">
             <Image
-              src={insetImage}
+              src={bg.insetImage}
               alt=""
               width={1200}
               height={720}

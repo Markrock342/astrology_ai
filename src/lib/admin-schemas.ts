@@ -3,6 +3,10 @@ import {
   assertSafeOpenAiBaseUrl,
   isAllowedAiSecretRef,
 } from "@/lib/ai-config-guards";
+import {
+  isDirectVideoFileUrl,
+  isPageEmbedVideoUrl,
+} from "@/lib/landing-hero-bg";
 
 /**
  * Zod schemas for Admin CMS endpoints. Kept separate from the user-facing
@@ -116,18 +120,51 @@ const cmsHeroMediaRef = z
   .optional()
   .or(z.literal(""));
 
-export const cmsLandingHeroSchema = z.object({
-  eyebrow: z.string().max(80),
-  headline: z.string().min(1).max(120),
-  subheadline: z.string().min(1).max(500),
-  primaryCta: cmsCtaSchema,
-  secondaryCta: cmsCtaSchema,
-  imageUrl: cmsHeroMediaRef,
-  backgroundType: z.enum(["none", "image", "video"]).optional().default("none"),
-  backgroundImageUrl: cmsHeroMediaRef,
-  backgroundVideoUrl: cmsHeroMediaRef,
-  backgroundOverlay: z.number().int().min(0).max(80).optional().default(55),
-});
+export const cmsLandingHeroSchema = z
+  .object({
+    eyebrow: z.string().max(80),
+    headline: z.string().min(1).max(120),
+    subheadline: z.string().min(1).max(500),
+    primaryCta: cmsCtaSchema,
+    secondaryCta: cmsCtaSchema,
+    imageUrl: cmsHeroMediaRef,
+    backgroundType: z.enum(["none", "image", "video"]).optional().default("none"),
+    backgroundImageUrl: cmsHeroMediaRef,
+    backgroundVideoUrl: cmsHeroMediaRef,
+    backgroundOverlay: z.number().int().min(0).max(80).optional().default(55),
+  })
+  .superRefine((val, ctx) => {
+    const type = val.backgroundType ?? "none";
+    if (type === "image") {
+      const url = (val.backgroundImageUrl ?? "").trim();
+      if (!url) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["backgroundImageUrl"],
+          message: "เลือกพื้นหลังรูปแล้วต้องมี URL หรืออัปโหลดรูป",
+        });
+      }
+    }
+    if (type === "video") {
+      const url = (val.backgroundVideoUrl ?? "").trim();
+      if (!url) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["backgroundVideoUrl"],
+          message: "เลือกพื้นหลังวิดีโอแล้วต้องมี URL ไฟล์ mp4/webm",
+        });
+        return;
+      }
+      if (isPageEmbedVideoUrl(url) || !isDirectVideoFileUrl(url)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["backgroundVideoUrl"],
+          message:
+            "ต้องเป็นลิงก์ไฟล์ .mp4 / .webm โดยตรง — ไม่รองรับ YouTube/Vimeo",
+        });
+      }
+    }
+  });
 
 export const cmsLandingFeaturesSchema = z.object({
   title: z.string().min(1).max(120),
