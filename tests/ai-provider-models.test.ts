@@ -1,4 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+// Stub the DNS-based SSRF egress guard (covered in tests/base-url-egress.test.ts)
+// so the adapter test can post to mock endpoints without real resolution.
+vi.mock("@/server/ai/base-url-egress", () => ({
+  assertBaseUrlEgressAllowed: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { aiConfigCreateSchema, aiConfigTestKeySchema } from "@/lib/admin-schemas";
 import { modelPresetsForProvider } from "@/config/ai-provider-models";
 import { defaultSecretRefForProvider } from "@/lib/ai-config-guards";

@@ -28,13 +28,32 @@ export const AI_PRICING: Record<string, ModelPricing> = {
     outputPerMTok: 1.5,
     cachedInputPerMTok: 0.025,
   },
+  // OpenAI (per 1M tokens; cached input at OpenAI's 50% prompt-cache rate).
+  // Source: https://openai.com/api/pricing — keep in sync when adding GPT rows
+  // via the admin "โมเดล AI" form so cost/profit reports aren't Gemini-priced.
+  "gpt-4o": { inputPerMTok: 2.5, outputPerMTok: 10.0, cachedInputPerMTok: 1.25 },
+  "gpt-4o-mini": { inputPerMTok: 0.15, outputPerMTok: 0.6, cachedInputPerMTok: 0.075 },
+  "gpt-4.1": { inputPerMTok: 2.0, outputPerMTok: 8.0, cachedInputPerMTok: 0.5 },
+  "gpt-4.1-mini": { inputPerMTok: 0.4, outputPerMTok: 1.6, cachedInputPerMTok: 0.1 },
+  "gpt-4.1-nano": { inputPerMTok: 0.1, outputPerMTok: 0.4, cachedInputPerMTok: 0.025 },
 };
 
-/** Unknown//preview models bill as the standard chat model — never as free. */
+/** Gemini fallback for unknown Gemini/preview ids. */
 export const FALLBACK_PRICING: ModelPricing = AI_PRICING["gemini-3.5-flash"];
+/** OpenAI fallback so a GPT id we lack a row for isn't billed at Gemini rates. */
+const OPENAI_FALLBACK_PRICING: ModelPricing = AI_PRICING["gpt-4o"];
 
 export function pricingFor(modelId: string): ModelPricing {
-  return AI_PRICING[modelId.trim().toLowerCase()] ?? FALLBACK_PRICING;
+  const id = modelId.trim().toLowerCase();
+  const known = AI_PRICING[id];
+  if (known) return known;
+  // Provider-aware fallback: never price a GPT/o-series model with the Gemini
+  // table (a ~10× error in the cost/profit view). Only true Gemini/unknowns use
+  // the Gemini fallback.
+  if (id.startsWith("gpt-") || id.startsWith("o1") || id.startsWith("o3")) {
+    return OPENAI_FALLBACK_PRICING;
+  }
+  return FALLBACK_PRICING;
 }
 
 /** True when we are guessing — the UI says so rather than quietly lying. */

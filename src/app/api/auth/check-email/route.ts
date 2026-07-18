@@ -1,5 +1,5 @@
 import { handle, ok } from "@/lib/http";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, rateLimitIp } from "@/lib/rate-limit";
 import { checkEmailSchema } from "@/lib/schemas";
 import { getEmailAuthStatus } from "@/server/auth/account-lookup";
 
@@ -9,7 +9,7 @@ import { getEmailAuthStatus } from "@/server/auth/account-lookup";
  */
 export async function POST(req: Request) {
   return handle(async () => {
-    await rateLimit(`check-email:${req.headers.get("x-forwarded-for") ?? "local"}`, 20, 60_000);
+    await rateLimit(`check-email:${rateLimitIp(req)}`, 20, 60_000);
     const { email } = checkEmailSchema.parse(await req.json());
     return ok(await getEmailAuthStatus(email));
   });

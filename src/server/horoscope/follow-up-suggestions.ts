@@ -137,7 +137,10 @@ export async function generateThreadTitle(input: {
         "ตั้งชื่อหัวข้อบทสนทนาดูดวงเป็นภาษาไทย สั้น กระชับ ไม่เกิน 30 ตัวอักษร " +
         "ตอบเป็นชื่อหัวข้ออย่างเดียว ห้ามใส่เครื่องหมายคำพูด ห้ามอธิบาย",
       userPrompt: `คำถาม: ${input.question.slice(0, 300)}\n\nคำตอบ (ย่อ): ${input.answer.slice(0, 400)}`,
-      maxOutputTokens: 96,
+      // Gemini 3.x draws MINIMAL-level thinking from THIS budget (2.5 kept it
+      // separate). 96 could be spent entirely on thinking → empty title, so the
+      // sidebar kept the raw truncated question. Leave room for thinking + title.
+      maxOutputTokens: 192,
       timeoutMs: 6_000,
     });
     if (!result.ok || !result.rawText) return null;
@@ -188,10 +191,10 @@ export async function generateFollowUpMeta(input: {
 
 คำตอบ:
 ${answerSnippet}`,
-      // Thai JSON with a summary + 3 questions overran 256 tokens and came back
-      // truncated (unparseable → no chips). It's off the critical path now, so a
-      // shorter timeout just means the chips appear sooner or not at all.
-      maxOutputTokens: 320,
+      // Thai JSON (summary + 3 questions) plus Gemini-3.x MINIMAL thinking —
+      // both drawn from this budget — overran 320 and came back truncated
+      // (unparseable → no chips). Raised so the JSON survives the thinking spend.
+      maxOutputTokens: 512,
       timeoutMs: 8_000,
     });
 

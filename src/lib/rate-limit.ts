@@ -13,6 +13,28 @@ import { Redis } from "@upstash/redis";
  * of allowing unlimited login attempts.
  */
 
+/**
+ * Best-effort client IP for rate-limit bucketing.
+ *
+ * Prefer platform-set headers (`x-real-ip` / `x-vercel-forwarded-for`) which the
+ * client cannot spoof, then the LEFTMOST `x-forwarded-for` entry. NEVER key on
+ * the whole `x-forwarded-for` string: an attacker who sends a random XFF header
+ * each request would mint a fresh bucket every time and defeat the limit
+ * entirely. Absent all headers, everything collides on "local" (dev/self-host).
+ */
+export function rateLimitIp(req: Request): string {
+  const real = req.headers.get("x-real-ip")?.trim();
+  if (real) return real;
+  const vercel = req.headers
+    .get("x-vercel-forwarded-for")
+    ?.split(",")[0]
+    ?.trim();
+  if (vercel) return vercel;
+  const xff = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  if (xff) return xff;
+  return "local";
+}
+
 type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
 
