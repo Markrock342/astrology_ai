@@ -1,11 +1,16 @@
 "use client";
 
 import { memo } from "react";
+import Link from "next/link";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CopyCodeButton } from "./copy-code-button";
 import { completeMarkdown } from "./complete-markdown";
+import {
+  linkChatNavigationCtas,
+  OPEN_TRANSIT_EVENT,
+} from "@/lib/chat-navigation-links";
 
 const components: Components = {
   h1: ({ children }) => (
@@ -52,11 +57,33 @@ const components: Components = {
     const safe = sanitizeHref(href ?? "");
     if (!safe) return <span>{children}</span>;
     const external = safe.startsWith("http");
+    const opensTransit = safe === "/dashboard?action=transit";
+    const className =
+      "font-semibold text-[var(--primary)] underline decoration-[var(--primary)]/70 underline-offset-2 transition hover:text-[var(--primary-hover)]";
+    if (!external) {
+      return (
+        <Link
+          href={safe}
+          className={className}
+          onClick={
+            opensTransit
+              ? (event) => {
+                  event.preventDefault();
+                  window.dispatchEvent(new Event(OPEN_TRANSIT_EVENT));
+                }
+              : undefined
+          }
+        >
+          {children}
+        </Link>
+      );
+    }
     return (
       <a
         href={safe}
-        className="font-medium text-[var(--primary)] underline-offset-2 hover:underline"
-        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+        className={className}
+        target="_blank"
+        rel="noopener noreferrer"
       >
         {children}
       </a>
@@ -159,7 +186,8 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   // markdown, which it renders faithfully as pipe salad and stray asterisks that
   // then rearrange themselves. Complete the document before it gets there.
   // A settled message is already whole; leave it strictly alone.
-  const source = streaming ? completeMarkdown(content) : content;
+  const completed = streaming ? completeMarkdown(content) : content;
+  const source = linkChatNavigationCtas(completed);
   if (!source) return null;
 
   return (
