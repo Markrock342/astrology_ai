@@ -34,8 +34,10 @@ import {
   invalidateCachedThread,
   prefetchThread,
 } from "./thread-cache";
+import { OPEN_TRANSIT_EVENT } from "@/lib/chat-navigation-links";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   // Two-phase mobile drawer so it can animate on both enter and exit:
   // `mobileRender` keeps it mounted, `mobileShown` drives the slide/fade.
@@ -43,7 +45,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileShown, setMobileShown] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [transitOpen, setTransitOpen] = useState(false);
+  const [transitOpen, setTransitOpen] = useState(
+    () => searchParams.get("action") === "transit",
+  );
   const [activeModal, setActiveModal] = useState<SettingsModal>(null);
   // Destructive-action confirm (delete one thread / clear all history) uses a
   // styled modal instead of window.confirm.
@@ -59,7 +63,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const mobileDrawerRef = useRef<HTMLElement>(null);
   // What had focus before the drawer opened, so we can hand it back on close.
   const focusBeforeDrawer = useRef<HTMLElement | null>(null);
-  const searchParams = useSearchParams();
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
   const chatNav = useChatNav();
@@ -78,6 +81,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     loading,
     loadError,
   } = useAppData();
+
+  useEffect(() => {
+    const openTransit = () => setTransitOpen(true);
+    window.addEventListener(OPEN_TRANSIT_EVENT, openTransit);
+    return () => window.removeEventListener(OPEN_TRANSIT_EVENT, openTransit);
+  }, []);
 
   function openThread(threadId: string, categorySlug?: string | null) {
     closeMobile();
