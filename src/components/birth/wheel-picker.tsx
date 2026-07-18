@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 
 /**
  * iOS-style drum/wheel picker built on native CSS scroll-snap — momentum
@@ -29,6 +29,8 @@ export function WheelColumn({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const settleRef = useRef<number | null>(null);
+  const baseId = useId();
+  const optionId = (i: number) => `${baseId}-opt-${i}`;
   // Latest value read by the debounced scroll/keydown handlers without a stale
   // closure. Synced in an effect (never during render — the compiler forbids it).
   const valueRef = useRef(value);
@@ -87,6 +89,7 @@ export function WheelColumn({
       onKeyDown={handleKeyDown}
       role="listbox"
       aria-label={ariaLabel}
+      aria-activedescendant={optionId(indexOf(value))}
       tabIndex={0}
       className="relative flex-1 overflow-y-scroll outline-none [scrollbar-width:none] focus-visible:ring-1 focus-visible:ring-[var(--primary)]/50 [&::-webkit-scrollbar]:hidden"
       style={{
@@ -100,15 +103,17 @@ export function WheelColumn({
       }}
     >
       <div style={{ height: PAD }} aria-hidden />
-      {options.map((o) => {
+      {options.map((o, i) => {
         const selected = o.value === value;
         return (
           <button
             key={o.value || "placeholder"}
+            id={optionId(i)}
             type="button"
             tabIndex={-1}
             role="option"
             aria-selected={selected}
+            aria-label={o.value === "" ? "ยังไม่เลือก" : o.label}
             onClick={() => {
               ref.current?.scrollTo({
                 top: indexOf(o.value) * ITEM_H,

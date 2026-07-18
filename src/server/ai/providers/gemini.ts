@@ -377,11 +377,14 @@ export class GeminiAdapter implements AIProviderAdapter {
         // came back cut MID-WORD with finishReason unset while text(661) +
         // thinking(~600) had exhausted the 1280 budget exactly. Thinking is
         // drawn from maxOutputTokens but hidden from candidatesTokenCount, so
-        // the budget math is the reliable tell.
+        // the budget math is the reliable tell — BUT only when the model did not
+        // report a clean stop. A `STOP` answer that merely used most of the
+        // budget is complete; without this guard it got a false "เล่าต่อ" footer.
         truncated:
           finishReason === "MAX_TOKENS" ||
-          (outputTokens ?? 0) + (thoughtTokens ?? 0) >=
-            input.maxOutputTokens - 8,
+          (finishReason !== "STOP" &&
+            (outputTokens ?? 0) + (thoughtTokens ?? 0) >=
+              input.maxOutputTokens - 8),
         firstTokenMs: firstTokenAt !== undefined ? firstTokenAt - start : undefined,
       };
     } catch (err) {

@@ -40,7 +40,10 @@ export async function POST(req: Request) {
       systemPrompt: "คุณคือผู้ช่วยทดสอบระบบ ตอบสั้นๆ 1 ประโยค",
       userPrompt: "ทดสอบการเชื่อมต่อ: ทักทายเป็นภาษาไทยสั้นๆ",
       temperature: 0.2,
-      maxOutputTokens: 64,
+      // Reasoning models (o1/o3/gpt-5) spend their whole budget on hidden
+      // reasoning, so a 64-token probe returned empty and tested red. 512 leaves
+      // room for the reasoning pass plus a one-line reply.
+      maxOutputTokens: 512,
       timeoutMs: 20_000,
       baseUrl: body.baseUrl ?? undefined,
       apiKey: body.apiKey,
