@@ -91,7 +91,7 @@ describe("generateFollowUpMeta", () => {
     expect(generateWithFallbackMock).toHaveBeenCalledWith(
       "cfg-lite",
       expect.objectContaining({
-        maxOutputTokens: 320,
+        maxOutputTokens: 512,
         timeoutMs: 8_000,
       }),
     );

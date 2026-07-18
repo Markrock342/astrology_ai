@@ -492,7 +492,8 @@ function EraToggle({
     <button
       type="button"
       onClick={() => onSelect(value)}
-      className={`inline-flex h-[18px] items-center rounded-md border px-1.5 text-[10px] leading-none transition ${
+      aria-pressed={active}
+      className={`inline-flex h-8 min-w-[3rem] items-center justify-center rounded-lg border px-3 text-xs font-medium leading-none transition ${
         active
           ? "border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--primary)]"
           : "border-[var(--border)] text-[var(--muted-2)] hover:text-[var(--foreground)]"

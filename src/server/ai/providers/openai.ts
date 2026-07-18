@@ -1,5 +1,6 @@
 import type { AIProviderAdapter } from "@/server/ai/adapter";
 import type { GenerateAIInput, GenerateAIResult, HoroscopeResponse } from "@/types";
+import { assertBaseUrlEgressAllowed } from "@/server/ai/base-url-egress";
 
 type OpenAIApiResponse = {
   choices?: Array<{ message?: { content?: string } }>;
@@ -57,6 +58,12 @@ export class OpenAIAdapter implements AIProviderAdapter {
       }));
       const baseUrl = normalizeBaseUrl(input.baseUrl);
       const isOfficialOpenAI = baseUrl === OPENAI_DEFAULT_BASE_URL;
+
+      // SSRF guard: resolve the host and reject internal targets before we send
+      // the API key anywhere. Skipped for the fixed official OpenAI endpoint.
+      if (!isOfficialOpenAI) {
+        await assertBaseUrlEgressAllowed(baseUrl);
+      }
 
       const res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",

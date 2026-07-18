@@ -334,7 +334,7 @@ export async function requestStopGeneration(input: {
   return true;
 }
 
-/** True once the user has pressed stop for this answer. Polled while streaming. */
+/** True once this answer should stop streaming. Polled while streaming. */
 export async function isStopRequested(
   conversationId: string,
   idempotencyKey: string,
@@ -343,7 +343,12 @@ export async function isStopRequested(
     where: { conversationId, idempotencyKey, ...LIVE },
     select: { stopRequested: true },
   });
-  return row?.stopRequested === true;
+  // A missing row means this turn was SUPERSEDED — the newer question's accept
+  // nulled this row's idempotencyKey (see acceptMessage), so the live-keyed row
+  // is gone. Without this, the poll stayed blind and the abandoned turn ran to
+  // completion and CHARGED a credit + quota slot for an answer the UI had
+  // already labelled "ยกเลิก (ไม่ถูกหักเครดิต)". Treat gone-or-flagged as stop.
+  return !row || row.stopRequested === true;
 }
 
 /** Run AI + finalize the PENDING assistant (called from `after()` or SSE stream). */

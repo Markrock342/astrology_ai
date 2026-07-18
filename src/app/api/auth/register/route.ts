@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
 import { registerSchema } from "@/lib/schemas";
 import { handle, ok, fail } from "@/lib/http";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, rateLimitIp } from "@/lib/rate-limit";
 import { provisionUser } from "@/server/auth/provisioning";
 import { normalizeEmail } from "@/server/auth/account-lookup";
 import { sendVerificationEmail } from "@/server/auth/email-verification-service";
@@ -19,7 +19,7 @@ import { signInCredentials } from "@/server/auth/server-sign-in";
  */
 export async function POST(req: Request) {
   return handle(async () => {
-    await rateLimit(`register:${req.headers.get("x-forwarded-for") ?? "local"}`, 10, 60_000);
+    await rateLimit(`register:${rateLimitIp(req)}`, 10, 60_000);
 
     const body = await req.json();
     const data = registerSchema.parse(body);

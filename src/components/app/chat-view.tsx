@@ -1394,19 +1394,26 @@ export function ChatView() {
             // a turn that was just streamed.
             const serverUserId = event.messageIds?.user ?? undefined;
             const serverAssistantId = event.messageIds?.assistant ?? undefined;
+            // Read the START time from the ref, NOT the captured `turnStartedAt`
+            // state. `send` is a per-render closure: on turn #2+ it captures the
+            // PREVIOUS turn's `turnStartedAt` (state is never reset between
+            // turns), so `nowMs() - turnStartedAt` measured from the last
+            // question and showed "ใช้เวลา 5:08 นาที". The ref is stamped fresh
+            // at the top of THIS send (processingStartedAtRef.current = nowMs()).
+            const started = processingStartedAtRef.current;
             // Computed OUTSIDE the setMessages updater: the React Compiler
             // freezes captures inside state updaters, so the mutable tracking
             // object cannot be read in there.
             const ttftMs =
-              firstDelta.atMs !== null && turnStartedAt !== null
-                ? firstDelta.atMs - turnStartedAt
+              firstDelta.atMs !== null && started !== null
+                ? firstDelta.atMs - started
                 : undefined;
             // Same clock for both numbers. The server's elapsedMs starts when
             // the ROUTE starts, the client's TTFT starts at SEND — mixing them
             // produced "ใช้เวลา 7 วิ (เริ่มตอบใน 18 วิ)", which reads as
             // nonsense. The user's clock is the one they experienced.
             const clientElapsedMs =
-              turnStartedAt !== null ? nowMs() - turnStartedAt : undefined;
+              started !== null ? nowMs() - started : undefined;
             setMessages((prev) =>
               prev.map((m) => {
                 if (m.id === assistantId) {

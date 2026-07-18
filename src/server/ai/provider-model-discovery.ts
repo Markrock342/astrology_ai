@@ -1,4 +1,5 @@
 import type { AIProvider } from "@prisma/client";
+import { assertBaseUrlEgressAllowed } from "@/server/ai/base-url-egress";
 
 type DiscoveryInput = {
   provider: Extract<AIProvider, "GEMINI" | "OPENAI">;
@@ -54,6 +55,10 @@ export async function discoverProviderModels(
     const url = isGemini
       ? "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000"
       : `${baseUrl}/models`;
+    // SSRF guard before hitting an admin-supplied endpoint with the API key.
+    if (!isGemini && baseUrl !== OPENAI_DEFAULT_BASE_URL) {
+      await assertBaseUrlEgressAllowed(baseUrl);
+    }
     const response = await fetch(url, {
       headers: isGemini
         ? { "x-goog-api-key": input.apiKey }

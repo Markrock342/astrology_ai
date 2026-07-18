@@ -77,6 +77,11 @@ export const PRO_MAX_OUTPUT_TOKENS = 1_536;
  * allowance reasoning and emit no answer at all — brief mode returned an empty
  * bubble. The cap must therefore leave room for thinking PLUS the ~150 words
  * the hint asks for (Thai runs ~3–4 tokens/word).
+ *
+ * These stay below the detailed plan caps (brief < detailed by design). Brief
+ * mode now routes to the fast lite model whose MINIMAL thinking is small, so
+ * these leave enough room; if a complex chart ever starves brief on Gemini 3,
+ * raise the fallback retry's cap rather than pushing brief above detailed.
  */
 export const BRIEF_MAX_OUTPUT_TOKENS_FREE = 1_024;
 export const BRIEF_MAX_OUTPUT_TOKENS_PRO = 1_280;

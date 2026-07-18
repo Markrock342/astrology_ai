@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
 import { loginSchema } from "@/lib/schemas";
 import { handle, ok, fail } from "@/lib/http";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, rateLimitIp } from "@/lib/rate-limit";
 import { normalizeEmail } from "@/server/auth/account-lookup";
 import { signInCredentials } from "@/server/auth/server-sign-in";
 
@@ -13,7 +13,7 @@ import { signInCredentials } from "@/server/auth/server-sign-in";
 export async function POST(req: Request) {
   return handle(async () => {
     await rateLimit(
-      `login:${req.headers.get("x-forwarded-for") ?? "local"}`,
+      `login:${rateLimitIp(req)}`,
       20,
       60_000,
       { failClosed: true },

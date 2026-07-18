@@ -1,4 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+// The SSRF egress guard does a real DNS lookup before the fetch; stub it so
+// these tests exercise discovery logic against mock hosts. Its own behaviour is
+// covered in tests/base-url-egress.test.ts.
+vi.mock("@/server/ai/base-url-egress", () => ({
+  assertBaseUrlEgressAllowed: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { discoverProviderModels } from "@/server/ai/provider-model-discovery";
 
 describe("provider model discovery", () => {

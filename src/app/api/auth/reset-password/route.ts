@@ -1,5 +1,5 @@
 import { handle, ok } from "@/lib/http";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, rateLimitIp } from "@/lib/rate-limit";
 import { resetPasswordSchema } from "@/lib/schemas";
 import { resetPassword } from "@/server/auth/password-reset-service";
 
@@ -9,7 +9,7 @@ import { resetPassword } from "@/server/auth/password-reset-service";
  */
 export async function POST(req: Request) {
   return handle(async () => {
-    await rateLimit(`reset-password:${req.headers.get("x-forwarded-for") ?? "local"}`, 10, 60_000);
+    await rateLimit(`reset-password:${rateLimitIp(req)}`, 10, 60_000);
     const { token, password } = resetPasswordSchema.parse(await req.json());
     await resetPassword(token, password);
     return ok({ reset: true });
