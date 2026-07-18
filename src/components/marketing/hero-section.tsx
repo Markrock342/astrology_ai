@@ -3,16 +3,63 @@ import Link from "next/link";
 import { BrandMark } from "@/components/brand-logo";
 import type { CmsLandingHero } from "@/lib/cms-keys";
 
+function mediaSrc(url?: string | null) {
+  const v = url?.trim();
+  return v ? v : null;
+}
+
 export function HeroSection({ hero }: { hero: CmsLandingHero }) {
-  const hasImage = Boolean(hero.imageUrl?.trim());
+  const bgType = hero.backgroundType ?? "none";
+  const bgImage = mediaSrc(hero.backgroundImageUrl);
+  const bgVideo = mediaSrc(hero.backgroundVideoUrl);
+  const overlay = Math.min(80, Math.max(0, hero.backgroundOverlay ?? 55));
+  const hasBgImage = bgType === "image" && Boolean(bgImage);
+  const hasBgVideo = bgType === "video" && Boolean(bgVideo);
+  const hasFullBleed = hasBgImage || hasBgVideo;
+  const insetImage = !hasFullBleed ? mediaSrc(hero.imageUrl) : null;
 
   return (
-    <section className="relative overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(201,162,75,0.18),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(18,143,122,0.12),transparent_45%)]"
-      />
-      <div className="relative mx-auto flex max-w-5xl flex-col items-center px-6 pb-20 pt-16 text-center sm:pb-28 sm:pt-24">
+    <section className="relative flex min-h-[100dvh] flex-col overflow-hidden">
+      {hasBgImage ? (
+        <div className="absolute inset-0" aria-hidden>
+          <Image
+            src={bgImage!}
+            alt=""
+            fill
+            priority
+            unoptimized
+            className="object-cover"
+            sizes="100vw"
+          />
+        </div>
+      ) : null}
+      {hasBgVideo ? (
+        <video
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover"
+          src={bgVideo!}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+        />
+      ) : null}
+
+      {hasFullBleed ? (
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{ background: `rgba(8, 8, 12, ${overlay / 100})` }}
+        />
+      ) : (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(201,162,75,0.18),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(18,143,122,0.12),transparent_45%)]"
+        />
+      )}
+
+      <div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-6 py-20 text-center sm:py-24">
         <div className="animate-fade-up">
           <BrandMark size={64} />
         </div>
@@ -42,10 +89,10 @@ export function HeroSection({ hero }: { hero: CmsLandingHero }) {
           </Link>
         </div>
 
-        {hasImage ? (
+        {insetImage ? (
           <div className="animate-fade-up stagger-5 relative mt-14 w-full max-w-3xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl shadow-black/30">
             <Image
-              src={hero.imageUrl!}
+              src={insetImage}
               alt=""
               width={1200}
               height={720}

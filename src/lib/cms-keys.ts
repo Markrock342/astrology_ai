@@ -41,13 +41,23 @@ export type CmsSeo = {
 
 export type CmsCta = { text: string; href: string };
 
+export type CmsLandingHeroBackgroundType = "none" | "image" | "video";
+
 export type CmsLandingHero = {
   eyebrow: string;
   headline: string;
   subheadline: string;
   primaryCta: CmsCta;
   secondaryCta: CmsCta;
+  /** Optional inset media below CTAs (hidden when full-bleed background is set). */
   imageUrl?: string;
+  /** Full-bleed hero background from CMS. */
+  backgroundType?: CmsLandingHeroBackgroundType;
+  backgroundImageUrl?: string;
+  /** Absolute or same-origin URL to mp4/webm. */
+  backgroundVideoUrl?: string;
+  /** Dark overlay 0–80 so text stays readable over media. */
+  backgroundOverlay?: number;
 };
 
 export type CmsLandingFeature = {
@@ -417,6 +427,10 @@ export const CMS_DEFAULTS: Record<CmsKey, unknown> = {
     primaryCta: { text: "เริ่มต้นใช้งาน", href: "/login?tab=register" },
     secondaryCta: { text: "เข้าสู่ระบบ", href: "/login" },
     imageUrl: "",
+    backgroundType: "none",
+    backgroundImageUrl: "",
+    backgroundVideoUrl: "",
+    backgroundOverlay: 55,
   } satisfies CmsLandingHero,
   [CMS_KEYS.landingFeatures]: {
     title: "ทำไมต้อง HoraSard",
@@ -669,7 +683,7 @@ export const CMS_META: Record<CmsKey, CmsMeta> = {
   },
   [CMS_KEYS.landingHero]: {
     group: "landing",
-    help: "หัวข้อหลักและปุ่ม CTA บนหน้าแรก",
+    help: "Hero เต็มจอแรก — หัวข้อ ปุ่ม CTA และพื้นหลังรูป/วิดีโอ",
     where: "หน้าแรก /",
     previewPath: "/",
   },

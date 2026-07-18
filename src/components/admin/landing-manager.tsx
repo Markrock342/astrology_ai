@@ -30,6 +30,7 @@ import {
   ImageUploadField,
   InfoBox,
   PageHeader,
+  Select,
   Tabs,
   TextArea,
   TextInput,
@@ -71,6 +72,13 @@ function asHero(v: unknown): CmsLandingHero {
     primaryCta: { ...defaults.primaryCta, ...raw.primaryCta },
     secondaryCta: { ...defaults.secondaryCta, ...raw.secondaryCta },
     imageUrl: raw.imageUrl ?? defaults.imageUrl,
+    backgroundType: raw.backgroundType ?? defaults.backgroundType ?? "none",
+    backgroundImageUrl:
+      raw.backgroundImageUrl ?? defaults.backgroundImageUrl ?? "",
+    backgroundVideoUrl:
+      raw.backgroundVideoUrl ?? defaults.backgroundVideoUrl ?? "",
+    backgroundOverlay:
+      raw.backgroundOverlay ?? defaults.backgroundOverlay ?? 55,
   };
 }
 function asFeatures(v: unknown): CmsLandingFeatures {
@@ -327,6 +335,8 @@ function HeroEditor({
   value: CmsLandingHero;
   onChange: (v: CmsLandingHero) => void;
 }) {
+  const bgType = value.backgroundType ?? "none";
+
   return (
     <div className="space-y-3">
       <Field label="Eyebrow">
@@ -396,11 +406,88 @@ function HeroEditor({
           />
         </Field>
       </div>
-      <ImageUploadField
-        label="รูปประกอบ (ไม่บังคับ)"
-        value={value.imageUrl ?? ""}
-        onChange={(url) => onChange({ ...value, imageUrl: url })}
-      />
+
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+        <p className="mb-2 text-xs font-medium text-[var(--foreground)]">
+          พื้นหลัง Hero (เต็มจอแรก)
+        </p>
+        <Field label="ชนิดพื้นหลัง" hint="ซ้อนด้านหลังโลโก้และข้อความทั้งจอ">
+          <Select
+            value={bgType}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                backgroundType: e.target
+                  .value as CmsLandingHero["backgroundType"],
+              })
+            }
+          >
+            <option value="none">ไม่มี (ใช้ไล่สีเดิม)</option>
+            <option value="image">รูปภาพ</option>
+            <option value="video">วิดีโอ</option>
+          </Select>
+        </Field>
+        {bgType === "image" ? (
+          <div className="mt-3">
+            <ImageUploadField
+              label="รูปพื้นหลัง"
+              value={value.backgroundImageUrl ?? ""}
+              onChange={(url) =>
+                onChange({ ...value, backgroundImageUrl: url })
+              }
+              hint="อัปโหลดหรือวาง URL — จะเต็มจอหลังข้อความ"
+            />
+          </div>
+        ) : null}
+        {bgType === "video" ? (
+          <div className="mt-3">
+            <Field
+              label="ลิงก์วิดีโอพื้นหลัง"
+              hint="URL ไฟล์ mp4/webm (เล่นอัตโนมัติ ปิดเสียง วนลูป)"
+            >
+              <TextInput
+                value={value.backgroundVideoUrl ?? ""}
+                onChange={(e) =>
+                  onChange({ ...value, backgroundVideoUrl: e.target.value })
+                }
+                placeholder="https://…/hero.mp4 หรือ /api/media/…"
+              />
+            </Field>
+          </div>
+        ) : null}
+        {bgType !== "none" ? (
+          <div className="mt-3">
+            <Field
+              label={`ความมืดทับพื้นหลัง (${value.backgroundOverlay ?? 55}%)`}
+              hint="ยิ่งสูง ข้อความยิ่งอ่านง่าย"
+            >
+              <input
+                type="range"
+                min={0}
+                max={80}
+                step={5}
+                value={value.backgroundOverlay ?? 55}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    backgroundOverlay: Number(e.target.value),
+                  })
+                }
+                className="w-full accent-[var(--primary)]"
+              />
+            </Field>
+          </div>
+        ) : null}
+      </div>
+
+      {bgType === "none" ? (
+        <ImageUploadField
+          label="รูปประกอบด้านล่าง (ไม่บังคับ)"
+          value={value.imageUrl ?? ""}
+          onChange={(url) => onChange({ ...value, imageUrl: url })}
+          hint="แสดงใต้ปุ่มเมื่อไม่มีพื้นหลังเต็มจอ"
+        />
+      ) : null}
     </div>
   );
 }
