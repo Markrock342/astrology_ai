@@ -1,8 +1,8 @@
 # HoraSard — Master Index / Architecture Map
 
-สารบัญกลางของโปรเจกต์ (อัปเดต: 17 ก.ค. 2026)
+สารบัญกลางของโปรเจกต์ (อัปเดต: 18 ก.ค. 2026)
 
-**ฐาน:** `origin/main` — hotfix deploy (lint · ALLOW_DESTRUCTIVE · Node `ci-local.mjs`)  
+**ฐาน:** `origin/main` @ `d1e4e68` + landing hero CMS usable (sample theme · preview UX · validation)  
 **หมายเหตุ:** `.cursorrules` เป็น local only — ห้าม commit · GitHub Actions billing-locked (ดู README) — gate จริงคือ Vercel `vercel-build`
 
 ## ภาพรวมสถาปัตยกรรม
@@ -27,6 +27,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 **Gemini billing ops:** [ops_gemini_billing_alerts.md](./ops_gemini_billing_alerts.md)  
 **App UI / mobile:** [frontend_app_ui.md](./frontend_app_ui.md)  
 **Admin CMS UX (preview / health / models):** [admin_cms_ux.md](./admin_cms_ux.md)  
+**Landing hero background (รูป/วิดีโอ CMS):** [admin_landing_hero.md](./admin_landing_hero.md)  
 **Admin AI + keys:** [backend_ai_admin.md](./backend_ai_admin.md)  
 **คู่มือหน้าโมเดล AI (ละเอียด / สำหรับเพื่อนโยน AI):** [`SETTINGS_MODEL_AI.md`](../SETTINGS_MODEL_AI.md)
 
@@ -44,6 +45,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 | **Dev runtime (landing overlays)** | ✅ soft-fail CMS · `next/script` theme · Prisma host log · JWT cookie note |
 | **AI model config repair** | ✅ create ต้องมี key · planScope · primary-only health · migrate seed encrypted · drop dead category aiConfigId |
 | **คู่มือโมเดล AI** | ✅ [`SETTINGS_MODEL_AI.md`](../SETTINGS_MODEL_AI.md) ที่รากโปรเจกต์ |
+| **Landing hero background CMS** | ✅ รูป/วิดีโอเต็มจอจาก `/admin/landing` · ตัวอย่างธีม · [admin_landing_hero.md](./admin_landing_hero.md) |
 
 **Feature gating:** `src/config/features.ts` — `NEXT_PUBLIC_APP_PHASE=2` ปิด AI chat + Admin AI CMS; ไม่ตั้ง = เปิดทั้งหมด
 

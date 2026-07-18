@@ -1,5 +1,5 @@
 import type { CmsKey } from "@/lib/cms-keys";
-import { CMS_DEFAULTS } from "@/lib/cms-keys";
+import { CMS_DEFAULTS, LANDING_CMS_KEYS } from "@/lib/cms-keys";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/server/audit/audit-service";
 import {
@@ -8,6 +8,7 @@ import {
   getPublishedSetting,
 } from "@/server/settings/settings-service";
 import { recordRevision } from "@/server/admin/content-revision-service";
+import { revalidatePath } from "next/cache";
 
 type Actor = { id: string; ip?: string };
 
@@ -84,6 +85,10 @@ export async function publishSetting(key: string, value: unknown, actor: Actor) 
     after: value,
     ipAddress: actor.ip,
   });
+
+  if ((LANDING_CMS_KEYS as readonly string[]).includes(cmsKey)) {
+    revalidatePath("/");
+  }
 
   return formatSettingRow(cmsKey, updated);
 }

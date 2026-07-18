@@ -17,6 +17,10 @@ import {
   LANDING_CMS_KEYS,
 } from "@/lib/cms-keys";
 import {
+  resolveHeroBackground,
+  sampleThemeHeroPatch,
+} from "@/lib/landing-hero-bg";
+import {
   ContentEditorToolbar,
   type ContentRevision,
 } from "./content-editor-toolbar";
@@ -277,6 +281,13 @@ export function LandingManager({
         description="แก้เนื้อหา landing · footer — บันทึกแบบร่าง → ดูตัวอย่าง → เผยแพร่"
       />
       <InfoBox>
+        <strong className="font-medium text-[var(--foreground)]">ลำดับงาน:</strong>{" "}
+        บันทึกแบบร่าง → กด «ดูตัวอย่าง» หรือ «ดูในแท็บนี้» (ถ้าล็อกอินอยู่ ห้ามเปิด{" "}
+        <code className="text-[10px]">/</code> ตรง ๆ จะถูกพาไปแชท) → ตรวจแล้วค่อยเผยแพร่
+        ผู้เยี่ยมชมทั่วไปเห็นเฉพาะเวอร์ชันที่เผยแพร่แล้ว · หลังเผยแพร่หน้าแรกอาจรีเฟรชช้าได้ถึง ~1
+        นาที
+      </InfoBox>
+      <InfoBox>
         ราคาบนหน้าแรกดึงจากเมนู “แพ็กเกจและโควตา” โดยตรง — ส่วนนี้แก้ได้เฉพาะหัวข้อและคำโปรย
       </InfoBox>
       {error && <p className="mb-3 text-sm text-[var(--danger)]">{error}</p>}
@@ -336,6 +347,7 @@ function HeroEditor({
   onChange: (v: CmsLandingHero) => void;
 }) {
   const bgType = value.backgroundType ?? "none";
+  const bg = resolveHeroBackground(value);
 
   return (
     <div className="space-y-3">
@@ -408,10 +420,21 @@ function HeroEditor({
       </div>
 
       <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
-        <p className="mb-2 text-xs font-medium text-[var(--foreground)]">
-          พื้นหลัง Hero (เต็มจอแรก)
-        </p>
-        <Field label="ชนิดพื้นหลัง" hint="ซ้อนด้านหลังโลโก้และข้อความทั้งจอ">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-medium text-[var(--foreground)]">
+            พื้นหลัง Hero (เต็มจอแรก)
+          </p>
+          <Button
+            variant="ghost"
+            onClick={() => onChange({ ...value, ...sampleThemeHeroPatch() })}
+          >
+            ใส่ตัวอย่างธีม
+          </Button>
+        </div>
+        <Field
+          label="ชนิดพื้นหลัง"
+          hint="ซ้อนด้านหลังโลโก้และข้อความทั้งจอ — รูปอัปโหลดได้ · วิดีโอใช้ URL ไฟล์เท่านั้น"
+        >
           <Select
             value={bgType}
             onChange={(e) =>
@@ -435,24 +458,39 @@ function HeroEditor({
               onChange={(url) =>
                 onChange({ ...value, backgroundImageUrl: url })
               }
-              hint="อัปโหลดหรือวาง URL — จะเต็มจอหลังข้อความ"
+              hint="อัปโหลด JPG/PNG/WebP หรือวาง URL / path เช่น /samples/…"
             />
+            {bg.missingMedia ? (
+              <p className="mt-1 text-[11px] text-[var(--danger)]">
+                เลือกพื้นหลังรูปแล้วต้องอัปโหลดหรือวาง URL — ไม่งั้นหน้าแรกจะยังเป็นไล่สีเดิม
+              </p>
+            ) : null}
           </div>
         ) : null}
         {bgType === "video" ? (
           <div className="mt-3">
             <Field
               label="ลิงก์วิดีโอพื้นหลัง"
-              hint="URL ไฟล์ mp4/webm (เล่นอัตโนมัติ ปิดเสียง วนลูป)"
+              hint="ต้องเป็น URL ไฟล์ .mp4 / .webm โดยตรง (เล่นอัตโนมัติ ปิดเสียง วนลูป) — ไม่รองรับ YouTube/Vimeo และยังอัปโหลดไฟล์วิดีโอใน CMS ไม่ได้"
             >
               <TextInput
                 value={value.backgroundVideoUrl ?? ""}
                 onChange={(e) =>
                   onChange({ ...value, backgroundVideoUrl: e.target.value })
                 }
-                placeholder="https://…/hero.mp4 หรือ /api/media/…"
+                placeholder="https://cdn.example.com/hero.mp4"
               />
             </Field>
+            {bg.missingMedia ? (
+              <p className="mt-1 text-[11px] text-[var(--danger)]">
+                เลือกพื้นหลังวิดีโอแล้วต้องมี URL ไฟล์ — ไม่งั้นหน้าแรกจะยังเป็นไล่สีเดิม
+              </p>
+            ) : null}
+            {bg.invalidVideoUrl ? (
+              <p className="mt-1 text-[11px] text-[var(--danger)]">
+                ลิงก์นี้ไม่ใช่ไฟล์วิดีโอโดยตรง (เช่น YouTube) — วางลิงก์ที่ลงท้าย .mp4 หรือ .webm
+              </p>
+            ) : null}
           </div>
         ) : null}
         {bgType !== "none" ? (
@@ -476,6 +514,49 @@ function HeroEditor({
                 className="w-full accent-[var(--primary)]"
               />
             </Field>
+          </div>
+        ) : null}
+
+        {bgType !== "none" ? (
+          <div className="mt-3 overflow-hidden rounded-lg border border-[var(--border)] bg-black/40">
+            <p className="border-b border-[var(--border)] px-2 py-1 text-[10px] text-[var(--muted-2)]">
+              พรีวิวย่อในแอดมิน
+            </p>
+            <div className="relative aspect-video w-full">
+              {bg.imageSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element -- admin thumbnail; CMS URLs vary
+                <img
+                  src={bg.imageSrc}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : null}
+              {bg.videoSrc ? (
+                <video
+                  className="absolute inset-0 h-full w-full object-cover"
+                  src={bg.videoSrc}
+                  muted
+                  loop
+                  playsInline
+                  autoPlay
+                  preload="metadata"
+                />
+              ) : null}
+              {!bg.hasFullBleed ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(ellipse_at_top,rgba(201,162,75,0.18),transparent_55%)] px-3 text-center text-[11px] text-[var(--muted)]">
+                  {bg.missingMedia || bg.invalidVideoUrl
+                    ? "ยังไม่แสดงพื้นหลังเต็มจอ — แก้ URL ด้านบน"
+                    : "ไล่สีเดิม (ไม่มีมีเดีย)"}
+                </div>
+              ) : (
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background: `rgba(8, 8, 12, ${bg.overlay / 100})`,
+                  }}
+                />
+              )}
+            </div>
           </div>
         ) : null}
       </div>

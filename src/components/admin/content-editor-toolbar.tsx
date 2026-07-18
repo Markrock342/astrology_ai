@@ -102,7 +102,7 @@ export function ContentEditorToolbar({
     return fieldDiff(currentSnapshot ?? null, diffSnapshot);
   }, [currentSnapshot, diffSnapshot, diffRevId]);
 
-  async function handlePreview() {
+  async function handlePreview(mode: "tab" | "same" = "tab") {
     if (!previewHref) return;
     setPreviewBusy(true);
     setPreviewError(null);
@@ -121,7 +121,16 @@ export function ContentEditorToolbar({
           );
         }
       }
-      window.open(previewHref, "_blank", "noopener,noreferrer");
+      if (mode === "same") {
+        window.location.assign(previewHref);
+        return;
+      }
+      const opened = window.open(previewHref, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        setPreviewError(
+          "เบราว์เซอร์บล็อกหน้าต่างใหม่ — ลอง «ดูในแท็บนี้» หรืออนุญาต popup",
+        );
+      }
     } catch (e) {
       setPreviewError(
         e instanceof Error ? e.message : "เปิดโหมดดูตัวอย่างไม่สำเร็จ",
@@ -137,14 +146,25 @@ export function ContentEditorToolbar({
         {hasDraft && <Badge tone="gold">มีแบบร่าง</Badge>}
         {dirty && <Badge tone="muted">ยังไม่บันทึก</Badge>}
         {previewHref && (
-          <button
-            type="button"
-            onClick={() => void handlePreview()}
-            disabled={busy || previewBusy}
-            className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] text-[var(--primary)] hover:bg-[var(--surface-2)] disabled:opacity-50"
-          >
-            {previewBusy ? "กำลังเปิด…" : "ดูตัวอย่าง ↗"}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => void handlePreview("tab")}
+              disabled={busy || previewBusy}
+              className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] text-[var(--primary)] hover:bg-[var(--surface-2)] disabled:opacity-50"
+            >
+              {previewBusy ? "กำลังเปิด…" : "ดูตัวอย่าง ↗"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handlePreview("same")}
+              disabled={busy || previewBusy}
+              className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] text-[var(--muted)] hover:bg-[var(--surface-2)] disabled:opacity-50"
+              title="เปิดหน้าแรกในแท็บนี้หลังเปิดโหมดตัวอย่าง (กัน popup blocker)"
+            >
+              ดูในแท็บนี้
+            </button>
+          </>
         )}
         {previewError && (
           <span className="text-[11px] text-[var(--danger)]">{previewError}</span>
