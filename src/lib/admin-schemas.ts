@@ -103,13 +103,30 @@ const cmsCtaSchema = z.object({
   href: z.string().min(1).max(500),
 });
 
+const cmsHeroMediaRef = z
+  .string()
+  .max(2000)
+  .refine(
+    (v) =>
+      v === "" ||
+      v.startsWith("/") ||
+      /^https?:\/\//i.test(v),
+    { message: "ต้องเป็น URL หรือ path ภายในไซต์ เช่น /api/media/..." },
+  )
+  .optional()
+  .or(z.literal(""));
+
 export const cmsLandingHeroSchema = z.object({
   eyebrow: z.string().max(80),
   headline: z.string().min(1).max(120),
   subheadline: z.string().min(1).max(500),
   primaryCta: cmsCtaSchema,
   secondaryCta: cmsCtaSchema,
-  imageUrl: z.string().url().max(2000).optional().or(z.literal("")),
+  imageUrl: cmsHeroMediaRef,
+  backgroundType: z.enum(["none", "image", "video"]).optional().default("none"),
+  backgroundImageUrl: cmsHeroMediaRef,
+  backgroundVideoUrl: cmsHeroMediaRef,
+  backgroundOverlay: z.number().int().min(0).max(80).optional().default(55),
 });
 
 export const cmsLandingFeaturesSchema = z.object({
