@@ -14,6 +14,17 @@ function normalizeBaseUrl(baseUrl: string | undefined) {
   return (baseUrl?.trim() || OPENAI_DEFAULT_BASE_URL).replace(/\/+$/, "");
 }
 
+/**
+ * OpenAI reasoning models (o1/o3/o4/gpt-5 families) reject `temperature != 1`
+ * with HTTP 400 and burn their whole token budget on hidden reasoning. We must
+ * omit temperature for them (and give the probe more room, see the test routes),
+ * or a correctly-configured reasoning model tests red.
+ */
+function isReasoningModel(modelId: string): boolean {
+  const id = modelId.trim().toLowerCase();
+  return /^(o[1-4]|gpt-5)(\b|[-.])/.test(id) || id.includes("reasoning");
+}
+
 /** Best-effort parse; horoscope output may be plain Thai prose if JSON parse fails. */
 function parseHoroscopeText(raw: string): HoroscopeResponse | undefined {
   const jsonMatch = raw.trim().match(/\{[\s\S]*\}/);
@@ -80,7 +91,11 @@ export class OpenAIAdapter implements AIProviderAdapter {
             ...historyMessages,
             { role: "user", content: input.userPrompt },
           ],
-          temperature: input.temperature,
+          // Reasoning models allow only the default temperature — sending any
+          // other value is a hard 400, so omit it for them entirely.
+          ...(isReasoningModel(input.modelId)
+            ? {}
+            : { temperature: input.temperature }),
           // New OpenAI reasoning models use max_completion_tokens; most
           // compatible gateways still implement the established max_tokens.
           ...(isOfficialOpenAI

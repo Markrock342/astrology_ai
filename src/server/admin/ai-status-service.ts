@@ -239,7 +239,9 @@ const HEALTH_PROMPT = {
   userPrompt: "ทดสอบการเชื่อมต่อ: ทักทายเป็นภาษาไทยสั้นๆ",
   /** Cap probe wait so admin UI does not hang for minutes. */
   timeoutMs: 12_000,
-  maxOutputTokens: 64,
+  // Room for reasoning models (o1/o3/gpt-5) that spend the budget thinking —
+  // a 64-token probe returned empty and showed a healthy model as red.
+  maxOutputTokens: 512,
 };
 
 const HEALTH_CHECK_CONCURRENCY = 4;

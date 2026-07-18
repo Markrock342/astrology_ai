@@ -89,4 +89,60 @@ describe("OpenAIAdapter baseUrl", () => {
     });
     expect(JSON.parse(String(request.body))).not.toHaveProperty("max_completion_tokens");
   });
+
+  it("omits temperature for OpenAI reasoning models (they reject non-default)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "hi" } }],
+        usage: { prompt_tokens: 2, completion_tokens: 1 },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new OpenAIAdapter().generate({
+      modelId: "gpt-5",
+      systemPrompt: "test",
+      userPrompt: "hello",
+      temperature: 0.2,
+      maxOutputTokens: 512,
+      timeoutMs: 1000,
+      baseUrl: undefined, // official OpenAI
+      apiKey: "test-key",
+    });
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0]?.[1] as RequestInit).body),
+    );
+    expect(body).not.toHaveProperty("temperature");
+    // Official OpenAI reasoning model still uses max_completion_tokens.
+    expect(body).toMatchObject({ model: "gpt-5", max_completion_tokens: 512 });
+  });
+
+  it("keeps temperature for a normal chat model", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "hi" } }],
+        usage: { prompt_tokens: 2, completion_tokens: 1 },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new OpenAIAdapter().generate({
+      modelId: "gpt-4o-mini",
+      systemPrompt: "test",
+      userPrompt: "hello",
+      temperature: 0.7,
+      maxOutputTokens: 64,
+      timeoutMs: 1000,
+      baseUrl: undefined,
+      apiKey: "test-key",
+    });
+
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0]?.[1] as RequestInit).body),
+    );
+    expect(body.temperature).toBe(0.7);
+  });
 });

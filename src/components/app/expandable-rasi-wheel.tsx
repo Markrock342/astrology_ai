@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CompactRasiWheel } from "./compact-rasi-wheel";
 import {
@@ -44,10 +44,45 @@ export function ExpandableRasiWheel({
   );
   const selectedRow = planets.find((p) => p.planet === selected) ?? null;
 
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!open) return;
+    const panel = panelRef.current;
+    // Capture the trigger now; the cleanup restores focus to it on close.
+    const trigger = triggerRef.current;
+    // Move focus into the dialog, and hand it back to the trigger on close so
+    // keyboard/AT users aren't dropped onto <body> behind the overlay.
+    const focusables = () =>
+      panel
+        ? Array.from(
+            panel.querySelectorAll<HTMLElement>(
+              'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+            ),
+          ).filter((el) => !el.hasAttribute("disabled"))
+        : [];
+    focusables()[0]?.focus();
+
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      // Trap Tab within the panel.
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === first || !panel?.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -55,12 +90,14 @@ export function ExpandableRasiWheel({
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
+      trigger?.focus();
     };
   }, [open]);
 
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => {
           setSelected(null); // fresh each time the lightbox opens
@@ -86,7 +123,10 @@ export function ExpandableRasiWheel({
                 if (e.target === e.currentTarget) setOpen(false);
               }}
             >
-              <div className="animate-fade-up relative flex max-h-[95vh] w-full max-w-lg flex-col items-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-2xl">
+              <div
+                ref={panelRef}
+                className="animate-fade-up relative flex max-h-[95vh] w-full max-w-lg flex-col items-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-2xl"
+              >
                 <div className="mb-2 flex w-full items-center justify-between">
                   <h2 id={titleId} className="text-sm font-semibold text-[var(--foreground)]">
                     {label ?? "แผนภูมิราศี"}

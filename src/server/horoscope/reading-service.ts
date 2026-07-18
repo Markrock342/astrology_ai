@@ -428,9 +428,12 @@ async function runReading(
 
     // A MAX_TOKENS cut ends mid-sentence with no signal. Surface it honestly so
     // the user knows to ask for the rest, instead of a silently missing ending.
-    const responseText = result.truncated
-      ? `${result.rawText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
-      : result.rawText;
+    // Not when the user STOPPED it themselves — they cut it on purpose, so
+    // "ran out of room, type เล่าต่อ" would be a lie.
+    const responseText =
+      result.truncated && !result.stopped
+        ? `${result.rawText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
+        : result.rawText;
 
     // Success => charge tx: finalize reservation, deduct credit, persist reading.
     const reading = await prisma.$transaction(async (tx) => {

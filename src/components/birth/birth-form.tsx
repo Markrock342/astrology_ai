@@ -135,7 +135,10 @@ export function BirthForm({
     if (Number(day) > max) setDay(String(max));
   }
 
-  const districtOptions = province ? (DISTRICTS[province] ?? []) : [];
+  const isThai = country === "ไทย";
+  // The province/district dropdowns only hold Thai administrative data, so they
+  // are meaningless (and produce a wrong Thai coordinate) for a non-Thai birth.
+  const districtOptions = isThai && province ? (DISTRICTS[province] ?? []) : [];
   const hasDistrictData = districtOptions.length > 0;
 
   const dayOptions = useMemo<WheelOption[]>(
@@ -318,7 +321,18 @@ export function BirthForm({
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="ประเทศที่เกิด" required>
-            <Select value={country} onChange={setCountry} placeholder="ประเทศ">
+            <Select
+              value={country}
+              onChange={(v) => {
+                // Province/district data is Thai-only; switching countries must
+                // clear a stale Thai province so it isn't shipped for a foreign
+                // birth (or pre-filled into the free-text field).
+                setCountry(v);
+                setProvince("");
+                setDistrict("");
+              }}
+              placeholder="ประเทศ"
+            >
               {COUNTRIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -327,43 +341,66 @@ export function BirthForm({
             </Select>
           </Field>
 
-          <Field label="จังหวัด / รัฐ ที่เกิด" required>
-            <Select
-              value={province}
-              onChange={(v) => {
-                setProvince(v);
-                setDistrict("");
-              }}
-              placeholder="จังหวัด / รัฐ"
-            >
-              {PROVINCES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {isThai ? (
+            <>
+              <Field label="จังหวัด / รัฐ ที่เกิด" required>
+                <Select
+                  value={province}
+                  onChange={(v) => {
+                    setProvince(v);
+                    setDistrict("");
+                  }}
+                  placeholder="จังหวัด / รัฐ"
+                >
+                  {PROVINCES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
 
-          <Field label="อำเภอ / เขต ที่เกิด" required={hasDistrictData}>
-            <Select
-              value={district}
-              onChange={setDistrict}
-              placeholder={
-                !province
-                  ? "เลือกจังหวัดก่อน"
-                  : hasDistrictData
-                    ? "อำเภอ / เขต / เมือง"
-                    : "ยังไม่มีข้อมูลอำเภอ"
-              }
-              disabled={!hasDistrictData}
-            >
-              {districtOptions.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </Select>
-          </Field>
+              <Field label="อำเภอ / เขต ที่เกิด" required={hasDistrictData}>
+                <Select
+                  value={district}
+                  onChange={setDistrict}
+                  placeholder={
+                    !province
+                      ? "เลือกจังหวัดก่อน"
+                      : hasDistrictData
+                        ? "อำเภอ / เขต / เมือง"
+                        : "ยังไม่มีข้อมูลอำเภอ"
+                  }
+                  disabled={!hasDistrictData}
+                >
+                  {districtOptions.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </>
+          ) : (
+            <>
+              {/* Non-Thai birth: free text, since the dropdowns are Thai-only.
+                  Stored as-is; the engine can't yet geocode outside Thailand. */}
+              <Field label="รัฐ / จังหวัด ที่เกิด" required>
+                <TextInput
+                  value={province}
+                  onChange={(e) => setProvince(e.target.value)}
+                  placeholder="เช่น Vientiane, California"
+                />
+              </Field>
+              <Field label="เมือง / เขต ที่เกิด">
+                <TextInput
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
+                  placeholder="เมือง / เขต (ถ้ามี)"
+                />
+              </Field>
+            </>
+          )}
         </div>
 
         <div className="mt-6 flex flex-col gap-3">
@@ -434,6 +471,26 @@ function Field({
       />
       {children}
     </label>
+  );
+}
+
+function TextInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder: string;
+}) {
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-2)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--ring)]"
+    />
   );
 }
 
