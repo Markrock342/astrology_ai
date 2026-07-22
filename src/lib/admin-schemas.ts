@@ -510,6 +510,24 @@ export const aiConfigDiscoverSavedModelsSchema = z.object({
   action: z.literal("discover"),
 });
 
+/** Manual Gemini AI Studio Prepay balance tracker (no public Google API). */
+export const geminiBalanceUpdateSchema = z
+  .object({
+    /** Current remaining Prepay balance from AI Studio — resets the spend window. */
+    balanceUsd: z.number().min(0).max(1_000_000).optional(),
+    clear: z.boolean().optional(),
+    lowThresholdUsd: z.number().min(0).max(100_000).optional(),
+    note: z.string().max(300).nullish(),
+  })
+  .refine(
+    (d) =>
+      d.clear === true ||
+      d.balanceUsd !== undefined ||
+      d.lowThresholdUsd !== undefined ||
+      d.note !== undefined,
+    { message: "ต้องระบุ balanceUsd, lowThresholdUsd, note หรือ clear" },
+  );
+
 export const knowledgeCreateSchema = z.object({
   title: z.string().min(1).max(200),
   content: z.string().min(1).max(50_000),

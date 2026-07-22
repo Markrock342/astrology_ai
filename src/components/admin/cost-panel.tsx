@@ -15,6 +15,7 @@ import {
   Th,
   adminFetch,
 } from "./ui";
+import { GeminiBalanceCard } from "./gemini-balance-card";
 import { formatThb, usdToThb } from "@/config/ai-pricing";
 
 type Row = {
@@ -96,6 +97,8 @@ export function CostPanel() {
         title="ต้นทุนและกำไรต่อผู้ใช้"
         description="ต้นทุน AI จริงจาก token ที่ใช้ เทียบกับรายได้ตามแพ็กเกจ — ตอบว่าราคาที่ตั้งไว้กำไรหรือขาดทุน"
       />
+
+      <GeminiBalanceCard />
 
       <div className="mb-4 flex items-center gap-2">
         <Select
