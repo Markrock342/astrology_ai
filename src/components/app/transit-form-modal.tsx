@@ -162,14 +162,17 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
 
         {!isPro ? (
           <div className="space-y-4 px-5 py-6 text-center">
-            <p className="text-sm text-[var(--muted)]">
-              โหมดดวงจรสำหรับสมาชิก Pro เท่านั้น
+            <p className="mx-auto max-w-xs rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-1 text-[11px] font-medium text-[var(--primary)]">
+              สิทธิ์แพ็กเกจ Pro — ระบบทำงานปกติ
+            </p>
+            <p className="text-sm leading-relaxed text-[var(--muted)]">
+              ดวงจรยังไม่รวมใน Free · อัปเกรดแล้วเลือกวัน/เวลาที่อยากดูได้ทันที
             </p>
             <a
               href="/account"
               className="press-scale inline-flex rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
             >
-              อัปเกรดเป็น Pro
+              ดูแพ็กเกจ Pro
             </a>
             <button
               type="button"

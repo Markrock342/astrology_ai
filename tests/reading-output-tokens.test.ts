@@ -27,6 +27,9 @@ describe("resolveMaxOutputTokens", () => {
     expect(resolveMaxOutputTokens("PRO", 4096, "brief")).toBeLessThan(
       resolveMaxOutputTokens("PRO", 4096, "detailed"),
     );
+    expect(resolveMaxOutputTokens("FREE", 4096, "brief")).toBeLessThan(
+      resolveMaxOutputTokens("FREE", 4096, "detailed"),
+    );
   });
 
   it("respects admin config ceiling below plan cap", () => {
