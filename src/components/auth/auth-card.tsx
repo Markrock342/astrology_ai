@@ -34,15 +34,18 @@ export function AuthCard({
   );
   const [loading, setLoading] = useState<"google" | "login" | "register" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const switchTab = useCallback((next: AuthTab) => {
     setTab(next);
     setError(null);
+    setSuccess(null);
     setTurnstileToken(turnstileRequired() ? null : "");
   }, []);
 
   async function handleGoogle() {
     setError(null);
+    setSuccess(null);
     if (!googleEnabled) {
       setError("ยังไม่เปิดใช้งาน Google — รอตั้งค่า AUTH_GOOGLE_ID/SECRET");
       return;
@@ -54,6 +57,7 @@ export function AuthCard({
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("กรุณากรอกอีเมลให้ถูกต้อง");
@@ -87,6 +91,7 @@ export function AuthCard({
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("กรุณากรอกอีเมลให้ถูกต้อง");
@@ -137,8 +142,10 @@ export function AuthCard({
         return;
       }
 
-      setError("สมัครสำเร็จแล้ว กรุณาเข้าสู่ระบบอีกครั้ง");
-      switchTab("login");
+      setTab("login");
+      setError(null);
+      setSuccess("สมัครสำเร็จแล้ว กรุณาเข้าสู่ระบบอีกครั้ง");
+      setTurnstileToken(turnstileRequired() ? null : "");
     } catch {
       setError("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
     } finally {
@@ -187,7 +194,11 @@ export function AuthCard({
         className="press-scale flex w-full items-center justify-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-3)] disabled:opacity-60"
       >
         <GoogleIcon />
-        {loading === "google" ? "กำลังเชื่อมต่อ…" : "เข้าสู่ระบบด้วย Google"}
+        {loading === "google"
+          ? "กำลังเชื่อมต่อ…"
+          : tab === "register"
+            ? "สมัครด้วย Google"
+            : "เข้าสู่ระบบด้วย Google"}
       </button>
 
       <div className="my-5 flex items-center gap-3 text-xs text-[var(--muted-2)]">
@@ -216,7 +227,16 @@ export function AuthCard({
             </Link>
           </div>
 
-          {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+          {error ? (
+            <p className="text-xs text-[var(--danger)]" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {success ? (
+            <p className="text-xs text-[var(--secondary-active)]" role="status">
+              {success}
+            </p>
+          ) : null}
 
           <button
             type="submit"

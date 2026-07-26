@@ -24,8 +24,8 @@ function displayFeatures(pkg: MarketingPackage): string[] {
   }
   return [
     `เครดิต ${pkg.creditQuota} ครั้ง`,
-    "หมวดพื้นดวงเดิม (บางหมวด)",
-    "ถาม–ตอบกับ AI",
+    "หมวด「ตัวตน」กับ「การงาน」",
+    "ถาม–ตอบกับ AI (ยืนยันอีเมลก่อน)",
   ];
 }
 
