@@ -16,7 +16,7 @@ export type CategoryCreateInput = {
   nameTh: string;
   nameEn?: string;
   description?: string;
-  icon?: string;
+  icon?: string | null;
   accessLevel: "FREE" | "PRO";
   creditCost: number;
   enabled: boolean;

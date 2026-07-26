@@ -6,16 +6,45 @@ const stroke = {
   strokeLinejoin: "round" as const,
 };
 
-/** Category nav icons — gold outline style from client PSD. */
+/** Uploaded CMS / absolute URL — not a legacy seed key like "user". */
+export function isCustomCategoryIcon(
+  icon: string | null | undefined,
+): icon is string {
+  if (!icon) return false;
+  return (
+    icon.startsWith("/") ||
+    icon.startsWith("http://") ||
+    icon.startsWith("https://")
+  );
+}
+
+/** Category nav icons — gold outline defaults, or admin-uploaded image. */
 export function CategoryIcon({
   slug,
+  icon,
   size = 18,
   className = "",
 }: {
   slug: string;
+  /** Custom URL (`/api/media/...`) or legacy seed key (ignored for drawing). */
+  icon?: string | null;
   size?: number;
   className?: string;
 }) {
+  if (isCustomCategoryIcon(icon)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={icon}
+        alt=""
+        width={size}
+        height={size}
+        className={`shrink-0 object-contain ${className}`}
+        aria-hidden
+      />
+    );
+  }
+
   const props = {
     ...common,
     width: size,
@@ -26,7 +55,6 @@ export function CategoryIcon({
 
   switch (slug) {
     case "self":
-      // Person silhouette
       return (
         <svg {...props}>
           <circle cx="12" cy="8" r="3.4" {...stroke} />
@@ -34,7 +62,6 @@ export function CategoryIcon({
         </svg>
       );
     case "career":
-      // Briefcase
       return (
         <svg {...props}>
           <rect x="3.5" y="8" width="17" height="11.5" rx="2" {...stroke} />
@@ -43,7 +70,6 @@ export function CategoryIcon({
         </svg>
       );
     case "finance":
-      // Stacked coins
       return (
         <svg {...props}>
           <ellipse cx="10" cy="16.5" rx="5.5" ry="2.2" {...stroke} />
@@ -54,7 +80,6 @@ export function CategoryIcon({
         </svg>
       );
     case "love":
-      // Heart
       return (
         <svg {...props}>
           <path
@@ -64,7 +89,6 @@ export function CategoryIcon({
         </svg>
       );
     case "health":
-      // Medical shield + cross
       return (
         <svg {...props}>
           <path
@@ -75,7 +99,6 @@ export function CategoryIcon({
         </svg>
       );
     case "fortune":
-      // ใบโชคดี 3 แฉก (shamrock)
       return (
         <svg {...props}>
           <circle cx="12" cy="7.5" r="3.1" {...stroke} />
@@ -85,7 +108,6 @@ export function CategoryIcon({
         </svg>
       );
     case "overview":
-      // Compass / life overview
       return (
         <svg {...props}>
           <circle cx="12" cy="12" r="8" {...stroke} />

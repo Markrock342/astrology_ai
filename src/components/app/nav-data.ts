@@ -13,6 +13,8 @@ export type Category = {
   label: string;
   tier: Tier;
   suggestedQuestions: string[];
+  /** Custom uploaded icon URL, if set in admin. */
+  icon?: string | null;
 };
 
 /** พื้นดวงเดิม (natal) categories — matches design 03. */
@@ -109,6 +111,7 @@ export function mapApiCategory(c: {
   nameTh: string;
   accessLevel: string;
   suggestedQuestions?: string[];
+  icon?: string | null;
 }): Category {
   const suggested =
     c.suggestedQuestions && c.suggestedQuestions.length > 0
@@ -119,6 +122,7 @@ export function mapApiCategory(c: {
     label: c.nameTh,
     tier: c.accessLevel === "PRO" ? "PRO" : "FREE",
     suggestedQuestions: suggested,
+    icon: c.icon ?? null,
   };
 }
 
