@@ -409,7 +409,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onClick={() => setSearchOpen((v) => !v)}
           className="flex items-center gap-2.5 rounded-lg px-3.5 py-2 text-sm text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
         >
-          <span className="text-[var(--primary)]">
+          <span className="text-white">
             <SearchIcon />
           </span>
           ค้นหา
@@ -449,13 +449,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 } ${locked ? "opacity-80" : ""}`}
               >
                 <span className="flex items-center gap-2.5">
-                  <span className="text-[var(--primary)]">
+                  <span className="text-white">
                     <CategoryIcon slug={cat.slug} />
                   </span>
                   {cat.label}
                 </span>
                 {locked ? (
-                  <LockIcon />
+                  <span className="text-white">
+                    <LockIcon />
+                  </span>
                 ) : cat.tier === "FREE" ? (
                   <span className="rounded px-1.5 py-0.5 text-[10px] text-[var(--secondary-active)]">
                     Free
@@ -519,7 +521,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   }`}
                 >
                   {t.categorySlug ? (
-                    <span className="shrink-0 text-[var(--primary)]">
+                    <span className="shrink-0 text-white">
                       <CategoryIcon slug={t.categorySlug} />
                     </span>
                   ) : null}
@@ -589,7 +591,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             setTransitOpen(true);
             closeMobile();
           }}
-          className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--primary)] transition hover:bg-[var(--surface-2)]"
+          className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-white transition hover:bg-[var(--surface-2)]"
         >
           <TransitIcon />
           เริ่มดวงจรใหม่
@@ -619,7 +621,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       : "text-[var(--muted)]"
                   }`}
                 >
-                  <span className="shrink-0 text-[var(--primary)]">
+                  <span className="shrink-0 text-white">
                     <TransitIcon />
                   </span>
                   <span
@@ -924,8 +926,8 @@ function CollapsedRail({
               }}
               className={`flex h-10 w-10 items-center justify-center rounded-lg transition ${
                 active
-                  ? "bg-[var(--surface-3)] text-[var(--primary)]"
-                  : "text-[var(--primary)]/75 hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+                  ? "bg-[var(--surface-3)] text-white"
+                  : "text-white/80 hover:bg-[var(--surface-2)] hover:text-white"
               }`}
             >
               <CategoryIcon slug={cat.slug} size={20} />
