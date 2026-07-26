@@ -331,7 +331,7 @@ export const categoryCreateSchema = z.object({
   nameTh: z.string().min(1).max(120),
   nameEn: z.string().max(120).optional(),
   description: z.string().max(500).optional(),
-  icon: z.string().max(60).optional(),
+  icon: z.string().max(500).nullish(),
   accessLevel: z.enum(["FREE", "PRO"]).default("FREE"),
   creditCost: z.number().int().min(0).default(1),
   enabled: z.boolean().default(true),

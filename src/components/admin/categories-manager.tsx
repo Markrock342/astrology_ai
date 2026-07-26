@@ -8,6 +8,7 @@ import {
   Card,
   CardSkeleton,
   Field,
+  ImageUploadField,
   InfoBox,
   PageHeader,
   Select,
@@ -16,6 +17,10 @@ import {
   Toggle,
   adminFetch,
 } from "./ui";
+import {
+  CategoryIcon,
+  isCustomCategoryIcon,
+} from "@/components/app/category-icon";
 
 type Category = {
   id: string;
@@ -23,6 +28,7 @@ type Category = {
   nameTh: string;
   nameEn: string | null;
   description: string | null;
+  icon: string | null;
   accessLevel: "FREE" | "PRO";
   creditCost: number;
   enabled: boolean;
@@ -40,6 +46,9 @@ function linesToArray(text: string): string[] {
     .filter(Boolean);
 }
 
+const ICON_HINT =
+  "แนะนำ PNG พื้นหลังโปร่งใส · 64×64 หรือ 128×128 px (สูงสุด 256×256) · ไฟล์ ≤ 4 MB (PNG/JPG/WebP) · สีทองหรือขาวจะเข้ากับธีม sidebar";
+
 export function CategoriesManager({
   initialCategories,
 }: {
@@ -48,6 +57,7 @@ export function CategoriesManager({
   const [categories, setCategories] = useState<Category[]>(() =>
     (initialCategories ?? []).map((c) => ({
       ...c,
+      icon: c.icon ?? null,
       suggestedQuestions: Array.isArray(c.suggestedQuestions)
         ? (c.suggestedQuestions as string[])
         : null,
@@ -61,6 +71,7 @@ export function CategoriesManager({
     nameTh: "",
     nameEn: "",
     description: "",
+    icon: "",
     accessLevel: "FREE" as "FREE" | "PRO",
     creditCost: 1,
     enabled: true,
@@ -82,6 +93,7 @@ export function CategoriesManager({
       setCategories(
         rows.map((c) => ({
           ...c,
+          icon: c.icon ?? null,
           suggestedQuestions: Array.isArray(c.suggestedQuestions)
             ? (c.suggestedQuestions as string[])
             : null,
@@ -116,6 +128,7 @@ export function CategoriesManager({
       nameTh: cat.nameTh,
       nameEn: cat.nameEn ?? "",
       description: cat.description ?? "",
+      icon: isCustomCategoryIcon(cat.icon) ? cat.icon : "",
       accessLevel: cat.accessLevel,
       creditCost: cat.creditCost,
       enabled: cat.enabled,
@@ -133,6 +146,7 @@ export function CategoriesManager({
       nameTh: "",
       nameEn: "",
       description: "",
+      icon: "",
       accessLevel: "FREE",
       creditCost: 1,
       enabled: true,
@@ -145,11 +159,12 @@ export function CategoriesManager({
   async function save() {
     setBusy(true);
     setError(null);
-    // Slug is immutable after creation, so it's only sent on POST (create).
+    const iconValue = form.icon.trim();
     const patch = {
       nameTh: form.nameTh,
       nameEn: form.nameEn || undefined,
       description: form.description || undefined,
+      icon: iconValue ? iconValue : editingId ? null : undefined,
       accessLevel: form.accessLevel,
       creditCost: Number(form.creditCost),
       enabled: form.enabled,
@@ -206,14 +221,16 @@ export function CategoriesManager({
     <AdminPage>
       <PageHeader
         title="หมวดดูดวง"
-        description="หัวข้อที่ผู้ใช้เลือกใน sidebar — กำหนดว่า Free/Pro ใช้เครดิตกี่ครั้ง"
+        description="หัวข้อที่ผู้ใช้เลือกใน sidebar — กำหนดว่า Free/Pro ใช้เครดิตกี่ครั้ง และอัปโหลดไอคอนได้เอง"
         action={<Button onClick={startCreate}>+ หมวดใหม่</Button>}
       />
 
       <InfoBox>
         <strong className="text-[var(--foreground)]">Slug</strong> = ชื่อใน URL (ภาษาอังกฤษ, ไม่มีช่องว่าง) ·{" "}
         <strong className="text-[var(--foreground)]">เครดิต/คำถาม</strong> = หักกี่ครั้งต่อคำถาม ·{" "}
-        <strong className="text-[var(--foreground)]">ลำดับ</strong> = เรียงใน sidebar (เลขน้อยอยู่บน)
+        <strong className="text-[var(--foreground)]">ลำดับ</strong> = เรียงใน sidebar (เลขน้อยอยู่บน) ·{" "}
+        <strong className="text-[var(--foreground)]">ไอคอน</strong> = PNG โปร่งใส{" "}
+        <strong className="text-[var(--foreground)]">64×64 หรือ 128×128 px</strong> (สูงสุด 256×256)
       </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
@@ -280,7 +297,35 @@ export function CategoriesManager({
               />
             </Field>
           </div>
-          <Field label="คำอธิบาย" >
+
+          <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+            <ImageUploadField
+              label="ไอคอนหมวด (sidebar)"
+              value={form.icon}
+              onChange={(url) => setForm({ ...form, icon: url })}
+              hint={ICON_HINT}
+            />
+            <div className="flex flex-col items-start gap-2 pb-1">
+              <span className="text-[11px] text-[var(--muted)]">ตัวอย่างในเมนู</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--surface-2)] text-[var(--primary)]">
+                <CategoryIcon
+                  slug={form.slug || "self"}
+                  icon={form.icon || null}
+                  size={20}
+                />
+              </span>
+              {form.icon ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => setForm({ ...form, icon: "" })}
+                >
+                  ล้างไอคอน (ใช้ค่าเริ่มต้น)
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          <Field label="คำอธิบาย">
             <TextInput
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -341,12 +386,18 @@ export function CategoriesManager({
         {categories.map((cat) => (
           <Card key={cat.id}>
             <div className="flex flex-wrap items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--surface-2)] text-[var(--primary)]">
+                <CategoryIcon slug={cat.slug} icon={cat.icon} size={18} />
+              </span>
               <span className="font-medium text-[var(--foreground)]">{cat.nameTh}</span>
               <Badge tone="muted">{cat.slug}</Badge>
               <Badge tone={cat.accessLevel === "PRO" ? "gold" : "green"}>
                 {cat.accessLevel === "PRO" ? "Pro" : "ฟรี"}
               </Badge>
               <Badge>{cat.creditCost} เครดิต</Badge>
+              {isCustomCategoryIcon(cat.icon) ? (
+                <Badge tone="gold">ไอคอนอัปโหลด</Badge>
+              ) : null}
               {!cat.enabled && <Badge tone="red">ปิด</Badge>}
               <div className="ml-auto flex gap-2">
                 <Button variant="ghost" onClick={() => startEdit(cat)}>

@@ -58,6 +58,7 @@ export type AppBootstrapPayload = {
     nameTh: string;
     accessLevel: string;
     suggestedQuestions?: string[];
+    icon?: string | null;
   }>;
   natalThreads: Thread[];
   transitThreads: Thread[];
