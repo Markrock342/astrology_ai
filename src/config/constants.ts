@@ -83,10 +83,16 @@ export const PRO_MAX_OUTPUT_TOKENS = 1_536;
  * these leave enough room; if a complex chart ever starves brief on Gemini 3,
  * raise the fallback retry's cap rather than pushing brief above detailed.
  */
-export const BRIEF_MAX_OUTPUT_TOKENS_FREE = 1_024;
+export const BRIEF_MAX_OUTPUT_TOKENS_FREE = 896;
 export const BRIEF_MAX_OUTPUT_TOKENS_PRO = 1_280;
 
 export const BRIEF_ANSWER_HINT =
   "โหมดกระชับ (สำคัญ ทับทุกกติกาก่อนหน้า): ตอบเป็นร้อยแก้ว 2–3 ย่อหน้าสั้น รวมไม่เกิน 150 คำ " +
   "ห้ามใช้ตาราง ห้ามใช้หัวข้อ ห้ามใช้ bullet — โครงสร้างพวกนั้นกินโควตาคำตอบจนโดนตัดกลางประโยค " +
   "ปิดท้ายด้วยประโยคชวนถามต่อสั้น ๆ ได้หนึ่งประโยค";
+
+/** Free detailed — still capped so trial credits don't burn on 700-word essays. */
+export const DETAILED_ANSWER_HINT_FREE =
+  "โหมดละเอียด (แพ็กเกจทดลอง): ตอบชัด อ่านง่าย รวมประมาณ 250–350 คำ " +
+  "ใช้หัวข้อสั้นได้ไม่เกิน 4 ข้อ ห้ามยืดยาวซ้ำซ้อน ห้ามตารางยาว " +
+  "ปิดท้ายด้วยคำถามชวนคุยต่อหนึ่งประโยค";

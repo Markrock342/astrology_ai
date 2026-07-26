@@ -70,10 +70,12 @@ function nowMs(): number {
   return Date.now();
 }
 
-function readAnswerMode(): AnswerMode {
-  if (typeof window === "undefined") return "detailed";
+function readAnswerMode(plan: "FREE" | "PRO" = "FREE"): AnswerMode {
+  if (typeof window === "undefined") return plan === "PRO" ? "detailed" : "brief";
   const saved = window.localStorage.getItem(ANSWER_MODE_KEY);
-  return saved === "brief" ? "brief" : "detailed";
+  if (saved === "brief" || saved === "detailed") return saved;
+  // Free defaults to brief — burns fewer tokens on the 3-credit trial.
+  return plan === "PRO" ? "detailed" : "brief";
 }
 
 function readDraft(): string {
@@ -171,12 +173,15 @@ const UPGRADE_ERRORS = new Set([
 
 /** Map API error codes (lib/errors.ts) to friendly Thai messages. */
 const ERROR_MESSAGES: Record<string, string> = {
-  NO_QUOTA: "เครดิตหมดแล้ว เติมเครดิตหรืออัปเกรดเป็น Pro เพื่อถามต่อ",
-  CATEGORY_LOCKED: "หมวดนี้สำหรับสมาชิก Pro",
+  NO_QUOTA:
+    "เครดิตทดลองหมดแล้ว — อัปเกรด Pro ได้คุยทุกหมวด + ดวงจร หรือเติมเครดิตถ้าเป็นสมาชิก Pro อยู่แล้ว",
+  CATEGORY_LOCKED:
+    "หมวดนี้เป็นสิทธิ์ Pro ไม่ใช่ระบบพัง — แพ็ก Free ใช้ได้「ตัวตน」กับ「การงาน」 หรืออัปเกรดเพื่อปลดล็อก",
   CHAT_REQUIRES_PRO: "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
   CHAT_REQUIRES_PRO_PENDING:
     "สลิปของคุณอยู่ระหว่างตรวจสอบ ปกติภายใน 1–2 วันทำการ — หลังอนุมัติจะแชทได้ทันที",
-  TRANSIT_REQUIRES_PRO: "โหมดดวงจรสำหรับสมาชิก Pro เท่านั้น อัปเกรดเพื่อใช้งาน",
+  TRANSIT_REQUIRES_PRO:
+    "ดวงจรเป็นสิทธิ์ Pro ไม่ใช่ระบบพัง — อัปเกรดเพื่อเปิดโหมดดวงจร",
   FOLLOWUP_REQUIRES_PRO:
     "ถามต่อในบทสนทนาเดิมสำหรับสมาชิก Pro — เริ่มคำถามใหม่ได้ตราบใดที่ยังมีเครดิต",
   EMAIL_NOT_VERIFIED:
@@ -303,7 +308,7 @@ export function ChatView() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [answerMode, setAnswerMode] = useState<AnswerMode>("detailed");
+  const [answerMode, setAnswerMode] = useState<AnswerMode>("brief");
   const [feedbackById, setFeedbackById] = useState<
     Record<string, FeedbackValue>
   >({});
@@ -418,17 +423,19 @@ export function ChatView() {
     conversationIdRef.current = threadId;
   }, [threadId]);
 
-  // Hydrate answer mode, draft, and thumbs from localStorage once on mount.
+  // Hydrate answer mode, draft, and thumbs from localStorage once on mount /
+  // when plan is known (Free defaults to brief to stretch trial credits).
   useEffect(() => {
+    const plan = user?.plan === "PRO" ? "PRO" : "FREE";
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage hydrate
-    setAnswerMode(readAnswerMode());
+    setAnswerMode(readAnswerMode(plan));
     setFeedbackById(readFeedbackMap());
     if (!draftHydratedRef.current) {
       draftHydratedRef.current = true;
       const draft = readDraft();
       if (draft) setInput(draft);
     }
-  }, []);
+  }, [user?.plan]);
 
   useEffect(() => {
     if (!draftHydratedRef.current) return;
@@ -2016,6 +2023,7 @@ export function ChatView() {
             usage?.creditCostPerMessage ?? DEFAULTS.creditCostPerReading
           }
           creditBalance={usage?.balance ?? user?.creditBalance ?? 0}
+          plan={user?.plan === "PRO" ? "PRO" : "FREE"}
           answerMode={answerMode}
           onAnswerModeChange={updateAnswerMode}
         />
@@ -2065,7 +2073,7 @@ function ErrorBanner({
             {quotaExceeded
               ? "ดูแพ็กเกจ / รอวันใหม่"
               : state === "no-quota"
-                ? "ดูแพ็กเกจ / เติมเครดิต"
+                ? "อัปเกรด / ดูแพ็กเกจ"
                 : "อัปเกรดเป็น Pro"}
           </a>
         )}
@@ -2134,18 +2142,29 @@ function LockedState({ category }: { category?: string }) {
           <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="2" />
         </svg>
       </div>
-      <h2 className="text-lg font-semibold text-[var(--foreground)]">
-        หมวด{category ? `“${category}”` : "นี้"}สำหรับสมาชิก Pro
-      </h2>
-      <p className="mt-2 text-sm text-[var(--muted)]">
-        อัปเกรดเป็น Pro เพื่อปลดล็อกหมวดนี้และโหมดดวงจร
+      <p className="mb-2 rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-3 py-1 text-[11px] font-medium text-[var(--primary)]">
+        สิทธิ์แพ็กเกจ Pro — ระบบทำงานปกติ
       </p>
-      <a
-        href="/account"
-        className="mt-5 rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
-      >
-        อัปเกรดเป็น Pro
-      </a>
+      <h2 className="text-lg font-semibold text-[var(--foreground)]">
+        หมวด{category ? `“${category}”` : "นี้"}ยังไม่รวมใน Free
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+        แพ็กทดลองใช้ได้หมวด「ตัวตน」กับ「การงาน」เท่านั้น · หมวดอื่นและโหมดดวงจรปลดล็อกเมื่ออัปเกรด Pro
+      </p>
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+        <a
+          href="/dashboard?cat=self"
+          className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)]"
+        >
+          ไปหมวดตัวตน
+        </a>
+        <a
+          href="/account"
+          className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+        >
+          ดูแพ็กเกจ Pro
+        </a>
+      </div>
     </div>
   );
 }
@@ -2226,6 +2245,7 @@ const Composer = forwardRef<
     categoryLocked?: boolean;
     creditCost?: number;
     creditBalance?: number;
+    plan?: "FREE" | "PRO";
     answerMode: AnswerMode;
     onAnswerModeChange: (mode: AnswerMode) => void;
   }
@@ -2241,6 +2261,7 @@ const Composer = forwardRef<
     categoryLocked,
     creditCost,
     creditBalance,
+    plan = "FREE",
     answerMode,
     onAnswerModeChange,
   },
@@ -2254,10 +2275,12 @@ const Composer = forwardRef<
     () => false,
   );
 
+  const balance = creditBalance ?? 0;
+  const lowTrialCredits = plan === "FREE" && balance <= 1;
   const placeholder = !aiEnabled
     ? "เปิดให้ใช้งานในเฟสถัดไป"
     : categoryLocked
-      ? "หมวดนี้สำหรับ Pro — เลือก「ตัวตน」หรือ「การงาน」หรืออัปเกรด"
+      ? "หมวด Pro — เลือก「ตัวตน」/「การงาน」หรืออัปเกรด (ระบบไม่ได้พัง)"
       : coarsePointer
         ? "สอบถามเราได้เลย…"
         : "สอบถามเราได้เลย — Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่";
@@ -2272,6 +2295,21 @@ const Composer = forwardRef<
 
   return (
     <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8">
+      {lowTrialCredits && !categoryLocked ? (
+        <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
+          <span>
+            {balance <= 0
+              ? "เครดิตทดลองหมดแล้ว — อัปเกรดเพื่อคุยต่อได้ทุกหมวด"
+              : `เหลือเครดิตทดลอง ${balance} ครั้ง — ใช้โหมด「กระชับ」จะคุ้มกว่า`}
+          </span>
+          <a
+            href="/account"
+            className="shrink-0 font-semibold text-[var(--primary)] underline"
+          >
+            ดูแพ็กเกจ
+          </a>
+        </div>
+      ) : null}
       <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between gap-2">
         <div
           className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-0.5 text-[11px]"
@@ -2282,7 +2320,8 @@ const Composer = forwardRef<
             type="button"
             onClick={() => onAnswerModeChange("brief")}
             disabled={!aiEnabled}
-            className={`rounded-md px-3 py-1 transition ${
+            aria-pressed={answerMode === "brief"}
+            className={`min-h-9 rounded-md px-3 py-1.5 transition ${
               answerMode === "brief"
                 ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
                 : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -2294,7 +2333,8 @@ const Composer = forwardRef<
             type="button"
             onClick={() => onAnswerModeChange("detailed")}
             disabled={!aiEnabled}
-            className={`rounded-md px-3 py-1 transition ${
+            aria-pressed={answerMode === "detailed"}
+            className={`min-h-9 rounded-md px-3 py-1.5 transition ${
               answerMode === "detailed"
                 ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
                 : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -2305,7 +2345,7 @@ const Composer = forwardRef<
         </div>
         {aiEnabled && creditCost != null && creditCost > 0 ? (
           <p className="text-[11px] text-[var(--muted)]">
-            ใช้ {creditCost} เครดิต · คงเหลือ {creditBalance ?? 0}
+            ใช้ {creditCost} เครดิต · คงเหลือ {balance}
           </p>
         ) : null}
       </div>
@@ -2314,6 +2354,7 @@ const Composer = forwardRef<
           ref={ref}
           value={value}
           rows={1}
+          aria-label="ข้อความคำถาม"
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {

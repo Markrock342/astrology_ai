@@ -179,7 +179,7 @@ function MobileOverflowMenu({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="press-scale inline-flex size-8 items-center justify-center rounded-lg text-[var(--muted-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+        className="press-scale inline-flex size-11 items-center justify-center rounded-lg text-[var(--muted-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] sm:size-8"
         aria-label="เมนูข้อความ"
         aria-haspopup="menu"
         aria-expanded={open}

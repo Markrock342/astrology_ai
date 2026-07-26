@@ -35,7 +35,11 @@ function promptForPlanet(
   return `ขอคำอธิบายเพิ่มเกี่ยวกับ${p.planet} ในราศี${normalizeSignName(p.siderealSign)} จาก${scope}`;
 }
 
-/** Evidence table — larger type; source label hidden from users. */
+function degreeText(r: MyhoraNatalPlanet): string {
+  return r.degree || r.minute ? `${r.degree || "0"}°${r.minute || "0"}'` : "—";
+}
+
+/** Evidence — card stack on phones, wide table from md up. */
 export function ChartEvidenceTable({
   chart,
   mode = "natal",
@@ -51,94 +55,159 @@ export function ChartEvidenceTable({
       open
       className={
         className ??
-        "mt-2 rounded-lg border border-[var(--border)] bg-black/30 text-sm leading-snug text-[var(--muted)]"
+        "mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-sm leading-snug text-[var(--muted)]"
       }
     >
-      <summary className="cursor-pointer list-none px-3 py-2 text-xs tracking-wide text-[var(--gold)]/90 marker:content-none [&::-webkit-details-marker]:hidden">
+      <summary className="cursor-pointer list-none px-3 py-2.5 text-xs tracking-wide text-[var(--primary)] marker:content-none [&::-webkit-details-marker]:hidden">
         <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="font-medium">หลักฐานดวง ▾</span>
           <span className="normal-case text-[var(--muted)]">ลัคนา {lagna}</span>
           {clickable ? (
             <span className="normal-case text-[var(--muted-2)]">
-              · แตะแถวเพื่อถามต่อ
+              · แตะเพื่อถามต่อ
             </span>
           ) : null}
         </span>
       </summary>
 
-      <div className="overflow-x-auto border-t border-[var(--border)]">
+      <div className="border-t border-[var(--border)]">
         {samrap ? (
-          <table className="w-full min-w-[520px] border-collapse text-left text-[13px]">
-            <thead>
-              <tr className="border-b border-[var(--border)] text-[var(--gold)]/80">
-                <th className="px-3 py-2 font-medium">ดาว</th>
-                <th className="px-3 py-2 font-medium">ราศี</th>
-                <th className="px-3 py-2 font-medium">องศา</th>
-                <th className="px-3 py-2 font-medium">เรือน</th>
-                <th className="px-3 py-2 font-medium">นวางศ์</th>
-                <th className="px-3 py-2 font-medium">ฤกษ์</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Mobile: stacked cards — no horizontal scroll */}
+            <ul className="flex flex-col gap-2 p-2 md:hidden">
               {samrap.map((r) => (
-                <tr
-                  key={r.planet}
-                  className={`border-b border-[var(--border)]/60 last:border-0 ${
-                    clickable
-                      ? "cursor-pointer transition hover:bg-[var(--primary)]/10"
-                      : ""
-                  }`}
-                  onClick={
-                    clickable
-                      ? () => onRowAsk?.(promptForSamrap(r, mode))
-                      : undefined
-                  }
-                  title={clickable ? "ถามต่อเกี่ยวกับแถวนี้" : undefined}
-                >
-                  <td className="px-3 py-2 text-[var(--fg)]">{r.planet}</td>
-                  <td className="px-3 py-2">{normalizeSignName(r.zodiac)}</td>
-                  <td className="px-3 py-2">
-                    {r.degree || r.minute ? `${r.degree || "0"}°${r.minute || "0"}'` : "—"}
-                  </td>
-                  <td className="px-3 py-2">{r.house || "—"}</td>
-                  <td className="px-3 py-2">{r.nawamang || "—"}</td>
-                  <td className="px-3 py-2">{r.rerkName || r.rerk || "—"}</td>
-                </tr>
+                <li key={r.planet}>
+                  <button
+                    type="button"
+                    disabled={!clickable}
+                    onClick={() => onRowAsk?.(promptForSamrap(r, mode))}
+                    className={`w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-left ${
+                      clickable
+                        ? "min-h-11 active:bg-[var(--primary)]/10"
+                        : "opacity-90"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-[var(--foreground)]">
+                      {r.planet} · {normalizeSignName(r.zodiac)}
+                    </p>
+                    <p className="mt-1 text-[12px] text-[var(--muted)]">
+                      {degreeText(r)}
+                      {r.house ? ` · เรือน${r.house}` : ""}
+                      {r.nawamang ? ` · นวางศ์ ${r.nawamang}` : ""}
+                      {r.rerkName || r.rerk
+                        ? ` · ฤกษ์ ${r.rerkName || r.rerk}`
+                        : ""}
+                    </p>
+                  </button>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+            {/* Desktop table */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[520px] border-collapse text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-[var(--primary)]/80">
+                    <th className="px-3 py-2 font-medium">ดาว</th>
+                    <th className="px-3 py-2 font-medium">ราศี</th>
+                    <th className="px-3 py-2 font-medium">องศา</th>
+                    <th className="px-3 py-2 font-medium">เรือน</th>
+                    <th className="px-3 py-2 font-medium">นวางศ์</th>
+                    <th className="px-3 py-2 font-medium">ฤกษ์</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {samrap.map((r) => (
+                    <tr
+                      key={r.planet}
+                      className={`border-b border-[var(--border)]/60 last:border-0 ${
+                        clickable
+                          ? "cursor-pointer transition hover:bg-[var(--primary)]/10"
+                          : ""
+                      }`}
+                      onClick={
+                        clickable
+                          ? () => onRowAsk?.(promptForSamrap(r, mode))
+                          : undefined
+                      }
+                      title={clickable ? "ถามต่อเกี่ยวกับแถวนี้" : undefined}
+                    >
+                      <td className="px-3 py-2 text-[var(--foreground)]">
+                        {r.planet}
+                      </td>
+                      <td className="px-3 py-2">{normalizeSignName(r.zodiac)}</td>
+                      <td className="px-3 py-2">{degreeText(r)}</td>
+                      <td className="px-3 py-2">{r.house || "—"}</td>
+                      <td className="px-3 py-2">{r.nawamang || "—"}</td>
+                      <td className="px-3 py-2">{r.rerkName || r.rerk || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
-          <table className="w-full min-w-[400px] border-collapse text-left text-[13px]">
-            <thead>
-              <tr className="border-b border-[var(--border)] text-[var(--gold)]/80">
-                <th className="px-3 py-2 font-medium">ดาว</th>
-                <th className="px-3 py-2 font-medium">ราศี</th>
-                <th className="px-3 py-2 font-medium">องศา</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <ul className="flex flex-col gap-2 p-2 md:hidden">
               {chart.planets.map((p) => (
-                <tr
-                  key={p.planet}
-                  className={`border-b border-[var(--border)]/60 last:border-0 ${
-                    clickable
-                      ? "cursor-pointer transition hover:bg-[var(--primary)]/10"
-                      : ""
-                  }`}
-                  onClick={
-                    clickable
-                      ? () => onRowAsk?.(promptForPlanet(p, mode))
-                      : undefined
-                  }
-                  title={clickable ? "ถามต่อเกี่ยวกับแถวนี้" : undefined}
-                >
-                  <td className="px-3 py-2 text-[var(--fg)]">{p.planet}</td>
-                  <td className="px-3 py-2">{normalizeSignName(p.siderealSign)}</td>
-                  <td className="px-3 py-2">{p.degreeText ?? "—"}</td>
-                </tr>
+                <li key={p.planet}>
+                  <button
+                    type="button"
+                    disabled={!clickable}
+                    onClick={() => onRowAsk?.(promptForPlanet(p, mode))}
+                    className={`w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-left ${
+                      clickable
+                        ? "min-h-11 active:bg-[var(--primary)]/10"
+                        : "opacity-90"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-[var(--foreground)]">
+                      {p.planet} · {normalizeSignName(p.siderealSign)}
+                    </p>
+                    <p className="mt-1 text-[12px] text-[var(--muted)]">
+                      {p.degreeText ?? "—"}
+                    </p>
+                  </button>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[400px] border-collapse text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-[var(--primary)]/80">
+                    <th className="px-3 py-2 font-medium">ดาว</th>
+                    <th className="px-3 py-2 font-medium">ราศี</th>
+                    <th className="px-3 py-2 font-medium">องศา</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chart.planets.map((p) => (
+                    <tr
+                      key={p.planet}
+                      className={`border-b border-[var(--border)]/60 last:border-0 ${
+                        clickable
+                          ? "cursor-pointer transition hover:bg-[var(--primary)]/10"
+                          : ""
+                      }`}
+                      onClick={
+                        clickable
+                          ? () => onRowAsk?.(promptForPlanet(p, mode))
+                          : undefined
+                      }
+                      title={clickable ? "ถามต่อเกี่ยวกับแถวนี้" : undefined}
+                    >
+                      <td className="px-3 py-2 text-[var(--foreground)]">
+                        {p.planet}
+                      </td>
+                      <td className="px-3 py-2">
+                        {normalizeSignName(p.siderealSign)}
+                      </td>
+                      <td className="px-3 py-2">{p.degreeText ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </details>

@@ -456,7 +456,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {cat.label}
                 </span>
                 {locked ? (
-                  <LockIcon />
+                  <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+                    <LockIcon /> Pro
+                  </span>
                 ) : cat.tier === "FREE" ? (
                   <span className="rounded px-1.5 py-0.5 text-[10px] text-[var(--secondary-active)]">
                     Free
@@ -475,7 +477,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setConfirmAction({ kind: "clear-all" })}
-              className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)]"
+              className="shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)]"
               title="ลบประวัติแชททั้งหมด"
             >
               ล้างทั้งหมด
@@ -550,7 +552,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                     void renameThread(t.id, t.title);
                   }}
-                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] group-hover:opacity-100"
+                  className="min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] group-hover:opacity-100"
                 >
                   ชื่อ
                 </button>
@@ -563,7 +565,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                     void deleteThread(t.id);
                   }}
-                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100"
+                  className="min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100"
                 >
                   ลบ
                 </button>
@@ -595,10 +597,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             setTransitOpen(true);
             closeMobile();
           }}
-          className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--primary)] transition hover:bg-[var(--surface-2)]"
+          className="mb-1 flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2.5 text-sm text-[var(--primary)] transition hover:bg-[var(--surface-2)]"
         >
-          <TransitIcon />
-          เริ่มดวงจรใหม่
+          <span className="flex items-center gap-2.5">
+            <TransitIcon />
+            เริ่มดวงจรใหม่
+          </span>
+          {user?.plan !== "PRO" ? (
+            <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+              <LockIcon /> Pro
+            </span>
+          ) : null}
         </button>
         <nav className="flex flex-col gap-0.5">
           {filteredTransitThreads.length === 0 ? (
@@ -649,7 +658,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                     void renameThread(t.id, t.title);
                   }}
-                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] group-hover:opacity-100"
+                  className="min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] group-hover:opacity-100"
                 >
                   ชื่อ
                 </button>
@@ -662,7 +671,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                     void deleteThread(t.id);
                   }}
-                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100"
+                  className="min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100"
                 >
                   ลบ
                 </button>

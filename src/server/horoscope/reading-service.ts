@@ -46,6 +46,7 @@ import {
   BRIEF_ANSWER_HINT,
   BRIEF_MAX_OUTPUT_TOKENS_FREE,
   BRIEF_MAX_OUTPUT_TOKENS_PRO,
+  DETAILED_ANSWER_HINT_FREE,
   FREE_MAX_OUTPUT_TOKENS,
   KNOWLEDGE_MAX_CHARS,
   PRO_MAX_OUTPUT_TOKENS,
@@ -311,6 +312,8 @@ async function runReading(
   });
   if (answerMode === "brief") {
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
+  } else if (plan === "FREE") {
+    systemPrompt = `${systemPrompt}\n\n${DETAILED_ANSWER_HINT_FREE}`;
   }
   const { conversationHistory, userPrompt } = buildConversationHistory(
     priorMessages ?? [],
