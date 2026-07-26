@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { BrandLockup, BrandMark } from "@/components/brand-logo";
+// useSearchParams is via useChatRouteSearchParams (soft-nav safe)
 import { SettingsPopover, type SettingsModal } from "./settings-popover";
 import {
   CancelMembershipModal,
@@ -22,7 +22,11 @@ import {
   TransitIcon,
 } from "./sidebar-icons";
 import { useAppData, isCategoryLocked } from "./app-data-provider";
-import { isPlainLeftClick, useChatNav } from "./chat-nav";
+import {
+  isPlainLeftClick,
+  useChatNav,
+  useChatRouteSearchParams,
+} from "./chat-nav";
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { PendingPaymentBanner } from "./pending-payment-banner";
 import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banner";
@@ -37,7 +41,7 @@ import {
 import { OPEN_TRANSIT_EVENT } from "@/lib/chat-navigation-links";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const searchParams = useSearchParams();
+  const searchParams = useChatRouteSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   // Two-phase mobile drawer so it can animate on both enter and exit:
   // `mobileRender` keeps it mounted, `mobileShown` drives the slide/fade.

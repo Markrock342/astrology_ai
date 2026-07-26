@@ -1,8 +1,8 @@
 # HoraSard — Master Index / Architecture Map
 
-สารบัญกลางของโปรเจกต์ (อัปเดต: 18 ก.ค. 2026)
+สารบัญกลางของโปรเจกต์ (อัปเดต: 26 ก.ค. 2026)
 
-**ฐาน:** `origin/main` @ `d1e4e68` + landing hero CMS usable (sample theme · preview UX · validation)  
+**ฐาน:** `origin/main` + dashboard soft-nav merge  
 **หมายเหตุ:** `.cursorrules` เป็น local only — ห้าม commit · GitHub Actions billing-locked (ดู README) — gate จริงคือ Vercel `vercel-build`
 
 ## ภาพรวมสถาปัตยกรรม
@@ -46,6 +46,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 | **AI model config repair** | ✅ create ต้องมี key · planScope · primary-only health · migrate seed encrypted · drop dead category aiConfigId |
 | **คู่มือโมเดล AI** | ✅ [`SETTINGS_MODEL_AI.md`](../SETTINGS_MODEL_AI.md) ที่รากโปรเจกต์ |
 | **Landing hero background CMS** | ✅ รูป/วิดีโอเต็มจอจาก `/admin/landing` · ตัวอย่างธีม · [admin_landing_hero.md](./admin_landing_hero.md) |
+| **Dashboard soft-nav** | ✅ `useChatRouteSearchParams` + softNavigate + hard return จากตั้งค่า |
 
 **Feature gating:** `src/config/features.ts` — `NEXT_PUBLIC_APP_PHASE=2` ปิด AI chat + Admin AI CMS; ไม่ตั้ง = เปิดทั้งหมด
 
@@ -67,7 +68,7 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 | App UI (chat, account, theme, credit) | ✅ | [frontend_app_ui.md](./frontend_app_ui.md) | `app-shell.tsx`, `chat-view.tsx` |
 | Logo & Theme + mobile settings | ✅ | [frontend_app_ui.md](./frontend_app_ui.md) | `site-theme-manager.tsx`, `brand-logo.tsx`, `settings-popover*.ts(x)` |
 | Admin CMS UX (preview / AI health / models) | ✅ | [admin_cms_ux.md](./admin_cms_ux.md) | `page.tsx` (landing), `ai-configs-manager.tsx`, `OpenAIAdapter`, `adminFetch` |
-| Dashboard soft-nav | 🟡 branch แยก | `fix/dashboard-soft-nav` | ยังไม่รวม |
+| Dashboard soft-nav | ✅ | [frontend_app_ui.md](./frontend_app_ui.md) | `chat-nav.ts` |
 
 ---
 
@@ -83,7 +84,6 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 
 | ID | งาน | หมายเหตุ |
 |----|-----|----------|
-| **Soft-nav** | merge `fix/dashboard-soft-nav` | ยังแยก |
 | **Smoke** | ลอง UI โลโก้ + วาง AI key บน prod/staging | manual |
 | **Wave E2** | packageId FK, cron, cost tracking | [BE_ASSIGN.md](../BE_ASSIGN.md) § E2 |
 | **Ops** | Resend, Upstash, smoke prod | PM |
@@ -105,3 +105,4 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 - [x] Follow-up + thread title ใช้ AI config router (ไม่ hardcode Gemini env)
 - [x] AI model config repair: encrypted-only create, planScope, primary health, seed migrate, drop category.aiConfigId
 - [x] คู่มือหน้าโมเดล AI: `SETTINGS_MODEL_AI.md`
+- [x] Dashboard soft-nav (`useChatRouteSearchParams` + softNavigate null-state)
