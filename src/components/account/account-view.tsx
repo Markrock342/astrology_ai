@@ -2,7 +2,9 @@ import type { CmsPaymentInfo } from "@/lib/cms-keys";
 import { PaymentSubmitCard } from "./payment-submit-card";
 import { ProfileAvatarCard } from "./profile-avatar-card";
 import { UsageSummary } from "./usage-summary";
+import { DeleteAccountCard } from "./delete-account-card";
 import type { UsageLimitsFallback } from "@/types/my-usage";
+import { PRO_EXPIRY_WARN_DAYS } from "@/config/constants";
 
 export type PublicPackage = {
   id: string;
@@ -21,6 +23,9 @@ type MyPackage = {
   plan: "FREE" | "PRO";
   creditBalance: number;
   subscription: {
+    status?: string;
+    startsAt?: string;
+    expiresAt?: string | null;
     package: {
       code: string;
       name: string;
@@ -46,6 +51,19 @@ function displayFeatures(pkg: PublicPackage): string[] {
   ];
 }
 
+function formatExpiry(iso: string): string {
+  return new Date(iso).toLocaleDateString("th-TH", {
+    timeZone: "Asia/Bangkok",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function daysUntil(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.ceil(ms / (24 * 60 * 60 * 1000));
+}
 
 export function AccountView({
   profile,
@@ -74,6 +92,11 @@ export function AccountView({
   const showTopUpBanner =
     isPro && myPackage.creditBalance <= lowCreditThreshold;
 
+  const expiresAt = myPackage.subscription?.expiresAt ?? null;
+  const daysLeft = isPro && expiresAt ? daysUntil(expiresAt) : null;
+  const expirySoon =
+    daysLeft != null && daysLeft >= 0 && daysLeft <= PRO_EXPIRY_WARN_DAYS;
+
   const usageLimits: UsageLimitsFallback = {
     dailyLimit: myPackage.subscription?.package.dailyLimit ?? null,
     monthlyLimit: myPackage.subscription?.package.monthlyLimit ?? null,
@@ -101,7 +124,46 @@ export function AccountView({
           <p className="mt-1 text-lg font-semibold text-[var(--primary)]">
             {myPackage.subscription?.package.name ?? (isPro ? "Pro" : "Free")}
           </p>
+          {isPro && expiresAt ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <p
+                className={`text-sm ${
+                  expirySoon ? "text-[var(--danger)]" : "text-[var(--muted)]"
+                }`}
+              >
+                หมดอายุ {formatExpiry(expiresAt)}
+                {daysLeft != null && daysLeft >= 0
+                  ? ` · เหลือ ${daysLeft} วัน`
+                  : ""}
+              </p>
+              <a
+                href="#payment"
+                className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)]"
+              >
+                ต่ออายุ
+              </a>
+            </div>
+          ) : null}
+          {!isPro ? (
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              {proPkg
+                ? "ยังไม่ใช่ Pro หรือ Pro หมดอายุแล้ว — อัปเกรดหรือต่ออายุได้ด้านล่าง"
+                : "แพ็กทดลอง Free"}
+            </p>
+          ) : null}
         </div>
+
+        {expirySoon && expiresAt ? (
+          <div className="mt-4 rounded-xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 text-sm text-[var(--foreground)]">
+            Pro ใกล้หมดอายุ ({formatExpiry(expiresAt)}) —{" "}
+            <a
+              href="#payment"
+              className="font-semibold text-[var(--primary)] underline"
+            >
+              ต่ออายุที่นี่
+            </a>
+          </div>
+        ) : null}
 
         <UsageSummary fallbackLimits={usageLimits} />
 
@@ -114,16 +176,17 @@ export function AccountView({
               billingLabel={pkg.billingLabel ?? "ต่อแพ็กเกจ"}
               features={displayFeatures(pkg)}
               highlight={pkg.type === "PRO"}
-              active={
-                isPro ? pkg.type === "PRO" : pkg.type === "FREE"
-              }
+              active={isPro ? pkg.type === "PRO" : pkg.type === "FREE"}
             />
           ))}
         </div>
 
         {!isPro && proPkg && (
           <div id="payment">
-            <PaymentSubmitCard proPrice={proPkg.price} paymentInfo={paymentInfo} />
+            <PaymentSubmitCard
+              proPrice={proPkg.price}
+              paymentInfo={paymentInfo}
+            />
           </div>
         )}
 
@@ -138,13 +201,17 @@ export function AccountView({
                 — เติมเครดิตเพื่อถามต่อได้ไม่สะดุด
               </div>
             )}
-            <PaymentSubmitCard
-              variant="topup"
-              proPrice={topUpPkg.price}
-              paymentInfo={paymentInfo}
-            />
+            <div id="payment">
+              <PaymentSubmitCard
+                variant="topup"
+                proPrice={topUpPkg.price}
+                paymentInfo={paymentInfo}
+              />
+            </div>
           </>
         )}
+
+        <DeleteAccountCard email={profile.email} />
       </div>
     </div>
   );

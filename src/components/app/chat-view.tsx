@@ -2411,8 +2411,55 @@ const Composer = forwardRef<
         )}
       </div>
       <p className="mt-1.5 text-center text-[10px] text-[var(--muted-2)]">
-        Horasard อาจให้ข้อมูลที่ไม่ถูกต้องเสมอไป โปรดใช้วิจารณญาณ
+        Horasard อาจให้ข้อมูลที่ไม่ถูกต้องเสมอไป โปรดใช้วิจารณญาณ ·{" "}
+        <a href="/disclaimer" className="underline hover:text-[var(--muted)]">
+          ข้อจำกัดความรับผิด
+        </a>
       </p>
+      <ChatDisclaimerNotice />
     </div>
   );
 });
+
+function ChatDisclaimerNotice() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("horasard:chatDisclaimerDismissed") === "1") {
+        setVisible(false);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="mx-auto mt-2 flex max-w-3xl items-start justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)]">
+      <p>
+        คำทำนายเพื่อความบันเทิงและเป็นแนวทางเท่านั้น ไม่ใช่คำแนะนำทางการเงิน กฎหมาย
+        หรือการแพทย์ —{" "}
+        <a href="/disclaimer" className="text-[var(--primary)] underline">
+          อ่านเพิ่ม
+        </a>
+      </p>
+      <button
+        type="button"
+        className="shrink-0 text-[var(--muted-2)] hover:text-[var(--foreground)]"
+        aria-label="ปิดคำเตือน"
+        onClick={() => {
+          try {
+            sessionStorage.setItem("horasard:chatDisclaimerDismissed", "1");
+          } catch {
+            /* ignore */
+          }
+          setVisible(false);
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}

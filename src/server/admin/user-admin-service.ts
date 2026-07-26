@@ -76,7 +76,14 @@ export async function getUserDetail(userId: string) {
       status: true,
       createdAt: true,
       updatedAt: true,
-      birthProfile: true,
+      birthProfile: {
+        select: {
+          id: true,
+          nickname: true,
+          birthProvince: true,
+          editCount: true,
+        },
+      },
       creditWallet: { select: { balance: true, version: true } },
       subscriptions: {
         orderBy: { createdAt: "desc" },
@@ -98,14 +105,58 @@ export async function getUserDetail(userId: string) {
     },
   });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
-  // Same balance/quota/usage view the user sees on /account, so admins can tell
-  // where a user is against their daily/monthly limits — plus what serving them
-  // actually costs, which is the number that decides whether the plan works.
   const [usage, cost] = await Promise.all([
     getMyUsageSummary(userId),
     getUserCost(userId),
   ]);
-  return { ...user, usage, cost };
+  return {
+    ...user,
+    birthProfile: user.birthProfile
+      ? {
+          hasBirthProfile: true as const,
+          nickname: user.birthProfile.nickname,
+          birthProvince: user.birthProfile.birthProvince,
+          editCount: user.birthProfile.editCount,
+        }
+      : null,
+    usage,
+    cost,
+  };
+}
+
+/** Reveal full birth PII — audited. */
+export async function revealUserBirthProfile(
+  userId: string,
+  actor: Actor,
+) {
+  const profile = await prisma.birthProfile.findUnique({
+    where: { userId },
+  });
+  if (!profile) throw new AppError("NOT_FOUND", "ยังไม่มีข้อมูลวันเกิด");
+
+  await writeAudit({
+    adminUserId: actor.id,
+    action: "user.birth_reveal",
+    entityType: "user",
+    entityId: userId,
+    before: null,
+    after: { revealed: true },
+    ipAddress: actor.ip,
+  });
+
+  return {
+    nickname: profile.nickname,
+    birthDate: profile.birthDate.toISOString(),
+    birthTime: profile.birthTime,
+    birthTimeKnown: profile.birthTimeKnown,
+    gender: profile.gender,
+    birthCountry: profile.birthCountry,
+    birthProvince: profile.birthProvince,
+    birthDistrict: profile.birthDistrict,
+    birthLocation: profile.birthLocation,
+    additionalInfo: profile.additionalInfo,
+    editCount: profile.editCount,
+  };
 }
 
 export async function setUserStatus(userId: string, status: UserStatus, actor: Actor) {

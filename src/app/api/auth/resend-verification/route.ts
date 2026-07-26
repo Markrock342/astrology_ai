@@ -8,7 +8,10 @@ import { verifyTurnstile, clientIp } from "@/server/auth/turnstile";
 export async function POST(req: Request) {
   return handle(async () => {
     const user = await requireUser();
-    await rateLimit(`resend-verify:${user.id}`, 5, 60_000);
+    await rateLimit(`resend-verify:${user.id}`, 5, 60_000, {
+      failClosed: true,
+      requireDistributed: true,
+    });
 
     const { turnstileToken } = resendVerificationSchema.parse(await req.json());
     await verifyTurnstile(turnstileToken, clientIp(req));

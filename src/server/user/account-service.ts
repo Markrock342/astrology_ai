@@ -40,7 +40,7 @@ export async function getMe(userId: string) {
           OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
         },
         take: 1,
-        select: { id: true },
+        select: { id: true, expiresAt: true },
       },
     },
   });
@@ -48,6 +48,7 @@ export async function getMe(userId: string) {
 
   const plan: "FREE" | "PRO" = user.subscriptions.length > 0 ? "PRO" : "FREE";
   const balance = user.creditWallet?.balance ?? 0;
+  const proExpiresAt = user.subscriptions[0]?.expiresAt?.toISOString() ?? null;
 
   const editsRemaining = isStaffRole(user.role)
     ? 999
@@ -67,6 +68,7 @@ export async function getMe(userId: string) {
     birthEditsRemaining: editsRemaining,
     birthEditsUnlimited: isStaffRole(user.role),
     plan,
+    proExpiresAt,
     creditBalance: balance,
     /** Free cannot chat AI — must upgrade to Pro (`CHAT_REQUIRES_PRO`). */
     canChat: plan === "PRO",
@@ -75,7 +77,6 @@ export async function getMe(userId: string) {
   };
 }
 
-/** Current effective package/subscription details for GET /api/me/package. */
 export async function getMyPackage(userId: string) {
   const subscription = await prisma.userSubscription.findFirst({
     where: { userId, status: "ACTIVE" },
@@ -105,11 +106,55 @@ export async function getMyPackage(userId: string) {
     getBalance(userId),
   ]);
 
+  // Prefer the effective Pro subscription for expiry display (skip expired rows).
+  const effectiveSub =
+    plan === "PRO"
+      ? await prisma.userSubscription.findFirst({
+          where: {
+            userId,
+            status: "ACTIVE",
+            package: { type: "PRO" },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
+          orderBy: { createdAt: "desc" },
+          select: {
+            status: true,
+            startsAt: true,
+            expiresAt: true,
+            activationSource: true,
+            package: {
+              select: {
+                code: true,
+                name: true,
+                type: true,
+                price: true,
+                billingLabel: true,
+                creditQuota: true,
+                dailyLimit: true,
+                monthlyLimit: true,
+              },
+            },
+          },
+        })
+      : null;
+
   return {
     plan,
     credits: balance,
     creditBalance: balance,
     canChat: plan === "PRO",
-    subscription,
+    subscription: effectiveSub
+      ? {
+          ...effectiveSub,
+          startsAt: effectiveSub.startsAt.toISOString(),
+          expiresAt: effectiveSub.expiresAt?.toISOString() ?? null,
+        }
+      : subscription
+        ? {
+            ...subscription,
+            startsAt: subscription.startsAt.toISOString(),
+            expiresAt: subscription.expiresAt?.toISOString() ?? null,
+          }
+        : null,
   };
 }

@@ -9,7 +9,10 @@ import { getEmailAuthStatus } from "@/server/auth/account-lookup";
  */
 export async function POST(req: Request) {
   return handle(async () => {
-    await rateLimit(`check-email:${rateLimitIp(req)}`, 20, 60_000);
+    await rateLimit(`check-email:${rateLimitIp(req)}`, 20, 60_000, {
+      failClosed: true,
+      requireDistributed: true,
+    });
     const { email } = checkEmailSchema.parse(await req.json());
     return ok(await getEmailAuthStatus(email));
   });

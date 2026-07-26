@@ -69,6 +69,9 @@ const serverEnvSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),
+
+  // Vercel Cron auth for /api/cron/* (Authorization: Bearer …).
+  CRON_SECRET: z.string().optional(),
 });
 
 const parsed = serverEnvSchema.safeParse(process.env);

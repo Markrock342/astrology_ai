@@ -101,6 +101,11 @@ export type RateLimitOptions = {
    * failing open. Use for auth endpoints.
    */
   failClosed?: boolean;
+  /**
+   * When true and Upstash is unset, reject in production instead of using
+   * per-instance memory (auth paths — login/register must not be unlimited).
+   */
+  requireDistributed?: boolean;
 };
 
 /**
@@ -113,6 +118,15 @@ export async function rateLimit(
   options?: RateLimitOptions,
 ): Promise<void> {
   if (!upstashConfigured()) {
+    if (options?.requireDistributed && process.env.NODE_ENV === "production") {
+      console.error(
+        "[rate-limit] CRITICAL: Upstash unset — auth requireDistributed blocked",
+      );
+      throw new AppError(
+        "RATE_LIMITED",
+        "ระบบจำกัดคำขอยังไม่พร้อม (ต้องตั้ง Upstash) กรุณาลองใหม่ภายหลัง",
+      );
+    }
     if (process.env.NODE_ENV === "production") {
       console.error(
         "[rate-limit] CRITICAL: Upstash unset in production — using per-instance memory (set UPSTASH_*)",
