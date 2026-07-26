@@ -68,6 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [renameBusy, setRenameBusy] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const dismissActionError = useCallback(() => setActionError(null), []);
   // Separate anchors: sidebarContent mounts in both the mobile drawer and the
   // CSS-hidden desktop aside — one shared ref would point at the hidden button.
   const mobileProfileBtnRef = useRef<HTMLButtonElement>(null);
@@ -853,23 +854,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onCancel={() => setConfirmAction(null)}
       />
 
-      <ThreadRenameModal
-        open={renameTarget !== null}
-        initialTitle={renameTarget?.title ?? ""}
-        busy={renameBusy}
-        error={renameError}
-        onSubmit={(title) => void submitRename(title)}
-        onCancel={() => {
-          if (renameBusy) return;
-          setRenameTarget(null);
-          setRenameError(null);
-        }}
-      />
+      {renameTarget ? (
+        <ThreadRenameModal
+          initialTitle={renameTarget.title}
+          busy={renameBusy}
+          error={renameError}
+          onSubmit={(title) => void submitRename(title)}
+          onCancel={() => {
+            if (renameBusy) return;
+            setRenameTarget(null);
+            setRenameError(null);
+          }}
+        />
+      ) : null}
 
       {actionError ? (
         <ActionErrorToast
           message={actionError}
-          onDismiss={() => setActionError(null)}
+          onDismiss={dismissActionError}
         />
       ) : null}
 
@@ -1036,13 +1038,10 @@ function ActionErrorToast({
   message: string;
   onDismiss: () => void;
 }) {
-  const dismissRef = useRef(onDismiss);
-  dismissRef.current = onDismiss;
-
   useEffect(() => {
-    const t = window.setTimeout(() => dismissRef.current(), 4500);
+    const t = window.setTimeout(onDismiss, 4500);
     return () => window.clearTimeout(t);
-  }, [message]);
+  }, [message, onDismiss]);
 
   return createPortal(
     <div
