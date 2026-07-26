@@ -2421,20 +2421,26 @@ const Composer = forwardRef<
   );
 });
 
+function subscribeNoop() {
+  return () => {};
+}
+
+function readChatDisclaimerVisible(): boolean {
+  try {
+    return sessionStorage.getItem("horasard:chatDisclaimerDismissed") !== "1";
+  } catch {
+    return true;
+  }
+}
+
 function ChatDisclaimerNotice() {
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem("horasard:chatDisclaimerDismissed") === "1") {
-        setVisible(false);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  if (!visible) return null;
+  const storedVisible = useSyncExternalStore(
+    subscribeNoop,
+    readChatDisclaimerVisible,
+    () => true,
+  );
+  const [dismissed, setDismissed] = useState(false);
+  if (!storedVisible || dismissed) return null;
 
   return (
     <div className="mx-auto mt-2 flex max-w-3xl items-start justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)]">
@@ -2455,7 +2461,7 @@ function ChatDisclaimerNotice() {
           } catch {
             /* ignore */
           }
-          setVisible(false);
+          setDismissed(true);
         }}
       >
         ✕
