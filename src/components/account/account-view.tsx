@@ -46,8 +46,8 @@ function displayFeatures(pkg: PublicPackage): string[] {
   }
   return [
     `เครดิต ${pkg.creditQuota} ครั้ง`,
-    "หมวดพื้นดวงเดิม (บางหมวด)",
-    "ถาม–ตอบกับ AI",
+    "หมวด「ตัวตน」กับ「การงาน」",
+    "ถาม–ตอบกับ AI (ยืนยันอีเมลก่อน)",
   ];
 }
 
@@ -137,7 +137,7 @@ export function AccountView({
                   : ""}
               </p>
               <a
-                href="#payment"
+                href="#renew"
                 className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)]"
               >
                 ต่ออายุ
@@ -157,7 +157,7 @@ export function AccountView({
           <div className="mt-4 rounded-xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 text-sm text-[var(--foreground)]">
             Pro ใกล้หมดอายุ ({formatExpiry(expiresAt)}) —{" "}
             <a
-              href="#payment"
+              href="#renew"
               className="font-semibold text-[var(--primary)] underline"
             >
               ต่ออายุที่นี่
@@ -190,6 +190,16 @@ export function AccountView({
           </div>
         )}
 
+        {isPro && proPkg && expirySoon ? (
+          <div id="renew">
+            <PaymentSubmitCard
+              variant="renew"
+              proPrice={proPkg.price}
+              paymentInfo={paymentInfo}
+            />
+          </div>
+        ) : null}
+
         {isPro && topUpPkg && (
           <>
             {showTopUpBanner && (
@@ -201,13 +211,15 @@ export function AccountView({
                 — เติมเครดิตเพื่อถามต่อได้ไม่สะดุด
               </div>
             )}
-            <div id="payment">
+            <div id="topup">
               <PaymentSubmitCard
                 variant="topup"
                 proPrice={topUpPkg.price}
                 paymentInfo={paymentInfo}
               />
             </div>
+            {/* Legacy hash used by older banners */}
+            <div id="payment" className="sr-only" aria-hidden />
           </>
         )}
 

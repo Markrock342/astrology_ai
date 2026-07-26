@@ -206,11 +206,6 @@ function modelLabel(modelId: string): string {
     .join(" ");
 }
 
-const EMPTY_HEADING =
-  "ในทางโหราศาสตร์ไทย ดวงดาวเป็นเพียงเครื่องมือ\nบอกจังหวะชีวิตเพื่อให้เราเตรียมพร้อม";
-const EMPTY_PARAGRAPH =
-  "การทำนายไม่ใช่การกำหนดชะตา แต่เป็นแนวทางให้เรารู้จังหวะ เพื่อวางแผนและลงมือทำอย่างมีสติ สิ่งที่สำคัญที่สุดคือการกระทำและจิตใจของเราเอง ไม่ว่าดวงจะบอกอะไร เราก็ยังเป็นผู้เลือกทางเดินของตัวเองได้เสมอ";
-
 type PendingRetry = {
   question: string;
   idempotencyKey: string;
@@ -1014,8 +1009,9 @@ export function ChatView() {
     }
     const categorySlug = catSlug ?? threadCategorySlug;
     if (!categorySlug && !threadId && !conversationIdRef.current) {
+      softNavigate("/dashboard?cat=self");
       setErrorCode("VALIDATION");
-      setErrorText("เลือกหมวดจากแถบข้างก่อนเริ่มดูดวง");
+      setErrorText("กำลังเปิดหมวด「ตัวตน」— เลือกคำถามแล้วส่งอีกครั้ง");
       setState("error");
       setPendingRetry(null);
       return;
@@ -2024,6 +2020,7 @@ export function ChatView() {
           }
           creditBalance={usage?.balance ?? user?.creditBalance ?? 0}
           plan={user?.plan === "PRO" ? "PRO" : "FREE"}
+          needsEmailVerification={Boolean(user?.needsEmailVerification)}
           answerMode={answerMode}
           onAnswerModeChange={updateAnswerMode}
         />
@@ -2101,17 +2098,32 @@ function EmptyState({
 }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center pt-6 text-center">
-      {/* Scrolls with empty home — not pinned above every thread */}
       <NatalChartBanner />
-      <h1 className="animate-fade-up whitespace-pre-line text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
-        {EMPTY_HEADING}
+      <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
+        เริ่มถามดวงได้เลย
       </h1>
       <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
-        {EMPTY_PARAGRAPH}
+        เลือกหมวดแล้วถามคำถามแรก — คำทำนายเป็นแนวทางเพื่อความบันเทิง ไม่ใช่คำแนะนำทางการเงิน
+        กฎหมาย หรือการแพทย์
       </p>
 
-      {category && (
-        <p className="animate-fade-up stagger-2 mt-6 text-xs text-[var(--muted-2)]">
+      {!category ? (
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <a
+            href="/dashboard?cat=self"
+            className="press-scale rounded-full border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-4 py-2 text-sm font-semibold text-[var(--primary)]"
+          >
+            หมวดตัวตน
+          </a>
+          <a
+            href="/dashboard?cat=career"
+            className="press-scale rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2 text-sm font-semibold text-[var(--foreground)]"
+          >
+            หมวดการงาน
+          </a>
+        </div>
+      ) : (
+        <p className="animate-fade-up stagger-2 mt-6 text-xs text-[var(--muted)]">
           หัวข้อ: {category}
         </p>
       )}
@@ -2246,6 +2258,7 @@ const Composer = forwardRef<
     creditCost?: number;
     creditBalance?: number;
     plan?: "FREE" | "PRO";
+    needsEmailVerification?: boolean;
     answerMode: AnswerMode;
     onAnswerModeChange: (mode: AnswerMode) => void;
   }
@@ -2262,6 +2275,7 @@ const Composer = forwardRef<
     creditCost,
     creditBalance,
     plan = "FREE",
+    needsEmailVerification = false,
     answerMode,
     onAnswerModeChange,
   },
@@ -2277,13 +2291,16 @@ const Composer = forwardRef<
 
   const balance = creditBalance ?? 0;
   const lowTrialCredits = plan === "FREE" && balance <= 1;
+  const emailGate = needsEmailVerification && plan === "FREE";
   const placeholder = !aiEnabled
     ? "เปิดให้ใช้งานในเฟสถัดไป"
-    : categoryLocked
-      ? "หมวด Pro — เลือก「ตัวตน」/「การงาน」หรืออัปเกรด (ระบบไม่ได้พัง)"
-      : coarsePointer
-        ? "สอบถามเราได้เลย…"
-        : "สอบถามเราได้เลย — Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่";
+    : emailGate
+      ? "ยืนยันอีเมลก่อนใช้เครดิตทดลอง"
+      : categoryLocked
+        ? "หมวด Pro — เลือก「ตัวตน」/「การงาน」หรืออัปเกรด (ระบบไม่ได้พัง)"
+        : coarsePointer
+          ? "สอบถามเราได้เลย…"
+          : "สอบถามเราได้เลย — Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่";
 
   useEffect(() => {
     const el = ref && "current" in ref ? ref.current : null;
@@ -2295,7 +2312,14 @@ const Composer = forwardRef<
 
   return (
     <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8">
-      {lowTrialCredits && !categoryLocked ? (
+      {emailGate ? (
+        <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
+          <span>
+            ยืนยันอีเมลก่อนใช้เครดิตทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน
+          </span>
+        </div>
+      ) : null}
+      {lowTrialCredits && !categoryLocked && !emailGate ? (
         <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
           <span>
             {balance <= 0
@@ -2310,7 +2334,7 @@ const Composer = forwardRef<
           </a>
         </div>
       ) : null}
-      <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between gap-2">
+      <div className="mx-auto mb-1 flex max-w-3xl items-center justify-between gap-2">
         <div
           className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-0.5 text-[11px]"
           role="group"
@@ -2319,7 +2343,7 @@ const Composer = forwardRef<
           <button
             type="button"
             onClick={() => onAnswerModeChange("brief")}
-            disabled={!aiEnabled}
+            disabled={!aiEnabled || emailGate}
             aria-pressed={answerMode === "brief"}
             className={`min-h-9 rounded-md px-3 py-1.5 transition ${
               answerMode === "brief"
@@ -2332,7 +2356,16 @@ const Composer = forwardRef<
           <button
             type="button"
             onClick={() => onAnswerModeChange("detailed")}
-            disabled={!aiEnabled}
+            disabled={
+              !aiEnabled ||
+              emailGate ||
+              (plan === "FREE" && balance <= 1)
+            }
+            title={
+              plan === "FREE" && balance <= 1
+                ? "เครดิตเหลือน้อย — ใช้โหมดกระชับ"
+                : undefined
+            }
             aria-pressed={answerMode === "detailed"}
             className={`min-h-9 rounded-md px-3 py-1.5 transition ${
               answerMode === "detailed"
@@ -2349,6 +2382,9 @@ const Composer = forwardRef<
           </p>
         ) : null}
       </div>
+      <p className="mx-auto mb-2 max-w-3xl text-[10px] text-[var(--muted)]">
+        กระชับ ≈ สั้น เร็ว · ละเอียด ≈ ยาวขึ้น ใช้โควตามากกว่า
+      </p>
       <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 transition-shadow duration-300 focus-within:border-[var(--primary)]/50 focus-within:shadow-[0_0_0_3px_var(--ring)]">
         <textarea
           ref={ref}
@@ -2359,31 +2395,13 @@ const Composer = forwardRef<
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              onSend();
+              if (!emailGate) onSend();
             }
           }}
-          disabled={!aiEnabled}
+          disabled={!aiEnabled || emailGate}
           placeholder={placeholder}
-          // text-base (16px) on mobile: iOS Safari zooms the whole page when a
-          // focused input is under 16px, so the composer must not be text-sm
-          // there. md:text-sm keeps the desktop size.
           className="max-h-[200px] min-h-[24px] w-full resize-none bg-transparent text-base leading-6 text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed md:text-sm"
         />
-        <button
-          type="button"
-          disabled
-          title="ฟีเจอร์เสียง (Phase 2)"
-          className="cursor-not-allowed text-[var(--muted-2)] opacity-50"
-          aria-label="โทร (เร็ว ๆ นี้)"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            />
-          </svg>
-        </button>
         {streaming ? (
           <button
             type="button"
@@ -2400,7 +2418,13 @@ const Composer = forwardRef<
           <button
             type="button"
             onClick={onSend}
-            disabled={disabled || !aiEnabled || categoryLocked || !value.trim()}
+            disabled={
+              disabled ||
+              !aiEnabled ||
+              categoryLocked ||
+              emailGate ||
+              !value.trim()
+            }
             className="press-scale flex shrink-0 items-center justify-center text-[var(--primary)] transition hover:text-[var(--primary-hover)] disabled:opacity-40"
             aria-label="ส่ง"
           >

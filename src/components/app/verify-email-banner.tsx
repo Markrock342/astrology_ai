@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAppData } from "./app-data-provider";
 import { TurnstileField, turnstileRequired } from "@/components/auth/turnstile-field";
 
-/** Soft email verification reminder for email/password accounts. */
+/** Email verification gate — Free credits require verified email. */
 export function VerifyEmailBanner() {
   const { user, refresh } = useAppData();
   const [showCaptcha, setShowCaptcha] = useState(false);
@@ -54,18 +54,20 @@ export function VerifyEmailBanner() {
   }
 
   return (
-    <div className="border-b border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 md:px-6">
+    <div className="border-b border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 md:px-6">
       <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-[var(--muted)]">
-          กรุณายืนยันอีเมล{" "}
-          <span className="font-medium text-[var(--foreground)]">{user.email}</span>{" "}
-          เพื่อความปลอดภัยของบัญชี
+        <p className="text-sm text-[var(--foreground)]">
+          ยืนยันอีเมล{" "}
+          <span className="font-medium">{user.email}</span>{" "}
+          <span className="text-[var(--muted)]">
+            ก่อนใช้เครดิตทดลอง — เช็กกล่องจดหมายหรือโฟลเดอร์สแปม
+          </span>
         </p>
         <button
           type="button"
           onClick={() => void resend(turnstileToken)}
           disabled={loading}
-          className="press-scale shrink-0 rounded-lg border border-[var(--primary)]/40 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/10 disabled:opacity-60"
+          className="press-scale shrink-0 rounded-lg border border-[var(--danger)]/40 px-3 py-1.5 text-xs font-medium text-[var(--danger)] transition hover:bg-[var(--danger)]/10 disabled:opacity-60"
         >
           {loading ? "กำลังส่ง…" : "ส่งอีเมลอีกครั้ง"}
         </button>
@@ -82,7 +84,9 @@ export function VerifyEmailBanner() {
         </div>
       )}
       {message && (
-        <p className="mx-auto mt-2 max-w-3xl text-xs text-[var(--muted-2)]">{message}</p>
+        <p className="mx-auto mt-2 max-w-3xl text-xs text-[var(--muted)]">
+          {message}
+        </p>
       )}
     </div>
   );

@@ -351,9 +351,26 @@ export function UserDetailManager({
                 <Button
                   variant="ghost"
                   disabled={busy}
-                  onClick={() => void revealBirth()}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        "เปิดเผยวันเกิดเต็มจะถูกบันทึกใน audit — ดำเนินการต่อ?",
+                      )
+                    ) {
+                      return;
+                    }
+                    void revealBirth();
+                  }}
                 >
                   แสดงวันเกิดเต็ม
+                </Button>
+              ) : revealedBirth ? (
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => setRevealedBirth(null)}
+                >
+                  ซ่อนวันเกิด
                 </Button>
               ) : null}
               <Button variant="ghost" onClick={toggleStatus} disabled={busy}>

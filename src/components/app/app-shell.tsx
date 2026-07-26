@@ -802,10 +802,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
         </header>
         <div className="flex min-h-0 flex-1 flex-col">
-          <SiteAnnouncementBanner />
+          <VerifyEmailBanner />
           <PendingPaymentBanner />
           <ProExpiryBanner />
-          <VerifyEmailBanner />
+          <SiteAnnouncementBanner />
           {children}
         </div>
       </div>

@@ -41,16 +41,16 @@
     --border: #d5d9e0;
     --foreground: #16181d;
     --muted: #5c6370;
-    --muted-2: #8b929e;
-    --primary: #b8923a;
-    --primary-hover: #a07e2f;
-    --primary-foreground: #1a1508;
-    --accent: #b8923a;
+    --muted-2: #5c6370;
+    --primary: #8a6a22;
+    --primary-hover: #6b5320;
+    --primary-foreground: #faf6eb;
+    --accent: #8a6a22;
     --secondary: #0f7668;
     --secondary-active: #0d9488;
     --secondary-foreground: #f0fdfa;
     --danger: #dc2626;
-    --ring: rgba(184, 146, 58, 0.4);
+    --ring: rgba(138, 106, 34, 0.4);
   }
 
 }
