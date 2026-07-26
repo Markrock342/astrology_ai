@@ -81,6 +81,7 @@ export function BirthForm({
   const [year, setYear] = useState(initialValues?.year ?? "");
   const [hour, setHour] = useState(initialValues?.hour ?? "");
   const [minute, setMinute] = useState(initialValues?.minute ?? "");
+  const [timeUnknown, setTimeUnknown] = useState(false);
   const [country, setCountry] = useState(initialValues?.country ?? "ไทย");
   const [province, setProvince] = useState(initialValues?.province ?? "");
   const [district, setDistrict] = useState(initialValues?.district ?? "");
@@ -193,8 +194,12 @@ export function BirthForm({
     const dayToUse = safeDay;
     if (dayToUse !== day) setDay(dayToUse);
 
-    if (!dayToUse || !month || !year || hour === "" || minute === "") {
-      setError("กรุณากรอกวัน/เดือน/ปี และเวลาเกิดให้ครบ");
+    if (!dayToUse || !month || !year) {
+      setError("กรุณากรอกวัน/เดือน/ปีเกิดให้ครบ");
+      return;
+    }
+    if (!timeUnknown && (hour === "" || minute === "")) {
+      setError("กรุณากรอกเวลาเกิด หรือเลือก「ไม่ทราบเวลาเกิด」");
       return;
     }
     if (!country || !province || (hasDistrictData && !district)) {
@@ -222,9 +227,9 @@ export function BirthForm({
       month: monthNum,
       day: dayNum,
       yearEra: era,
-      birthTimeKnown: true,
-      hour: Number(hour),
-      minute: Number(minute),
+      birthTimeKnown: !timeUnknown,
+      hour: timeUnknown ? 12 : Number(hour),
+      minute: timeUnknown ? 0 : Number(minute),
       birthCountry: country,
       birthProvince: province,
       birthDistrict: district || province,
@@ -242,7 +247,7 @@ export function BirthForm({
         setError(json?.error?.message ?? "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่");
         return;
       }
-      router.push("/dashboard");
+      router.push("/dashboard?cat=self");
       router.refresh();
     } catch {
       setError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองใหม่");
@@ -261,7 +266,7 @@ export function BirthForm({
           {editing ? "แก้ไขข้อมูลวันเกิด" : "กรอกข้อมูลวันเกิด"}
         </h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          สู่ฐานโหราศาสตร์ไทย สุริยคติ พิษณุโลกจันทรคติ ลงเลขศาสตร์ยูจิต แม่นระดับสั่งได้
+          ใช้วัน เดือน ปี เวลา และสถานที่เกิด ตามหลักโหราศาสตร์ไทย
         </p>
 
         <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -300,22 +305,45 @@ export function BirthForm({
 
           <div className="w-full sm:w-[15rem]">
             <span className="mb-1.5 flex h-5 items-center text-[11px] text-[var(--muted)]">
-              เวลาเกิด (24 ชม.) <span className="ml-1 text-[var(--primary)]">*</span>
+              เวลาเกิด (24 ชม.)
+              {!timeUnknown ? (
+                <span className="ml-1 text-[var(--primary)]">*</span>
+              ) : null}
             </span>
-            <WheelGroup headers={["ชั่วโมง", "นาที"]}>
-              <WheelColumn
-                options={hourOptions}
-                value={hour}
-                onChange={setHour}
-                ariaLabel="ชั่วโมงเกิด"
+            <div className={timeUnknown ? "pointer-events-none opacity-40" : ""}>
+              <WheelGroup headers={["ชั่วโมง", "นาที"]}>
+                <WheelColumn
+                  options={hourOptions}
+                  value={hour}
+                  onChange={setHour}
+                  ariaLabel="ชั่วโมงเกิด"
+                />
+                <WheelColumn
+                  options={minuteOptions}
+                  value={minute}
+                  onChange={setMinute}
+                  ariaLabel="นาทีเกิด"
+                />
+              </WheelGroup>
+            </div>
+            <label className="mt-2 flex items-start gap-2 text-[11px] leading-relaxed text-[var(--muted)]">
+              <input
+                type="checkbox"
+                checked={timeUnknown}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setTimeUnknown(on);
+                  if (on) {
+                    setHour("12");
+                    setMinute("00");
+                  }
+                }}
+                className="mt-0.5"
               />
-              <WheelColumn
-                options={minuteOptions}
-                value={minute}
-                onChange={setMinute}
-                ariaLabel="นาทีเกิด"
-              />
-            </WheelGroup>
+              <span>
+                ไม่ทราบเวลาเกิด — ใช้กลางวัน (12:00) เพื่อคำนวณเบื้องต้น
+              </span>
+            </label>
           </div>
         </div>
 

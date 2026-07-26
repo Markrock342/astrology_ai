@@ -65,8 +65,19 @@ function relativeLuminance({ r, g, b }: { r: number; g: number; b: number }) {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
+function contrastRatio(a: string, b: string): number {
+  const la = relativeLuminance(hexToRgb(a));
+  const lb = relativeLuminance(hexToRgb(b));
+  const lighter = Math.max(la, lb);
+  const darker = Math.min(la, lb);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** Pick dark or light ink for text/icons on `hex` fill — prefers ≥4.5:1. */
 function contrastInk(hex: string): string {
-  return relativeLuminance(hexToRgb(hex)) > 0.45 ? "#1a1508" : "#f5f5f7";
+  const dark = "#1a1508";
+  const light = "#f5f5f7";
+  return contrastRatio(hex, dark) >= contrastRatio(hex, light) ? dark : light;
 }
 
 function lighten(hex: string, amount: number): string {
@@ -101,8 +112,8 @@ export function buildThemeVars(colors: BrandColors): Record<string, string> {
   const ink = darkBase
     ? { r: 236, g: 236, b: 242 }
     : { r: 22, g: 24, b: 29 };
-  const muteMix = darkBase ? 0.42 : 0.38;
-  const mute2Mix = darkBase ? 0.58 : 0.55;
+  const muteMix = darkBase ? 0.42 : 0.32;
+  const mute2Mix = darkBase ? 0.58 : 0.4;
 
   const surface = mix(bg, ink, darkBase ? 0.06 : 0.04);
   const surface2 = mix(bg, ink, darkBase ? 0.12 : 0.08);

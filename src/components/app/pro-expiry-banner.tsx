@@ -30,7 +30,7 @@ export function ProExpiryBanner() {
           Pro ใกล้หมดอายุ {label} (เหลือ {daysLeft} วัน)
         </p>
         <Link
-          href="/account#payment"
+          href="/account#renew"
           className="font-semibold text-[var(--primary)] underline"
         >
           ต่ออายุ

@@ -112,11 +112,10 @@ export function PaymentSubmitCard({
 }: {
   proPrice: number;
   paymentInfo: CmsPaymentInfo;
-  /** `upgrade` = Free→Pro; `topup` = Pro credit refill (BE-E1.4 product). */
-  variant?: "upgrade" | "topup";
+  /** `upgrade` = Free→Pro; `renew` = extend Pro; `topup` = credit refill. */
+  variant?: "upgrade" | "renew" | "topup";
 }) {
   const { refresh } = useAppData();
-  const [amount, setAmount] = useState(proPrice);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -126,6 +125,8 @@ export function PaymentSubmitCard({
   const [nowMs] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  const amount = proPrice;
 
   const loadHistory = useCallback(async () => {
     try {
@@ -156,6 +157,7 @@ export function PaymentSubmitCard({
   }
 
   const isTopUp = variant === "topup";
+  const isRenew = variant === "renew";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -207,20 +209,23 @@ export function PaymentSubmitCard({
   const latestRejected = !pending
     ? history.find((p) => p.status === "REJECTED")
     : undefined;
-  const cardTitle = isTopUp ? "เติมเครดิตเพิ่ม" : paymentInfo.title;
+  const cardTitle = isTopUp
+    ? "เติมเครดิตเพิ่ม"
+    : isRenew
+      ? "ต่ออายุสมาชิก Pro"
+      : paymentInfo.title;
   const submitLabel = busy
     ? "กำลังส่ง…"
     : latestRejected
       ? "ส่งสลิปใหม่"
       : isTopUp
         ? "แจ้งชำระเติมเครดิต"
-        : "แจ้งชำระเงิน";
+        : isRenew
+          ? "แจ้งชำระต่ออายุ Pro"
+          : "แจ้งชำระเงิน";
 
   return (
-    <div
-      id={isTopUp ? "payment-topup" : "payment"}
-      className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6"
-    >
+    <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
       <h2 className="text-sm font-semibold text-[var(--foreground)]">
         {cardTitle}
       </h2>
@@ -228,6 +233,10 @@ export function PaymentSubmitCard({
         <p className="mt-2 text-xs text-[var(--muted)]">
           สมาชิก Pro สามารถโอนเงินเพื่อเติมเครดิตเพิ่มได้ — แอดมินจะตรวจสลิปและเติมเครดิตให้ภายใน
           1–2 วันทำการ
+        </p>
+      ) : isRenew ? (
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          โอนตามยอดแพ็ก Pro เพื่อต่ออายุสมาชิกอีก 30 วัน — ไม่ใช่การเติมเครดิตอย่างเดียว
         </p>
       ) : null}
       <div className="mt-3 rounded-xl bg-[var(--surface-2)] p-4 text-sm text-[var(--muted)]">
@@ -292,12 +301,15 @@ export function PaymentSubmitCard({
             onSubmit={submit}
             className="mt-4 grid gap-3"
           >
-            <Field label="จำนวนเงิน (บาท)">
+            <Field
+              label="จำนวนเงิน (บาท)"
+              hint="โอนตามยอดนี้เท่านั้น — ระบบล็อกตามแพ็กเกจ"
+            >
               <TextInput
                 type="number"
-                min={1}
                 value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                readOnly
+                className="opacity-90"
               />
             </Field>
             <Field label="อัปโหลดสลิปจากเครื่อง" hint="JPG / PNG / WebP สูงสุด 2 MB">

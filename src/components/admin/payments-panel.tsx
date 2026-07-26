@@ -6,6 +6,7 @@ import {
   AdminPage,
   Badge,
   Button,
+  Field,
   InfoBox,
   PageHeader,
   Select,
@@ -16,6 +17,7 @@ import {
   Th,
   adminFetch,
 } from "./ui";
+import { ConfirmModal } from "@/components/app/confirm-modal";
 
 type Payment = {
   id: string;
@@ -105,6 +107,13 @@ export function PaymentsPanel() {
   const [zoomSlip, setZoomSlip] = useState<{ src: string; alt: string } | null>(
     null,
   );
+  const [confirmReview, setConfirmReview] = useState<{
+    id: string;
+    decision: "APPROVED" | "REJECTED";
+    amount: number;
+    email: string;
+    packageCode: string | null;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,10 +138,12 @@ export function PaymentsPanel() {
   }, [load]);
 
   async function review(paymentId: string, decision: "APPROVED" | "REJECTED") {
+    if (decision === "REJECTED" && !(reviewNote[paymentId] ?? "").trim()) {
+      setError("กรุณาระบุเหตุผลในหมายเหตุก่อนปฏิเสธ");
+      return;
+    }
     setBusyId(paymentId);
     try {
-      // Do NOT send packageCode — server uses the package the user selected
-      // (PRO vs CREDIT_TOPUP). Hardcoding "PRO" here broke top-up grants.
       await adminFetch(`/api/admin/payments/${paymentId}/review`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -140,6 +151,7 @@ export function PaymentsPanel() {
           note: reviewNote[paymentId] || undefined,
         }),
       });
+      setConfirmReview(null);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "ดำเนินการไม่สำเร็จ");
@@ -281,23 +293,42 @@ export function PaymentsPanel() {
               <Td>
                 {p.status === "PENDING" ? (
                   <div className="flex min-w-[200px] flex-col gap-2">
-                    <TextInput
-                      placeholder="หมายเหตุ (ถ้ามี)"
-                      value={reviewNote[p.id] ?? ""}
-                      onChange={(e) =>
-                        setReviewNote({ ...reviewNote, [p.id]: e.target.value })
-                      }
-                    />
+                    <Field label="หมายเหตุการตรวจ">
+                      <TextInput
+                        aria-label="หมายเหตุการตรวจ"
+                        placeholder="จำเป็นเมื่อปฏิเสธ"
+                        value={reviewNote[p.id] ?? ""}
+                        onChange={(e) =>
+                          setReviewNote({ ...reviewNote, [p.id]: e.target.value })
+                        }
+                      />
+                    </Field>
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => review(p.id, "APPROVED")}
+                        onClick={() =>
+                          setConfirmReview({
+                            id: p.id,
+                            decision: "APPROVED",
+                            amount: p.amount,
+                            email: p.user.email,
+                            packageCode: p.packageCode,
+                          })
+                        }
                         disabled={busyId === p.id}
                       >
                         อนุมัติ
                       </Button>
                       <Button
                         variant="danger"
-                        onClick={() => review(p.id, "REJECTED")}
+                        onClick={() =>
+                          setConfirmReview({
+                            id: p.id,
+                            decision: "REJECTED",
+                            amount: p.amount,
+                            email: p.user.email,
+                            packageCode: p.packageCode,
+                          })
+                        }
                         disabled={busyId === p.id}
                       >
                         ปฏิเสธ
@@ -344,6 +375,29 @@ export function PaymentsPanel() {
           onClose={() => setZoomSlip(null)}
         />
       ) : null}
+      <ConfirmModal
+        open={confirmReview != null}
+        danger={confirmReview?.decision === "REJECTED"}
+        busy={busyId === confirmReview?.id}
+        title={
+          confirmReview?.decision === "APPROVED"
+            ? "ยืนยันอนุมัติสลิป?"
+            : "ยืนยันปฏิเสธสลิป?"
+        }
+        message={
+          confirmReview
+            ? `฿${confirmReview.amount} · ${confirmReview.email} · แพ็ก ${confirmReview.packageCode ?? "—"}`
+            : undefined
+        }
+        confirmLabel={
+          confirmReview?.decision === "APPROVED" ? "อนุมัติ" : "ปฏิเสธ"
+        }
+        onCancel={() => setConfirmReview(null)}
+        onConfirm={() => {
+          if (!confirmReview) return;
+          void review(confirmReview.id, confirmReview.decision);
+        }}
+      />
     </AdminPage>
   );
 }
