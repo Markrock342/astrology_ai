@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useAppData } from "./app-data-provider";
 import { PAYMENT_PENDING_SLA_HOURS } from "@/config/constants";
 
 /** Persistent banner while a manual payment slip awaits admin review. */
 export function PendingPaymentBanner() {
   const { pendingPayment } = useAppData();
+  const [nowMs] = useState(() => Date.now());
   if (!pendingPayment) return null;
 
-  const ageMs = Date.now() - new Date(pendingPayment.createdAt).getTime();
+  const ageMs = nowMs - new Date(pendingPayment.createdAt).getTime();
   const overdue = ageMs > PAYMENT_PENDING_SLA_HOURS * 60 * 60 * 1000;
 
   return (

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CmsPaymentInfo } from "@/lib/cms-keys";
 import { Button, Field, TextInput } from "@/components/admin/ui";
 import { useAppData } from "@/components/app/app-data-provider";
+import { PAYMENT_PENDING_SLA_HOURS } from "@/config/constants";
 
 type PaymentRow = {
   id: string;
@@ -122,6 +123,7 @@ export function PaymentSubmitCard({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [history, setHistory] = useState<PaymentRow[]>([]);
+  const [nowMs] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -198,6 +200,10 @@ export function PaymentSubmitCard({
   }
 
   const pending = history.find((p) => p.status === "PENDING");
+  const pendingOverdue =
+    pending != null &&
+    nowMs - new Date(pending.createdAt).getTime() >
+      PAYMENT_PENDING_SLA_HOURS * 60 * 60 * 1000;
   const latestRejected = !pending
     ? history.find((p) => p.status === "REJECTED")
     : undefined;
@@ -267,8 +273,7 @@ export function PaymentSubmitCard({
             </a>
           ) : null}
           <p className="mt-3 text-[11px] text-[var(--muted-2)]">
-            {Date.now() - new Date(pending.createdAt).getTime() >
-            48 * 60 * 60 * 1000
+            {pendingOverdue
               ? "เกินเวลาปกติแล้ว — ติดต่อทีมงานที่ /contact หากยังไม่ได้รับการอัปเดต"
               : "ปกติภายใน 1–2 วันทำการ · ไม่สามารถส่งคำขอใหม่ได้จนกว่าแอดมินจะอนุมัติหรือปฏิเสธ"}
           </p>

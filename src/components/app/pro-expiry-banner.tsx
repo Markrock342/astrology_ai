@@ -1,17 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useAppData } from "./app-data-provider";
 import { PRO_EXPIRY_WARN_DAYS } from "@/config/constants";
 
 /** Light banner when Pro expires within PRO_EXPIRY_WARN_DAYS. */
 export function ProExpiryBanner() {
   const { user } = useAppData();
+  const [nowMs] = useState(() => Date.now());
   if (user?.plan !== "PRO" || !user.proExpiresAt) return null;
 
   const daysLeft = Math.ceil(
-    (new Date(user.proExpiresAt).getTime() - Date.now()) /
-      (24 * 60 * 60 * 1000),
+    (new Date(user.proExpiresAt).getTime() - nowMs) / (24 * 60 * 60 * 1000),
   );
   if (daysLeft < 0 || daysLeft > PRO_EXPIRY_WARN_DAYS) return null;
 
