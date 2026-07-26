@@ -18,9 +18,11 @@ export function RegisterPanel({ googleEnabled = false }: { googleEnabled?: boole
   );
   const [loading, setLoading] = useState<"google" | "register" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   async function handleGoogle() {
     setError(null);
+    setSuccess(null);
     if (!googleEnabled) {
       setError("Google login ยังไม่เปิดใช้งาน (รอตั้งค่า AUTH_GOOGLE_ID/SECRET)");
       return;
@@ -32,6 +34,7 @@ export function RegisterPanel({ googleEnabled = false }: { googleEnabled?: boole
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("กรุณากรอกอีเมลให้ถูกต้อง");
@@ -82,7 +85,7 @@ export function RegisterPanel({ googleEnabled = false }: { googleEnabled?: boole
         return;
       }
 
-      setError("สมัครสำเร็จแล้ว กรุณาเข้าสู่ระบบอีกครั้ง");
+      setSuccess("สมัครสำเร็จแล้ว กรุณาเข้าสู่ระบบอีกครั้ง");
     } catch {
       setError("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
     } finally {
@@ -106,7 +109,7 @@ export function RegisterPanel({ googleEnabled = false }: { googleEnabled?: boole
         className="press-scale mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--surface-3)] disabled:opacity-60"
       >
         <GoogleIcon />
-        {loading === "google" ? "กำลังเชื่อมต่อ…" : "Continue with Google"}
+        {loading === "google" ? "กำลังเชื่อมต่อ…" : "สมัครด้วย Google"}
       </button>
 
       <div className="my-5 flex items-center gap-3 text-xs text-[var(--muted-2)]">
@@ -154,7 +157,16 @@ export function RegisterPanel({ googleEnabled = false }: { googleEnabled?: boole
           onExpire={() => setTurnstileToken(null)}
         />
 
-        {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+        {error ? (
+          <p className="text-xs text-[var(--danger)]" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {success ? (
+          <p className="text-xs text-[var(--secondary-active)]" role="status">
+            {success}
+          </p>
+        ) : null}
 
         <button
           type="submit"

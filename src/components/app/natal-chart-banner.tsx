@@ -45,7 +45,7 @@ export function NatalChartBanner() {
   if (natalChartStatus.status === "PENDING") {
     return (
       <div className="mb-4 text-center text-[11px] text-[var(--muted-2)]">
-        …
+        กำลังคำนวณพื้นดวง…
       </div>
     );
   }

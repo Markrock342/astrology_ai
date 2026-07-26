@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { BrandLockup, BrandMark } from "@/components/brand-logo";
 // useSearchParams is via useChatRouteSearchParams (soft-nav safe)
@@ -11,7 +12,7 @@ import {
   RenameModal,
 } from "./settings-modals";
 import { CategoryIcon } from "./category-icon";
-import { ConfirmModal } from "./confirm-modal";
+import { ConfirmModal, ThreadRenameModal } from "./confirm-modal";
 import {
   CollapseSidebarIcon,
   ExpandSidebarIcon,
@@ -60,6 +61,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { kind: "delete"; threadId: string } | { kind: "clear-all" } | null
   >(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<{
+    threadId: string;
+    title: string;
+  } | null>(null);
+  const [renameBusy, setRenameBusy] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   // Separate anchors: sidebarContent mounts in both the mobile drawer and the
   // CSS-hidden desktop aside — one shared ref would point at the hidden button.
   const mobileProfileBtnRef = useRef<HTMLButtonElement>(null);
@@ -114,14 +122,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
-        window.alert(json?.error?.message ?? "ลบแชทไม่สำเร็จ");
+        setActionError(json?.error?.message ?? "ลบแชทไม่สำเร็จ");
         void refresh();
         return;
       }
       // The active thread was already redirected away above, before the DELETE.
       await refreshLight();
     } catch {
-      window.alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+      setActionError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
       void refresh();
     }
   }
@@ -137,13 +145,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/conversations", { method: "DELETE" });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
-        window.alert(json?.error?.message ?? "ล้างประวัติไม่สำเร็จ");
+        setActionError(json?.error?.message ?? "ล้างประวัติไม่สำเร็จ");
         void refresh();
         return;
       }
       await refreshLight();
     } catch {
-      window.alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+      setActionError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
       void refresh();
     }
   }
@@ -167,23 +175,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setConfirmAction({ kind: "delete", threadId });
   }
 
-  async function renameThread(threadId: string, currentTitle: string) {
-    const next = window.prompt("เปลี่ยนชื่อแชท", currentTitle);
-    if (!next?.trim() || next.trim() === currentTitle.trim()) return;
+  function openRenameThread(threadId: string, currentTitle: string) {
+    setRenameError(null);
+    setRenameTarget({ threadId, title: currentTitle });
+  }
+
+  async function submitRename(nextTitle: string) {
+    if (!renameTarget) return;
+    const trimmed = nextTitle.trim();
+    if (!trimmed || trimmed === renameTarget.title.trim()) {
+      setRenameTarget(null);
+      return;
+    }
+    setRenameBusy(true);
+    setRenameError(null);
     try {
-      const res = await fetch(`/api/conversations/${threadId}`, {
+      const res = await fetch(`/api/conversations/${renameTarget.threadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: next.trim() }),
+        body: JSON.stringify({ title: trimmed }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
-        window.alert(json?.error?.message ?? "เปลี่ยนชื่อไม่สำเร็จ");
+        setRenameError(json?.error?.message ?? "เปลี่ยนชื่อไม่สำเร็จ");
         return;
       }
+      setRenameTarget(null);
       await refreshLight();
     } catch {
-      window.alert("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+      setRenameError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+    } finally {
+      setRenameBusy(false);
     }
   }
 
@@ -538,7 +560,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     onDoubleClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      void renameThread(t.id, t.title);
+                      openRenameThread(t.id, t.title);
                     }}
                   >
                     {t.title}
@@ -551,7 +573,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    void renameThread(t.id, t.title);
+                    openRenameThread(t.id, t.title);
                   }}
                   className="min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] group-hover:opacity-100"
                 >
@@ -644,7 +666,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     onDoubleClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      void renameThread(t.id, t.title);
+                      openRenameThread(t.id, t.title);
                     }}
                   >
                     {t.title}
@@ -657,7 +679,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    void renameThread(t.id, t.title);
+                    openRenameThread(t.id, t.title);
                   }}
                   className="min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] group-hover:opacity-100"
                 >
@@ -831,6 +853,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onCancel={() => setConfirmAction(null)}
       />
 
+      <ThreadRenameModal
+        open={renameTarget !== null}
+        initialTitle={renameTarget?.title ?? ""}
+        busy={renameBusy}
+        error={renameError}
+        onSubmit={(title) => void submitRename(title)}
+        onCancel={() => {
+          if (renameBusy) return;
+          setRenameTarget(null);
+          setRenameError(null);
+        }}
+      />
+
+      {actionError ? (
+        <ActionErrorToast
+          message={actionError}
+          onDismiss={() => setActionError(null)}
+        />
+      ) : null}
+
       {/* Settings modals — rendered once here so they survive the popover
           closing and never duplicate across sidebar variants. */}
       {activeModal === "rename" && (
@@ -984,6 +1026,42 @@ function CollapsedRail({
         </button>
       </div>
     </div>
+  );
+}
+
+function ActionErrorToast({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  onDismiss: () => void;
+}) {
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
+
+  useEffect(() => {
+    const t = window.setTimeout(() => dismissRef.current(), 4500);
+    return () => window.clearTimeout(t);
+  }, [message]);
+
+  return createPortal(
+    <div
+      role="alert"
+      className="fixed bottom-6 left-1/2 z-[120] max-w-sm -translate-x-1/2 rounded-xl border border-[var(--danger)]/40 bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--danger)] shadow-xl"
+    >
+      <div className="flex items-start gap-3">
+        <p className="flex-1 leading-snug">{message}</p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 text-xs font-semibold text-[var(--muted)] hover:text-[var(--foreground)]"
+          aria-label="ปิด"
+        >
+          ปิด
+        </button>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
