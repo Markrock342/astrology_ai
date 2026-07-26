@@ -14,6 +14,13 @@ import {
 
 type Actor = { id: string; ip?: string };
 
+/** Paid Pro subscriptions granted via payment last this many days. */
+export const PAYMENT_PRO_DURATION_DAYS = 30;
+
+function addUtcDays(from: Date, days: number): Date {
+  return new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
 export type SubmitPaymentInput = {
   amount: number;
   proofPath: string;
@@ -143,22 +150,42 @@ export async function reviewPayment(
   if (payment.status !== "PENDING") {
     throw new AppError("VALIDATION", "คำขอนี้ถูกตรวจสอบแล้ว");
   }
+  if (actor.id === payment.userId) {
+    throw new AppError("FORBIDDEN", "ไม่สามารถตรวจคำขอชำระเงินของตัวเองได้");
+  }
 
+  // Prefer the package the user selected when submitting. Admin UI must not
+  // override with a hardcoded PRO (that broke CREDIT_TOPUP grants).
   const packageCode =
-    input.packageCode ?? payment.packageCode ?? "PRO";
-  const pkg = input.status === "APPROVED"
-    ? await prisma.package.findUnique({
-        where: { code: packageCode },
-        select: {
-          id: true,
-          code: true,
-          creditQuota: true,
-          creditOnly: true,
-        },
-      })
-    : null;
+    payment.packageCode ?? input.packageCode ?? null;
+  if (input.status === "APPROVED" && !packageCode) {
+    throw new AppError(
+      "VALIDATION",
+      "คำขอนี้ไม่มีแพ็กเกจ — ให้ผู้ใช้ส่งสลิปใหม่โดยเลือกแพ็กเกจ",
+    );
+  }
+
+  const pkg =
+    input.status === "APPROVED" && packageCode
+      ? await prisma.package.findUnique({
+          where: { code: packageCode },
+          select: {
+            id: true,
+            code: true,
+            price: true,
+            creditQuota: true,
+            creditOnly: true,
+          },
+        })
+      : null;
   if (input.status === "APPROVED" && !pkg) {
     throw new AppError("NOT_FOUND", "Package not found");
+  }
+  if (input.status === "APPROVED" && pkg && payment.amount !== pkg.price) {
+    throw new AppError(
+      "VALIDATION",
+      `ยอดโอน ฿${payment.amount} ไม่ตรงราคาแพ็กเกจ ${pkg.code} (฿${pkg.price})`,
+    );
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -167,7 +194,7 @@ export async function reviewPayment(
       data: {
         status: input.status,
         note: input.note ?? payment.note,
-        packageCode,
+        packageCode: packageCode ?? payment.packageCode,
         reviewedByAdminId: actor.id,
         reviewedAt: new Date(),
         paidAt: input.status === "APPROVED" ? new Date() : null,
@@ -212,12 +239,15 @@ export async function reviewPayment(
           data: { status: "CANCELLED" },
         });
 
+        const now = new Date();
         subscription = await tx.userSubscription.create({
           data: {
             userId: payment.userId,
             packageId: pkg.id,
             status: "ACTIVE",
             activationSource: "PAYMENT",
+            startsAt: now,
+            expiresAt: addUtcDays(now, PAYMENT_PRO_DURATION_DAYS),
           },
           select: { id: true, package: { select: { code: true, creditQuota: true } } },
         });
@@ -246,7 +276,13 @@ export async function reviewPayment(
         entityType: "payment",
         entityId: paymentId,
         before: { status: payment.status, userId: payment.userId },
-        after: { ...updated, subscription, packageCode, creditOnly: pkg?.creditOnly ?? false },
+        after: {
+          ...updated,
+          subscription,
+          packageCode,
+          creditOnly: pkg?.creditOnly ?? false,
+          proDurationDays: pkg && !pkg.creditOnly ? PAYMENT_PRO_DURATION_DAYS : null,
+        },
         ipAddress: actor.ip,
       },
       tx,

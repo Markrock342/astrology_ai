@@ -129,15 +129,23 @@ describe("payment-service (M4)", () => {
       amount: 199,
       status: "PENDING",
       note: null,
+      packageCode: "PRO",
       user: { id: "user-1", email: "u@test.com" },
     };
-    const pkg = { id: "pkg-pro", code: "PRO", creditQuota: 100, creditOnly: false };
+    const pkg = {
+      id: "pkg-pro",
+      code: "PRO",
+      price: 199,
+      creditQuota: 100,
+      creditOnly: false,
+    };
     const updated = {
       id: "pay-1",
       status: "APPROVED",
       amount: 199,
       reviewedAt: new Date(),
       userId: "user-1",
+      packageCode: "PRO",
     };
 
     mocks.findUnique.mockResolvedValueOnce(payment);
@@ -160,7 +168,7 @@ describe("payment-service (M4)", () => {
 
     const result = await reviewPayment(
       "pay-1",
-      { status: "APPROVED", packageCode: "PRO" },
+      { status: "APPROVED" },
       { id: "admin-1" },
     );
 
@@ -170,6 +178,13 @@ describe("payment-service (M4)", () => {
         where: { id: "pay-1", status: "PENDING" },
       }),
     );
+    expect(mocks.subscriptionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          expiresAt: expect.any(Date),
+        }),
+      }),
+    );
     expect(mocks.addCredits).toHaveBeenCalledWith(
       "user-1",
       100,
@@ -177,6 +192,104 @@ describe("payment-service (M4)", () => {
       tx,
     );
     expect(mocks.writeAudit).toHaveBeenCalled();
+  });
+
+  it("reviewPayment prefers payment.packageCode over admin override PRO", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "pay-topup-hijack",
+      userId: "user-1",
+      amount: 99,
+      status: "PENDING",
+      note: null,
+      packageCode: "CREDIT_TOPUP",
+      user: { id: "user-1", email: "u@test.com" },
+    });
+    mocks.findPackage.mockResolvedValue({
+      id: "pkg-topup",
+      code: "CREDIT_TOPUP",
+      price: 99,
+      creditQuota: 50,
+      creditOnly: true,
+    });
+
+    const updated = {
+      id: "pay-topup-hijack",
+      status: "APPROVED",
+      amount: 99,
+      reviewedAt: new Date(),
+      userId: "user-1",
+      packageCode: "CREDIT_TOPUP",
+    };
+    const tx = {
+      payment: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue(updated),
+      },
+      userSubscription: {
+        updateMany: mocks.updateMany,
+        create: mocks.subscriptionCreate,
+      },
+    };
+    mocks.transaction.mockImplementation(async (fn) => fn(tx));
+
+    // Simulate old buggy admin UI sending PRO on every approve.
+    await reviewPayment(
+      "pay-topup-hijack",
+      { status: "APPROVED", packageCode: "PRO" },
+      { id: "admin-1" },
+    );
+
+    expect(mocks.findPackage).toHaveBeenCalledWith({
+      where: { code: "CREDIT_TOPUP" },
+      select: expect.any(Object),
+    });
+    expect(mocks.addCredits).toHaveBeenCalledWith(
+      "user-1",
+      50,
+      expect.objectContaining({ type: "PROMOTION" }),
+      tx,
+    );
+    expect(mocks.subscriptionCreate).not.toHaveBeenCalled();
+  });
+
+  it("reviewPayment rejects amount ≠ package price", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "pay-mismatch",
+      userId: "user-1",
+      amount: 50,
+      status: "PENDING",
+      note: null,
+      packageCode: "PRO",
+      user: { id: "user-1", email: "u@test.com" },
+    });
+    mocks.findPackage.mockResolvedValue({
+      id: "pkg-pro",
+      code: "PRO",
+      price: 199,
+      creditQuota: 100,
+      creditOnly: false,
+    });
+
+    await expect(
+      reviewPayment("pay-mismatch", { status: "APPROVED" }, { id: "admin-1" }),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("reviewPayment blocks self-approve", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "pay-self",
+      userId: "admin-1",
+      amount: 199,
+      status: "PENDING",
+      note: null,
+      packageCode: "PRO",
+      user: { id: "admin-1", email: "admin@test.com" },
+    });
+
+    await expect(
+      reviewPayment("pay-self", { status: "APPROVED" }, { id: "admin-1" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("reviewPayment reject does not add credits", async () => {
@@ -220,11 +333,13 @@ describe("payment-service (M4)", () => {
       amount: 199,
       status: "PENDING",
       note: null,
+      packageCode: "PRO",
       user: { id: "user-1", email: "u@test.com" },
     });
     mocks.findPackage.mockResolvedValue({
       id: "pkg-pro",
       code: "PRO",
+      price: 199,
       creditQuota: 100,
       creditOnly: false,
     });
@@ -244,7 +359,7 @@ describe("payment-service (M4)", () => {
     await expect(
       reviewPayment(
         "pay-3",
-        { status: "APPROVED", packageCode: "PRO" },
+        { status: "APPROVED" },
         { id: "admin-2" },
       ),
     ).rejects.toBeInstanceOf(AppError);
@@ -267,6 +382,7 @@ describe("payment-service (M4)", () => {
     mocks.findPackage.mockResolvedValue({
       id: "pkg-topup",
       code: "CREDIT_TOPUP",
+      price: 99,
       creditQuota: 50,
       creditOnly: true,
     });
@@ -293,7 +409,7 @@ describe("payment-service (M4)", () => {
 
     await reviewPayment(
       "pay-topup",
-      { status: "APPROVED", packageCode: "CREDIT_TOPUP" },
+      { status: "APPROVED" },
       { id: "admin-1" },
     );
 

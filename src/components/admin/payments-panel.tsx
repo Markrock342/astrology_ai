@@ -23,6 +23,7 @@ type Payment = {
   status: "PENDING" | "APPROVED" | "REJECTED";
   note: string | null;
   proofUrl: string | null;
+  packageCode: string | null;
   reviewedAt: string | null;
   createdAt: string;
   user: { id: string; email: string; name: string | null };
@@ -130,12 +131,13 @@ export function PaymentsPanel() {
   async function review(paymentId: string, decision: "APPROVED" | "REJECTED") {
     setBusyId(paymentId);
     try {
+      // Do NOT send packageCode — server uses the package the user selected
+      // (PRO vs CREDIT_TOPUP). Hardcoding "PRO" here broke top-up grants.
       await adminFetch(`/api/admin/payments/${paymentId}/review`, {
         method: "PATCH",
         body: JSON.stringify({
           status: decision,
           note: reviewNote[paymentId] || undefined,
-          packageCode: decision === "APPROVED" ? "PRO" : undefined,
         }),
       });
       await load();
@@ -152,12 +154,12 @@ export function PaymentsPanel() {
     <AdminPage>
       <PageHeader
         title="ตรวจการโอนเงิน"
-        description="ผู้ใช้แจ้งชำระจากหน้าบัญชี — อนุมัติแล้วระบบเปิด Pro และเติมเครดิตให้อัตโนมัติ"
+        description="ผู้ใช้แจ้งชำระจากหน้าบัญชี — อนุมัติตามแพ็กเกจที่เลือก (Pro หรือเติมเครดิต) อัตโนมัติ"
       />
 
       <InfoBox>
-        <strong className="text-[var(--foreground)]">ขั้นตอน:</strong> ตรวจสลิป →
-        กด <strong className="text-[var(--foreground)]">อนุมัติ</strong> (เปิด Pro) หรือ{" "}
+        <strong className="text-[var(--foreground)]">ขั้นตอน:</strong> ตรวจสลิปและคอลัมน์แพ็กเกจ →
+        กด <strong className="text-[var(--foreground)]">อนุมัติ</strong> (ตามแพ็กเกจที่ผู้ใช้เลือก) หรือ{" "}
         <strong className="text-[var(--foreground)]">ปฏิเสธ</strong> (แจ้งเหตุผลในหมายเหตุได้)
         · ข้อมูลบัญชีธนาคารแก้ได้ที่{" "}
         <Link href="/admin/settings" className="text-[var(--primary)] underline">
@@ -194,6 +196,7 @@ export function PaymentsPanel() {
           <tr>
             <Th>วันที่</Th>
             <Th>ผู้ใช้</Th>
+            <Th>แพ็กเกจ</Th>
             <Th>จำนวน</Th>
             <Th>สลิป</Th>
             <Th>สถานะ</Th>
@@ -203,7 +206,7 @@ export function PaymentsPanel() {
         <tbody>
           {data && data.items.length === 0 && (
             <tr>
-              <Td colSpan={6} className="text-center text-xs text-[var(--muted)]">
+              <Td colSpan={7} className="text-center text-xs text-[var(--muted)]">
                 ไม่มีรายการ
               </Td>
             </tr>
@@ -224,6 +227,21 @@ export function PaymentsPanel() {
                 >
                   {p.user.name ?? p.user.email}
                 </Link>
+              </Td>
+              <Td>
+                <Badge
+                  tone={
+                    p.packageCode === "CREDIT_TOPUP" || p.packageCode === "TOPUP"
+                      ? "muted"
+                      : "gold"
+                  }
+                >
+                  {p.packageCode === "CREDIT_TOPUP" || p.packageCode === "TOPUP"
+                    ? "เติมเครดิต"
+                    : p.packageCode === "PRO"
+                      ? "Pro"
+                      : (p.packageCode ?? "—")}
+                </Badge>
               </Td>
               <Td className="text-sm font-medium">฿{p.amount}</Td>
               <Td className="text-xs text-[var(--muted)]">
