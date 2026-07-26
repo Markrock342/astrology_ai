@@ -96,3 +96,15 @@ export const DETAILED_ANSWER_HINT_FREE =
   "โหมดละเอียด (แพ็กเกจทดลอง): ตอบชัด อ่านง่าย รวมประมาณ 250–350 คำ " +
   "ใช้หัวข้อสั้นได้ไม่เกิน 4 ข้อ ห้ามยืดยาวซ้ำซ้อน ห้ามตารางยาว " +
   "ปิดท้ายด้วยคำถามชวนคุยต่อหนึ่งประโยค";
+
+/** Delete private slip blobs this many days after admin review (PDPA retention). */
+export const SLIP_RETENTION_DAYS = 90;
+
+/** Customer-facing SLA: pending slip older than this is "overdue". */
+export const PAYMENT_PENDING_SLA_HOURS = 48;
+
+/** Warn Pro members this many days before subscription expiresAt. */
+export const PRO_EXPIRY_WARN_DAYS = 7;
+
+/** Admin TOTP step-up cookie lifetime. */
+export const ADMIN_2FA_TTL_MS = 12 * 60 * 60 * 1000;

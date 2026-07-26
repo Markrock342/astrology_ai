@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       `login:${rateLimitIp(req)}`,
       20,
       60_000,
-      { failClosed: true },
+      { failClosed: true, requireDistributed: true },
     );
 
     const body = await req.json();

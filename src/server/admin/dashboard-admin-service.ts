@@ -31,6 +31,7 @@ type StatRow = {
   credits_used_month: bigint | number | null;
   wallet_total: bigint | number | null;
   pending_payments: bigint | number;
+  pending_payments_overdue: bigint | number;
 };
 
 function n(v: bigint | number | null | undefined): number {
@@ -61,7 +62,11 @@ async function loadDashboardStats() {
       (SELECT COALESCE(SUM(amount), 0)::int FROM credit_transactions
          WHERE type = 'AI_USAGE' AND "createdAt" >= ${monthStart}) AS credits_used_month,
       (SELECT COALESCE(SUM(balance), 0)::int FROM credit_wallets) AS wallet_total,
-      (SELECT COUNT(*)::int FROM payments WHERE status = 'PENDING') AS pending_payments
+      (SELECT COUNT(*)::int FROM payments WHERE status = 'PENDING') AS pending_payments,
+      (SELECT COUNT(*)::int FROM payments
+         WHERE status = 'PENDING'
+           AND "createdAt" < ${new Date(now.getTime() - 48 * 60 * 60 * 1000)}
+      ) AS pending_payments_overdue
   `;
 
   const recentAudit = await prisma.adminAuditLog.findMany({
@@ -93,7 +98,10 @@ async function loadDashboardStats() {
       usedThisMonth: Math.abs(n(stats?.credits_used_month)),
       totalBalance: n(stats?.wallet_total),
     },
-    payments: { pending: n(stats?.pending_payments) },
+    payments: {
+      pending: n(stats?.pending_payments),
+      pendingOverdue: n(stats?.pending_payments_overdue),
+    },
     recentAudit: recentAudit.map((r) => ({
       ...r,
       createdAt: r.createdAt.toISOString(),

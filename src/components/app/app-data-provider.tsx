@@ -20,6 +20,8 @@ export type AppUser = {
   email: string;
   image: string | null;
   plan: "FREE" | "PRO";
+  /** ISO expiry of active Pro subscription, if any. */
+  proExpiresAt?: string | null;
   role: "USER" | "ADMIN" | "SUPER_ADMIN";
   creditBalance: number;
   canChat: boolean;
@@ -111,6 +113,7 @@ function mapMe(me: Record<string, unknown>): AppUser {
     email: String(me.email ?? ""),
     image: (me.image as string | null | undefined) ?? null,
     plan: (me.plan as "FREE" | "PRO") ?? "FREE",
+    proExpiresAt: (me.proExpiresAt as string | null | undefined) ?? null,
     role: (me.role as AppUser["role"]) ?? "USER",
     creditBalance: Number(me.creditBalance ?? 0),
     canChat: Boolean(me.canChat ?? me.plan === "PRO"),

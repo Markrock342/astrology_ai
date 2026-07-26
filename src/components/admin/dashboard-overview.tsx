@@ -10,7 +10,7 @@ type DashboardStats = {
   users: { total: number; active: number; pro: number; newThisWeek: number };
   ai: { requestsToday: number; errorsToday: number; requestsThisMonth: number };
   credits: { usedThisMonth: number; totalBalance: number };
-  payments: { pending: number };
+  payments: { pending: number; pendingOverdue?: number };
   recentAudit: Array<{
     id: string;
     action: string;
@@ -21,18 +21,39 @@ type DashboardStats = {
   }>;
 };
 
+type OpsHealth = {
+  nodeEnv: string;
+  rateLimitBackend: "upstash" | "memory";
+  upstashConfigured: boolean;
+  blobConfigured: boolean;
+  emailConfigured: boolean;
+  cronSecretSet: boolean;
+  aiSecretEncConfigured: boolean;
+  vapidConfigured: boolean;
+};
+
 export function DashboardOverview({
   initialStats,
 }: {
   initialStats?: DashboardStats | null;
 }) {
   const [stats, setStats] = useState<DashboardStats | null>(initialStats ?? null);
+  const [ops, setOps] = useState<OpsHealth | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!initialStats);
 
   useEffect(() => {
-    if (initialStats) return;
     let alive = true;
+    adminFetch<OpsHealth>("/api/admin/ops-health")
+      .then((data) => {
+        if (alive) setOps(data);
+      })
+      .catch(() => {
+        /* ops health is optional on dashboard */
+      });
+    if (initialStats) return () => {
+      alive = false;
+    };
     adminFetch<DashboardStats>("/api/admin/dashboard")
       .then((data) => {
         if (alive) setStats(data);
@@ -55,6 +76,30 @@ export function DashboardOverview({
       <div className="mb-4">
         <AdminPushEnable />
       </div>
+
+      {ops ? (
+        <Card className="mb-4">
+          <h2 className="text-sm font-semibold text-[var(--foreground)]">
+            Ops health
+          </h2>
+          <ul className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+            <OpsFlag
+              label={`Rate-limit: ${ops.rateLimitBackend}`}
+              ok={ops.rateLimitBackend === "upstash"}
+              warn={
+                ops.nodeEnv === "production" && ops.rateLimitBackend === "memory"
+                  ? "production ยังเป็น memory — ตั้ง UPSTASH_*"
+                  : undefined
+              }
+            />
+            <OpsFlag label="Blob สลิป" ok={ops.blobConfigured} />
+            <OpsFlag label="Resend email" ok={ops.emailConfigured} />
+            <OpsFlag label="CRON_SECRET" ok={ops.cronSecretSet} />
+            <OpsFlag label="AI_SECRET_ENC_KEY" ok={ops.aiSecretEncConfigured} />
+            <OpsFlag label="VAPID push" ok={ops.vapidConfigured} />
+          </ul>
+        </Card>
+      ) : null}
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 
@@ -101,8 +146,18 @@ export function DashboardOverview({
             <QuickLink href="/admin/audit-logs" label="Audit Logs" />
           </div>
           {stats && stats.payments.pending > 0 && (
-            <p className="mt-4 text-xs text-[var(--primary)]">
-              มีคำขอชำระเงินรออนุมัติ {stats.payments.pending} รายการ —{" "}
+            <p
+              className={`mt-4 text-xs ${
+                (stats.payments.pendingOverdue ?? 0) > 0
+                  ? "text-[var(--danger)]"
+                  : "text-[var(--primary)]"
+              }`}
+            >
+              มีคำขอชำระเงินรออนุมัติ {stats.payments.pending} รายการ
+              {(stats.payments.pendingOverdue ?? 0) > 0
+                ? ` · ค้างเกิน 48 ชม. ${stats.payments.pendingOverdue} รายการ`
+                : ""}{" "}
+              —{" "}
               <Link href="/admin/payments" className="underline">
                 ไปตรวจสอบ
               </Link>
@@ -191,5 +246,25 @@ function QuickLink({ href, label }: { href: string; label: string }) {
     >
       {label}
     </Link>
+  );
+}
+
+function OpsFlag({
+  label,
+  ok,
+  warn,
+}: {
+  label: string;
+  ok: boolean;
+  warn?: string;
+}) {
+  return (
+    <li className="flex flex-col gap-0.5 rounded-lg border border-[var(--border)] px-3 py-2">
+      <span className="flex items-center justify-between gap-2">
+        <span className="text-[var(--muted)]">{label}</span>
+        <Badge tone={ok ? "green" : "red"}>{ok ? "พร้อม" : "ยังไม่ตั้ง"}</Badge>
+      </span>
+      {warn ? <span className="text-[var(--danger)]">{warn}</span> : null}
+    </li>
   );
 }

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "totpSecretEnc" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "totpEnabledAt" TIMESTAMP(3);
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "totpBackupCodesJson" JSONB;

@@ -154,6 +154,11 @@ model User {
   role         Role       @default(USER)
   status       UserStatus @default(ACTIVE)
   emailVerifiedAt DateTime?
+  /// AES-GCM encrypted TOTP secret (admin 2FA). Null = not enrolled.
+  totpSecretEnc String?
+  totpEnabledAt DateTime?
+  /// bcrypt hashes of one-time backup codes (JSON string array).
+  totpBackupCodesJson Json?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

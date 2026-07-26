@@ -25,6 +25,7 @@ type UserDetail = {
   status: "ACTIVE" | "DISABLED";
   createdAt: string;
   birthProfile: {
+    hasBirthProfile: true;
     nickname: string | null;
     birthProvince: string | null;
     editCount: number;
@@ -63,6 +64,16 @@ type UserDetail = {
   }>;
 };
 
+type RevealedBirth = {
+  nickname: string | null;
+  birthDate: string;
+  birthTime: string | null;
+  birthTimeKnown: boolean;
+  birthProvince: string | null;
+  birthDistrict: string | null;
+  birthCountry: string;
+};
+
 export function UserDetailManager({
   userId,
   actorRole = "ADMIN",
@@ -78,6 +89,8 @@ export function UserDetailManager({
   const [busy, setBusy] = useState(false);
   const [creditAmount, setCreditAmount] = useState(10);
   const [creditNote, setCreditNote] = useState("");
+  const [revealedBirth, setRevealedBirth] = useState<RevealedBirth | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
   const [creditType, setCreditType] = useState<
     "ADMIN_ADD" | "ADMIN_DEDUCT" | "PROMOTION" | "REFUND"
   >("ADMIN_ADD");
@@ -99,6 +112,52 @@ export function UserDetailManager({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  async function resetTarget2fa() {
+    if (!user || !isSuperAdmin) return;
+    setBusy(true);
+    try {
+      await adminFetch(`/api/admin/users/${userId}/reset-2fa`, {
+        method: "POST",
+      });
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "รีเซ็ต 2FA ไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revealBirth() {
+    setBusy(true);
+    try {
+      const data = await adminFetch<RevealedBirth>(
+        `/api/admin/users/${userId}/birth-reveal`,
+        { method: "POST" },
+      );
+      setRevealedBirth(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "เปิดเผยวันเกิดไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteUser() {
+    if (!user || !isSuperAdmin) return;
+    if (deleteConfirm.trim().toLowerCase() !== user.email.toLowerCase()) {
+      setError("พิมพ์อีเมลผู้ใช้ให้ตรงเพื่อยืนยันการลบ");
+      return;
+    }
+    setBusy(true);
+    try {
+      await adminFetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+      window.location.href = "/admin/users";
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ลบบัญชีไม่สำเร็จ");
+      setBusy(false);
+    }
+  }
 
   async function toggleStatus() {
     if (!user) return;
@@ -280,8 +339,23 @@ export function UserDetailManager({
                     : "ยังไม่กรอก"
                 }
               />
+              {revealedBirth ? (
+                <Row
+                  label="วันเกิดเต็ม"
+                  value={`${new Date(revealedBirth.birthDate).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })} · เวลา ${revealedBirth.birthTime ?? "—"} · ${revealedBirth.birthDistrict ?? "—"} ${revealedBirth.birthProvince ?? ""}`}
+                />
+              ) : null}
             </dl>
             <div className="mt-4 flex flex-wrap items-center gap-2">
+              {user.birthProfile && !revealedBirth ? (
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => void revealBirth()}
+                >
+                  แสดงวันเกิดเต็ม
+                </Button>
+              ) : null}
               <Button variant="ghost" onClick={toggleStatus} disabled={busy}>
                 {user.status === "ACTIVE" ? "ระงับบัญชี" : "เปิดใช้งาน"}
               </Button>
@@ -492,6 +566,48 @@ export function UserDetailManager({
               ))}
             </ul>
           </Card>
+
+          {isSuperAdmin ? (
+            <Card className="lg:col-span-2 border-[var(--danger)]/40">
+              <h2 className="text-sm font-semibold text-[var(--danger)]">
+                ลบบัญชีผู้ใช้ (PDPA)
+              </h2>
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                ลบถาวรพร้อมสลิป — พิมพ์อีเมล {user.email} เพื่อยืนยัน
+              </p>
+              <div className="mt-3 flex flex-wrap items-end gap-2">
+                <Field label="ยืนยันอีเมล">
+                  <TextInput
+                    value={deleteConfirm}
+                    onChange={(e) => setDeleteConfirm(e.target.value)}
+                    placeholder={user.email}
+                  />
+                </Field>
+                <Button
+                  variant="danger"
+                  disabled={busy}
+                  onClick={() => void deleteUser()}
+                >
+                  ลบบัญชีถาวร
+                </Button>
+              </div>
+              {(user.role === "ADMIN" || user.role === "SUPER_ADMIN") &&
+              user.id !== undefined ? (
+                <div className="mt-4 border-t border-[var(--border)] pt-4">
+                  <p className="text-xs text-[var(--muted)]">
+                    รีเซ็ต TOTP ของแอดมินนี้ (บังคับตั้งค่าใหม่)
+                  </p>
+                  <Button
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => void resetTarget2fa()}
+                  >
+                    รีเซ็ต 2FA
+                  </Button>
+                </div>
+              ) : null}
+            </Card>
+          ) : null}
         </div>
       )}
     </AdminPage>
