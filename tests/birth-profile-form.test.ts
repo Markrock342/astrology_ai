@@ -18,6 +18,7 @@ describe("birthProfileToFormValues", () => {
       month: 11,
       era: "BE",
       year: "2544",
+      birthTimeKnown: true,
       hour: "2",
       minute: "4",
       country: "ไทย",
@@ -26,7 +27,7 @@ describe("birthProfileToFormValues", () => {
     });
   });
 
-  it("keeps unknown time empty and applies safe location defaults", () => {
+  it("hydrates unknown time as noon and applies safe location defaults", () => {
     const values = birthProfileToFormValues({
       birthDate: new Date("1990-01-15T17:00:00.000Z"),
       birthTime: null,
@@ -40,8 +41,9 @@ describe("birthProfileToFormValues", () => {
       day: "16",
       month: 1,
       year: "2533",
-      hour: "",
-      minute: "",
+      birthTimeKnown: false,
+      hour: "12",
+      minute: "0",
       country: "ไทย",
       province: "",
       district: "",

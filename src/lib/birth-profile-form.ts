@@ -8,6 +8,7 @@ export type BirthFormInitialValues = {
   month: number;
   era: "BE" | "CE";
   year: string;
+  birthTimeKnown: boolean;
   hour: string;
   minute: string;
   country: string;
@@ -33,10 +34,11 @@ export function birthProfileToFormValues(
       ? profile.birthDate
       : new Date(profile.birthDate);
   const date = getDisplayDateParts(birthDate);
-  const [storedHour = "", storedMinute = ""] =
+  // Unknown time uses the same noon convention as the create path checkbox.
+  const [storedHour = "12", storedMinute = "0"] =
     profile.birthTimeKnown && profile.birthTime
       ? profile.birthTime.split(":")
-      : [];
+      : ["12", "0"];
 
   return {
     day: String(date.day),
@@ -45,8 +47,9 @@ export function birthProfileToFormValues(
     year: Number.isFinite(date.year)
       ? String(date.year + BUDDHIST_YEAR_OFFSET)
       : "",
-    hour: storedHour ? String(Number(storedHour)) : "",
-    minute: storedMinute ? String(Number(storedMinute)) : "",
+    birthTimeKnown: profile.birthTimeKnown,
+    hour: String(Number(storedHour)),
+    minute: String(Number(storedMinute)),
     country: profile.birthCountry?.trim() || "ไทย",
     province: profile.birthProvince?.trim() || "",
     district: profile.birthDistrict?.trim() || "",

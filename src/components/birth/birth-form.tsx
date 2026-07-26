@@ -81,7 +81,9 @@ export function BirthForm({
   const [year, setYear] = useState(initialValues?.year ?? "");
   const [hour, setHour] = useState(initialValues?.hour ?? "");
   const [minute, setMinute] = useState(initialValues?.minute ?? "");
-  const [timeUnknown, setTimeUnknown] = useState(false);
+  const [timeUnknown, setTimeUnknown] = useState(
+    initialValues ? !initialValues.birthTimeKnown : false,
+  );
   const [country, setCountry] = useState(initialValues?.country ?? "ไทย");
   const [province, setProvince] = useState(initialValues?.province ?? "");
   const [district, setDistrict] = useState(initialValues?.district ?? "");

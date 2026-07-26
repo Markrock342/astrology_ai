@@ -1,5 +1,6 @@
 "use client";
 
+import { useAppData } from "@/components/app/app-data-provider";
 import { useMyUsage } from "@/hooks/use-my-usage";
 import type { UsageLimitsFallback } from "@/types/my-usage";
 
@@ -100,6 +101,8 @@ export function UsageSummary({
   fallbackLimits?: UsageLimitsFallback;
 }) {
   const { usage, loading, apiReady, refresh } = useMyUsage(fallbackLimits);
+  const { user } = useAppData();
+  const isPro = user?.plan === "PRO";
 
   if (loading && !usage) {
     return (
@@ -153,7 +156,9 @@ export function UsageSummary({
 
       {empty ? (
         <p className="mt-4 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger)]/5 px-3 py-2 text-xs text-[var(--danger)]">
-          เครดิตหมดแล้ว — เติมเครดิตหรืออัปเกรดเป็น Pro เพื่อถามต่อ
+          {isPro
+            ? "เครดิตหมดแล้ว — เติมเครดิตเพื่อถามต่อ"
+            : "เครดิตหมดแล้ว — อัปเกรดเป็น Pro เพื่อถามต่อ"}
         </p>
       ) : null}
 

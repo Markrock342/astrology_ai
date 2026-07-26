@@ -11,6 +11,8 @@ export type MarketingPackage = {
   description: string | null;
   features: string[];
   upgradeSteps: string[];
+  /** True for CREDIT_TOPUP — omit from plan grids. */
+  creditOnly?: boolean;
 };
 
 function displayFeatures(pkg: MarketingPackage): string[] {
@@ -38,7 +40,14 @@ export function PricingSection({
   packages: MarketingPackage[];
   compact?: boolean;
 }) {
-  if (!section.enabled || packages.length === 0) return null;
+  const planPackages = packages.filter(
+    (pkg) =>
+      !pkg.creditOnly &&
+      pkg.code !== "CREDIT_TOPUP" &&
+      pkg.code !== "TOPUP",
+  );
+
+  if (!section.enabled || planPackages.length === 0) return null;
 
   return (
     <section
@@ -64,14 +73,14 @@ export function PricingSection({
 
         <div
           className={`mx-auto mt-12 grid gap-5 ${
-            packages.length === 1
+            planPackages.length === 1
               ? "max-w-md"
-              : packages.length === 2
+              : planPackages.length === 2
                 ? "max-w-3xl sm:grid-cols-2"
                 : "sm:grid-cols-2 lg:grid-cols-3"
           }`}
         >
-          {packages.map((pkg) => {
+          {planPackages.map((pkg) => {
             const highlight = pkg.type === "PRO";
             const features = displayFeatures(pkg);
             return (
