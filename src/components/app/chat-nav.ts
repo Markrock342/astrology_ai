@@ -1,7 +1,53 @@
 "use client";
 
-import { useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useSyncExternalStore } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+/** Soft chat switches broadcast on this event (see softNavigate / useChatNav). */
+export const CHAT_SOFT_NAV_EVENT = "horasard:soft-nav";
+
+function subscribeChatRoute(onStoreChange: () => void) {
+  const notify = () => onStoreChange();
+  window.addEventListener("popstate", notify);
+  window.addEventListener(CHAT_SOFT_NAV_EVENT, notify);
+  return () => {
+    window.removeEventListener("popstate", notify);
+    window.removeEventListener(CHAT_SOFT_NAV_EVENT, notify);
+  };
+}
+
+function readChatRouteSearch(): string {
+  return window.location.search.replace(/^\?/, "");
+}
+
+/** Parse `?cat=` / `?thread=` from a search string (no leading `?`). */
+export function parseChatRouteSearch(search: string): {
+  cat: string | null;
+  thread: string | null;
+} {
+  const params = new URLSearchParams(search);
+  return {
+    cat: params.get("cat"),
+    thread: params.get("thread"),
+  };
+}
+
+/**
+ * Soft pushState is only safe when staying on `/dashboard`.
+ * From `/account` or `/onboarding`, pushState would change the URL bar
+ * without swapping App Router children — the settings page would stick.
+ */
+export function shouldUseSoftChatNav(
+  currentPathname: string,
+  href: string,
+): boolean {
+  try {
+    const targetPath = new URL(href, "http://local").pathname;
+    return currentPathname === "/dashboard" && targetPath === "/dashboard";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Soft-navigate inside the chat route without a full Next navigation.
@@ -26,6 +72,9 @@ import { useRouter } from "next/navigation";
  * changes the address bar while the old page stays mounted. Cross-route callers
  * must fall back to a real navigation — see useChatNav.
  *
+ * Consumers that must stay correct even if Next's search-param sync flakes
+ * should use `useChatRouteSearchParams` (reads `window.location` + this event).
+ *
  * @returns true if the URL was handled here; false when the caller must
  *          perform a real (router) navigation instead.
  */
@@ -45,11 +94,30 @@ export function softNavigate(
   } else {
     window.history.pushState(null, "", next);
   }
-  // Listeners that treat soft chat switches specially (NavProgress).
   window.dispatchEvent(
-    new CustomEvent("horasard:soft-nav", { detail: { href: next } }),
+    new CustomEvent(CHAT_SOFT_NAV_EVENT, { detail: { href: next } }),
   );
   return true;
+}
+
+/**
+ * Dashboard route query (`cat`, `thread`) that stays in sync with soft nav.
+ *
+ * Prefer this over `useSearchParams()` for chat UI: soft history updates can
+ * leave Next's hook stale; this reads `window.location` and listens for
+ * `horasard:soft-nav` / `popstate`.
+ */
+export function useChatRouteSearchParams(): URLSearchParams {
+  const nextParams = useSearchParams();
+  const serverSnapshot = nextParams.toString();
+
+  const search = useSyncExternalStore(
+    subscribeChatRoute,
+    readChatRouteSearch,
+    () => serverSnapshot,
+  );
+
+  return new URLSearchParams(search);
 }
 
 /**

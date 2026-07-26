@@ -8,7 +8,6 @@ import {
   useSyncExternalStore,
   forwardRef,
 } from "react";
-import { useSearchParams } from "next/navigation";
 import { APP_NAME, DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
 import { ChatThreadSkeleton } from "@/components/app/content-skeleton";
@@ -17,8 +16,8 @@ import {
   useAppData,
   useCategory,
 } from "./app-data-provider";
-
 import { BrandMark } from "@/components/brand-logo";
+import { softNavigate, useChatRouteSearchParams } from "./chat-nav";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { HoroscopeChartPanel } from "./horoscope-chart-panel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
@@ -28,7 +27,6 @@ import { NatalChartBanner } from "./natal-chart-banner";
 import { SmoothStreamMarkdown } from "./smooth-stream-markdown";
 import { useMyUsage } from "@/hooks/use-my-usage";
 import type { ChartJson } from "@/types/chart";
-import { softNavigate } from "./chat-nav";
 import {
   getCachedThread,
   prefetchThread,
@@ -294,7 +292,7 @@ function applyApiError(
 }
 
 export function ChatView() {
-  const searchParams = useSearchParams();
+  const searchParams = useChatRouteSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
   const { user, refreshLight, pendingPayment } = useAppData();
@@ -1117,9 +1115,9 @@ export function ChatView() {
         // Native history over router.replace: this only needs the URL to carry
         // the new thread id. router.replace would run a real navigation — a
         // fresh RSC request that re-renders the route mid-answer, which is the
-        // "the page refreshed while it was typing" flash. softNavigate passes a
-        // plain history state so Next actually syncs useSearchParams (passing
-        // window.history.state here used to skip the sync entirely).
+        // "the page refreshed while it was typing" flash. softNavigate uses a
+        // plain history state + horasard:soft-nav so useChatRouteSearchParams
+        // picks up threadId without remounting.
         softNavigate(
           `/dashboard?thread=${activeConversationId}&cat=${syncCat}`,
           { replace: true },
