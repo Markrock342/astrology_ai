@@ -90,16 +90,15 @@ export function ConfirmModal({
 
 /**
  * Text-input rename dialog — replaces window.prompt for thread titles.
+ * Mount fresh per open (parent unmounts when closed) so title state resets.
  */
 export function ThreadRenameModal({
-  open,
   initialTitle,
   busy = false,
   error = null,
   onSubmit,
   onCancel,
 }: {
-  open: boolean;
   initialTitle: string;
   busy?: boolean;
   error?: string | null;
@@ -110,25 +109,22 @@ export function ThreadRenameModal({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!open) return;
-    setTitle(initialTitle);
     const t = window.setTimeout(() => {
       inputRef.current?.focus();
       inputRef.current?.select();
     }, 0);
     return () => window.clearTimeout(t);
-  }, [open, initialTitle]);
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" && !busy) onCancel();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, busy, onCancel]);
+  }, [busy, onCancel]);
 
-  if (!open || typeof document === "undefined") return null;
+  if (typeof document === "undefined") return null;
 
   return createPortal(
     <div
