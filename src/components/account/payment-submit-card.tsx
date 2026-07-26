@@ -224,6 +224,24 @@ export function PaymentSubmitCard({
           ? "แจ้งชำระต่ออายุ Pro"
           : "แจ้งชำระเงิน";
 
+  // Soften Pro-centric CMS copy on topup/renew (amountNote defaults to "แพ็กเกจ Pro").
+  const amountNote = isTopUp
+    ? `โอนตามยอดเติมเครดิต (${amount} บาท)`
+    : isRenew
+      ? `โอนตามยอดต่ออายุ Pro (${amount} บาท)`
+      : paymentInfo.amountNote;
+  const displaySteps = paymentInfo.steps.map((step) => {
+    let text = step.replaceAll("{price}", String(proPrice));
+    if (isTopUp) {
+      text = text
+        .replaceAll("แพ็กเกจ Pro", "เติมเครดิต")
+        .replaceAll("อัปเกรด Pro", "เติมเครดิต");
+    } else if (isRenew) {
+      text = text.replaceAll("อัปเกรด Pro", "ต่ออายุ Pro");
+    }
+    return text;
+  });
+
   return (
     <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
       <h2 className="text-sm font-semibold text-[var(--foreground)]">
@@ -246,10 +264,10 @@ export function PaymentSubmitCard({
           {paymentInfo.accountName}
         </p>
         <p className="mt-1 font-mono text-[var(--primary)]">{paymentInfo.accountNumber}</p>
-        <p className="mt-2 text-xs">{paymentInfo.amountNote}</p>
+        <p className="mt-2 text-xs">{amountNote}</p>
         <ol className="mt-3 list-inside list-decimal space-y-1 text-xs">
-          {paymentInfo.steps.map((step, i) => (
-            <li key={i}>{step.replaceAll("{price}", String(proPrice))}</li>
+          {displaySteps.map((step, i) => (
+            <li key={i}>{step}</li>
           ))}
         </ol>
         {paymentInfo.footer && (

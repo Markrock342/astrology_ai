@@ -432,6 +432,20 @@ export function ChatView() {
     }
   }, [user?.plan]);
 
+  // Free + ≤1 credit: detailed is disabled in Composer, but localStorage can
+  // still leave answerMode on "detailed" — force brief so send() matches the UI.
+  const creditBalance = usage?.balance ?? user?.creditBalance ?? 0;
+  useEffect(() => {
+    if (user?.plan === "PRO") return;
+    if (creditBalance > 1) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- low-credit force brief
+    setAnswerMode((prev) => {
+      if (prev === "brief") return prev;
+      window.localStorage.setItem(ANSWER_MODE_KEY, "brief");
+      return "brief";
+    });
+  }, [user?.plan, creditBalance]);
+
   useEffect(() => {
     if (!draftHydratedRef.current) return;
     if (editingMessageId) return;
@@ -942,6 +956,18 @@ export function ChatView() {
     const content = text.trim();
     if (!content) return;
 
+    // Composer locks on emailGate, but chips / 「เล่าต่อ」 call send() directly —
+    // mirror the gate here so Free + unverified never hits the API.
+    if (user?.needsEmailVerification && user?.plan !== "PRO") {
+      setErrorCode("EMAIL_NOT_VERIFIED");
+      setErrorText(
+        "ยืนยันอีเมลก่อนใช้เครดิตทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน",
+      );
+      setState("error");
+      setPendingRetry(null);
+      return;
+    }
+
     const hasLiveTurn = Boolean(inFlight) || Boolean(stopTarget);
     if (hasLiveTurn && (state === "processing" || state === "streaming")) {
       return;
@@ -1150,6 +1176,10 @@ export function ChatView() {
 
       setInFlight({ threadId: activeConversationId, idempotencyKey });
 
+      // Free + ≤1 credit: never send detailed even if localStorage still has it.
+      const effectiveAnswerMode: AnswerMode =
+        user?.plan !== "PRO" && creditBalance <= 1 ? "brief" : answerMode;
+
       const res = await fetch(
         `/api/conversations/${activeConversationId}/messages`,
         {
@@ -1163,7 +1193,7 @@ export function ChatView() {
             content,
             editUserMessageId: editServerMessageId,
             regenerateAssistantMessageId: options.regenerateAssistantMessageId,
-            answerMode,
+            answerMode: effectiveAnswerMode,
           }),
           signal: abort.signal,
         },
@@ -1607,6 +1637,8 @@ export function ChatView() {
     !threadId;
 
   const isBusy = state === "processing" || state === "streaming";
+  const emailGate =
+    Boolean(user?.needsEmailVerification) && user?.plan !== "PRO";
 
   function startEditMessage(messageId: string, content: string) {
     setEditingMessageId(messageId);
@@ -1694,6 +1726,7 @@ export function ChatView() {
               category={category?.label}
               suggestions={category?.suggestedQuestions ?? []}
               onPick={send}
+              emailGate={emailGate}
             />
             {(state === "error" || state === "no-quota") && (
               <div className="mt-4 w-full max-w-md">
@@ -1886,8 +1919,9 @@ export function ChatView() {
                         {m.content.includes("เพดานของโหมดคำตอบ") ? (
                           <button
                             type="button"
+                            disabled={emailGate}
                             onClick={() => void send("เล่าต่อ")}
-                            className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20"
+                            className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             เล่าต่อ ▸
                           </button>
@@ -1896,8 +1930,9 @@ export function ChatView() {
                           <button
                             key={q}
                             type="button"
+                            disabled={emailGate}
                             onClick={() => void send(q)}
-                            className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-left text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)]"
+                            className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-left text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             {q}
                           </button>
@@ -2091,10 +2126,12 @@ function EmptyState({
   category,
   suggestions,
   onPick,
+  emailGate = false,
 }: {
   category?: string;
   suggestions: string[];
   onPick: (q: string) => void;
+  emailGate?: boolean;
 }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center pt-6 text-center">
@@ -2133,8 +2170,12 @@ function EmptyState({
             <button
               key={q}
               type="button"
-              onClick={() => onPick(q)}
-              className={`animate-fade-up stagger-${Math.min(i + 2, 6)} press-scale rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-xs text-[var(--muted)] transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:text-[var(--foreground)]`}
+              disabled={emailGate}
+              onClick={() => {
+                if (emailGate) return;
+                onPick(q);
+              }}
+              className={`animate-fade-up stagger-${Math.min(i + 2, 6)} press-scale rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-xs text-[var(--muted)] transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0`}
             >
               {q}
             </button>

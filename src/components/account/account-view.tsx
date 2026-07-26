@@ -17,6 +17,8 @@ export type PublicPackage = {
   description: string | null;
   features: string[];
   upgradeSteps: string[];
+  /** True for CREDIT_TOPUP — shown in PaymentSubmitCard only, not plan grids. */
+  creditOnly?: boolean;
 };
 
 type MyPackage = {
@@ -82,7 +84,14 @@ export function AccountView({
   paymentInfo: CmsPaymentInfo;
 }) {
   const isPro = myPackage.plan === "PRO";
-  const proPkg = packages.find((p) => p.type === "PRO");
+  // CREDIT_TOPUP is also type PRO — exclude credit-only from plan price/renew.
+  const proPkg = packages.find(
+    (p) =>
+      p.type === "PRO" &&
+      !p.creditOnly &&
+      p.code !== "CREDIT_TOPUP" &&
+      p.code !== "TOPUP",
+  );
   const topUpPkg =
     packages.find((p) => p.code === "TOPUP" || p.code === "CREDIT_TOPUP") ??
     proPkg;
@@ -168,17 +177,24 @@ export function AccountView({
         <UsageSummary fallbackLimits={usageLimits} />
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {packages.map((pkg) => (
-            <PlanCard
-              key={pkg.id}
-              name={pkg.name}
-              price={String(pkg.price)}
-              billingLabel={pkg.billingLabel ?? "ต่อแพ็กเกจ"}
-              features={displayFeatures(pkg)}
-              highlight={pkg.type === "PRO"}
-              active={isPro ? pkg.type === "PRO" : pkg.type === "FREE"}
-            />
-          ))}
+          {packages
+            .filter(
+              (pkg) =>
+                !pkg.creditOnly &&
+                pkg.code !== "CREDIT_TOPUP" &&
+                pkg.code !== "TOPUP",
+            )
+            .map((pkg) => (
+              <PlanCard
+                key={pkg.id}
+                name={pkg.name}
+                price={String(pkg.price)}
+                billingLabel={pkg.billingLabel ?? "ต่อแพ็กเกจ"}
+                features={displayFeatures(pkg)}
+                highlight={pkg.type === "PRO"}
+                active={isPro ? pkg.type === "PRO" : pkg.type === "FREE"}
+              />
+            ))}
         </div>
 
         {!isPro && proPkg && (
@@ -190,7 +206,7 @@ export function AccountView({
           </div>
         )}
 
-        {isPro && proPkg && expirySoon ? (
+        {isPro && proPkg ? (
           <div id="renew">
             <PaymentSubmitCard
               variant="renew"

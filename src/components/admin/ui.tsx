@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useId, useState } from "react";
+import { forwardRef, useEffect, useId, useRef, useState } from "react";
 import { adminFetchTimeoutMessage } from "@/lib/admin-fetch-timeout";
 
 /** Small shared primitives for Admin CMS pages (dark HORASARD theme). */
@@ -407,13 +407,52 @@ export function Modal({
   children: React.ReactNode;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
+
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+
+    const focusableSelector =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const nodes = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector),
+      ).filter((el) => !el.hasAttribute("disabled"));
+      if (nodes.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = nodes[0]!;
+      const last = nodes[nodes.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      previousFocus.current?.focus();
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -426,6 +465,7 @@ export function Modal({
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal
         aria-labelledby="admin-modal-title"
@@ -436,6 +476,7 @@ export function Modal({
             {title}
           </h2>
           <button
+            ref={closeRef}
             type="button"
             onClick={onClose}
             className="rounded-md px-1.5 text-[var(--muted)] hover:bg-[var(--surface-2)]"

@@ -15,6 +15,8 @@ export function VerifyEmailBanner() {
   const [message, setMessage] = useState<string | null>(null);
 
   if (!user?.needsEmailVerification) return null;
+  // Trial-credit gate is Free-only — Pro shouldn't see "ก่อนใช้เครดิตทดลอง".
+  if (user.plan === "PRO") return null;
 
   async function resend(token: string | null) {
     if (turnstileRequired() && !token) {

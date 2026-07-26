@@ -15,6 +15,7 @@ import {
   Toggle,
   adminFetch,
 } from "./ui";
+import { ConfirmModal } from "@/components/app/confirm-modal";
 import { formatThb, usdToThb } from "@/config/ai-pricing";
 
 type UserDetail = {
@@ -98,6 +99,7 @@ export function UserDetailManager({
   const [expiresAt, setExpiresAt] = useState("");
   const [grantCredits, setGrantCredits] = useState(true);
   const [role, setRole] = useState("");
+  const [confirmReset2fa, setConfirmReset2fa] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -121,6 +123,7 @@ export function UserDetailManager({
         method: "POST",
       });
       setError(null);
+      setConfirmReset2fa(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "รีเซ็ต 2FA ไม่สำเร็จ");
     } finally {
@@ -617,7 +620,7 @@ export function UserDetailManager({
                   <Button
                     variant="ghost"
                     disabled={busy}
-                    onClick={() => void resetTarget2fa()}
+                    onClick={() => setConfirmReset2fa(true)}
                   >
                     รีเซ็ต 2FA
                   </Button>
@@ -627,6 +630,18 @@ export function UserDetailManager({
           ) : null}
         </div>
       )}
+      <ConfirmModal
+        open={confirmReset2fa}
+        danger
+        busy={busy}
+        title="รีเซ็ต 2FA ของผู้ใช้นี้?"
+        message="จะต้อง enroll ใหม่"
+        confirmLabel="รีเซ็ต"
+        onCancel={() => {
+          if (!busy) setConfirmReset2fa(false);
+        }}
+        onConfirm={() => void resetTarget2fa()}
+      />
     </AdminPage>
   );
 }
