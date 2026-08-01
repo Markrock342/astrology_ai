@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { addCredits } from "@/server/credit/credit-service";
@@ -75,23 +76,37 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
   });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
 
-  const payment = await prisma.payment.create({
-    data: {
-      userId,
-      amount: input.amount,
-      packageCode: input.packageCode,
-      proofUrl: proofPath,
-      status: "PENDING",
-    },
-    select: {
-      id: true,
-      amount: true,
-      status: true,
-      packageCode: true,
-      proofUrl: true,
-      createdAt: true,
-    },
-  });
+  let payment;
+  try {
+    payment = await prisma.payment.create({
+      data: {
+        userId,
+        amount: input.amount,
+        packageCode: input.packageCode,
+        proofUrl: proofPath,
+        status: "PENDING",
+      },
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        packageCode: true,
+        proofUrl: true,
+        createdAt: true,
+      },
+    });
+  } catch (err) {
+    // Loser of a concurrent double-submit — the partial unique index
+    // (one PENDING per user) rejected it. Surface the same friendly message
+    // as the count guard above instead of a raw 500.
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      throw new AppError("DUPLICATE_REQUEST", "มีคำขอชำระเงินรอตรวจสอบอยู่แล้ว");
+    }
+    throw err;
+  }
 
   void notifyAdminsNewPayment({
     paymentId: payment.id,
@@ -234,12 +249,32 @@ export async function reviewPayment(
           );
         }
       } else {
+        const now = new Date();
+        // Renewal EXTENDS remaining time instead of resetting it. Cancel-and-
+        // recreate at now+30d silently ate any days still left — a user who
+        // renewed with 20 days remaining lost them. Base the new expiry on the
+        // latest active expiry (or now, whichever is later); a never-expiring
+        // grant (expiresAt = null) is preserved, never shortened to 30 days.
+        const actives = await tx.userSubscription.findMany({
+          where: { userId: payment.userId, status: "ACTIVE" },
+          select: { expiresAt: true },
+        });
+        const hasLifetime = actives.some((s) => s.expiresAt === null);
+        const latestExpiry = actives.reduce<Date | null>((max, s) => {
+          if (s.expiresAt && (!max || s.expiresAt > max)) return s.expiresAt;
+          return max;
+        }, null);
+        const base =
+          latestExpiry && latestExpiry > now ? latestExpiry : now;
+        const newExpiresAt = hasLifetime
+          ? null
+          : addUtcDays(base, PAYMENT_PRO_DURATION_DAYS);
+
         await tx.userSubscription.updateMany({
           where: { userId: payment.userId, status: "ACTIVE" },
           data: { status: "CANCELLED" },
         });
 
-        const now = new Date();
         subscription = await tx.userSubscription.create({
           data: {
             userId: payment.userId,
@@ -247,7 +282,7 @@ export async function reviewPayment(
             status: "ACTIVE",
             activationSource: "PAYMENT",
             startsAt: now,
-            expiresAt: addUtcDays(now, PAYMENT_PRO_DURATION_DAYS),
+            expiresAt: newExpiresAt,
           },
           select: { id: true, package: { select: { code: true, creditQuota: true } } },
         });
