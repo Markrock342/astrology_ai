@@ -157,6 +157,7 @@ describe("payment-service (M4)", () => {
         findUniqueOrThrow: vi.fn().mockResolvedValue(updated),
       },
       userSubscription: {
+        findMany: vi.fn().mockResolvedValue([]),
         updateMany: mocks.updateMany,
         create: mocks.subscriptionCreate.mockResolvedValue({
           id: "sub-1",
@@ -192,6 +193,60 @@ describe("payment-service (M4)", () => {
       tx,
     );
     expect(mocks.writeAudit).toHaveBeenCalled();
+  });
+
+  it("reviewPayment EXTENDS an active subscription instead of resetting it", async () => {
+    const payment = {
+      id: "pay-2",
+      userId: "user-1",
+      amount: 199,
+      status: "PENDING",
+      note: null,
+      packageCode: "PRO",
+      user: { id: "user-1", email: "u@test.com" },
+    };
+    mocks.findUnique.mockResolvedValueOnce(payment);
+    mocks.findPackage.mockResolvedValueOnce({
+      id: "pkg-pro",
+      code: "PRO",
+      price: 199,
+      creditQuota: 100,
+      creditOnly: false,
+    });
+
+    // 20 days of Pro still remaining → new expiry must be ~50 days out (20 + 30),
+    // NOT 30. Regression guard for the renewal-reset bug.
+    const remaining = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000);
+    const create = vi.fn().mockResolvedValue({
+      id: "sub-2",
+      package: { code: "PRO", creditQuota: 100 },
+    });
+    const tx = {
+      payment: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          id: "pay-2",
+          status: "APPROVED",
+          amount: 199,
+          reviewedAt: new Date(),
+          userId: "user-1",
+          packageCode: "PRO",
+        }),
+      },
+      userSubscription: {
+        findMany: vi.fn().mockResolvedValue([{ expiresAt: remaining }]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        create,
+      },
+    };
+    mocks.transaction.mockImplementation(async (fn) => fn(tx));
+
+    await reviewPayment("pay-2", { status: "APPROVED" }, { id: "admin-1" });
+
+    const newExpiry: Date = create.mock.calls[0][0].data.expiresAt;
+    const daysOut = (newExpiry.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
+    expect(daysOut).toBeGreaterThan(49);
+    expect(daysOut).toBeLessThan(51);
   });
 
   it("reviewPayment prefers payment.packageCode over admin override PRO", async () => {

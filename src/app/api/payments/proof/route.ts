@@ -3,10 +3,13 @@ import { AppError } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";
 import { requireUser } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
-import { uploadPrivatePaymentSlip } from "@/server/payment/payment-proof";
+import {
+  ALLOWED_IMAGE_TYPES,
+  sniffImageType,
+  uploadPrivatePaymentSlip,
+} from "@/server/payment/payment-proof";
 
 const MAX_BYTES = 2 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 /**
  * POST /api/payments/proof — upload a private payment slip to Vercel Blob.
@@ -41,14 +44,26 @@ export async function POST(req: Request) {
     if (!(file instanceof File)) {
       throw new AppError("VALIDATION", "กรุณาแนบไฟล์สลิป");
     }
-    if (!ALLOWED.has(file.type)) {
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
       throw new AppError("VALIDATION", "รองรับเฉพาะ JPG, PNG หรือ WebP");
     }
     if (file.size <= 0 || file.size > MAX_BYTES) {
       throw new AppError("VALIDATION", "ขนาดไฟล์ต้องไม่เกิน 2 MB");
     }
+    // Trust the bytes, not the declared type: reject anything whose magic bytes
+    // aren't a real JPEG/PNG/WebP, and store under the DETECTED type.
+    const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    const realType = sniffImageType(head);
+    if (!realType) {
+      throw new AppError("VALIDATION", "ไฟล์ไม่ใช่รูปภาพที่รองรับ (JPG, PNG, WebP)");
+    }
 
-    const { pathname } = await uploadPrivatePaymentSlip(user.id, file, token);
+    const { pathname } = await uploadPrivatePaymentSlip(
+      user.id,
+      file,
+      token,
+      realType,
+    );
     return ok({ pathname }, { status: 201 });
   });
 }
