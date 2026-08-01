@@ -159,6 +159,9 @@ model User {
   totpEnabledAt DateTime?
   /// bcrypt hashes of one-time backup codes (JSON string array).
   totpBackupCodesJson Json?
+  /// Highest accepted TOTP time-step — reject codes at or below it so a valid
+  /// code can't be replayed within its ~90s window.
+  totpLastStep Int?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
