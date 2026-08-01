@@ -46,6 +46,9 @@ const serverEnvSchema = z.object({
   // rate-limit.ts falls back to in-memory per process.
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+  // Set "true" to make auth REFUSE requests when Upstash is absent (hard
+  // fail-closed). Default (unset) falls back to in-memory so auth stays up.
+  AUTH_RATELIMIT_STRICT: z.string().optional(),
 
   // Payment slip uploads (Vercel Blob). Required for POST /api/payments/proof.
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
