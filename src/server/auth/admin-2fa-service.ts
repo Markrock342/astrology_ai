@@ -43,6 +43,12 @@ function decryptTotpSecret(enc: string): string {
   return decryptSecret(enc, authDerivedKeyB64());
 }
 
+/** Current TOTP time-step (30s period). Combined with validate()'s delta this
+ *  gives the absolute step a code belongs to, for replay tracking. */
+function currentTotpStep(): number {
+  return Math.floor(Date.now() / 30_000);
+}
+
 function signPayload(payload: string): string {
   const secret = process.env.AUTH_SECRET?.trim();
   if (!secret) throw new AppError("INTERNAL", "AUTH_SECRET missing");
@@ -219,6 +225,9 @@ export async function confirmTotpEnrollment(
       totpSecretEnc: encryptTotpSecret(secretBase32),
       totpEnabledAt: new Date(),
       totpBackupCodesJson: backupHashes,
+      // Burn the enrollment code's step so it can't immediately be replayed to
+      // pass a login verification.
+      totpLastStep: currentTotpStep() + delta,
     },
   });
 
@@ -243,7 +252,11 @@ export async function verifyTotpLogin(
 ): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { totpSecretEnc: true, totpBackupCodesJson: true },
+    select: {
+      totpSecretEnc: true,
+      totpBackupCodesJson: true,
+      totpLastStep: true,
+    },
   });
   if (!user?.totpSecretEnc) {
     throw new AppError("VALIDATION", "ยังไม่ได้ตั้งค่า 2FA");
@@ -260,6 +273,16 @@ export async function verifyTotpLogin(
   });
   const delta = totp.validate({ token, window: 1 });
   if (delta !== null) {
+    // Replay guard: reject a code whose time-step was already accepted, so a
+    // captured code can't be reused within its ~90s validity window.
+    const step = currentTotpStep() + delta;
+    if (user.totpLastStep != null && step <= user.totpLastStep) {
+      throw new AppError("VALIDATION", "รหัส 2FA นี้ถูกใช้ไปแล้ว กรุณารอรหัสถัดไป");
+    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: { totpLastStep: step },
+    });
     await setAdmin2faCookie(userId);
     return;
   }
