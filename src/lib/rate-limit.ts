@@ -118,18 +118,31 @@ export async function rateLimit(
   options?: RateLimitOptions,
 ): Promise<void> {
   if (!upstashConfigured()) {
-    if (options?.requireDistributed && process.env.NODE_ENV === "production") {
-      console.error(
-        "[rate-limit] CRITICAL: Upstash unset — auth requireDistributed blocked",
-      );
-      throw new AppError(
-        "RATE_LIMITED",
-        "ระบบจำกัดคำขอยังไม่พร้อม (ต้องตั้ง Upstash) กรุณาลองใหม่ภายหลัง",
-      );
-    }
     if (process.env.NODE_ENV === "production") {
+      // Hard fail-closed is now OPT-IN via AUTH_RATELIMIT_STRICT. It used to
+      // throw whenever `requireDistributed` was set and Upstash was absent —
+      // which took ALL auth (login/register/reset) offline in production the
+      // moment the app deployed without Upstash configured. "Upstash not set"
+      // is not "the limiter is down": per-instance memory is a real, if weaker,
+      // limit and is strictly better than no auth at all. The genuine
+      // limiter-outage case (Upstash configured but erroring) still fails closed
+      // below. Set AUTH_RATELIMIT_STRICT=true to refuse auth until Upstash is up.
+      if (
+        options?.requireDistributed &&
+        process.env.AUTH_RATELIMIT_STRICT === "true"
+      ) {
+        console.error(
+          "[rate-limit] CRITICAL: Upstash unset + AUTH_RATELIMIT_STRICT — auth blocked",
+        );
+        throw new AppError(
+          "RATE_LIMITED",
+          "ระบบจำกัดคำขอยังไม่พร้อม (ต้องตั้ง Upstash) กรุณาลองใหม่ภายหลัง",
+        );
+      }
       console.error(
-        "[rate-limit] CRITICAL: Upstash unset in production — using per-instance memory (set UPSTASH_*)",
+        `[rate-limit] CRITICAL: Upstash unset in production — per-instance memory only${
+          options?.requireDistributed ? " (auth path)" : ""
+        }; set UPSTASH_* to harden`,
       );
     }
     memoryRateLimit(key, limit, windowMs);
