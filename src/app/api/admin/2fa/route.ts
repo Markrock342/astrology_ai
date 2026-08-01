@@ -1,5 +1,6 @@
 import { handle, ok } from "@/lib/http";
 import { AppError } from "@/lib/errors";
+import { rateLimit } from "@/lib/rate-limit";
 import { requireAdmin } from "@/server/auth/rbac";
 import {
   beginTotpEnrollment,
@@ -33,10 +34,14 @@ export async function POST(req: Request) {
       return ok(await beginTotpEnrollment(admin.id));
     }
     if (action === "confirm") {
+      // Throttle code submission — without this the 6-digit TOTP / 32-bit backup
+      // codes are brute-forceable by anyone holding a stolen admin session.
+      await rateLimit(`2fa-code:${admin.id}`, 8, 5 * 60_000);
       const { code } = codeSchema.parse(body);
       return ok(await confirmTotpEnrollment(admin.id, code, ip));
     }
     if (action === "verify") {
+      await rateLimit(`2fa-code:${admin.id}`, 8, 5 * 60_000);
       const { code } = codeSchema.parse(body);
       await verifyTotpLogin(admin.id, code);
       return ok({ verified: true });
