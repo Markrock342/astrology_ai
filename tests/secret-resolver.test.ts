@@ -67,6 +67,16 @@ describe("secret-resolver", () => {
     expect(_cacheSizeForTests()).toBe(0);
   });
 
+  it("falls back to GEMINI_API_KEY by provider when decrypt fails and secretReference is empty", async () => {
+    const key = await resolveApiKey({
+      id: "cfg-gemini-rotated",
+      encryptedApiKey: "v1:dGFt:cGVy:ZWQ=",
+      secretReference: null,
+      provider: "GEMINI",
+    });
+    expect(key).toBe("env-gemini-key");
+  });
+
   it("returns undefined when nothing is configured", async () => {
     const key = await resolveApiKey({
       id: "cfg-empty",

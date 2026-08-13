@@ -98,8 +98,8 @@ export function decryptSecret(payload: string, envKey?: string): string {
   const encrypted = Buffer.from(cipherB64, "base64");
 
   const decipher = createDecipheriv(ALG, key, iv);
-  decipher.setAuthTag(tag);
   try {
+    decipher.setAuthTag(tag);
     return Buffer.concat([
       decipher.update(encrypted),
       decipher.final(),

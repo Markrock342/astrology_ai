@@ -448,7 +448,7 @@ export async function completePendingMessage(
     return reading;
   } catch (err) {
     const message =
-      err instanceof AppError
+      err instanceof AppError && err.code !== "AI_PROVIDER_ERROR"
         ? err.message
         : "ระบบทำนายขัดข้องชั่วคราว ลองถามใหม่อีกครั้ง";
     await finalizeAssistantMessage({
