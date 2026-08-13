@@ -1,0 +1,17 @@
+# Coolify / Nixpacks — Next.js 16 requires Node >= 20.9
+providers = ["node"]
+
+[variables]
+NIXPACKS_NODE_VERSION = "22"
+
+[phases.setup]
+nixPkgs = ["nodejs_22", "npm-10_x"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npx prisma migrate deploy && npm run start"
