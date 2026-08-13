@@ -33,8 +33,8 @@ export const metadata: Metadata = {
     title: APP_NAME_TH,
   },
   icons: {
-    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    icon: [{ url: "/logo.png", sizes: "512x512", type: "image/png" }],
+    apple: [{ url: "/logo.png", sizes: "512x512", type: "image/png" }],
   },
 };
 
