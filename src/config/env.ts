@@ -79,15 +79,29 @@ const serverEnvSchema = z.object({
 
 const parsed = serverEnvSchema.safeParse(process.env);
 
+/**
+ * During `next build`, Coolify/Nixpacks (and some CI hosts) may not inject
+ * runtime secrets into the build container. Page-data collection still imports
+ * this module — allow a soft skip so the image can build; the real process
+ * must have DATABASE_URL + AUTH_SECRET at runtime.
+ */
+const isBuildPhase =
+  process.env.NEXT_PHASE === "phase-production-build" ||
+  process.env.npm_lifecycle_event === "build";
+
 if (!parsed.success) {
   console.error(
     "❌ Invalid environment variables:",
     parsed.error.flatten().fieldErrors,
   );
-  throw new Error("Invalid environment variables");
+  if (!isBuildPhase) {
+    throw new Error("Invalid environment variables");
+  }
 }
 
-export const env = parsed.data;
+export const env = (parsed.success ? parsed.data : process.env) as z.infer<
+  typeof serverEnvSchema
+>;
 
 /**
  * Resolve an AI provider API key by its secret reference (the env var NAME).
