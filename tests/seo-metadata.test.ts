@@ -14,7 +14,7 @@ describe("metadataFromSeo share image", () => {
     const images = meta.openGraph?.images;
     const first = Array.isArray(images) ? images[0] : images;
     const url = typeof first === "object" && first && "url" in first ? first.url : first;
-    expect(String(url)).toMatch(/\/logo\.png$/);
+    expect(String(url)).toMatch(/\/og-share\.jpg$/);
   });
 
   it("prefers explicit ogImageUrl", () => {

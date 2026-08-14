@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DEFAULT_BRAND_MARK } from "@/lib/brand-assets";
+import { DEFAULT_OG_IMAGE } from "@/lib/brand-assets";
 import type { CmsSeo } from "@/lib/cms-keys";
 
 function siteBaseUrl(): string {
@@ -30,7 +30,7 @@ export function metadataFromSeo(
   const image =
     absoluteAssetUrl(seo.ogImageUrl) ??
     absoluteAssetUrl(opts?.fallbackImageUrl) ??
-    absoluteAssetUrl(DEFAULT_BRAND_MARK);
+    absoluteAssetUrl(DEFAULT_OG_IMAGE);
 
   return {
     title,
@@ -42,8 +42,19 @@ export function metadataFromSeo(
       type: "website",
       locale: "th_TH",
       siteName: "HoraSard",
+      url: siteBaseUrl(),
       ...(image
-        ? { images: [{ url: image, alt: ogTitle, width: 512, height: 512 }] }
+        ? {
+            images: [
+              {
+                url: image,
+                alt: ogTitle,
+                width: 1200,
+                height: 630,
+                type: "image/jpeg",
+              },
+            ],
+          }
         : {}),
     },
     twitter: {

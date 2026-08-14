@@ -15,9 +15,7 @@ import {
   type CmsLandingPricingSection,
   type CmsLandingTestimonials,
   type CmsSeo,
-  type CmsSiteTheme,
 } from "@/lib/cms-keys";
-import { resolveBrandUrls } from "@/lib/brand-assets";
 import { metadataFromSeo } from "@/lib/seo";
 import { listPublicPackages } from "@/server/admin/catalog-admin-service";
 import { resolveAppEntryPath } from "@/server/auth/app-entry";
@@ -37,12 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const seo =
     (await getSeoForPath("/").catch(() => null)) ??
     ((await getPublishedSetting(CMS_KEYS.seoHome)) as CmsSeo);
-  const theme = (await getPublishedSetting(CMS_KEYS.siteTheme).catch(
-    () => CMS_DEFAULTS[CMS_KEYS.siteTheme],
-  )) as CmsSiteTheme;
-  return metadataFromSeo(seo, {
-    fallbackImageUrl: resolveBrandUrls(theme).markUrl,
-  });
+  return metadataFromSeo(seo);
 }
 
 /**
