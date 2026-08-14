@@ -18,10 +18,20 @@ export type ModelPricing = {
 };
 
 export const AI_PRICING: Record<string, ModelPricing> = {
+  "gemini-3.6-flash": {
+    inputPerMTok: 1.5,
+    outputPerMTok: 9.0,
+    cachedInputPerMTok: 0.15,
+  },
   "gemini-3.5-flash": {
     inputPerMTok: 1.5,
     outputPerMTok: 9.0,
     cachedInputPerMTok: 0.15,
+  },
+  "gemini-3.5-flash-lite": {
+    inputPerMTok: 0.25,
+    outputPerMTok: 1.5,
+    cachedInputPerMTok: 0.025,
   },
   "gemini-3.1-flash-lite": {
     inputPerMTok: 0.25,
