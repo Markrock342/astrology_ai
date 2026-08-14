@@ -197,8 +197,8 @@ async function main() {
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-default" },
     update: {
-      modelId: "gemini-3.1-flash-lite",
-      displayName: "Gemini 3.1 Flash Lite (fallback ทุกแพลน)",
+      modelId: "gemini-3.5-flash-lite",
+      displayName: "Gemini 3.5 Flash Lite (fallback ทุกแพลน)",
       planScope: "ALL",
       secretReference: null,
       ...(seedSecretFields.encryptedApiKey
@@ -211,8 +211,8 @@ async function main() {
     create: {
       id: "seed-gemini-default",
       provider: "GEMINI",
-      modelId: "gemini-3.1-flash-lite",
-      displayName: "Gemini 3.1 Flash Lite (fallback ทุกแพลน)",
+      modelId: "gemini-3.5-flash-lite",
+      displayName: "Gemini 3.5 Flash Lite (fallback ทุกแพลน)",
       planScope: "ALL",
       promptTemplateId: undefined,
       versionLabel: "v1",
@@ -224,8 +224,8 @@ async function main() {
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-free" },
     update: {
-      modelId: "gemini-3.1-flash-lite",
-      displayName: "Free — Gemini 3.1 Flash Lite (ประหยัด)",
+      modelId: "gemini-3.5-flash-lite",
+      displayName: "Free — Gemini 3.5 Flash Lite (ประหยัด)",
       planScope: "FREE",
       secretReference: null,
       ...(seedSecretFields.encryptedApiKey
@@ -238,8 +238,8 @@ async function main() {
     create: {
       id: "seed-gemini-free",
       provider: "GEMINI",
-      modelId: "gemini-3.1-flash-lite",
-      displayName: "Free — Gemini 3.1 Flash Lite (ประหยัด)",
+      modelId: "gemini-3.5-flash-lite",
+      displayName: "Free — Gemini 3.5 Flash Lite (ประหยัด)",
       planScope: "FREE",
       maxOutputTokens: 1024,
       fallbackConfigId: "seed-gemini-default",
@@ -253,8 +253,8 @@ async function main() {
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-pro" },
     update: {
-      modelId: "gemini-3.5-flash",
-      displayName: "Pro — Gemini 3.5 Flash (ละเอียด)",
+      modelId: "gemini-3.6-flash",
+      displayName: "Pro — Gemini 3.6 Flash (ละเอียด)",
       planScope: "PRO",
       secretReference: null,
       ...(seedSecretFields.encryptedApiKey
@@ -267,8 +267,8 @@ async function main() {
     create: {
       id: "seed-gemini-pro",
       provider: "GEMINI",
-      modelId: "gemini-3.5-flash",
-      displayName: "Pro — Gemini 3.5 Flash (ละเอียด)",
+      modelId: "gemini-3.6-flash",
+      displayName: "Pro — Gemini 3.6 Flash (ละเอียด)",
       planScope: "PRO",
       maxOutputTokens: 4096,
       fallbackConfigId: "seed-gemini-default",
