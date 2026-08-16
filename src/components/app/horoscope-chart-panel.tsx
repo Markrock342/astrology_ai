@@ -9,6 +9,7 @@ import {
 } from "@/lib/chart-derivations";
 import { getPlanetTheme } from "@/lib/chart-theme";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
+import { TaksaNineGrid } from "./taksa-nine-grid";
 import { ThaiChakraChart } from "./thai-chakra-chart";
 
 function baseChart(chart: ChartJson): DerivedChart {
@@ -103,6 +104,10 @@ export function HoroscopeChartPanel({
   const d1 = useMemo(() => baseChart(natal), [natal]);
   const d9 = useMemo(() => deriveDivisionalChart(natal, "navamsa"), [natal]);
   const d3 = useMemo(() => deriveDivisionalChart(natal, "drekkana"), [natal]);
+  const transitChart = useMemo(
+    () => (transit ? baseChart(transit) : null),
+    [transit],
+  );
   const taksa = natal.myhora?.taksa ?? [];
   const triwai = natal.myhora?.triwaiNatal ?? [];
   const hasEvidenceGrids =
@@ -124,7 +129,7 @@ export function HoroscopeChartPanel({
 
       <div className="flex flex-wrap items-start justify-center gap-5 px-4 py-5">
         <div className="flex flex-col items-center gap-1">
-          <span className="text-[11px] font-medium text-[var(--muted)]">พื้นดวง</span>
+          <span className="text-[11px] font-medium text-[var(--muted)]">พื้นดวงเดิม</span>
           <ExpandableRasiWheel chart={natal} size={176} label="พื้นดวงเดิม" />
         </div>
         {transit ? (
@@ -132,6 +137,27 @@ export function HoroscopeChartPanel({
             <span className="text-[11px] font-medium text-[var(--muted)]">ดาวจร</span>
             <ExpandableRasiWheel chart={transit} size={176} label="ดวงจร" />
           </div>
+        ) : null}
+      </div>
+
+      <div
+        className={`grid gap-4 border-t border-[var(--border)] px-4 py-4 ${
+          transit ? "sm:grid-cols-2" : ""
+        }`}
+      >
+        <TaksaNineGrid
+          title="ทักษา"
+          lagna={d1.lagna}
+          slots={natal.chart?.taksa}
+          planets={d1.planets}
+        />
+        {transitChart ? (
+          <TaksaNineGrid
+            title="ทักษาจร"
+            lagna={d1.lagna}
+            slots={natal.chart?.taksa}
+            planets={transitChart.planets}
+          />
         ) : null}
       </div>
 

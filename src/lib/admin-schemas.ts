@@ -46,6 +46,13 @@ export const userRoleSchema = z.object({
   role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"]),
 });
 
+export const createStaffUserSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  email: z.string().email().max(120),
+  password: z.string().min(8).max(128),
+  role: z.enum(["ADMIN", "SUPER_ADMIN"]).default("ADMIN"),
+});
+
 export const auditLogQuerySchema = listQuerySchema.extend({
   entityType: z.string().trim().max(60).optional(),
 });

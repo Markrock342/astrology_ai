@@ -5,8 +5,12 @@ import { createPortal } from "react-dom";
 import type { DerivedChart } from "@/lib/chart-derivations";
 import {
   getPlanetTheme,
+  houseFromLagna,
+  LAGNA_MARK,
   normalizeSignName,
+  signLabel,
   SIGNS,
+  toThaiNumeral,
 } from "@/lib/chart-theme";
 
 const VIEWBOX = 360;
@@ -31,21 +35,6 @@ const CELL_POSITIONS = [
   { x: 86, y: 180 },
   { x: 86, y: 126 },
 ] as const;
-
-const SIGN_ABBR = [
-  "เมษ",
-  "พฤษภ",
-  "มิถุน",
-  "กรกฎ",
-  "สิงห์",
-  "กันย์",
-  "ตุลย์",
-  "พิจิก",
-  "ธนู",
-  "มกร",
-  "กุมภ์",
-  "มีน",
-];
 
 function polar(radius: number, degree: number) {
   const rad = ((degree - 90) * Math.PI) / 180;
@@ -142,6 +131,7 @@ function ThaiChakraFigure({
         {SIGNS.map((sign, index) => {
           const angle = index * 30;
           const label = polar(177, angle);
+          const house = houseFromLagna(lagna, sign);
           return (
             <text
               key={sign}
@@ -150,9 +140,9 @@ function ThaiChakraFigure({
               textAnchor="middle"
               dominantBaseline="middle"
               fill="var(--muted)"
-              fontSize="8.5"
+              fontSize="8"
             >
-              {SIGN_ABBR[index]}
+              {toThaiNumeral(house)} {signLabel(sign)}
             </text>
           );
         })}
@@ -166,14 +156,14 @@ function ThaiChakraFigure({
               ? [
                   {
                     planet: "ลัคนา",
-                    symbol: "ลัคนา",
+                    symbol: LAGNA_MARK,
                     color: "var(--primary)",
                   },
                 ]
               : []),
             ...planets.map((planet) => ({
               planet: planet.planet,
-              symbol: getPlanetTheme(planet.planet).symbol,
+              symbol: getPlanetTheme(planet.planet).numeral,
               color: getPlanetTheme(planet.planet).color,
             })),
           ];
@@ -205,7 +195,7 @@ function ThaiChakraFigure({
                     textAnchor="middle"
                     dominantBaseline="middle"
                     fill={item.color}
-                    fontSize={item.planet === "ลัคนา" ? "8.5" : "14"}
+                    fontSize={item.planet === "ลัคนา" ? "12" : "14"}
                     fontWeight={item.planet === "ลัคนา" ? "600" : "400"}
                   >
                     {item.symbol}

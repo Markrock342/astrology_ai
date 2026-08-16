@@ -1,4 +1,5 @@
 import type { Prisma, Role, UserStatus, CreditTxnType } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { addCredits, deductCredits } from "@/server/credit/credit-service";
@@ -6,6 +7,8 @@ import { writeAudit } from "@/server/audit/audit-service";
 import { getMyUsageSummary } from "@/server/account/usage-service";
 import { bangkokBoundaries } from "@/server/credit/quota-service";
 import { getUserCost } from "@/server/admin/cost-admin-service";
+import { provisionUser } from "@/server/auth/provisioning";
+import { normalizeEmail } from "@/server/auth/account-lookup";
 
 /**
  * Admin user-management service. Every mutation writes an audit log with the
@@ -430,4 +433,51 @@ export async function setUserSubscription(
     );
     return { ...created, grantedCredits };
   });
+}
+
+/** Create a new staff login. SUPER_ADMIN only — never promote via this path. */
+export async function createStaffUser(
+  input: {
+    email: string;
+    name?: string;
+    password: string;
+    role: "ADMIN" | "SUPER_ADMIN";
+  },
+  actor: Actor,
+) {
+  if (actor.role !== "SUPER_ADMIN") {
+    throw new AppError("FORBIDDEN", "เฉพาะ SUPER_ADMIN สร้างแอดมินได้");
+  }
+
+  const email = normalizeEmail(input.email);
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, role: true },
+  });
+  if (existing) {
+    throw new AppError(
+      "VALIDATION",
+      "อีเมลนี้มีในระบบแล้ว — เปิดหน้ารายละเอียดผู้ใช้แล้วกดมอบสิทธิ์แอดมิน",
+    );
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, 10);
+  const created = await provisionUser({
+    email,
+    name: input.name ?? null,
+    passwordHash,
+    role: input.role,
+    emailVerified: true,
+  });
+
+  await writeAudit({
+    adminUserId: actor.id,
+    action: "user.staff.create",
+    entityType: "user",
+    entityId: created.id,
+    after: { id: created.id, email: created.email, role: created.role },
+    ipAddress: actor.ip,
+  });
+
+  return { id: created.id, email: created.email, name: created.name, role: created.role };
 }

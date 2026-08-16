@@ -8,6 +8,8 @@ import {
   getPlanetTheme,
   houseFromLagna,
   normalizeSignName,
+  PLANET_ORDER,
+  toThaiNumeral,
 } from "@/lib/chart-theme";
 import type { ChartJson } from "@/types/chart";
 
@@ -32,14 +34,20 @@ export function ExpandableRasiWheel({
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ";
   const planets = useMemo(
     () =>
-      chart.planets.map((row) => ({
-        planet: row.planet,
-        sign: normalizeSignName(row.siderealSign),
-        house: houseFromLagna(lagna, row.siderealSign),
-        degreeText: row.degreeText ?? null,
-        theme: getPlanetTheme(row.planet),
-        meaning: getPlanetMeaning(row.planet),
-      })),
+      [...chart.planets]
+        .sort(
+          (a, b) =>
+            PLANET_ORDER.indexOf(a.planet as (typeof PLANET_ORDER)[number]) -
+            PLANET_ORDER.indexOf(b.planet as (typeof PLANET_ORDER)[number]),
+        )
+        .map((row) => ({
+          planet: row.planet,
+          sign: normalizeSignName(row.siderealSign),
+          house: houseFromLagna(lagna, row.siderealSign),
+          degreeText: row.degreeText ?? null,
+          theme: getPlanetTheme(row.planet),
+          meaning: getPlanetMeaning(row.planet),
+        })),
     [chart.planets, lagna],
   );
   const selectedRow = planets.find((p) => p.planet === selected) ?? null;
@@ -125,16 +133,16 @@ export function ExpandableRasiWheel({
             >
               <div
                 ref={panelRef}
-                className="animate-fade-up relative flex max-h-[95vh] w-full max-w-lg flex-col items-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-2xl"
+                className="animate-fade-up relative flex max-h-[95vh] w-full max-w-lg flex-col items-center rounded-2xl border border-[var(--border)] bg-[#121214] p-4 shadow-2xl"
               >
                 <div className="mb-2 flex w-full items-center justify-between">
                   <h2 id={titleId} className="text-sm font-semibold text-[var(--foreground)]">
-                    {label ?? "แผนภูมิราศี"}
+                    {label ?? "พื้นดวงเดิม"}
                   </h2>
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="rounded-md px-2 py-1 text-sm text-[var(--muted)] hover:bg-[var(--surface-3)] hover:text-[var(--foreground)]"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-sm text-[var(--muted)] hover:bg-[var(--surface-3)] hover:text-[var(--foreground)]"
                     aria-label="ปิด"
                   >
                     ✕
@@ -157,11 +165,11 @@ export function ExpandableRasiWheel({
                   <div className="mt-1 w-full rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/8 px-3.5 py-2.5">
                     <p className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
                       <span style={{ color: selectedRow.theme.color }}>
-                        {selectedRow.theme.symbol}
+                        {selectedRow.theme.numeral}
                       </span>
                       {selectedRow.planet}
                       <span className="text-[11px] font-normal text-[var(--muted)]">
-                        ราศี{selectedRow.sign} · เรือน {selectedRow.house}
+                        ราศี{selectedRow.sign} · เรือน {toThaiNumeral(selectedRow.house)}
                         {selectedRow.degreeText ? ` · ${selectedRow.degreeText}` : ""}
                       </span>
                     </p>
@@ -171,7 +179,7 @@ export function ExpandableRasiWheel({
                   </div>
                 ) : (
                   <p className="mt-1 max-w-sm text-center text-[11px] leading-relaxed text-[var(--muted)]">
-                    ช่องสีทองคือลัคนา (จุดเริ่มเรือนที่ 1) ตัวเลขคือเรือนชะตา
+                    ช่องสีทองคือลัคนา (จุดเริ่มต้นเรือนที่ 1) ตัวเลขคือเรือนชะตา
                     1–12 — แตะที่ดาวเพื่อดูความหมายและตำแหน่ง
                   </p>
                 )}
@@ -194,7 +202,7 @@ export function ExpandableRasiWheel({
                             : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--primary)]/50"
                         }`}
                       >
-                        <span style={{ color: p.theme.color }}>{p.theme.symbol}</span>
+                        <span style={{ color: p.theme.color }}>{p.theme.numeral}</span>
                         {p.planet}
                       </button>
                     );
@@ -202,7 +210,7 @@ export function ExpandableRasiWheel({
                 </div>
 
                 <p className="mt-2.5 text-center text-[11px] text-[var(--muted-2)]">
-                  แตะพื้นหลังหรือกด Esc เพื่อปิด
+                  แตะที่วงล้อหรือกด ESC เพื่อปิด
                 </p>
               </div>
             </div>,

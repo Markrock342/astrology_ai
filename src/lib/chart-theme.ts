@@ -15,6 +15,42 @@ export const PLANET_THEME: Record<
   มฤตยู: { symbol: "♅", color: "#5eb8d4", glow: "rgba(94,184,212,0.3)" },
 };
 
+/** Canonical planet order — matches Horasard Template.ai (๑–๙ then ๐). */
+export const PLANET_ORDER = [
+  "อาทิตย์",
+  "จันทร์",
+  "อังคาร",
+  "พุธ",
+  "พฤหัสบดี",
+  "ศุกร์",
+  "เสาร์",
+  "ราหู",
+  "เกตุ",
+  "มฤตยู",
+] as const;
+
+/** Thai-numeral glyphs used on the rasi wheel and legend pills. */
+export const PLANET_THAI_NUMERAL: Record<string, string> = {
+  อาทิตย์: "๑",
+  จันทร์: "๒",
+  อังคาร: "๓",
+  พุธ: "๔",
+  พฤหัสบดี: "๕",
+  ศุกร์: "๖",
+  เสาร์: "๗",
+  ราหู: "๘",
+  เกตุ: "๙",
+  มฤตยู: "๐",
+};
+
+export const LAGNA_MARK = "ล";
+
+const THAI_DIGITS = ["๐", "๑", "๒", "๓", "๔", "๕", "๖", "๗", "๘", "๙"] as const;
+
+export function toThaiNumeral(value: number | string): string {
+  return String(value).replace(/\d/g, (digit) => THAI_DIGITS[Number(digit)] ?? digit);
+}
+
 export const SIGN_THEME: Record<string, { hue: string; bg: string }> = {
   เมษ: { hue: "#e85d4a", bg: "rgba(232,93,74,0.15)" },
   พฤษภ: { hue: "#7ec87a", bg: "rgba(126,200,122,0.15)" },
@@ -45,6 +81,27 @@ export const SIGNS = [
   "มีน",
 ] as const;
 
+/** Display labels for the outer rasi ring (template uses กุมภ์). */
+export const SIGN_LABEL: Record<(typeof SIGNS)[number], string> = {
+  เมษ: "เมษ",
+  พฤษภ: "พฤษภ",
+  มิถุน: "มิถุน",
+  กรกฎ: "กรกฎ",
+  สิงห์: "สิงห์",
+  กันย์: "กันย์",
+  ตุลย์: "ตุลย์",
+  พิจิก: "พิจิก",
+  ธนู: "ธนู",
+  มกร: "มกร",
+  กุมภ: "กุมภ์",
+  มีน: "มีน",
+};
+
+export function signLabel(sign: string): string {
+  const normalized = normalizeSignName(sign);
+  return SIGN_LABEL[normalized as (typeof SIGNS)[number]] ?? normalized;
+}
+
 /** One-line plain-Thai meaning per planet — for tap-to-learn on the wheel. */
 export const PLANET_MEANING: Record<string, string> = {
   อาทิตย์: "อำนาจ เกียรติยศ ความเป็นผู้นำ ตัวตน",
@@ -64,13 +121,15 @@ export function getPlanetMeaning(planet: string): string {
 }
 
 export function getPlanetTheme(planet: string) {
-  return (
-    PLANET_THEME[planet] ?? {
-      symbol: "✦",
-      color: "#d4a84b",
-      glow: "rgba(212,168,75,0.25)",
-    }
-  );
+  const theme = PLANET_THEME[planet] ?? {
+    symbol: "✦",
+    color: "#d4a84b",
+    glow: "rgba(212,168,75,0.25)",
+  };
+  return {
+    ...theme,
+    numeral: PLANET_THAI_NUMERAL[planet] ?? theme.symbol,
+  };
 }
 
 export function getSignTheme(sign: string) {
