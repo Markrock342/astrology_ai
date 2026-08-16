@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  getPlanetTheme,
   houseFromLagna,
   normalizeSignName,
   signIndex,
+  toThaiNumeral,
 } from "@/lib/chart-theme";
 
 /**
@@ -30,6 +32,19 @@ describe("normalizeSignName", () => {
   it("rejects out-of-range indexes instead of wrapping", () => {
     expect(normalizeSignName("12 : ??")).toBe("12 : ??");
     expect(normalizeSignName("99 : ??")).toBe("99 : ??");
+  });
+});
+
+describe("Thai numerals", () => {
+  it("maps planets to the Horasard Template.ai numerals", () => {
+    expect(getPlanetTheme("อาทิตย์").numeral).toBe("๑");
+    expect(getPlanetTheme("เกตุ").numeral).toBe("๙");
+    expect(getPlanetTheme("มฤตยู").numeral).toBe("๐");
+  });
+
+  it("renders house numbers in Thai digits", () => {
+    expect(toThaiNumeral(1)).toBe("๑");
+    expect(toThaiNumeral(12)).toBe("๑๒");
   });
 });
 

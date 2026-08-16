@@ -7,16 +7,20 @@ import {
   getPlanetTheme,
   getSignTheme,
   houseFromLagna,
+  LAGNA_MARK,
   normalizeSignName,
   signIndex,
+  signLabel,
+  toThaiNumeral,
 } from "@/lib/chart-theme";
 
 const SIZE = 420;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
-const R_OUTER = 190;
-const R_INNER = 118;
-const R_PLANET = 152;
+const R_OUTER = 198;
+const R_INNER = 108;
+const R_LABEL = 168;
+const R_PLANET = 138;
 
 function polar(cx: number, cy: number, r: number, deg: number) {
   const rad = ((deg - 90) * Math.PI) / 180;
@@ -24,8 +28,8 @@ function polar(cx: number, cy: number, r: number, deg: number) {
 }
 
 /**
- * Compact rasi wheel for chat — visual reference only.
- * No captions explaining what it is; planet tooltips on hover.
+ * Compact rasi wheel — outer ring `{เลขไทยเรือน} {ราศี}`, inner planets as
+ * Thai numerals (๑ อาทิตย์ … ๐ มฤตยู), lagna marked ล in the gold cell.
  */
 export function CompactRasiWheel({
   chart,
@@ -66,8 +70,6 @@ export function CompactRasiWheel({
   const planetsBySign = useMemo(() => {
     const map = new Map<string, ChartJson["planets"]>();
     for (const row of chart.planets) {
-      // Stored rows use myhora's "07 : พจ" code — group under the full name
-      // the segments are keyed by, or every planet silently vanishes.
       const sign = normalizeSignName(row.siderealSign);
       const list = map.get(sign) ?? [];
       list.push(row);
@@ -101,20 +103,21 @@ export function CompactRasiWheel({
       role="img"
       aria-hidden={onSelectPlanet ? undefined : "true"}
     >
+      <circle cx={CX} cy={CY} r={R_OUTER + 4} fill="#0a0a0c" />
       <circle
         cx={CX}
         cy={CY}
         r={R_OUTER}
         fill="none"
-        stroke="rgba(201,162,75,0.4)"
-        strokeWidth="1.5"
+        stroke="rgba(201,162,75,0.45)"
+        strokeWidth="1.6"
       />
       <circle
         cx={CX}
         cy={CY}
         r={R_INNER}
-        fill="rgba(13,13,15,0.75)"
-        stroke="rgba(201,162,75,0.2)"
+        fill="#0d0d0f"
+        stroke="rgba(201,162,75,0.22)"
         strokeWidth="1"
       />
 
@@ -123,57 +126,62 @@ export function CompactRasiWheel({
         const p2 = polar(CX, CY, R_OUTER, startDeg);
         const p3 = polar(CX, CY, R_OUTER, endDeg);
         const p4 = polar(CX, CY, R_INNER, endDeg);
-        const label = polar(CX, CY, (R_OUTER + R_INNER) / 2, midDeg);
+        const label = polar(CX, CY, R_LABEL, midDeg);
+        const lagnaPos = polar(CX, CY, R_INNER + 16, midDeg);
         const isLagna = sign === lagna;
         return (
           <g key={sign}>
             <path
               d={`M ${p1.x} ${p1.y} L ${p2.x} ${p2.y} A ${R_OUTER} ${R_OUTER} 0 0 1 ${p3.x} ${p3.y} L ${p4.x} ${p4.y} A ${R_INNER} ${R_INNER} 0 0 0 ${p1.x} ${p1.y} Z`}
-              fill={isLagna ? "rgba(201,162,75,0.22)" : theme.bg}
-              stroke="rgba(201,162,75,0.18)"
-              strokeWidth="0.5"
+              fill={isLagna ? "rgba(201,162,75,0.38)" : theme.bg}
+              stroke="rgba(201,162,75,0.2)"
+              strokeWidth="0.6"
             />
             <text
               x={label.x}
-              y={label.y - 2}
+              y={label.y - 7}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill="var(--foreground)"
-              fontSize={isLagna ? 13 : 11}
-              fontWeight={isLagna ? 600 : 400}
+              fill={isLagna ? "#f3d089" : "var(--foreground)"}
+              fontSize={isLagna ? 13 : 12}
+              fontWeight={600}
             >
-              {sign}
+              {toThaiNumeral(house)} {signLabel(sign)}
             </text>
-            <text
-              x={label.x}
-              y={label.y + 12}
-              textAnchor="middle"
-              fill="var(--muted-2)"
-              fontSize="9"
-            >
-              {house}
-            </text>
+            {isLagna ? (
+              <text
+                x={lagnaPos.x}
+                y={lagnaPos.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="#f3d089"
+                fontSize="13"
+                fontWeight={700}
+              >
+                {LAGNA_MARK}
+              </text>
+            ) : null}
           </g>
         );
       })}
 
       <text
         x={CX}
-        y={CY - 6}
+        y={CY}
         textAnchor="middle"
         dominantBaseline="middle"
         fill="var(--primary)"
-        fontSize="12"
-        fontWeight={500}
+        fontSize="13"
+        fontWeight={600}
       >
-        {lagna}
+        ลัคนา
       </text>
 
       {planetGlyphs.map(({ key, midDeg, idx, row }) => {
         const rowSign = normalizeSignName(row.siderealSign);
         const rows = planetsBySign.get(rowSign) ?? [];
         const degreeOffset = (row.degreeInSign ?? 15) - 15;
-        const offset = degreeOffset * 1.2 + (idx - (rows.length - 1) / 2) * 8;
+        const offset = degreeOffset * 1.1 + (idx - (rows.length - 1) / 2) * 9;
         const pos = polar(CX, CY, R_PLANET + offset, midDeg);
         const theme = getPlanetTheme(row.planet);
         const tappable = Boolean(onSelectPlanet);
@@ -184,10 +192,8 @@ export function CompactRasiWheel({
             onClick={tappable ? () => onSelectPlanet?.(row.planet) : undefined}
             style={tappable ? { cursor: "pointer" } : undefined}
             role={tappable ? "button" : undefined}
-            aria-label={tappable ? `${row.planet} ในราศี${rowSign}` : undefined}
+            aria-label={tappable ? `${row.planet} ในราศี${signLabel(rowSign)}` : undefined}
           >
-            {/* Enlarged transparent hit target — glyphs are ~26px, below the
-                44px touch minimum, so taps between planets used to miss. */}
             {tappable && (
               <circle cx={pos.x} cy={pos.y} r={20} fill="transparent" />
             )}
@@ -216,14 +222,15 @@ export function CompactRasiWheel({
               textAnchor="middle"
               dominantBaseline="middle"
               fill={isSelected ? "#0d0d0f" : theme.color}
-              fontSize="13"
+              fontSize="14"
+              fontWeight={600}
             >
-              {theme.symbol}
+              {theme.numeral}
             </text>
             <title>
-              {row.planet} · ราศี{rowSign}
+              {theme.numeral} {row.planet} · ราศี{signLabel(rowSign)}
               {row.degreeText ? ` · ${row.degreeText}` : ""} · เรือน{" "}
-              {houseFromLagna(lagna, row.siderealSign)}
+              {toThaiNumeral(houseFromLagna(lagna, row.siderealSign))}
             </title>
           </g>
         );

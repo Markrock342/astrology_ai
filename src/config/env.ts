@@ -69,6 +69,8 @@ const serverEnvSchema = z.object({
 
   // Admin alerts — email + Web Push (PWA).
   ADMIN_ALERT_EMAIL: z.string().email().optional(),
+  // Resend webhook signing secret (whsec_…) for inbound support@ mail.
+  RESEND_WEBHOOK_SECRET: z.string().optional(),
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),
