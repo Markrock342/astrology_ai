@@ -8,6 +8,7 @@ import type {
   Prisma,
   ReadingStatus,
 } from "@prisma/client";
+import { isCategoryIntroQuestion } from "@/lib/intake-survey";
 
 /**
  * Every message still part of the conversation.
@@ -467,7 +468,11 @@ export async function appendUserMessage(input: {
   });
   if (!conversation) throw new AppError("NOT_FOUND", "Conversation not found");
 
-  const title = conversation.title?.trim() || truncateTitle(input.userContent);
+  const title =
+    conversation.title?.trim() ||
+    (isCategoryIntroQuestion(input.userContent)
+      ? "สรุปพื้นดวง"
+      : truncateTitle(input.userContent));
 
   // Return the row id: the client shows an optimistic bubble with a local id,
   // and needs the real one before edit/regenerate can address this message.

@@ -32,6 +32,7 @@ export type SessionShell = {
   role: string;
   status: string;
   hasBirthProfile: boolean;
+  hasIntake: boolean;
 };
 
 /**
@@ -47,6 +48,7 @@ export async function requireSessionShell(): Promise<SessionShell> {
       role: true,
       status: true,
       birthProfile: { select: { id: true } },
+      intake: { select: { id: true } },
     },
   });
   if (!user) redirect("/login");
@@ -56,6 +58,7 @@ export async function requireSessionShell(): Promise<SessionShell> {
     role: user.role,
     status: user.status,
     hasBirthProfile: Boolean(user.birthProfile),
+    hasIntake: Boolean(user.intake),
   };
 }
 

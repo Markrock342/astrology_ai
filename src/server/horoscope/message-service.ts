@@ -17,6 +17,7 @@ import {
   prepareRegenerateAssistant,
 } from "@/server/horoscope/thread-service";
 import type { ConversationMode } from "@prisma/client";
+import { isCategoryIntroQuestion } from "@/lib/intake-survey";
 
 /**
  * Superseded turns (edited question / regenerated answer) are hidden, not
@@ -35,6 +36,8 @@ export type SendMessageInput = {
   /** Drop an assistant answer and re-run for the prior user question. */
   regenerateAssistantMessageId?: string;
   answerMode?: "brief" | "detailed";
+  /** Natal category briefing — free, and the only allowed natal send. */
+  purpose?: "category_intro";
 };
 
 export type AcceptMessageResult =
@@ -65,12 +68,9 @@ export type AcceptMessageResult =
       assistantMessageId?: string;
     };
 
-async function assertCanSend(
-  conversationId: string,
-  userId: string,
-) {
+async function assertCanSend(input: SendMessageInput) {
   const conversation = await prisma.conversation.findFirst({
-    where: { id: conversationId, userId },
+    where: { id: input.conversationId, userId: input.userId },
     include: { category: true },
   });
   if (!conversation) throw new AppError("NOT_FOUND", "Conversation not found");
@@ -87,11 +87,31 @@ async function assertCanSend(
     },
   });
 
+  const isIntro =
+    input.purpose === "category_intro" ||
+    isCategoryIntroQuestion(input.content);
+
+  if (conversation.mode === "NATAL") {
+    if (!isIntro) {
+      throw new AppError(
+        "NATAL_QA_DISABLED",
+        "หมวดพื้นดวงสรุปให้อัตโนมัติ — ถามต่อได้ที่โหมดดวงจร",
+      );
+    }
+    if (priorTurns > 0 && !input.regenerateAssistantMessageId) {
+      throw new AppError(
+        "NATAL_QA_DISABLED",
+        "หมวดนี้สรุปให้แล้ว — ถามต่อได้ที่โหมดดวงจร",
+      );
+    }
+  }
+
   await assertCanRequestReading({
-    userId,
+    userId: input.userId,
     categoryAccessLevel: conversation.category.accessLevel,
     mode: conversation.mode,
     isFollowUp: priorTurns > 0,
+    skipEmailVerify: isIntro,
   });
 
   return conversation;
@@ -104,7 +124,7 @@ async function assertCanSend(
 export async function acceptMessage(
   input: SendMessageInput,
 ): Promise<AcceptMessageResult> {
-  const conversation = await assertCanSend(input.conversationId, input.userId);
+  const conversation = await assertCanSend(input);
 
   let question = input.content.trim();
   let skipUserAppend = false;
@@ -359,7 +379,7 @@ export async function completePendingMessage(
   onPhase?: (phase: ChatPrepPhase) => void,
   onCharts?: (charts: ChatChartSnapshots) => void,
 ) {
-  const conversation = await assertCanSend(input.conversationId, input.userId);
+  const conversation = await assertCanSend(input);
 
   const pending = await prisma.message.findUnique({
     where: {
@@ -407,6 +427,11 @@ export async function completePendingMessage(
                   }
                 : null,
             answerMode: input.answerMode,
+            purpose:
+              input.purpose ??
+              (isCategoryIntroQuestion(input.content)
+                ? "category_intro"
+                : undefined),
             onPhase,
             onCharts,
           },
@@ -421,6 +446,11 @@ export async function completePendingMessage(
           priorMessages,
           mode: conversation.mode,
           answerMode: input.answerMode,
+          purpose:
+            input.purpose ??
+            (isCategoryIntroQuestion(input.content)
+              ? "category_intro"
+              : undefined),
           onPhase,
           onCharts,
           transit:

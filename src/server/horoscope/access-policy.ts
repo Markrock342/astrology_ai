@@ -24,6 +24,8 @@ export async function assertCanRequestReading(input: {
   mode: ConversationMode;
   /** Kept for callers/logging; Free follow-ups are allowed. */
   isFollowUp: boolean;
+  /** Natal category briefing is free — do not require email verification. */
+  skipEmailVerify?: boolean;
 }): Promise<"FREE" | "PRO"> {
   const plan = await getEffectivePlan(input.userId);
   if (plan === "PRO") return plan;
@@ -47,7 +49,12 @@ export async function assertCanRequestReading(input: {
     select: { emailVerifiedAt: true, passwordHash: true },
   });
   // OAuth accounts have no password and are verified by the provider.
-  if (user?.passwordHash && !user.emailVerifiedAt) {
+  // Natal intros skip this wall — they do not spend trial credits.
+  if (
+    !input.skipEmailVerify &&
+    user?.passwordHash &&
+    !user.emailVerifiedAt
+  ) {
     throw new AppError(
       "EMAIL_NOT_VERIFIED",
       "กรุณายืนยันอีเมลก่อนใช้เครดิตทดลองฟรี — เราส่งลิงก์ยืนยันไปให้แล้ว",

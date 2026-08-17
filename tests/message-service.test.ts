@@ -78,7 +78,7 @@ vi.mock("@/server/horoscope/thread-service", () => ({
 const conversation = {
   id: "conv-1",
   userId: "user-1",
-  mode: "NATAL" as const,
+  mode: "TRANSIT" as const,
   category: { slug: "career", nameTh: "การงาน", accessLevel: "FREE" },
 };
 
@@ -218,6 +218,72 @@ describe("sendMessage (M3 B2)", () => {
       }),
     );
     expect(mocks.finalizeAssistantMessage).toHaveBeenCalled();
+  });
+});
+
+describe("natal category intro", () => {
+  const natal = {
+    ...conversation,
+    mode: "NATAL" as const,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.findConversation.mockResolvedValue(natal);
+    mocks.findMessage.mockResolvedValue(null);
+    mocks.findMessages.mockResolvedValue([]);
+    mocks.getEffectivePlan.mockResolvedValue("PRO");
+    mocks.createReading.mockResolvedValue({
+      id: "reading-1",
+      responseText: "สรุป",
+      provider: "GEMINI",
+      modelId: "gemini",
+      creditCost: 0,
+      status: "SUCCESS",
+    });
+    mocks.transaction.mockResolvedValue([]);
+    mocks.appendUserMessage.mockResolvedValue({ id: "msg-user-1" });
+    mocks.findPriorUserMessage.mockResolvedValue({ id: "msg-user-1" });
+    mocks.createPendingAssistant.mockResolvedValue({ id: "pend-1" });
+    mocks.finalizeAssistantMessage.mockResolvedValue(undefined);
+    mocks.messageUpdateMany.mockResolvedValue({ count: 0 });
+    mocks.messageCount.mockResolvedValue(0);
+    mocks.assertCanRequestReading.mockResolvedValue("PRO");
+  });
+
+  it("rejects a natal follow-up question", async () => {
+    await expect(
+      sendMessage({
+        conversationId: "conv-1",
+        userId: "user-1",
+        content: "แล้วปีหน้าล่ะ",
+        idempotencyKey: "k-natal-q",
+      }),
+    ).rejects.toMatchObject({ code: "NATAL_QA_DISABLED" });
+
+    expect(mocks.createReading).not.toHaveBeenCalled();
+  });
+
+  it("allows the free category intro and tells the reader to skip credits", async () => {
+    mocks.findMessage
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "pend-1",
+        status: "PENDING",
+        content: "",
+      });
+
+    await sendMessage({
+      conversationId: "conv-1",
+      userId: "user-1",
+      content: "[[category-intro]]\nสรุปหมวดการงาน",
+      idempotencyKey: "k-intro",
+      purpose: "category_intro",
+    });
+
+    expect(mocks.createReading).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: "category_intro" }),
+    );
   });
 });
 

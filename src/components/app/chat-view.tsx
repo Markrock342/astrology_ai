@@ -28,6 +28,10 @@ import { SmoothStreamMarkdown } from "./smooth-stream-markdown";
 import { useMyUsage } from "@/hooks/use-my-usage";
 import type { ChartJson } from "@/types/chart";
 import {
+  buildCategoryIntroQuestion,
+  isCategoryIntroQuestion,
+} from "@/lib/intake-survey";
+import {
   getCachedThread,
   prefetchThread,
   setCachedThread,
@@ -64,6 +68,9 @@ const THINKING_PHASE_LABEL: Record<ThinkingPhase, string> = {
 const ANSWER_MODE_KEY = "horasard:answerMode";
 const DRAFT_KEY = "horasard:chatDraft";
 const FEEDBACK_KEY = "horasard:messageFeedback";
+
+/** Survives React Strict Mode remounts so a category intro is not double-sent. */
+const natalIntroStarted = new Set<string>();
 
 /** Wall-clock helper kept outside the component so React purity lint ignores it. */
 function nowMs(): number {
@@ -197,6 +204,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   UNAUTHENTICATED: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
   USER_DISABLED: "บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อแอดมิน",
   FEATURE_DISABLED: "ระบบดูดวงด้วย AI กำลังอยู่ระหว่างพัฒนา",
+  NATAL_QA_DISABLED:
+    "หมวดพื้นดวงสรุปให้อัตโนมัติ — อยากถามจังหวะช่วงนี้ให้ไปโหมดดวงจร",
 };
 
 function modelLabel(modelId: string): string {
@@ -215,6 +224,7 @@ type SendOpts = {
   retryKey?: string;
   editUserMessageId?: string;
   regenerateAssistantMessageId?: string;
+  purpose?: "category_intro";
 };
 
 const SCROLL_NEAR_BOTTOM_PX = 120;
@@ -295,7 +305,8 @@ export function ChatView() {
   const searchParams = useChatRouteSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
-  const { user, refreshLight, pendingPayment } = useAppData();
+  const { user, refreshLight, pendingPayment, natalChartStatus, natalThreads, loading } =
+    useAppData();
   const category = useCategory(catSlug);
   const locked = isCategoryLocked(category, user?.plan ?? "FREE");
   const hasPendingPayment = Boolean(pendingPayment);
@@ -865,6 +876,48 @@ export function ChatView() {
     setThreadLoadError(null);
   }, [catSlug, locked, threadId]);
 
+  // Natal categories brief themselves — no question required.
+  useEffect(() => {
+    if (loading || loadingThread || locked) return;
+    if (!FEATURES.aiChat) return;
+    if (threadMode === "TRANSIT") return;
+    if (messages.length > 0) return;
+    if (state !== "idle") return;
+
+    const slug = catSlug ?? threadCategorySlug;
+    if (!slug) return;
+
+    if (!threadId) {
+      const existing = natalThreads.find((t) => t.categorySlug === slug);
+      if (existing) {
+        softNavigate(`/dashboard?thread=${existing.id}&cat=${slug}`, {
+          replace: true,
+        });
+        return;
+      }
+    }
+
+    if (natalChartStatus?.status !== "READY") return;
+
+    const question = buildCategoryIntroQuestion(category?.label ?? slug);
+    void send(question, { purpose: "category_intro" });
+    // send is an event handler recreated each render — listing it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    loading,
+    loadingThread,
+    locked,
+    threadMode,
+    messages.length,
+    state,
+    catSlug,
+    threadCategorySlug,
+    threadId,
+    natalThreads,
+    natalChartStatus?.status,
+    category?.label,
+  ]);
+
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const el = scrollRef.current;
     if (!el) return;
@@ -923,9 +976,18 @@ export function ChatView() {
     categorySlug: string,
     content: string,
     idempotencyKey: string,
+    purpose?: "category_intro",
   ): Promise<string | null> {
     const existing = threadId ?? conversationIdRef.current;
     if (existing) return existing;
+
+    if (purpose === "category_intro") {
+      const match = natalThreads.find((t) => t.categorySlug === categorySlug);
+      if (match) {
+        conversationIdRef.current = match.id;
+        return match.id;
+      }
+    }
 
     const res = await fetch("/api/conversations", {
       method: "POST",
@@ -956,9 +1018,20 @@ export function ChatView() {
     const content = text.trim();
     if (!content) return;
 
+    const isIntro =
+      options.purpose === "category_intro" || isCategoryIntroQuestion(content);
+    const introStamp =
+      isIntro && (catSlug ?? threadCategorySlug)
+        ? `${user?.email ?? "anon"}:${catSlug ?? threadCategorySlug}`
+        : null;
+    const releaseIntroStamp = () => {
+      if (introStamp) natalIntroStarted.delete(introStamp);
+    };
+
     // Composer locks on emailGate, but chips / 「เล่าต่อ」 call send() directly —
     // mirror the gate here so Free + unverified never hits the API.
-    if (user?.needsEmailVerification && user?.plan !== "PRO") {
+    // Natal intros are free and skip this wall.
+    if (!isIntro && user?.needsEmailVerification && user?.plan !== "PRO") {
       setErrorCode("EMAIL_NOT_VERIFIED");
       setErrorText(
         "ยืนยันอีเมลก่อนใช้เครดิตทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน",
@@ -1045,10 +1118,14 @@ export function ChatView() {
 
     const isRetry = Boolean(options.retryKey);
     const isRegenerate = Boolean(options.regenerateAssistantMessageId);
+    if (introStamp && !isRetry && !isRegenerate) {
+      if (natalIntroStarted.has(introStamp)) return;
+      natalIntroStarted.add(introStamp);
+    }
     // Local id: the server row does not exist yet. `done` brings back the real
     // one and we bind it as serverId (see serverIdOf).
     let optimisticUserId: string | null = null;
-    if (!isRetry && !isRegenerate && !editLocalId) {
+    if (!isRetry && !isRegenerate && !editLocalId && !isIntro) {
       optimisticUserId = `local-${crypto.randomUUID()}`;
       const userMsg: Message = { id: optimisticUserId, role: "user", content };
       setMessages((m) => [...m, userMsg]);
@@ -1116,7 +1193,12 @@ export function ChatView() {
 
     try {
       activeConversationId = categorySlug
-        ? await ensureConversation(categorySlug, content, idempotencyKey)
+        ? await ensureConversation(
+            categorySlug,
+            content,
+            idempotencyKey,
+            options.purpose,
+          )
         : (threadId ?? conversationIdRef.current);
       if (!activeConversationId) {
         // ensureConversation already surfaced the failure via applyApiError
@@ -1127,6 +1209,7 @@ export function ChatView() {
         // banner + retry render beneath the question.
         setMessages((prev) => prev.filter((m) => m.id !== assistantId));
         processingStartedAtRef.current = null;
+        releaseIntroStamp();
         return;
       }
 
@@ -1193,7 +1276,8 @@ export function ChatView() {
             content,
             editUserMessageId: editServerMessageId,
             regenerateAssistantMessageId: options.regenerateAssistantMessageId,
-            answerMode: effectiveAnswerMode,
+            answerMode: isIntro ? "detailed" : effectiveAnswerMode,
+            purpose: isIntro ? "category_intro" : undefined,
           }),
           signal: abort.signal,
         },
@@ -1218,6 +1302,7 @@ export function ChatView() {
             { hasPendingPayment },
           );
           setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+          releaseIntroStamp();
           return;
         }
         // Legacy 202 pending — fall back to poll
@@ -1525,6 +1610,7 @@ export function ChatView() {
               { question: content, idempotencyKey },
               { hasPendingPayment },
             );
+            releaseIntroStamp();
             if (!gotDelta) {
               setMessages((prev) =>
                 prev.map((m) =>
@@ -1616,6 +1702,7 @@ export function ChatView() {
       setErrorCode("NETWORK");
       setErrorText("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง");
       setState("error");
+      releaseIntroStamp();
     } finally {
       // Whatever path we exited on, the turn is settled — a coalesced flush
       // still in flight must not repaint streaming state over the final one.
@@ -1658,7 +1745,12 @@ export function ChatView() {
     setMessages((prev) => prev.slice(0, idx));
     setErrorText(null);
     setErrorCode(null);
-    void send(userMsg.content, { regenerateAssistantMessageId: serverId });
+    void send(userMsg.content, {
+      regenerateAssistantMessageId: serverId,
+      purpose: isCategoryIntroQuestion(userMsg.content)
+        ? "category_intro"
+        : undefined,
+    });
   }
 
   function retryFailedAssistant(localId: string) {
@@ -1674,7 +1766,12 @@ export function ChatView() {
     // bubble left the later turns on screen while they were gone from the DB —
     // silent data loss, and the retry answer landed under a stale question.
     setMessages((prev) => prev.slice(0, idx));
-    void send(userMsg.content, { regenerateAssistantMessageId: serverId });
+    void send(userMsg.content, {
+      regenerateAssistantMessageId: serverId,
+      purpose: isCategoryIntroQuestion(userMsg.content)
+        ? "category_intro"
+        : undefined,
+    });
   }
 
   function prefillFromChart(prompt: string) {
@@ -1724,7 +1821,9 @@ export function ChatView() {
           >
             <EmptyState
               category={category?.label}
-              suggestions={category?.suggestedQuestions ?? []}
+              natalBriefing={Boolean(catSlug)}
+              chartReady={natalChartStatus?.status === "READY"}
+              suggestions={[]}
               onPick={send}
               emailGate={emailGate}
             />
@@ -1775,6 +1874,9 @@ export function ChatView() {
               // once the row exists — and feedback keys off it so a thumbs-up
               // survives the reload that swaps local ids for real ones.
               const sid = serverIdOf(m);
+              if (m.role === "user" && isCategoryIntroQuestion(m.content)) {
+                return null;
+              }
               return m.role === "user" ? (
                 <div key={m.id} className="animate-msg-in group flex flex-col items-end">
                   <div
@@ -1838,14 +1940,18 @@ export function ChatView() {
                           <ChartEvidenceTable
                             chart={m.chartSnapshot}
                             mode="natal"
-                            onRowAsk={prefillFromChart}
+                            onRowAsk={
+                              threadMode === "TRANSIT" ? prefillFromChart : undefined
+                            }
                           />
                         )}
                         {m.transitSnapshot && (
                           <ChartEvidenceTable
                             chart={m.transitSnapshot}
                             mode="transit"
-                            onRowAsk={prefillFromChart}
+                            onRowAsk={
+                              threadMode === "TRANSIT" ? prefillFromChart : undefined
+                            }
                           />
                         )}
                       </div>
@@ -1881,7 +1987,13 @@ export function ChatView() {
                             role="assistant"
                             messageId={sid}
                             content={m.content}
-                            canRegenerate={m.status !== "PENDING"}
+                            canRegenerate={
+                              m.status !== "PENDING" &&
+                              (threadMode === "TRANSIT" ||
+                                isCategoryIntroQuestion(
+                                  messages[idx - 1]?.content ?? "",
+                                ))
+                            }
                             failed={m.status === "FAILED" || m.status === "TIMEOUT"}
                             onRegenerate={() => regenerateAssistant(m.id)}
                             onRetry={
@@ -1916,7 +2028,8 @@ export function ChatView() {
                             Asking someone to type what a button should do is a
                             button that doesn't exist yet — here it is. The
                             notice text the server appends IS the signal. */}
-                        {m.content.includes("เพดานของโหมดคำตอบ") ? (
+                        {m.content.includes("เพดานของโหมดคำตอบ") &&
+                        threadMode === "TRANSIT" ? (
                           <button
                             type="button"
                             disabled={emailGate}
@@ -1926,17 +2039,28 @@ export function ChatView() {
                             เล่าต่อ ▸
                           </button>
                         ) : null}
-                        {(m.followUps ?? []).map((q) => (
-                          <button
-                            key={q}
-                            type="button"
-                            disabled={emailGate}
-                            onClick={() => void send(q)}
-                            className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-left text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {q}
-                          </button>
-                        ))}
+                        {threadMode === "TRANSIT"
+                          ? (m.followUps ?? []).map((q) => (
+                              <button
+                                key={q}
+                                type="button"
+                                disabled={emailGate}
+                                onClick={() => void send(q)}
+                                className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-left text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {q}
+                              </button>
+                            ))
+                          : m.status === "SUCCESS"
+                            ? (
+                                <a
+                                  href="/dashboard?action=transit"
+                                  className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20"
+                                >
+                                  ถามจังหวะช่วงนี้ที่ดวงจร ▸
+                                </a>
+                              )
+                            : null}
                       </div>
                     ) : null}
                     {!isStreamingTurn && (
@@ -2031,6 +2155,7 @@ export function ChatView() {
             </button>
           </div>
         ) : null}
+        {threadMode === "TRANSIT" || isBusy ? (
         <Composer
           ref={composerRef}
           value={input}
@@ -2045,7 +2170,11 @@ export function ChatView() {
             Boolean(stopTarget) &&
             !stopping
           }
-          disabled={locked || state === "locked"}
+          disabled={
+            locked ||
+            state === "locked" ||
+            threadMode !== "TRANSIT"
+          }
           // Keep the field editable while streaming (ChatGPT-style). Send is
           // blocked in send() until the turn settles; Stop replaces the arrow.
           aiEnabled={FEATURES.aiChat}
@@ -2059,6 +2188,11 @@ export function ChatView() {
           answerMode={answerMode}
           onAnswerModeChange={updateAnswerMode}
         />
+        ) : messages.length > 0 ? (
+          <p className="px-4 pb-4 text-center text-[11px] text-[var(--muted-2)] md:px-8">
+            หมวดพื้นดวงสรุปให้อัตโนมัติ — ถามจังหวะช่วงนี้ได้ที่โหมดดวงจร
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -2124,11 +2258,15 @@ function ErrorBanner({
 
 function EmptyState({
   category,
+  natalBriefing = false,
+  chartReady = false,
   suggestions,
   onPick,
   emailGate = false,
 }: {
   category?: string;
+  natalBriefing?: boolean;
+  chartReady?: boolean;
   suggestions: string[];
   onPick: (q: string) => void;
   emailGate?: boolean;
@@ -2136,13 +2274,29 @@ function EmptyState({
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center pt-6 text-center">
       <NatalChartBanner />
-      <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
-        เริ่มถามดวงได้เลย
-      </h1>
-      <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
-        เลือกหมวดแล้วถามคำถามแรก — คำทำนายเป็นแนวทางเพื่อความบันเทิง ไม่ใช่คำแนะนำทางการเงิน
-        กฎหมาย หรือการแพทย์
-      </p>
+      {natalBriefing ? (
+        <>
+          <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
+            {chartReady
+              ? `กำลังสรุปหมวด${category ? `「${category}」` : "นี้"}`
+              : "รอคำนวณพื้นดวงก่อนสรุปหมวด"}
+          </h1>
+          <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
+            สรุปจากพื้นดวงและแบบสำรวจทันที — ไม่หักเครดิต
+            อยากถามจังหวะช่วงนี้ค่อยไปโหมดดวงจร
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
+            เลือกหมวดเพื่ออ่านสรุปพื้นดวง
+          </h1>
+          <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
+            แต่ละหมวดสรุปให้อัตโนมัติจากดวงและแบบสำรวจ — คำทำนายเป็นแนวทางเพื่อความบันเทิง
+            ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์
+          </p>
+        </>
+      )}
 
       {!category ? (
         <div className="mt-6 flex flex-wrap justify-center gap-2">
@@ -2436,10 +2590,10 @@ const Composer = forwardRef<
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              if (!emailGate) onSend();
+              if (!emailGate && !disabled) onSend();
             }
           }}
-          disabled={!aiEnabled || emailGate}
+          disabled={!aiEnabled || emailGate || disabled}
           placeholder={placeholder}
           className="max-h-[200px] min-h-[24px] w-full resize-none bg-transparent text-base leading-6 text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed md:text-sm"
         />

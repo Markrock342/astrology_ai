@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   findWallet: vi.fn(),
   findProfile: vi.fn(),
   findKnowledge: vi.fn(),
+  findIntake: vi.fn(),
   transaction: vi.fn(),
   getEffectivePlan: vi.fn(),
   assertCanRequestReading: vi.fn(),
@@ -39,6 +40,7 @@ vi.mock("@/server/db", () => ({
     creditWallet: { findUnique: mocks.findWallet },
     birthProfile: { findUnique: mocks.findProfile },
     knowledgeDoc: { findMany: mocks.findKnowledge },
+    userIntake: { findUnique: mocks.findIntake },
     $transaction: mocks.transaction,
   },
 }));
@@ -128,6 +130,7 @@ function setupHappyPath() {
   mocks.releaseUsageReservation.mockResolvedValue(undefined);
   mocks.findProfile.mockResolvedValue(baseProfile);
   mocks.findKnowledge.mockResolvedValue([]);
+  mocks.findIntake.mockResolvedValue(null);
   mocks.resolveConfig.mockResolvedValue({
     id: "cfg-1",
     promptTemplateId: null,
@@ -324,6 +327,25 @@ describe("createReading (M3 B2)", () => {
     ).rejects.toMatchObject({ code: "NO_QUOTA" });
 
     expect(mocks.generateWithFallback).not.toHaveBeenCalled();
+  });
+
+  it("skips wallet, quota reservation, and credit deduction for a natal category intro", async () => {
+    mocks.findWallet.mockResolvedValue({ balance: 0 });
+
+    await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "[[category-intro]]\nสรุปหมวดการงาน",
+      purpose: "category_intro",
+    });
+
+    expect(mocks.assertCanRequestReading).toHaveBeenCalledWith(
+      expect.objectContaining({ skipEmailVerify: true }),
+    );
+    expect(mocks.assertWithinUsageLimits).not.toHaveBeenCalled();
+    expect(mocks.reserveUsageSlot).not.toHaveBeenCalled();
+    expect(mocks.deductCredits).not.toHaveBeenCalled();
+    expect(mocks.generateWithFallback).toHaveBeenCalled();
   });
 
   it("throws AI_TIMEOUT and does not charge when AI times out", async () => {

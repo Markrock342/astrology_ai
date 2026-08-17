@@ -25,6 +25,7 @@ export type AppErrorCode =
   | "RATE_LIMITED"
   | "QUOTA_EXCEEDED"
   | "FEATURE_DISABLED"
+  | "NATAL_QA_DISABLED"
   | "INTERNAL";
 
 const STATUS: Record<AppErrorCode, number> = {
@@ -48,6 +49,7 @@ const STATUS: Record<AppErrorCode, number> = {
   RATE_LIMITED: 429,
   QUOTA_EXCEEDED: 403,
   FEATURE_DISABLED: 403,
+  NATAL_QA_DISABLED: 422,
   INTERNAL: 500,
 };
 

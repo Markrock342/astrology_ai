@@ -28,6 +28,7 @@ export type AppUser = {
   emailVerified: boolean;
   needsEmailVerification: boolean;
   hasPassword: boolean;
+  hasIntake?: boolean;
   birthEditsUnlimited?: boolean;
 };
 
@@ -120,6 +121,7 @@ function mapMe(me: Record<string, unknown>): AppUser {
     emailVerified: Boolean(me.emailVerified ?? true),
     needsEmailVerification: Boolean(me.needsEmailVerification ?? false),
     hasPassword: Boolean(me.hasPassword ?? false),
+    hasIntake: Boolean(me.hasIntake),
     birthEditsUnlimited: Boolean(me.birthEditsUnlimited),
   };
 }

@@ -30,7 +30,10 @@ export default async function AppLayout({
 
   return (
     <AppDataProvider initialData={null}>
-      <BirthProfileGate hasBirthProfile={shell.hasBirthProfile}>
+      <BirthProfileGate
+        hasBirthProfile={shell.hasBirthProfile}
+        hasIntake={shell.hasIntake}
+      >
         <Suspense fallback={null}>
           <AppShell>{children}</AppShell>
         </Suspense>
