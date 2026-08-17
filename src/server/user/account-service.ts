@@ -32,6 +32,7 @@ export async function getMe(userId: string) {
       passwordHash: true,
       createdAt: true,
       birthProfile: { select: { id: true, nickname: true, editCount: true } },
+      intake: { select: { id: true } },
       creditWallet: { select: { balance: true } },
       subscriptions: {
         where: {
@@ -60,11 +61,13 @@ export async function getMe(userId: string) {
   // Drop relation bags that are not part of the public profile payload.
   delete (profile as { creditWallet?: unknown }).creditWallet;
   delete (profile as { subscriptions?: unknown }).subscriptions;
+  delete (profile as { intake?: unknown }).intake;
 
   return {
     ...profile,
     hasPassword: Boolean(passwordHash),
     hasBirthProfile: Boolean(user.birthProfile),
+    hasIntake: Boolean(user.intake),
     birthEditsRemaining: editsRemaining,
     birthEditsUnlimited: isStaffRole(user.role),
     plan,

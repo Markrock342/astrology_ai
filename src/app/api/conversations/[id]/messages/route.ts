@@ -10,6 +10,7 @@ import {
   isStopRequested,
 } from "@/server/horoscope/message-service";
 import { generateThreadTitle } from "@/server/horoscope/follow-up-suggestions";
+import { isCategoryIntroQuestion } from "@/lib/intake-survey";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -20,6 +21,7 @@ const bodySchema = z.object({
   editUserMessageId: z.string().optional(),
   regenerateAssistantMessageId: z.string().optional(),
   answerMode: z.enum(["brief", "detailed"]).optional().default("detailed"),
+  purpose: z.enum(["category_intro"]).optional(),
 });
 
 function sseEncode(event: Record<string, unknown>): string {
@@ -67,8 +69,13 @@ export async function POST(
       if (!idempotencyKey) {
         throw new AppError("VALIDATION", "Idempotency-Key header is required");
       }
-      const { content, editUserMessageId, regenerateAssistantMessageId, answerMode } =
-        bodySchema.parse(await req.json());
+      const {
+        content,
+        editUserMessageId,
+        regenerateAssistantMessageId,
+        answerMode,
+        purpose,
+      } = bodySchema.parse(await req.json());
 
       const accepted = await acceptMessage({
         conversationId: id,
@@ -78,6 +85,7 @@ export async function POST(
         editUserMessageId,
         regenerateAssistantMessageId,
         answerMode,
+        purpose,
       });
 
       if (accepted.status === "ready") {
@@ -91,6 +99,7 @@ export async function POST(
           content,
           idempotencyKey,
           answerMode,
+          purpose,
         }).catch((err) => {
           console.error("[chat-after]", err);
         });
@@ -117,8 +126,13 @@ export async function POST(
     if (!idempotencyKey) {
       throw new AppError("VALIDATION", "Idempotency-Key header is required");
     }
-    const { content, editUserMessageId, regenerateAssistantMessageId, answerMode } =
-      bodySchema.parse(await req.json());
+    const {
+      content,
+      editUserMessageId,
+      regenerateAssistantMessageId,
+      answerMode,
+      purpose,
+    } = bodySchema.parse(await req.json());
 
     const encoder = new TextEncoder();
     // Wall-clock for the whole turn (accept + chart + model), reported on `done`
@@ -159,6 +173,7 @@ export async function POST(
             editUserMessageId,
             regenerateAssistantMessageId,
             answerMode,
+            purpose,
           });
 
           if (accepted.status === "ready") {
@@ -209,6 +224,7 @@ export async function POST(
               content,
               idempotencyKey,
               answerMode,
+              purpose,
             },
             (chunk) => {
               emitDeltaChunks(send, chunk);
@@ -276,12 +292,14 @@ export async function POST(
           try {
             const [metaRes, titleRes] = await Promise.allSettled([
               metaPromise ?? Promise.resolve(null),
-              generateThreadTitle({
-                conversationId: id,
-                userId: user.id,
-                question: content,
-                answer: reading?.responseText ?? "",
-              }),
+              isCategoryIntroQuestion(content)
+                ? Promise.resolve(null)
+                : generateThreadTitle({
+                    conversationId: id,
+                    userId: user.id,
+                    question: content,
+                    answer: reading?.responseText ?? "",
+                  }),
             ]);
             const meta = metaRes.status === "fulfilled" ? metaRes.value : null;
             const title =

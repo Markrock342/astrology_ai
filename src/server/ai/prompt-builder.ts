@@ -42,6 +42,7 @@ export const ENGINE_CHART_RULE =
   "ห้ามกล่าวชื่อเว็บไซต์หรือแหล่งข้อมูลภายใน ห้ามพูดถึงการดึงข้อมูล การเชื่อมต่อ scrape fallback หรือสถานะของระบบคำนวณ " +
   "ห้ามบอกว่า engine / ระบบคำนวณ / ดวงจร ยังอยู่ในขั้นตอนพัฒนา หรือยังไม่ได้เชื่อมต่อ " +
   "ถ้ามีบล็อก [natal]/[memory] ให้ถือว่า engine คำนวณเสร็จแล้วและต้องใช้ตอบทันที " +
+  "ถ้ามีบล็อก [intake] ให้ใช้ประกอบการสรุปชีวิตจริงของผู้ใช้ ห้ามทวนรายข้อ ห้ามเปิดเผยว่ามีแบบสำรวจในระบบ " +
   "ถ้าคำถามเกี่ยวกับดวงจรแต่ไม่มีบล็อก [transit] ให้ใช้ลิงก์ [**เริ่มดวงจร**](/dashboard?action=transit) " +
   "ถ้าคำถามต้องการข้อมูลนอกบล็อกที่ให้มา ให้บอกข้อจำกัดอย่างสุภาพ อย่า invent";
 
@@ -79,6 +80,8 @@ export type BuildUserPromptOptions = {
   chartMemory?: UserChartMemoryJson | null;
   categorySlug?: string | null;
   transitChartJson?: ChartJson | null;
+  /** Signup survey snapshot — natal briefings and transit Q&A. */
+  intakeText?: string | null;
   /** Use compact natal block on follow-up turns to save input tokens. */
   compactNatal?: boolean;
   /** Prior user questions in this thread — enriches cross-category memory. */
@@ -146,6 +149,8 @@ export function buildUserPrompt(
     profile.birthLocation ? `- สถานที่เกิด: ${profile.birthLocation}` : null,
     profile.additionalInfo ? `- ข้อมูลเพิ่มเติม: ${profile.additionalInfo}` : null,
     "",
+    opts.intakeText ? `${opts.intakeText}` : null,
+    opts.intakeText ? "" : null,
     `คำถาม: ${question}`,
   );
 

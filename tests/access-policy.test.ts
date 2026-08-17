@@ -75,6 +75,17 @@ describe("free tier access policy", () => {
     await expect(assertCanRequestReading(FREE_HAPPY)).resolves.toBe("FREE");
   });
 
+  it("lets a natal intro skip the email-verify wall because it does not spend trial credits", async () => {
+    mocks.findUser.mockResolvedValue({
+      emailVerifiedAt: null,
+      passwordHash: "hash",
+    });
+
+    await expect(
+      assertCanRequestReading({ ...FREE_HAPPY, skipEmailVerify: true }),
+    ).resolves.toBe("FREE");
+  });
+
   it("waves Pro through every gate", async () => {
     mocks.getEffectivePlan.mockResolvedValue("PRO");
 

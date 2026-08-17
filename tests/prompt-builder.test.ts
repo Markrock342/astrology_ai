@@ -75,6 +75,22 @@ describe("buildConversationHistory (M3 B1)", () => {
     expect(userPrompt).toContain("คำถาม:");
   });
 
+  it("attaches the signup survey as an [intake] block", () => {
+    const { userPrompt } = buildConversationHistory(
+      [],
+      profile,
+      chart,
+      "สรุปหมวดการงาน",
+      {
+        chartMemory: memory,
+        categorySlug: "career",
+        intakeText: "[intake] แบบสำรวจตอนสมัคร\n- สถานะการงานตอนนี้: ทำงานประจำ",
+      },
+    );
+    expect(userPrompt).toContain("[intake]");
+    expect(userPrompt).toContain("ทำงานประจำ");
+  });
+
   it("attaches profile+chart+memory to every current userPrompt (not only first turn)", () => {
     const { conversationHistory, userPrompt } = buildConversationHistory(
       [

@@ -53,6 +53,11 @@ import {
 } from "@/config/constants";
 import type { ChartJson } from "@/types/chart";
 import type { BirthProfileSnapshot } from "@/types";
+import {
+  CATEGORY_INTRO_SYSTEM_HINT,
+  formatIntakeForPrompt,
+} from "@/lib/intake-survey";
+import { parseIntakeAnswers } from "@/server/user/intake-service";
 
 /**
  * Orchestrates the reading flow (spec 5.6). Enforces the four hard rules:
@@ -139,6 +144,8 @@ export type CreateReadingInput = {
   onPhase?: (phase: ChatPrepPhase) => void;
   /** Emit deterministic chart UI as soon as chart preparation completes. */
   onCharts?: (charts: ChatChartSnapshots) => void;
+  /** Natal category briefing — no credit, no quota slot. */
+  purpose?: "category_intro";
 };
 
 export async function createReading(input: CreateReadingInput) {
@@ -169,6 +176,7 @@ async function runReading(
     onCharts,
   } = input;
   const mode = input.mode ?? "NATAL";
+  const skipCredits = input.purpose === "category_intro";
 
   // 0. Idempotency: if we already produced a reading for this key, return it.
   if (idempotencyKey) {
@@ -208,18 +216,25 @@ async function runReading(
     categoryAccessLevel: category.accessLevel,
     mode,
     isFollowUp: (priorMessages?.length ?? 0) > 0,
+    skipEmailVerify: skipCredits,
   });
 
   // Chart phase — natal + optional transit evidence.
   onPhase?.("chart");
-  const [profile, wallet, , natalChartRaw] = await Promise.all([
+  const [profile, wallet, , natalChartRaw, intakeRow] = await Promise.all([
     prisma.birthProfile.findUnique({ where: { userId } }),
-    prisma.creditWallet.findUnique({ where: { userId } }),
-    assertWithinUsageLimits(userId),
+    skipCredits
+      ? Promise.resolve(null)
+      : prisma.creditWallet.findUnique({ where: { userId } }),
+    skipCredits ? Promise.resolve(undefined) : assertWithinUsageLimits(userId),
     requireReadyNatalChart(userId),
+    prisma.userIntake.findUnique({
+      where: { userId },
+      select: { answers: true },
+    }),
   ]);
   if (!profile) throw new AppError("VALIDATION", "Birth profile is required");
-  if ((wallet?.balance ?? 0) < category.creditCost) {
+  if (!skipCredits && (wallet?.balance ?? 0) < category.creditCost) {
     throw new AppError("NO_QUOTA", "Not enough credit");
   }
 
@@ -315,6 +330,10 @@ async function runReading(
   } else if (plan === "FREE") {
     systemPrompt = `${systemPrompt}\n\n${DETAILED_ANSWER_HINT_FREE}`;
   }
+  if (skipCredits) {
+    systemPrompt = `${systemPrompt}\n\n${CATEGORY_INTRO_SYSTEM_HINT}`;
+  }
+  const intakeAnswers = parseIntakeAnswers(intakeRow?.answers);
   const { conversationHistory, userPrompt } = buildConversationHistory(
     priorMessages ?? [],
     snapshot,
@@ -324,6 +343,7 @@ async function runReading(
       chartMemory,
       categorySlug,
       transitChartJson: transitChart,
+      intakeText: intakeAnswers ? formatIntakeForPrompt(intakeAnswers) : null,
     },
   );
 
@@ -343,12 +363,14 @@ async function runReading(
 
   // Writing phase — reserve quota then call the model.
   onPhase?.("writing");
-  const reservationId = await reserveUsageSlot({
-    userId,
-    creditCost: category.creditCost,
-    provider: config.provider,
-    modelId: config.modelId,
-  });
+  const reservationId = skipCredits
+    ? null
+    : await reserveUsageSlot({
+        userId,
+        creditCost: category.creditCost,
+        provider: config.provider,
+        modelId: config.modelId,
+      });
 
   // Everything past the reservation runs under a release-on-throw guard. A
   // RESERVED row counts against quota, and an error escaping here (DB blip,
@@ -377,7 +399,7 @@ async function runReading(
     // On failure/timeout: release reservation, log failure, DO NOT charge.
     // An explicit stop with no text yet is a cancelled turn — not a provider error.
     if (result.stopped && !result.rawText?.trim()) {
-      await releaseUsageReservation(reservationId);
+      if (reservationId) await releaseUsageReservation(reservationId);
       await logUsage({
         userId,
         provider: result.provider,
@@ -400,7 +422,7 @@ async function runReading(
     }
 
     if (!result.ok || !result.rawText) {
-      await releaseUsageReservation(reservationId);
+      if (reservationId) await releaseUsageReservation(reservationId);
       await logUsage({
         userId,
         provider: result.provider,
@@ -438,19 +460,26 @@ async function runReading(
         ? `${result.rawText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
         : result.rawText;
 
-    // Success => charge tx: finalize reservation, deduct credit, persist reading.
-    const reading = await prisma.$transaction(async (tx) => {
-      await lockWalletForUpdate(userId, tx);
+    const creditCost = skipCredits ? 0 : category.creditCost;
 
-      const reserved = await tx.aIUsageLog.findFirst({
-        where: { id: reservationId, userId, status: "RESERVED" },
-        select: { id: true },
-      });
-      if (!reserved) {
-        throw new AppError(
-          "INTERNAL",
-          "Usage reservation expired — please retry",
-        );
+    // Success => persist reading. Paid turns finalize the reservation and deduct.
+    const reading = await prisma.$transaction(async (tx) => {
+      if (!skipCredits) {
+        if (!reservationId) {
+          throw new AppError("INTERNAL", "Usage reservation missing");
+        }
+        await lockWalletForUpdate(userId, tx);
+
+        const reserved = await tx.aIUsageLog.findFirst({
+          where: { id: reservationId, userId, status: "RESERVED" },
+          select: { id: true },
+        });
+        if (!reserved) {
+          throw new AppError(
+            "INTERNAL",
+            "Usage reservation expired — please retry",
+          );
+        }
       }
 
       const created = await tx.horoscopeReading.create({
@@ -467,44 +496,61 @@ async function runReading(
           promptTemplateId: templateId ?? undefined,
           promptVersion: undefined,
           status: "SUCCESS",
-          creditCost: category.creditCost,
+          creditCost,
         },
       });
 
-      await deductCredits(
-        userId,
-        category.creditCost,
-        { type: "AI_USAGE", referenceType: "reading", referenceId: created.id },
-        tx,
-      );
+      if (!skipCredits && reservationId) {
+        await deductCredits(
+          userId,
+          category.creditCost,
+          { type: "AI_USAGE", referenceType: "reading", referenceId: created.id },
+          tx,
+        );
 
-      await tx.aIUsageLog.update({
-        where: { id: reservationId },
-        data: {
-          status: "SUCCESS",
-          readingId: created.id,
-          // The reservation was created with the PRIMARY model id. If the router
-          // fell back to another model, this row must reflect the one that
-          // actually ran — otherwise its estimatedCost (priced on the fallback)
-          // and the admin's per-model attribution disagree with reality.
-          provider: result.provider,
-          modelId: result.modelId,
-          inputUsage: result.usage?.inputTokens,
-          outputUsage: result.usage?.outputTokens,
-          latencyMs: result.latencyMs,
-          firstTokenMs: result.firstTokenMs,
-          // The billable row is UPDATED from its reservation, so it never passes
-          // through logUsage() — price it here or the one row that actually
-          // costs money is the one row with no cost on it. Cache hits are
-          // priced at 10%, so this is the true bill, not a list-price guess.
-          estimatedCost: estimateCostUsd(
-            result.modelId,
-            result.usage?.inputTokens,
-            result.usage?.outputTokens,
-            result.usage?.cachedTokens,
-          ),
-        },
-      });
+        await tx.aIUsageLog.update({
+          where: { id: reservationId },
+          data: {
+            status: "SUCCESS",
+            readingId: created.id,
+            // The reservation was created with the PRIMARY model id. If the router
+            // fell back to another model, this row must reflect the one that
+            // actually ran — otherwise its estimatedCost (priced on the fallback)
+            // and the admin's per-model attribution disagree with reality.
+            provider: result.provider,
+            modelId: result.modelId,
+            inputUsage: result.usage?.inputTokens,
+            outputUsage: result.usage?.outputTokens,
+            latencyMs: result.latencyMs,
+            firstTokenMs: result.firstTokenMs,
+            // The billable row is UPDATED from its reservation, so it never passes
+            // through logUsage() — price it here or the one row that actually
+            // costs money is the one row with no cost on it. Cache hits are
+            // priced at 10%, so this is the true bill, not a list-price guess.
+            estimatedCost: estimateCostUsd(
+              result.modelId,
+              result.usage?.inputTokens,
+              result.usage?.outputTokens,
+              result.usage?.cachedTokens,
+            ),
+          },
+        });
+      } else {
+        await logUsage(
+          {
+            userId,
+            readingId: created.id,
+            provider: result.provider,
+            modelId: result.modelId,
+            status: "SUCCESS",
+            inputUsage: result.usage?.inputTokens,
+            outputUsage: result.usage?.outputTokens,
+            cachedUsage: result.usage?.cachedTokens,
+            latencyMs: result.latencyMs,
+          },
+          tx,
+        );
+      }
 
       return created;
     });
@@ -515,16 +561,18 @@ async function runReading(
     // timeout AFTER the answer had already finished typing. Kick it off and hand
     // the promise back so the route can send `done` now and deliver meta later.
     // Only the streaming path consumes it; the legacy 202 path never ships meta.
-    const metaPromise: Promise<FollowUpMeta> = onDelta
-      ? generateFollowUpMeta({
-          userId,
-          question,
-          answer: result.rawText,
-          categoryName: category.nameTh,
-          categoryId: category.id,
-          planScope: plan,
-        })
-      : Promise.resolve({ followUps: [] });
+    // Natal intros skip chips — the CTA is "go to transit", not another question.
+    const metaPromise: Promise<FollowUpMeta> =
+      onDelta && !skipCredits
+        ? generateFollowUpMeta({
+            userId,
+            question,
+            answer: result.rawText,
+            categoryName: category.nameTh,
+            categoryId: category.id,
+            planScope: plan,
+          })
+        : Promise.resolve({ followUps: [] });
 
     return {
       ...reading,
@@ -533,7 +581,9 @@ async function runReading(
       metaPromise,
     };
   } catch (err) {
-    await releaseUsageReservation(reservationId).catch(() => {});
+    if (reservationId) {
+      await releaseUsageReservation(reservationId).catch(() => {});
+    }
     throw err;
   }
 }
