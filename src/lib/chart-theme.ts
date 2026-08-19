@@ -81,6 +81,28 @@ export const SIGNS = [
   "มีน",
 ] as const;
 
+/**
+ * Bhava (house) names for the inner ring of the "ราศีจักร" chart.
+ *
+ * Contract:
+ * - House 1 = "ตนุ"
+ * - Order goes counterclockwise to match how `houseFromLagna()` numbers 1..12
+ */
+export const HOUSE_NAMES = [
+  "ตนุ",
+  "กดุมภะ",
+  "สหัชชะ",
+  "พันธุ",
+  "ปุตตะ",
+  "อริ",
+  "ปัตนิ",
+  "มรณะ",
+  "ศุภะ",
+  "กัมมะ",
+  "ลาภะ",
+  "วินาศ",
+] as const;
+
 /** Display labels for the outer rasi ring (template uses กุมภ์). */
 export const SIGN_LABEL: Record<(typeof SIGNS)[number], string> = {
   เมษ: "เมษ",
@@ -161,4 +183,10 @@ export function houseFromLagna(lagnaSign: string, planetSign: string): number {
   const lagnaIdx = signIndex(lagnaSign);
   const planetIdx = signIndex(planetSign);
   return ((planetIdx - lagnaIdx + 12) % 12) + 1;
+}
+
+/** Map a sign position to its corresponding bhava name (ตามลัคนา). */
+export function bhavaNameFromLagna(lagnaSign: string, planetSign: string): string {
+  const house = houseFromLagna(lagnaSign, planetSign);
+  return HOUSE_NAMES[house - 1] ?? "—";
 }

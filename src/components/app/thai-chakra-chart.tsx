@@ -5,12 +5,11 @@ import { createPortal } from "react-dom";
 import type { DerivedChart } from "@/lib/chart-derivations";
 import {
   getPlanetTheme,
-  houseFromLagna,
+  bhavaNameFromLagna,
   LAGNA_MARK,
   normalizeSignName,
   signLabel,
   SIGNS,
-  toThaiNumeral,
 } from "@/lib/chart-theme";
 
 const VIEWBOX = 360;
@@ -20,6 +19,8 @@ const GRID_MIN = 54;
 const GRID_MAX = 306;
 const CORE_MIN = 126;
 const CORE_MAX = 234;
+const OUTER_RING_LABEL_R = 177;
+const INNER_RING_LABEL_R = 150;
 
 const CELL_POSITIONS = [
   { x: 102, y: 90 },
@@ -128,10 +129,10 @@ function ThaiChakraFigure({
           <line x1={GRID_MIN} y1={CENTER} x2={CORE_MIN} y2={CENTER} />
         </g>
 
+        {/* Outer ring: fixed rasi (sign) names */}
         {SIGNS.map((sign, index) => {
           const angle = index * 30;
-          const label = polar(177, angle);
-          const house = houseFromLagna(lagna, sign);
+          const label = polar(OUTER_RING_LABEL_R, angle);
           return (
             <text
               key={sign}
@@ -142,7 +143,27 @@ function ThaiChakraFigure({
               fill="var(--muted)"
               fontSize="8"
             >
-              {toThaiNumeral(house)} {signLabel(sign)}
+              {signLabel(sign)}
+            </text>
+          );
+        })}
+
+        {/* Inner ring: bhava (house) names driven by lagna */}
+        {SIGNS.map((sign, index) => {
+          const angle = index * 30;
+          const label = polar(INNER_RING_LABEL_R, angle);
+          const bhavaName = bhavaNameFromLagna(lagna, sign);
+          return (
+            <text
+              key={`${sign}-bhava`}
+              x={label.x}
+              y={label.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="var(--muted-2)"
+              fontSize="7"
+            >
+              {bhavaName}
             </text>
           );
         })}
@@ -151,6 +172,7 @@ function ThaiChakraFigure({
           const position = CELL_POSITIONS[index];
           const planets = planetsBySign.get(sign) ?? [];
           const isLagna = sign === lagna;
+          const bhavaName = bhavaNameFromLagna(lagna, sign);
           const labels = [
             ...(isLagna
               ? [
@@ -200,7 +222,7 @@ function ThaiChakraFigure({
                   >
                     {item.symbol}
                     <title>
-                      {item.planet} · ราศี{sign}
+                      {item.planet} · ราศี{sign} · ภพ{bhavaName}
                     </title>
                   </text>
                 );
