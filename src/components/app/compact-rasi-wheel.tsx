@@ -6,6 +6,7 @@ import {
   SIGNS,
   getPlanetTheme,
   getSignTheme,
+  bhavaNameFromLagna,
   houseFromLagna,
   LAGNA_MARK,
   normalizeSignName,
@@ -20,6 +21,7 @@ const CY = SIZE / 2;
 const R_OUTER = 198;
 const R_INNER = 108;
 const R_LABEL = 168;
+const R_BHAVA_LABEL = 152;
 const R_PLANET = 138;
 
 function polar(cx: number, cy: number, r: number, deg: number) {
@@ -60,7 +62,6 @@ export function CompactRasiWheel({
           startDeg,
           endDeg,
           midDeg,
-          house: rel + 1,
           theme: getSignTheme(sign),
         };
       }),
@@ -121,14 +122,16 @@ export function CompactRasiWheel({
         strokeWidth="1"
       />
 
-      {segments.map(({ sign, startDeg, endDeg, midDeg, house, theme }) => {
+      {segments.map(({ sign, startDeg, endDeg, midDeg, theme }) => {
         const p1 = polar(CX, CY, R_INNER, startDeg);
         const p2 = polar(CX, CY, R_OUTER, startDeg);
         const p3 = polar(CX, CY, R_OUTER, endDeg);
         const p4 = polar(CX, CY, R_INNER, endDeg);
         const label = polar(CX, CY, R_LABEL, midDeg);
+        const bhavaLabel = polar(CX, CY, R_BHAVA_LABEL, midDeg);
         const lagnaPos = polar(CX, CY, R_INNER + 16, midDeg);
         const isLagna = sign === lagna;
+        const bhavaName = bhavaNameFromLagna(lagna, sign);
         return (
           <g key={sign}>
             <path
@@ -146,7 +149,18 @@ export function CompactRasiWheel({
               fontSize={isLagna ? 13 : 12}
               fontWeight={600}
             >
-              {toThaiNumeral(house)} {signLabel(sign)}
+              {signLabel(sign)}
+            </text>
+            <text
+              x={bhavaLabel.x}
+              y={bhavaLabel.y + 2}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill={isLagna ? "#f3d089" : "var(--muted)"}
+              fontSize={isLagna ? 12 : 11}
+              fontWeight={600}
+            >
+              {bhavaName}
             </text>
             {isLagna ? (
               <text
@@ -230,7 +244,8 @@ export function CompactRasiWheel({
             <title>
               {theme.numeral} {row.planet} · ราศี{signLabel(rowSign)}
               {row.degreeText ? ` · ${row.degreeText}` : ""} · เรือน{" "}
-              {toThaiNumeral(houseFromLagna(lagna, row.siderealSign))}
+              {toThaiNumeral(houseFromLagna(lagna, row.siderealSign))} · ภพ
+              {bhavaNameFromLagna(lagna, row.siderealSign)}
             </title>
           </g>
         );

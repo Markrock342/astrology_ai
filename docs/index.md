@@ -1,9 +1,10 @@
 # HoraSard — Master Index / Architecture Map
 
-สารบัญกลางของโปรเจกต์ (อัปเดต: 26 ก.ค. 2026)
+สารบัญกลางของโปรเจกต์ (อัปเดต: 19 ส.ค. 2026)
 
-**ฐาน:** `origin/main` + dashboard soft-nav merge  
-**หมายเหตุ:** `.cursorrules` เป็น local only — ห้าม commit · GitHub Actions billing-locked (ดู README) — gate จริงคือ Vercel `vercel-build`
+**ฐาน:** `origin/main` @ `83fad64` (intake survey + briefings หมวดไม่หักเครดิต)  
+**โฮสต์:** Coolify / Nixpacks — DB = PostgreSQL ของผู้ให้บริการโฮสต์ชุดเดียวกับแอป (ไม่ใช่ Supabase แยกเป็นที่เก็บหลักแล้ว) — [ops_hosting.md](./ops_hosting.md)  
+**หมายเหตุ:** `.cursorrules` เป็น local only — ห้าม commit · GitHub Actions billing-locked (ดู README)
 
 ## ภาพรวมสถาปัตยกรรม
 
@@ -11,10 +12,10 @@
 UI (src/app, src/components)  →  เรียก API เท่านั้น ไม่มี business logic
 API (src/app/api/*)           →  validate (Zod) + authorize (rbac) + handle()
 Service (src/server/*)        →  business logic ทั้งหมด
-DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
+DB (prisma/)                  →  PostgreSQL บนโฮสต์เดียวกับแอป (Prisma 6)
 ```
 
-**กฎเหล็ก:** ห้ามเรียก AI จาก browser · API key เข้ารหัสใน DB (legacy env whitelist เป็น fallback) · หักเครดิตหลัง AI สำเร็จ + `Idempotency-Key` · โลโก้ CMS เก็บใน DB เสิร์ฟ `/api/media/:id` (ไม่ผูก Vercel Blob)
+**กฎเหล็ก:** ห้ามเรียก AI จาก browser · API key เข้ารหัสใน DB (`AI_SECRET_ENC_KEY` อยู่ที่โฮสต์) · หักเครดิตหลัง AI สำเร็จ + `Idempotency-Key` · โลโก้ CMS เก็บใน DB เสิร์ฟ `/api/media/:id`
 
 **เอกสารอ้างอิง:** `README.md` · `PROJECT_STRUCTURE.md` · `BACKEND_TASKS.md` · `FRONTEND_TASKS.md` · **`M4_HANDOFF.md`**
 
@@ -23,13 +24,17 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 **Wave E:** [backend_wave_e.md](./backend_wave_e.md) *(merge แล้ว)*  
 **Performance:** [backend_performance.md](./backend_performance.md)  
 **Chart memory / token:** [backend_chart_memory.md](./backend_chart_memory.md) · [TOKEN_COST_OPTIMIZATION_CLIENT_SUMMARY.md](./TOKEN_COST_OPTIMIZATION_CLIENT_SUMMARY.md)  
+**ราศีจักร / ภพเรือนตามลัคนา:** [rasi_chakra_houses.md](./rasi_chakra_houses.md)  
 **UX Wave F:** [UX_WAVE_F_ASSIGN.md](../UX_WAVE_F_ASSIGN.md) · [UX_WAVE_F_BE.md](../UX_WAVE_F_BE.md) · [UX_WAVE_F_FE.md](../UX_WAVE_F_FE.md)  
 **Gemini billing ops:** [ops_gemini_billing_alerts.md](./ops_gemini_billing_alerts.md)  
 **App UI / mobile:** [frontend_app_ui.md](./frontend_app_ui.md)  
 **Admin CMS UX (preview / health / models):** [admin_cms_ux.md](./admin_cms_ux.md)  
 **Landing hero background (รูป/วิดีโอ CMS):** [admin_landing_hero.md](./admin_landing_hero.md)  
 **Admin AI + keys:** [backend_ai_admin.md](./backend_ai_admin.md)  
-**คู่มือหน้าโมเดล AI (ละเอียด / สำหรับเพื่อนโยน AI):** [`SETTINGS_MODEL_AI.md`](../SETTINGS_MODEL_AI.md)
+**คู่มือหน้าโมเดล AI (ละเอียด / สำหรับเพื่อนโยน AI):** [`SETTINGS_MODEL_AI.md`](../SETTINGS_MODEL_AI.md)  
+**โฮสต์ + DB ปัจจุบัน:** [ops_hosting.md](./ops_hosting.md)  
+**Onboarding intake / briefing หมวด:** [onboarding_intake.md](./onboarding_intake.md)  
+**Ops prod checklist:** [OPS_PROD_CHECKLIST.md](./OPS_PROD_CHECKLIST.md)
 
 ## Milestone ปัจจุบัน
 
@@ -47,6 +52,9 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 | **คู่มือโมเดล AI** | ✅ [`SETTINGS_MODEL_AI.md`](../SETTINGS_MODEL_AI.md) ที่รากโปรเจกต์ |
 | **Landing hero background CMS** | ✅ รูป/วิดีโอเต็มจอจาก `/admin/landing` · ตัวอย่างธีม · [admin_landing_hero.md](./admin_landing_hero.md) |
 | **Dashboard soft-nav** | ✅ `useChatRouteSearchParams` + softNavigate + hard return จากตั้งค่า |
+| **ย้ายโฮสต์ + DB รวมกับผู้ให้บริการ** | ✅ Coolify/Nixpacks + Postgres โฮสต์เดียวกัน — [ops_hosting.md](./ops_hosting.md) |
+| **Onboarding intake survey** | ✅ `/onboarding/survey` + `user_intake` — briefing หมวดไม่หักเครดิต |
+| **ราศีจักร / ภพเรือนตามลัคนา** | 🟡 เริ่มลง UI แล้ว (D1 + วงเล็ก) — [rasi_chakra_houses.md](./rasi_chakra_houses.md) |
 
 **Feature gating:** `src/config/features.ts` — `NEXT_PUBLIC_APP_PHASE=2` ปิด AI chat + Admin AI CMS; ไม่ตั้ง = เปิดทั้งหมด
 
@@ -76,7 +84,8 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 
 - `POST /api/admin/ai-configs/test-key` — ทดสอบ API key ก่อนบันทึก (รองรับ OpenAI-compatible `baseUrl`)
 - `GET /api/media/:id` — เสิร์ฟรูป CMS จาก DB
-- `POST /api/admin/upload` — บันทึกรูปลง `media_assets` (ไม่ใช้ Vercel Blob)
+- `POST /api/admin/upload` — บันทึกรูปลง `media_assets` (ไม่ใช้ Vercel Blob สำหรับโลโก้)
+- `GET/PUT /api/me/intake` — แบบสำรวจ onboarding / briefing หมวด
 
 ---
 
@@ -86,7 +95,9 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 |----|-----|----------|
 | **Smoke** | ลอง UI โลโก้ + วาง AI key บน prod/staging | manual |
 | **Wave E2** | packageId FK, cron, cost tracking | [BE_ASSIGN.md](../BE_ASSIGN.md) § E2 |
+| **Ops โฮสต์ใหม่** | env + migrate + cron + smoke บน Coolify | [ops_hosting.md](./ops_hosting.md) |
 | **Ops** | Resend, Upstash, smoke prod | PM |
+| **ราศีจักรภพเรือน** | D1 วงนอกคงที่ / วงในชื่อภพตามลัคนา | [rasi_chakra_houses.md](./rasi_chakra_houses.md) |
 
 ## รอ PM ยืนยัน
 
@@ -106,3 +117,5 @@ DB (prisma/)                  →  PostgreSQL + Prisma 6 (Supabase pooler)
 - [x] AI model config repair: encrypted-only create, planScope, primary health, seed migrate, drop category.aiConfigId
 - [x] คู่มือหน้าโมเดล AI: `SETTINGS_MODEL_AI.md`
 - [x] Dashboard soft-nav (`useChatRouteSearchParams` + softNavigate null-state)
+- [x] ย้ายโฮสต์ไป Coolify + ใช้ Postgres ของผู้ให้บริการโฮสต์ (สถานะ ops จดใน docs)
+- [x] Onboarding intake survey + category briefings ไม่หักเครดิต

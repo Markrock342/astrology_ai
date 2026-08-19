@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getPlanetTheme,
+  bhavaNameFromLagna,
   houseFromLagna,
   normalizeSignName,
   signIndex,
@@ -57,5 +58,14 @@ describe("signIndex / houseFromLagna with coded signs", () => {
     // Lagna กันย์ (idx 5), planet พิจิก (idx 7) → house 3
     expect(houseFromLagna("กันย์", "07 : พจ")).toBe(3);
     expect(houseFromLagna("กันย์", "พิจิก")).toBe(3);
+  });
+});
+
+describe("bhavaNameFromLagna", () => {
+  it("maps lagna กันย์ to the correct bhava names", () => {
+    // Example from `docs/rasi_chakra_houses.md`
+    expect(bhavaNameFromLagna("กันย์", "กันย์")).toBe("ตนุ");
+    expect(bhavaNameFromLagna("กันย์", "ตุลย์")).toBe("กดุมภะ");
+    expect(bhavaNameFromLagna("กันย์", "สิงห์")).toBe("วินาศ");
   });
 });

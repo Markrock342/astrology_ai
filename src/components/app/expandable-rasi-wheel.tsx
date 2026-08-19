@@ -6,6 +6,7 @@ import { CompactRasiWheel } from "./compact-rasi-wheel";
 import {
   getPlanetMeaning,
   getPlanetTheme,
+  bhavaNameFromLagna,
   houseFromLagna,
   normalizeSignName,
   PLANET_ORDER,
@@ -44,6 +45,7 @@ export function ExpandableRasiWheel({
           planet: row.planet,
           sign: normalizeSignName(row.siderealSign),
           house: houseFromLagna(lagna, row.siderealSign),
+          bhavaName: bhavaNameFromLagna(lagna, row.siderealSign),
           degreeText: row.degreeText ?? null,
           theme: getPlanetTheme(row.planet),
           meaning: getPlanetMeaning(row.planet),
@@ -169,7 +171,9 @@ export function ExpandableRasiWheel({
                       </span>
                       {selectedRow.planet}
                       <span className="text-[11px] font-normal text-[var(--muted)]">
-                        ราศี{selectedRow.sign} · เรือน {toThaiNumeral(selectedRow.house)}
+                        ราศี{selectedRow.sign} · ภพ{selectedRow.bhavaName}
+                        {/* Keep the numeric house number for power-users / legacy copy */}
+                        <span className="sr-only"> (เรือน {toThaiNumeral(selectedRow.house)})</span>
                         {selectedRow.degreeText ? ` · ${selectedRow.degreeText}` : ""}
                       </span>
                     </p>
@@ -179,8 +183,8 @@ export function ExpandableRasiWheel({
                   </div>
                 ) : (
                   <p className="mt-1 max-w-sm text-center text-[11px] leading-relaxed text-[var(--muted)]">
-                    ช่องสีทองคือลัคนา (จุดเริ่มต้นเรือนที่ 1) ตัวเลขคือเรือนชะตา
-                    1–12 — แตะที่ดาวเพื่อดูความหมายและตำแหน่ง
+                    ช่องสีทองคือลัคนา (จุดเริ่มต้นภพที่ 1) ชื่อภพคือคำที่แสดงรอบวง —
+                    แตะที่ดาวเพื่อดูความหมายและตำแหน่ง
                   </p>
                 )}
 
