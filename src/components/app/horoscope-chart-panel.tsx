@@ -97,9 +97,11 @@ function EvidenceGrid({
 export function HoroscopeChartPanel({
   natal,
   transit,
+  description = "ตำแหน่งดาวชุดเดียวกับที่ใช้วิเคราะห์คำตอบ",
 }: {
   natal: ChartJson;
   transit?: ChartJson | null;
+  description?: string;
 }) {
   const d1 = useMemo(() => baseChart(natal), [natal]);
   const d9 = useMemo(() => deriveDivisionalChart(natal, "navamsa"), [natal]);
@@ -122,7 +124,7 @@ export function HoroscopeChartPanel({
             ผังดวงชะตา
           </h3>
           <p className="mt-0.5 text-[11px] text-[var(--muted)]">
-            ตำแหน่งดาวชุดเดียวกับที่ใช้วิเคราะห์คำตอบ
+            {description}
           </p>
         </div>
       </header>
