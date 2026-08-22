@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   findFirst: vi.fn(),
   findUnique: vi.fn(),
+  natalFindUnique: vi.fn(),
   count: vi.fn(),
   transaction: vi.fn(),
   messageCreate: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("@/server/db", () => ({
       update: mocks.conversationUpdate,
     },
     horoscopeReading: { findFirst: mocks.findFirst },
+    natalChart: { findUnique: mocks.natalFindUnique },
     message: {
       findUnique: mocks.findUnique,
       findFirst: mocks.findFirst,
@@ -71,9 +73,37 @@ describe("listConversationThreads (M3)", () => {
 describe("getThreadDetail (M3)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.natalFindUnique.mockResolvedValue(null);
   });
 
   it("returns all messages from a conversation thread", async () => {
+    const persistedChart = {
+      input: {
+        day: 21,
+        month: 5,
+        year: 2006,
+        time: "18:31",
+        country: "ไทย",
+        province: "กรุงเทพมหานคร",
+        district: "พระนคร",
+      },
+      calculatedAt: "2026-08-23T00:00:00.000Z",
+      settings: {
+        calendar: "suryayat",
+        ayanamsa: "lahiri",
+        timeMethod: "antonathi_samrap_sunrise_local",
+        rahuRule: "eight_signs_aquarius",
+        taksaRahuLord: "mercury_night",
+        taksaCountFrom: "center",
+      },
+      meta: { birthDisplay: "21 พ.ค. 2549", locationDisplay: "กรุงเทพมหานคร" },
+      planets: [],
+      chart: { lagna: "พิจิก", taksa: [] },
+    };
+    mocks.natalFindUnique.mockResolvedValue({
+      status: "READY",
+      chartJson: persistedChart,
+    });
     mocks.findFirst.mockResolvedValueOnce({
       id: "conv-1",
       mode: "NATAL",
@@ -110,6 +140,8 @@ describe("getThreadDetail (M3)", () => {
       createdAt: "2026-07-14T10:00:00.000Z",
     });
     expect(detail.mode).toBe("NATAL");
+    expect(detail.messages[1].chartSnapshot).toEqual(persistedChart);
+    expect(detail.messages[0].chartSnapshot).toBeUndefined();
   });
 
   it("falls back to legacy HoroscopeReading when conversation is missing", async () => {
@@ -134,6 +166,7 @@ describe("pollThreadForUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.findFirst.mockResolvedValue({ id: "conv-1" });
+    mocks.natalFindUnique.mockResolvedValue(null);
   });
 
   it("returns hasPending without loading full messages", async () => {

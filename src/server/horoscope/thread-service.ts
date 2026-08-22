@@ -9,6 +9,7 @@ import type {
   ReadingStatus,
 } from "@prisma/client";
 import { isCategoryIntroQuestion } from "@/lib/intake-survey";
+import type { ChartJson } from "@/types/chart";
 
 /**
  * Every message still part of the conversation.
@@ -51,6 +52,8 @@ export type ThreadMessage = {
    * invisible on a laptop, and clearing site data silently un-voted everything.
    */
   feedback?: "up" | "down";
+  /** Natal evidence restored independently of the transient SSE response. */
+  chartSnapshot?: ChartJson | null;
 };
 
 export type ThreadDetail = {
@@ -65,6 +68,27 @@ export type ThreadDetail = {
   transitProvince?: string | null;
   transitDistrict?: string | null;
 };
+
+/** Attach the persisted natal chart once, exactly where the chat UI expects it. */
+export function attachNatalChartToFirstAssistant(
+  messages: ThreadMessage[],
+  chart: ChartJson | null,
+): ThreadMessage[] {
+  if (!chart) return messages;
+  let attached = false;
+  return messages.map((message) => {
+    if (
+      attached ||
+      message.role !== "assistant" ||
+      message.status === "FAILED" ||
+      message.status === "TIMEOUT"
+    ) {
+      return message;
+    }
+    attached = true;
+    return { ...message, chartSnapshot: chart };
+  });
+}
 
 function truncateTitle(text: string, max = 48): string {
   const trimmed = text.trim();
@@ -118,40 +142,51 @@ export async function getThreadDetail(
   // too — waiting for the user's next message left the old one "generating".
   await sweepStalePendingAssistants(threadId);
 
-  const conversation = await prisma.conversation.findFirst({
-    where: { id: threadId, userId },
-    select: {
-      id: true,
-      mode: true,
-      transitDate: true,
-      transitTime: true,
-      transitCountry: true,
-      transitProvince: true,
-      transitDistrict: true,
-      category: { select: { slug: true, nameTh: true } },
-      messages: {
-        where: LIVE,
-        orderBy: { createdAt: "asc" },
-        take: 200,
-        select: {
-          id: true,
-          role: true,
-          content: true,
-          modelId: true,
-          status: true,
-          idempotencyKey: true,
-          createdAt: true,
-          // Only the caller's own verdict — one row at most, thanks to the
-          // unique [messageId, userId].
-          feedback: {
-            where: { userId },
-            select: { value: true },
-            take: 1,
+  const [conversation, natalChart] = await Promise.all([
+    prisma.conversation.findFirst({
+      where: { id: threadId, userId },
+      select: {
+        id: true,
+        mode: true,
+        transitDate: true,
+        transitTime: true,
+        transitCountry: true,
+        transitProvince: true,
+        transitDistrict: true,
+        category: { select: { slug: true, nameTh: true } },
+        messages: {
+          where: LIVE,
+          orderBy: { createdAt: "asc" },
+          take: 200,
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            modelId: true,
+            status: true,
+            idempotencyKey: true,
+            createdAt: true,
+            // Only the caller's own verdict — one row at most, thanks to the
+            // unique [messageId, userId].
+            feedback: {
+              where: { userId },
+              select: { value: true },
+              take: 1,
+            },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.natalChart.findUnique({
+      where: { userId },
+      select: { status: true, chartJson: true },
+    }),
+  ]);
+
+  const persistedNatal =
+    natalChart?.status === "READY" && natalChart.chartJson
+      ? (natalChart.chartJson as unknown as ChartJson)
+      : null;
 
   if (conversation) {
     // Allow empty threads (e.g. just-created TRANSIT before first message).
@@ -165,23 +200,28 @@ export async function getThreadDetail(
       transitCountry: conversation.transitCountry,
       transitProvince: conversation.transitProvince,
       transitDistrict: conversation.transitDistrict,
-      messages: conversation.messages.map((m) => ({
-        id: m.id,
-        role: m.role === "USER" ? "user" : "assistant" as const,
-        content: m.content,
-        modelId: m.modelId ?? undefined,
-        status: m.status,
-        // Exposed only while generating, so a reloaded tab can still stop it.
-        idempotencyKey:
-          m.status === "PENDING" ? (m.idempotencyKey ?? undefined) : undefined,
-        createdAt: m.createdAt.toISOString(),
-        feedback:
-          m.feedback[0]?.value === "UP"
-            ? ("up" as const)
-            : m.feedback[0]?.value === "DOWN"
-              ? ("down" as const)
+      messages: attachNatalChartToFirstAssistant(
+        conversation.messages.map((m) => ({
+          id: m.id,
+          role: m.role === "USER" ? "user" : ("assistant" as const),
+          content: m.content,
+          modelId: m.modelId ?? undefined,
+          status: m.status,
+          // Exposed only while generating, so a reloaded tab can still stop it.
+          idempotencyKey:
+            m.status === "PENDING"
+              ? (m.idempotencyKey ?? undefined)
               : undefined,
-      })),
+          createdAt: m.createdAt.toISOString(),
+          feedback:
+            m.feedback[0]?.value === "UP"
+              ? ("up" as const)
+              : m.feedback[0]?.value === "DOWN"
+                ? ("down" as const)
+                : undefined,
+        })),
+        persistedNatal,
+      ),
     };
   }
 
@@ -209,19 +249,22 @@ export async function getThreadDetail(
     categorySlug: reading.category.slug,
     categoryLabel: reading.category.nameTh,
     mode: "NATAL",
-    messages: [
-      {
-        id: `legacy-${reading.id}-user`,
-        role: "user",
-        content: reading.question,
-      },
-      {
-        id: `legacy-${reading.id}-assistant`,
-        role: "assistant",
-        content: reading.responseText,
-        modelId: reading.modelId ?? undefined,
-      },
-    ],
+    messages: attachNatalChartToFirstAssistant(
+      [
+        {
+          id: `legacy-${reading.id}-user`,
+          role: "user",
+          content: reading.question,
+        },
+        {
+          id: `legacy-${reading.id}-assistant`,
+          role: "assistant",
+          content: reading.responseText,
+          modelId: reading.modelId ?? undefined,
+        },
+      ],
+      persistedNatal,
+    ),
   };
 }
 
