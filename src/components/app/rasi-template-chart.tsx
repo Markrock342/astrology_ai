@@ -1,0 +1,320 @@
+import type { PlanetSignRow } from "@/types/chart";
+import {
+  bhavaNameFromLagna,
+  getPlanetTheme,
+  LAGNA_MARK,
+  normalizeSignName,
+  PLANET_ORDER,
+  signLabel,
+  SIGNS,
+} from "@/lib/chart-theme";
+
+export type RasiTemplateChartData = {
+  lagna: string;
+  planets: PlanetSignRow[];
+};
+
+const VIEWBOX = 420;
+const CENTER = VIEWBOX / 2;
+const OUTER_RADIUS = 198;
+const SIGN_RING_INNER_RADIUS = 171;
+const HOUSE_RING_INNER_RADIUS = 144;
+const INTERIOR_RING_RADIUS = 141;
+const CORE_HALF = INTERIOR_RING_RADIUS * Math.sin(Math.PI / 12);
+const GOLD = "#d4a84b";
+const CREAM = "#f1ede5";
+const BACKGROUND = "#0d0d0f";
+
+/** เจ้าเรือนตามป้ายวงนอกของไฟล์ Horasard Template ราศีจักร.ai */
+export const SIGN_RULER_NUMERALS = [
+  "๓",
+  "๖",
+  "๔",
+  "๒",
+  "๑",
+  "๔",
+  "๖",
+  "๓",
+  "๕",
+  "๗",
+  "๘",
+  "๕",
+] as const;
+
+/**
+ * ตำแหน่งราศีในแบบพิมพ์: เมษอยู่บนสุด แล้วเรียงทวนเข็มนาฬิกาเสมอ
+ * ลัคนาเปลี่ยนเฉพาะชื่อภพและเครื่องหมาย ล — ห้ามหมุนวงตามลัคนา
+ */
+export const TEMPLATE_SIGN_CENTERS = [
+  { x: 210, y: 105 },
+  { x: 148, y: 122 },
+  { x: 114, y: 158 },
+  { x: 105, y: 210 },
+  { x: 114, y: 262 },
+  { x: 148, y: 298 },
+  { x: 210, y: 315 },
+  { x: 272, y: 298 },
+  { x: 306, y: 262 },
+  { x: 315, y: 210 },
+  { x: 306, y: 158 },
+  { x: 272, y: 122 },
+] as const;
+
+function polar(radius: number, degree: number) {
+  const rad = ((degree - 90) * Math.PI) / 180;
+  return {
+    x: CENTER + radius * Math.cos(rad),
+    y: CENTER + radius * Math.sin(rad),
+  };
+}
+
+function uprightRotation(degree: number): number {
+  const normalized = ((degree % 360) + 360) % 360;
+  if (normalized > 90 && normalized < 270) return normalized - 180;
+  if (normalized >= 270) return normalized - 360;
+  return normalized;
+}
+
+function coreTarget(boundaryIndex: number) {
+  if (boundaryIndex === 0 || boundaryIndex >= 10) {
+    return { x: CENTER - CORE_HALF, y: CENTER - CORE_HALF };
+  }
+  if (boundaryIndex <= 3) {
+    return { x: CENTER + CORE_HALF, y: CENTER - CORE_HALF };
+  }
+  if (boundaryIndex <= 6) {
+    return { x: CENTER + CORE_HALF, y: CENTER + CORE_HALF };
+  }
+  return { x: CENTER - CORE_HALF, y: CENTER + CORE_HALF };
+}
+
+function planetOffsets(count: number): Array<{ x: number; y: number }> {
+  if (count <= 1) return [{ x: 0, y: 0 }];
+  if (count === 2) return [{ x: -12, y: 0 }, { x: 12, y: 0 }];
+  if (count === 3) {
+    return [{ x: -17, y: 0 }, { x: 0, y: 0 }, { x: 17, y: 0 }];
+  }
+  if (count === 4) {
+    return [
+      { x: -12, y: -10 },
+      { x: 12, y: -10 },
+      { x: -12, y: 12 },
+      { x: 12, y: 12 },
+    ];
+  }
+  return Array.from({ length: count }, (_, index) => ({
+    x: ((index % 3) - 1) * 17,
+    y: (Math.floor(index / 3) - 0.5) * 18,
+  }));
+}
+
+export function templateHouseLabels(lagna: string) {
+  return SIGNS.map((sign) => bhavaNameFromLagna(lagna, sign));
+}
+
+export function RasiTemplateChart({
+  chart,
+  size = 420,
+  className = "",
+  onSelectPlanet,
+  selectedPlanet,
+}: {
+  chart: RasiTemplateChartData;
+  size?: number;
+  className?: string;
+  onSelectPlanet?: (planet: string) => void;
+  selectedPlanet?: string | null;
+}) {
+  const lagna = normalizeSignName(chart.lagna);
+  const planetsBySign = new Map<string, PlanetSignRow[]>();
+
+  for (const row of [...chart.planets].sort(
+    (a, b) =>
+      PLANET_ORDER.indexOf(a.planet as (typeof PLANET_ORDER)[number]) -
+      PLANET_ORDER.indexOf(b.planet as (typeof PLANET_ORDER)[number]),
+  )) {
+    const sign = normalizeSignName(row.siderealSign);
+    planetsBySign.set(sign, [...(planetsBySign.get(sign) ?? []), row]);
+  }
+
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
+      width={size}
+      height={size}
+      className={`h-auto max-w-full shrink-0 ${className}`}
+      role="img"
+      aria-label={`ราศีจักร ลัคนาราศี${signLabel(lagna)}`}
+    >
+      <title>{`ราศีจักร ลัคนาราศี${signLabel(lagna)}`}</title>
+      <circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 2} fill={BACKGROUND} />
+
+      <g fill="none" stroke={GOLD} strokeLinecap="round">
+        <circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS} strokeWidth="1.25" />
+        <circle
+          cx={CENTER}
+          cy={CENTER}
+          r={SIGN_RING_INNER_RADIUS}
+          strokeWidth="1"
+        />
+        <circle
+          cx={CENTER}
+          cy={CENTER}
+          r={HOUSE_RING_INNER_RADIUS}
+          strokeWidth="1"
+        />
+        <circle
+          cx={CENTER}
+          cy={CENTER}
+          r={INTERIOR_RING_RADIUS}
+          strokeWidth="0.75"
+          opacity="0.78"
+        />
+
+        {Array.from({ length: 12 }, (_, index) => {
+          const degree = -15 + index * 30;
+          const outer = polar(OUTER_RADIUS, degree);
+          const inner = polar(INTERIOR_RING_RADIUS, degree);
+          const target = coreTarget(index);
+          return (
+            <g key={`boundary-${degree}`}>
+              <line
+                x1={inner.x}
+                y1={inner.y}
+                x2={outer.x}
+                y2={outer.y}
+                strokeWidth="0.9"
+              />
+              <line
+                x1={inner.x}
+                y1={inner.y}
+                x2={target.x}
+                y2={target.y}
+                strokeWidth="0.8"
+                opacity="0.92"
+              />
+            </g>
+          );
+        })}
+
+        <rect
+          x={CENTER - CORE_HALF}
+          y={CENTER - CORE_HALF}
+          width={CORE_HALF * 2}
+          height={CORE_HALF * 2}
+          strokeWidth="0.8"
+          opacity="0.92"
+        />
+      </g>
+
+      {SIGNS.map((sign, index) => {
+        const degree = -index * 30;
+        const signPosition = polar(184.5, degree);
+        const housePosition = polar(157.5, degree);
+        const rotation = uprightRotation(degree);
+        return (
+          <g key={`${sign}-rings`}>
+            <text
+              x={signPosition.x}
+              y={signPosition.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill={GOLD}
+              fontSize="11"
+              fontWeight="650"
+              transform={`rotate(${rotation} ${signPosition.x} ${signPosition.y})`}
+            >
+              {SIGN_RULER_NUMERALS[index]} {signLabel(sign)}
+            </text>
+            <text
+              x={housePosition.x}
+              y={housePosition.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill={CREAM}
+              fontSize="10"
+              fontWeight="600"
+              transform={`rotate(${rotation} ${housePosition.x} ${housePosition.y})`}
+            >
+              {bhavaNameFromLagna(lagna, sign)}
+            </text>
+          </g>
+        );
+      })}
+
+      {SIGNS.map((sign, signIndex) => {
+        const center = TEMPLATE_SIGN_CENTERS[signIndex];
+        const planets = planetsBySign.get(sign) ?? [];
+        const entries = [
+          ...(sign === lagna
+            ? [{ planet: "ลัคนา", symbol: LAGNA_MARK, color: GOLD }]
+            : []),
+          ...planets.map((row) => ({
+            planet: row.planet,
+            symbol: getPlanetTheme(row.planet).numeral,
+            color: getPlanetTheme(row.planet).color,
+          })),
+        ];
+        const offsets = planetOffsets(entries.length);
+        return (
+          <g key={`${sign}-occupants`}>
+            {entries.map((entry, entryIndex) => {
+              const offset = offsets[entryIndex] ?? { x: 0, y: 0 };
+              const x = center.x + offset.x;
+              const y = center.y + offset.y;
+              const interactive = entry.planet !== "ลัคนา" && Boolean(onSelectPlanet);
+              const selected = selectedPlanet === entry.planet;
+              const select = () => {
+                if (interactive) onSelectPlanet?.(entry.planet);
+              };
+              return (
+                <g
+                  key={`${sign}-${entry.planet}`}
+                  role={interactive ? "button" : undefined}
+                  tabIndex={interactive ? 0 : undefined}
+                  aria-label={interactive ? `${entry.planet} ในราศี${signLabel(sign)}` : undefined}
+                  onClick={select}
+                  onKeyDown={
+                    interactive
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            select();
+                          }
+                        }
+                      : undefined
+                  }
+                  style={interactive ? { cursor: "pointer", outline: "none" } : undefined}
+                >
+                  {interactive ? <circle cx={x} cy={y} r="20" fill="transparent" /> : null}
+                  {selected ? (
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r="15"
+                      fill={BACKGROUND}
+                      stroke={entry.color}
+                      strokeWidth="1.5"
+                    />
+                  ) : null}
+                  <text
+                    x={x}
+                    y={y + 1}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill={entry.color}
+                    fontSize={entry.planet === "ลัคนา" ? "17" : "16"}
+                    fontWeight={entry.planet === "ลัคนา" ? "700" : "600"}
+                  >
+                    {entry.symbol}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}

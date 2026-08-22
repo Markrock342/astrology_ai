@@ -118,9 +118,6 @@ export function ExpandableRasiWheel({
         title="แตะเพื่อขยาย"
       >
         <CompactRasiWheel chart={chart} size={size} />
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-full bg-black/55 py-0.5 text-center text-[9px] text-[var(--primary)] opacity-90 group-hover:opacity-100">
-          ขยาย
-        </span>
       </button>
       {open && typeof document !== "undefined"
         ? createPortal(
@@ -183,7 +180,7 @@ export function ExpandableRasiWheel({
                   </div>
                 ) : (
                   <p className="mt-1 max-w-sm text-center text-[11px] leading-relaxed text-[var(--muted)]">
-                    ช่องสีทองคือลัคนา (จุดเริ่มต้นภพที่ 1) ชื่อภพคือคำที่แสดงรอบวง —
+                    อักษร ล สีทองคือลัคนา (จุดเริ่มต้นภพที่ 1) ชื่อภพแสดงในวงชั้นใน —
                     แตะที่ดาวเพื่อดูความหมายและตำแหน่ง
                   </p>
                 )}

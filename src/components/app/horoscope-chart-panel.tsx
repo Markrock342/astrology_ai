@@ -8,7 +8,6 @@ import {
   type DerivedChart,
 } from "@/lib/chart-derivations";
 import { getPlanetTheme } from "@/lib/chart-theme";
-import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { TaksaNineGrid } from "./taksa-nine-grid";
 import { ThaiChakraChart } from "./thai-chakra-chart";
 
@@ -135,17 +134,35 @@ export function HoroscopeChartPanel({
         </div>
       </header>
 
-      <div className={`flex flex-wrap items-start justify-center px-4 ${reference ? "gap-8 py-7" : "gap-5 py-5"}`}>
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-[11px] font-medium text-[var(--muted)]">พื้นดวงเดิม</span>
-          <ExpandableRasiWheel chart={natal} size={reference ? 248 : 176} label="พื้นดวงเดิม" />
-        </div>
-        {transit ? (
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-[11px] font-medium text-[var(--muted)]">ดาวจร</span>
-            <ExpandableRasiWheel chart={transit} size={reference ? 248 : 176} label="ดวงจร" />
+      <div className="px-3 py-5">
+        <div className="flex flex-col gap-6">
+          <ThaiChakraChart
+            chart={d1}
+            title="ราศีจักร · พื้นดวงเดิม"
+            size={reference ? 520 : 360}
+            prominent
+          />
+          {transitChart ? (
+            <ThaiChakraChart
+              chart={transitChart}
+              title="ราศีจักร · ดาวจร"
+              size={reference ? 420 : 320}
+              prominent
+            />
+          ) : null}
+          <div className={`grid gap-4 ${reference ? "grid-cols-[repeat(auto-fit,minmax(260px,1fr))]" : "grid-cols-[repeat(auto-fit,minmax(190px,1fr))]"}`}>
+            <ThaiChakraChart
+              chart={d9}
+              title="นวางศ์จักร"
+              size={reference ? 340 : 260}
+            />
+            <ThaiChakraChart
+              chart={d3}
+              title="ตรียางศ์จักร"
+              size={reference ? 340 : 260}
+            />
           </div>
-        ) : null}
+        </div>
       </div>
 
       <div
@@ -167,26 +184,6 @@ export function HoroscopeChartPanel({
             planets={transitChart.planets}
           />
         ) : null}
-      </div>
-
-      <div className="border-t border-[var(--border)] px-3 py-4">
-        <div className={`grid gap-3 ${reference ? "grid-cols-[repeat(auto-fit,minmax(220px,1fr))]" : "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]"}`}>
-          <ThaiChakraChart
-            chart={d1}
-            title="ราศีจักร"
-            centerLabel="รจ."
-          />
-          <ThaiChakraChart
-            chart={d9}
-            title="นวางศ์จักร"
-            centerLabel="นว."
-          />
-          <ThaiChakraChart
-            chart={d3}
-            title="ตรียางศ์จักร"
-            centerLabel="ตย."
-          />
-        </div>
       </div>
 
       {hasEvidenceGrids ? (
