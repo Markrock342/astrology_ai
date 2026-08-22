@@ -430,7 +430,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
       </div>
 
-      <div className="flex flex-col gap-1 px-3 pt-4">
+      <div className="flex flex-col gap-2 px-3 pt-4">
+        <Link
+          href="/dashboard"
+          onClick={(e) => {
+            if (isPlainLeftClick(e)) {
+              e.preventDefault();
+              chatNav("/dashboard");
+            }
+            closeMobile();
+          }}
+          className="press-scale flex min-h-11 items-center gap-2.5 rounded-xl border border-[var(--secondary)]/45 bg-[var(--secondary)]/10 px-3.5 py-2.5 text-sm font-semibold text-[var(--secondary-active)] transition hover:bg-[var(--secondary)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--secondary-active)]"
+        >
+          <NewChatIcon /> เริ่มสนทนาใหม่
+        </Link>
         <button
           type="button"
           onClick={() => setSearchOpen((v) => !v)}
@@ -626,20 +639,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <SidebarDivider />
-
-        <Link
-          href="/dashboard"
-          onClick={(e) => {
-            if (isPlainLeftClick(e)) {
-              e.preventDefault();
-              chatNav("/dashboard");
-            }
-            closeMobile();
-          }}
-          className="press-scale mb-3 flex items-center gap-2.5 rounded-full border border-[var(--secondary)]/45 bg-[var(--secondary)]/10 px-3.5 py-2.5 text-sm font-semibold text-[var(--secondary-active)] transition hover:bg-[var(--secondary)]/15"
-        >
-          <NewChatIcon /> เริ่มสนทนาใหม่
-        </Link>
 
         <SectionLabel>ดวงจร</SectionLabel>
         <button
