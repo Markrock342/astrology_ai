@@ -24,6 +24,7 @@ import { ChartEvidenceTable } from "./chart-evidence-table";
 import { CopyMessageButton } from "./copy-message-button";
 import { MessageActions } from "./message-actions";
 import { NatalChartBanner } from "./natal-chart-banner";
+import { NatalChartReferenceView } from "./natal-chart-reference-view";
 import { SmoothStreamMarkdown } from "./smooth-stream-markdown";
 import { useMyUsage } from "@/hooks/use-my-usage";
 import type { ChartJson } from "@/types/chart";
@@ -305,6 +306,8 @@ export function ChatView() {
   const searchParams = useChatRouteSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
+  const activeView = searchParams.get("view");
+  const showingNatalChart = activeView === "natal-chart";
   const { user, refreshLight, pendingPayment, natalChartStatus, natalThreads, loading } =
     useAppData();
   const category = useCategory(catSlug);
@@ -1802,7 +1805,9 @@ export function ChatView() {
             ตัวอย่างระบบ (เฟสนี้) — ระบบดูดวงด้วย AI จะเปิดให้ใช้งานจริงในเฟสถัดไป
           </div>
         )}
-        {loadingThread ? (
+        {showingNatalChart ? (
+          <NatalChartReferenceView />
+        ) : loadingThread ? (
           <ChatThreadSkeleton />
         ) : threadLoadError && messages.length === 0 ? (
           <div className="mx-auto flex max-w-md flex-col items-center pt-20 text-center">
@@ -2139,61 +2144,70 @@ export function ChatView() {
         ) : null}
       </div>
 
-      <div className="relative shrink-0">
-        {editingMessageId ? (
-          <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 pb-2 md:px-8">
-            <p className="text-xs text-[var(--muted)]">กำลังแก้ไขข้อความ — ส่งเพื่อถามใหม่จากจุดนี้</p>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingMessageId(null);
-                setInput("");
-              }}
-              className="text-xs text-[var(--muted-2)] underline hover:text-[var(--foreground)]"
-            >
-              ยกเลิก
-            </button>
-          </div>
-        ) : null}
-        {threadMode === "TRANSIT" || isBusy ? (
-        <Composer
-          ref={composerRef}
-          value={input}
-          onChange={setInput}
-          onSend={() => send(input, editingMessageId ? { editUserMessageId: editingMessageId } : undefined)}
-          onStop={() => void stopStreaming(stopTarget)}
-          // Stop is offered only while an answer is genuinely in progress AND we
-          // hold a handle to cancel it. Keying off the target alone let a stale
-          // PENDING row keep the button up long after the answer had landed.
-          streaming={
-            (state === "processing" || state === "streaming") &&
-            Boolean(stopTarget) &&
-            !stopping
-          }
-          disabled={
-            locked ||
-            state === "locked" ||
-            threadMode !== "TRANSIT"
-          }
-          // Keep the field editable while streaming (ChatGPT-style). Send is
-          // blocked in send() until the turn settles; Stop replaces the arrow.
-          aiEnabled={FEATURES.aiChat}
-          categoryLocked={locked}
-          creditCost={
-            usage?.creditCostPerMessage ?? DEFAULTS.creditCostPerReading
-          }
-          creditBalance={usage?.balance ?? user?.creditBalance ?? 0}
-          plan={user?.plan === "PRO" ? "PRO" : "FREE"}
-          needsEmailVerification={Boolean(user?.needsEmailVerification)}
-          answerMode={answerMode}
-          onAnswerModeChange={updateAnswerMode}
-        />
-        ) : messages.length > 0 ? (
-          <p className="px-4 pb-4 text-center text-[11px] text-[var(--muted-2)] md:px-8">
-            หมวดพื้นดวงสรุปให้อัตโนมัติ — ถามจังหวะช่วงนี้ได้ที่โหมดดวงจร
-          </p>
-        ) : null}
-      </div>
+      {!showingNatalChart ? (
+        <div className="relative shrink-0">
+          {editingMessageId ? (
+            <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 pb-2 md:px-8">
+              <p className="text-xs text-[var(--muted)]">
+                กำลังแก้ไขข้อความ — ส่งเพื่อถามใหม่จากจุดนี้
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingMessageId(null);
+                  setInput("");
+                }}
+                className="text-xs text-[var(--muted-2)] underline hover:text-[var(--foreground)]"
+              >
+                ยกเลิก
+              </button>
+            </div>
+          ) : null}
+          {threadMode === "TRANSIT" || isBusy ? (
+            <Composer
+              ref={composerRef}
+              value={input}
+              onChange={setInput}
+              onSend={() =>
+                send(
+                  input,
+                  editingMessageId
+                    ? { editUserMessageId: editingMessageId }
+                    : undefined,
+                )
+              }
+              onStop={() => void stopStreaming(stopTarget)}
+              // Stop is offered only while an answer is genuinely in progress AND we
+              // hold a handle to cancel it. Keying off the target alone let a stale
+              // PENDING row keep the button up long after the answer had landed.
+              streaming={
+                (state === "processing" || state === "streaming") &&
+                Boolean(stopTarget) &&
+                !stopping
+              }
+              disabled={
+                locked || state === "locked" || threadMode !== "TRANSIT"
+              }
+              // Keep the field editable while streaming (ChatGPT-style). Send is
+              // blocked in send() until the turn settles; Stop replaces the arrow.
+              aiEnabled={FEATURES.aiChat}
+              categoryLocked={locked}
+              creditCost={
+                usage?.creditCostPerMessage ?? DEFAULTS.creditCostPerReading
+              }
+              creditBalance={usage?.balance ?? user?.creditBalance ?? 0}
+              plan={user?.plan === "PRO" ? "PRO" : "FREE"}
+              needsEmailVerification={Boolean(user?.needsEmailVerification)}
+              answerMode={answerMode}
+              onAnswerModeChange={updateAnswerMode}
+            />
+          ) : messages.length > 0 ? (
+            <p className="px-4 pb-4 text-center text-[11px] text-[var(--muted-2)] md:px-8">
+              หมวดพื้นดวงสรุปให้อัตโนมัติ — ถามจังหวะช่วงนี้ได้ที่โหมดดวงจร
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2580,7 +2594,7 @@ const Composer = forwardRef<
       <p className="mx-auto mb-2 max-w-3xl text-[10px] text-[var(--muted)]">
         กระชับ ≈ สั้น เร็ว · ละเอียด ≈ ยาวขึ้น ใช้โควตามากกว่า
       </p>
-      <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 transition-shadow duration-300 focus-within:border-[var(--primary)]/50 focus-within:shadow-[0_0_0_3px_var(--ring)]">
+      <div className="mx-auto flex max-w-3xl items-end gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2 transition-colors duration-200 focus-within:border-[var(--primary)]/70 focus-within:ring-1 focus-within:ring-[var(--primary)]/30">
         <textarea
           ref={ref}
           value={value}
@@ -2595,7 +2609,7 @@ const Composer = forwardRef<
           }}
           disabled={!aiEnabled || emailGate || disabled}
           placeholder={placeholder}
-          className="max-h-[200px] min-h-[24px] w-full resize-none bg-transparent text-base leading-6 text-[var(--foreground)] placeholder:text-[var(--muted-2)] outline-none disabled:cursor-not-allowed md:text-sm"
+          className="max-h-[200px] min-h-6 w-full resize-none bg-transparent text-base font-medium leading-6 text-[var(--foreground)] antialiased outline-none placeholder:font-normal placeholder:text-[var(--muted)] disabled:cursor-not-allowed md:text-[15px]"
         />
         {streaming ? (
           <button
@@ -2620,7 +2634,7 @@ const Composer = forwardRef<
               emailGate ||
               !value.trim()
             }
-            className="press-scale flex shrink-0 items-center justify-center text-[var(--primary)] transition hover:text-[var(--primary-hover)] disabled:opacity-40"
+            className="press-scale flex size-7 shrink-0 items-center justify-center rounded-full text-[var(--primary)] transition hover:bg-[var(--background)] hover:text-[var(--primary-hover)] disabled:opacity-40"
             aria-label="ส่ง"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">

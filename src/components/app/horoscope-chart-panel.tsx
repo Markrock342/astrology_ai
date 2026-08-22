@@ -98,10 +98,12 @@ export function HoroscopeChartPanel({
   natal,
   transit,
   description = "ตำแหน่งดาวชุดเดียวกับที่ใช้วิเคราะห์คำตอบ",
+  presentation = "message",
 }: {
   natal: ChartJson;
   transit?: ChartJson | null;
   description?: string;
+  presentation?: "message" | "reference";
 }) {
   const d1 = useMemo(() => baseChart(natal), [natal]);
   const d9 = useMemo(() => deriveDivisionalChart(natal, "navamsa"), [natal]);
@@ -116,28 +118,32 @@ export function HoroscopeChartPanel({
     taksa.some((row) => row.some(Boolean)) ||
     triwai.some((row) => row.some(Boolean));
 
+  const reference = presentation === "reference";
+
   return (
-    <section className="mb-4 overflow-hidden rounded-2xl border border-[var(--primary)]/25 bg-[var(--surface)]">
+    <section
+      className={`${reference ? "" : "mb-4"} overflow-hidden rounded-2xl border border-[var(--primary)]/25 bg-[var(--surface)]`}
+    >
       <header className="border-b border-[var(--border)] px-4 py-3">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--foreground)]">
+          <h2 className={`${reference ? "text-base" : "text-sm"} font-semibold text-[var(--foreground)]`}>
             ผังดวงชะตา
-          </h3>
+          </h2>
           <p className="mt-0.5 text-[11px] text-[var(--muted)]">
             {description}
           </p>
         </div>
       </header>
 
-      <div className="flex flex-wrap items-start justify-center gap-5 px-4 py-5">
+      <div className={`flex flex-wrap items-start justify-center px-4 ${reference ? "gap-8 py-7" : "gap-5 py-5"}`}>
         <div className="flex flex-col items-center gap-1">
           <span className="text-[11px] font-medium text-[var(--muted)]">พื้นดวงเดิม</span>
-          <ExpandableRasiWheel chart={natal} size={176} label="พื้นดวงเดิม" />
+          <ExpandableRasiWheel chart={natal} size={reference ? 248 : 176} label="พื้นดวงเดิม" />
         </div>
         {transit ? (
           <div className="flex flex-col items-center gap-1">
             <span className="text-[11px] font-medium text-[var(--muted)]">ดาวจร</span>
-            <ExpandableRasiWheel chart={transit} size={176} label="ดวงจร" />
+            <ExpandableRasiWheel chart={transit} size={reference ? 248 : 176} label="ดวงจร" />
           </div>
         ) : null}
       </div>
@@ -164,7 +170,7 @@ export function HoroscopeChartPanel({
       </div>
 
       <div className="border-t border-[var(--border)] px-3 py-4">
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+        <div className={`grid gap-3 ${reference ? "grid-cols-[repeat(auto-fit,minmax(220px,1fr))]" : "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]"}`}>
           <ThaiChakraChart
             chart={d1}
             title="ราศีจักร"

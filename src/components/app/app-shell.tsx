@@ -18,6 +18,7 @@ import {
   ExpandSidebarIcon,
   LockIcon,
   MenuIcon,
+  NatalChartIcon,
   NewChatIcon,
   SearchIcon,
   TransitIcon,
@@ -79,6 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const focusBeforeDrawer = useRef<HTMLElement | null>(null);
   const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
+  const activeView = searchParams.get("view");
   const chatNav = useChatNav();
 
   const {
@@ -453,6 +455,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="mt-4 flex-1 overflow-y-auto px-3 pb-2">
         <SectionLabel>พื้นดวงเดิม</SectionLabel>
         <nav className="flex flex-col gap-0.5">
+          <Link
+            href="/dashboard?view=natal-chart"
+            onClick={(e) => {
+              if (isPlainLeftClick(e)) {
+                e.preventDefault();
+                chatNav("/dashboard?view=natal-chart");
+              }
+              closeMobile();
+            }}
+            className={`mb-1 flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
+              activeView === "natal-chart"
+                ? "bg-[var(--background)] text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]"
+                : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="text-[var(--primary)]">
+                <NatalChartIcon />
+              </span>
+              ดวงจักรกำเนิด
+            </span>
+            <span className="text-[10px] text-[var(--muted-2)]">อ้างอิง</span>
+          </Link>
           {filteredCategories.map((cat) => {
             const locked = isCategoryLocked(cat, user?.plan ?? "FREE");
             const active = activeCat === cat.slug;
@@ -469,7 +494,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 }}
                 className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
                   active
-                    ? "bg-[var(--surface-3)] text-[var(--foreground)]"
+                    ? "bg-[var(--background)] text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]"
                     : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
                 } ${locked ? "opacity-80" : ""}`}
               >
@@ -530,7 +555,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div
                 key={t.id}
                 className={`group flex items-center gap-0.5 rounded-lg pr-1 transition hover:bg-[var(--surface-2)] ${
-                  activeThread === t.id ? "bg-[var(--surface-3)]" : ""
+                  activeThread === t.id
+                    ? "bg-[var(--background)] shadow-[inset_0_0_0_1px_var(--border)]"
+                    : ""
                 }`}
               >
                 <button
@@ -643,7 +670,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div
                 key={t.id}
                 className={`group flex items-center gap-0.5 rounded-lg pr-1 transition hover:bg-[var(--surface-2)] ${
-                  activeThread === t.id ? "bg-[var(--surface-3)]" : ""
+                  activeThread === t.id
+                    ? "bg-[var(--background)] shadow-[inset_0_0_0_1px_var(--border)]"
+                    : ""
                 }`}
               >
                 <button
@@ -652,7 +681,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   onMouseEnter={() => {
                     void prefetchThread(t.id);
                   }}
-                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-left text-xs transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] ${
+                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-left text-xs transition hover:text-[var(--foreground)] ${
                     activeThread === t.id
                       ? "text-[var(--foreground)]"
                       : "text-[var(--muted)]"
@@ -765,6 +794,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           <CollapsedRail
             activeCat={activeCat}
+            activeView={activeView}
             settingsOpen={settingsOpen && collapsed}
             onToggleSettings={() => setSettingsOpen((v) => !v)}
             onCloseSettings={() => setSettingsOpen(false)}
@@ -901,6 +931,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function CollapsedRail({
   activeCat,
+  activeView,
   settingsOpen,
   onToggleSettings,
   onCloseSettings,
@@ -912,6 +943,7 @@ function CollapsedRail({
   creditBalance,
 }: {
   activeCat: string | null;
+  activeView: string | null;
   settingsOpen: boolean;
   onToggleSettings: () => void;
   onCloseSettings: () => void;
@@ -969,6 +1001,24 @@ function CollapsedRail({
       </Link>
 
       <nav className="mt-3 flex flex-1 flex-col items-center gap-1 overflow-y-auto px-1">
+        <Link
+          href="/dashboard?view=natal-chart"
+          title="ดวงจักรกำเนิด"
+          aria-label="ดวงจักรกำเนิด"
+          onClick={(e) => {
+            if (isPlainLeftClick(e)) {
+              e.preventDefault();
+              chatNav("/dashboard?view=natal-chart");
+            }
+          }}
+          className={`flex h-10 w-10 items-center justify-center rounded-lg transition ${
+            activeView === "natal-chart"
+              ? "bg-[var(--background)] text-[var(--primary)] shadow-[inset_0_0_0_1px_var(--border)]"
+              : "text-[var(--primary)]/75 hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+          }`}
+        >
+          <NatalChartIcon size={20} />
+        </Link>
         {filteredCategories.map((cat) => {
           const active = activeCat === cat.slug;
           return (
@@ -985,7 +1035,7 @@ function CollapsedRail({
               }}
               className={`flex h-10 w-10 items-center justify-center rounded-lg transition ${
                 active
-                  ? "bg-[var(--surface-3)] text-[var(--primary)]"
+                  ? "bg-[var(--background)] text-[var(--primary)] shadow-[inset_0_0_0_1px_var(--border)]"
                   : "text-[var(--primary)]/75 hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
               }`}
             >
