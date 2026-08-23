@@ -21,6 +21,10 @@ const serverEnvSchema = z.object({
   // Public base URL used to build links inside emails (falls back to AUTH_URL).
   APP_BASE_URL: z.string().url().optional(),
 
+  // Reverse-geocoding endpoint used only after the user explicitly taps
+  // "use current location". Kept configurable so ops can switch providers.
+  GEOCODER_BASE_URL: z.string().url().optional(),
+
   // Cloudflare Turnstile (bot protection on auth forms). Optional locally.
   TURNSTILE_SECRET_KEY: z.string().optional(),
 
