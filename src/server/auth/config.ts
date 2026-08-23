@@ -12,6 +12,9 @@ const credentialsSchema = z.object({
   password: z.string().min(8),
 });
 
+/** Persistent login window, explicit so browser behavior is not provider-default dependent. */
+export const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60;
+
 /**
  * NextAuth v5 configuration.
  *
@@ -23,7 +26,11 @@ const credentialsSchema = z.object({
  * and add the Prisma adapter if/when database sessions are needed.
  */
 export const authConfig: NextAuthConfig = {
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  },
+  jwt: { maxAge: SESSION_MAX_AGE_SECONDS },
   pages: {
     signIn: "/login",
   },
