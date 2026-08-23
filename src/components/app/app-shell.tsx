@@ -32,6 +32,7 @@ import {
 import { VerifyEmailBanner } from "./verify-email-banner";
 import { PendingPaymentBanner } from "./pending-payment-banner";
 import { ProExpiryBanner } from "./pro-expiry-banner";
+import { ProPromotionBanner } from "./pro-promotion-banner";
 import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banner";
 import { UserAvatar } from "./user-avatar";
 import { ThemePicker } from "./theme-picker";
@@ -52,6 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileShown, setMobileShown] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [threadActionsOpen, setThreadActionsOpen] = useState<string | null>(null);
   const [transitOpen, setTransitOpen] = useState(
     () => searchParams.get("action") === "transit",
   );
@@ -609,6 +611,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </button>
                 <button
                   type="button"
+                  aria-label="เปิดเมนูแชท"
+                  aria-expanded={threadActionsOpen === t.id}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setThreadActionsOpen((current) =>
+                      current === t.id ? null : t.id,
+                    );
+                  }}
+                  className={`min-h-11 shrink-0 rounded-md px-3 py-2 text-base leading-none text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] md:hidden ${
+                    threadActionsOpen === t.id ? "hidden" : "inline-flex items-center"
+                  }`}
+                >
+                  ⋯
+                </button>
+                <button
+                  type="button"
                   title="เปลี่ยนชื่อ"
                   aria-label="เปลี่ยนชื่อแชท"
                   onClick={(e) => {
@@ -616,7 +635,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                     openRenameThread(t.id, t.title);
                   }}
-                  className="min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] group-hover:opacity-100"
+                  className={`min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
+                    threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
+                  }`}
                 >
                   ชื่อ
                 </button>
@@ -629,7 +650,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                     void deleteThread(t.id);
                   }}
-                  className="min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100"
+                  className={`min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
+                    threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
+                  }`}
                 >
                   ลบ
                 </button>
@@ -703,6 +726,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </button>
                 <button
                   type="button"
+                  aria-label="เปิดเมนูดวงจร"
+                  aria-expanded={threadActionsOpen === t.id}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setThreadActionsOpen((current) =>
+                      current === t.id ? null : t.id,
+                    );
+                  }}
+                  className={`min-h-11 shrink-0 rounded-md px-3 py-2 text-base leading-none text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] md:hidden ${
+                    threadActionsOpen === t.id ? "hidden" : "inline-flex items-center"
+                  }`}
+                >
+                  ⋯
+                </button>
+                <button
+                  type="button"
                   title="เปลี่ยนชื่อ"
                   aria-label="เปลี่ยนชื่อแชท"
                   onClick={(e) => {
@@ -710,7 +750,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                     openRenameThread(t.id, t.title);
                   }}
-                  className="min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] group-hover:opacity-100"
+                  className={`min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
+                    threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
+                  }`}
                 >
                   ชื่อ
                 </button>
@@ -723,7 +765,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     e.stopPropagation();
                     void deleteThread(t.id);
                   }}
-                  className="min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] opacity-70 transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] group-hover:opacity-100"
+                  className={`min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
+                    threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
+                  }`}
                 >
                   ลบ
                 </button>
@@ -857,6 +901,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <VerifyEmailBanner />
           <PendingPaymentBanner />
           <ProExpiryBanner />
+          <ProPromotionBanner />
           <SiteAnnouncementBanner />
           {children}
         </div>

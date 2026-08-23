@@ -6,6 +6,7 @@ import { ChartEvidenceTable } from "./chart-evidence-table";
 import { HoroscopeChartPanel } from "./horoscope-chart-panel";
 import { useAppData } from "./app-data-provider";
 import { NatalChartIcon } from "./sidebar-icons";
+import { ChartPreparingIndicator } from "./natal-chart-banner";
 
 type LoadState =
   | { status: "loading" }
@@ -19,7 +20,7 @@ function sourceLabel(chart: ChartJson): string {
 }
 
 export function NatalChartReferenceView() {
-  const { natalChartStatus } = useAppData();
+  const { natalChartStatus, repairNatalChart } = useAppData();
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -54,7 +55,11 @@ export function NatalChartReferenceView() {
   }, [natalChartStatus?.status, reloadKey]);
 
   if (natalChartStatus?.status === "PENDING" || !natalChartStatus) {
-    return <ChartLoadingState label="กำลังคำนวณดวงจักรกำเนิด…" />;
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-col items-center pt-16 text-center">
+        <ChartPreparingIndicator onRetry={repairNatalChart} />
+      </div>
+    );
   }
 
   if (natalChartStatus.status === "FAILED") {

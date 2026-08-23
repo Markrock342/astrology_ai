@@ -25,6 +25,7 @@ import { CopyMessageButton } from "./copy-message-button";
 import { MessageActions } from "./message-actions";
 import { NatalChartBanner } from "./natal-chart-banner";
 import { NatalChartReferenceView } from "./natal-chart-reference-view";
+import { CategoryIcon } from "./category-icon";
 import { SmoothStreamMarkdown } from "./smooth-stream-markdown";
 import { useMyUsage } from "@/hooks/use-my-usage";
 import type { ChartJson } from "@/types/chart";
@@ -185,12 +186,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_QUOTA:
     "เครดิตทดลองหมดแล้ว — อัปเกรด Pro ได้คุยทุกหมวด + ดวงจร หรือเติมเครดิตถ้าเป็นสมาชิก Pro อยู่แล้ว",
   CATEGORY_LOCKED:
-    "หมวดนี้เป็นสิทธิ์ Pro ไม่ใช่ระบบพัง — แพ็ก Free ใช้ได้「ตัวตน」กับ「การงาน」 หรืออัปเกรดเพื่อปลดล็อก",
+    "หมวดนี้ใช้ได้ใน Pro — แพ็ก Free ใช้หมวด「ตัวตน」กับ「การงาน」ได้",
   CHAT_REQUIRES_PRO: "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
   CHAT_REQUIRES_PRO_PENDING:
     "สลิปของคุณอยู่ระหว่างตรวจสอบ ปกติภายใน 1–2 วันทำการ — หลังอนุมัติจะแชทได้ทันที",
   TRANSIT_REQUIRES_PRO:
-    "ดวงจรเป็นสิทธิ์ Pro ไม่ใช่ระบบพัง — อัปเกรดเพื่อเปิดโหมดดวงจร",
+    "ดวงจรใช้ได้ใน Pro — อัปเกรดแล้วเริ่มถามได้ทุกหมวด",
   FOLLOWUP_REQUIRES_PRO:
     "ถามต่อในบทสนทนาเดิมสำหรับสมาชิก Pro — เริ่มคำถามใหม่ได้ตราบใดที่ยังมีเครดิต",
   EMAIL_NOT_VERIFIED:
@@ -207,7 +208,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   USER_DISABLED: "บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อแอดมิน",
   FEATURE_DISABLED: "ระบบดูดวงด้วย AI กำลังอยู่ระหว่างพัฒนา",
   NATAL_QA_DISABLED:
-    "หมวดพื้นดวงสรุปให้อัตโนมัติ — อยากถามจังหวะช่วงนี้ให้ไปโหมดดวงจร",
+    "หมวดพื้นดวงเป็นบทสรุปอัตโนมัติ — หากต้องการถามต่อ ให้เปิดดวงจร",
 };
 
 function modelLabel(modelId: string): string {
@@ -1800,6 +1801,9 @@ export function ChatView() {
   const isBusy = state === "processing" || state === "streaming";
   const emailGate =
     Boolean(user?.needsEmailVerification) && user?.plan !== "PRO";
+  const availableCategories = categories.filter(
+    (item) => !isCategoryLocked(item, user?.plan ?? "FREE"),
+  );
 
   function startEditMessage(messageId: string, content: string) {
     setEditingMessageId(messageId);
@@ -1861,10 +1865,19 @@ export function ChatView() {
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {liveAnnounce}
       </div>
-      {threadMode === "TRANSIT" && threadTransitLabel ? (
-        <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-center text-xs text-[var(--muted)] md:px-8">
-          โหมดดวงจร · {threadTransitLabel}
-        </div>
+      {showingNatalChart ? (
+        <ReadingContextBar
+          mode="reference"
+          category="ดวงจักรกำเนิด"
+        />
+      ) : threadMode === "TRANSIT" ? (
+        <ReadingContextBar
+          mode="transit"
+          category={category?.label}
+          detail={threadTransitLabel}
+        />
+      ) : category ? (
+        <ReadingContextBar mode="natal" category={category.label} />
       ) : null}
       <div
         ref={scrollRef}
@@ -1897,6 +1910,8 @@ export function ChatView() {
           >
             <EmptyState
               category={category?.label}
+              categories={availableCategories}
+              plan={user?.plan ?? "FREE"}
               natalBriefing={Boolean(catSlug)}
               chartReady={natalChartStatus?.status === "READY"}
               suggestions={[]}
@@ -2134,7 +2149,7 @@ export function ChatView() {
                                   href="/dashboard?action=transit"
                                   className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20"
                                 >
-                                  ถามจังหวะช่วงนี้ที่ดวงจร ▸
+                                  เปลี่ยนไปถามดวงจร ▸
                                 </a>
                               )
                             : null}
@@ -2276,7 +2291,7 @@ export function ChatView() {
             />
           ) : messages.length > 0 ? (
             <p className="px-4 pb-4 text-center text-[11px] text-[var(--muted-2)] md:px-8">
-              หมวดพื้นดวงสรุปให้อัตโนมัติ — ถามจังหวะช่วงนี้ได้ที่โหมดดวงจร
+              พื้นดวงเป็นบทสรุปอัตโนมัติ · หากต้องการถามต่อ ให้เปิดดวงจร
             </p>
           ) : null}
         </div>
@@ -2361,6 +2376,8 @@ function ErrorBanner({
 
 function EmptyState({
   category,
+  categories,
+  plan,
   natalBriefing = false,
   chartReady = false,
   suggestions,
@@ -2368,6 +2385,12 @@ function EmptyState({
   emailGate = false,
 }: {
   category?: string;
+  categories: Array<{
+    slug: string;
+    label: string;
+    icon?: string | null;
+  }>;
+  plan: "FREE" | "PRO";
   natalBriefing?: boolean;
   chartReady?: boolean;
   suggestions: string[];
@@ -2403,19 +2426,32 @@ function EmptyState({
       )}
 
       {!category ? (
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <a
-            href="/dashboard?cat=self"
-            className="press-scale rounded-full border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-4 py-2 text-sm font-semibold text-[var(--primary)]"
+        <div className="mt-6 w-full max-w-lg">
+          <div className="mb-3 flex items-center justify-between gap-3 text-left">
+            <p className="text-xs font-semibold text-[var(--foreground)]">
+              {plan === "PRO" ? "เลือกได้ครบทุกหมวด" : "หมวดที่ใช้ได้ใน Free"}
+            </p>
+            <span className="text-[11px] text-[var(--muted-2)]">
+              {categories.length} หมวด
+            </span>
+          </div>
+          <nav
+            className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--border)] sm:grid-cols-3"
+            aria-label="เลือกหมวดพื้นดวง"
           >
-            หมวดตัวตน
-          </a>
-          <a
-            href="/dashboard?cat=career"
-            className="press-scale rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2 text-sm font-semibold text-[var(--foreground)]"
-          >
-            หมวดการงาน
-          </a>
+            {categories.map((item) => (
+              <a
+                key={item.slug}
+                href={`/dashboard?cat=${item.slug}`}
+                className="press-scale flex min-h-12 items-center gap-2.5 bg-[var(--surface-2)] px-3 py-3 text-left text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
+              >
+                <span className="shrink-0 text-[var(--primary)]" aria-hidden>
+                  <CategoryIcon slug={item.slug} icon={item.icon} />
+                </span>
+                <span className="truncate">{item.label}</span>
+              </a>
+            ))}
+          </nav>
         </div>
       ) : (
         <p className="animate-fade-up stagger-2 mt-6 text-xs text-[var(--muted)]">
@@ -2444,6 +2480,44 @@ function EmptyState({
   );
 }
 
+function ReadingContextBar({
+  mode,
+  category,
+  detail,
+}: {
+  mode: "natal" | "transit" | "reference";
+  category?: string;
+  detail?: string | null;
+}) {
+  const label =
+    mode === "transit"
+      ? "กำลังถามดวงจร"
+      : mode === "reference"
+        ? "กำลังดูพื้นดวง"
+        : "กำลังอ่านพื้นดวง";
+  const hint =
+    mode === "transit"
+      ? "ถามต่อได้ในหมวดนี้"
+      : mode === "reference"
+        ? "ข้อมูลอ้างอิงที่ AI ใช้"
+        : "สรุปอัตโนมัติ ไม่หักเครดิต";
+
+  return (
+    <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 md:px-8">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+        <p className="min-w-0 text-sm text-[var(--foreground)]">
+          <span className="font-semibold text-[var(--primary)]">{label}</span>
+          {category ? <span> · {category}</span> : null}
+          {detail ? (
+            <span className="hidden text-[var(--muted)] sm:inline"> · {detail}</span>
+          ) : null}
+        </p>
+        <span className="hidden shrink-0 text-[11px] text-[var(--muted-2)] sm:inline">{hint}</span>
+      </div>
+    </div>
+  );
+}
+
 function LockedState({ category }: { category?: string }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center pt-20 text-center">
@@ -2454,7 +2528,7 @@ function LockedState({ category }: { category?: string }) {
         </svg>
       </div>
       <p className="mb-2 rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-3 py-1 text-[11px] font-medium text-[var(--primary)]">
-        สิทธิ์แพ็กเกจ Pro — ระบบทำงานปกติ
+        สิทธิ์แพ็กเกจ Pro
       </p>
       <h2 className="text-lg font-semibold text-[var(--foreground)]">
         หมวด{category ? `“${category}”` : "นี้"}ยังไม่รวมใน Free
@@ -2527,15 +2601,15 @@ function ThinkingIndicator({
             />
           ))}
         </div>
-        <span className="shimmer-text text-xs font-medium">{label}</span>
+        <span className="text-xs font-medium text-[var(--primary)]">{label}</span>
       </div>
       <p className="pl-0 text-[11px] tabular-nums text-[var(--muted-2)]">
         ใช้เวลาไปแล้ว{" "}
         <span className="font-medium text-[var(--muted)]">
           {formatElapsed(elapsed)}
         </span>
-        {elapsed >= 30 ? (
-          <span className="ml-1 opacity-80">· ระบบกำลังคำนวณดวงและเรียก AI</span>
+        {elapsed >= 20 ? (
+          <span className="ml-1 opacity-80">· นานกว่าปกติ แต่ยังทำงานอยู่</span>
         ) : null}
       </p>
     </div>
@@ -2596,7 +2670,7 @@ const Composer = forwardRef<
     : emailGate
       ? "ยืนยันอีเมลก่อนใช้เครดิตทดลอง"
       : categoryLocked
-        ? "หมวด Pro — เลือก「ตัวตน」/「การงาน」หรืออัปเกรด (ระบบไม่ได้พัง)"
+        ? "หมวดนี้ใช้ได้ใน Pro — เลือกตัวตน/การงาน หรืออัปเกรด"
         : coarsePointer
           ? "สอบถามเราได้เลย…"
           : "สอบถามเราได้เลย — Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่";

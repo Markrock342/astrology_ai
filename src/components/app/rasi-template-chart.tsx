@@ -1,6 +1,7 @@
 import type { PlanetSignRow } from "@/types/chart";
 import {
   bhavaNameFromLagna,
+  getHouseMeaning,
   getPlanetTheme,
   LAGNA_MARK,
   normalizeSignName,
@@ -213,8 +214,10 @@ export function RasiTemplateChart({
         const signPosition = polar(184.5, degree);
         const housePosition = polar(157.5, degree);
         const rotation = uprightRotation(degree);
+        const houseName = bhavaNameFromLagna(lagna, sign);
         return (
           <g key={`${sign}-rings`}>
+            <title>{`${houseName}: ${getHouseMeaning(houseName)}`}</title>
             <text
               x={signPosition.x}
               y={signPosition.y}
@@ -237,7 +240,7 @@ export function RasiTemplateChart({
               fontWeight="600"
               transform={`rotate(${rotation} ${housePosition.x} ${housePosition.y})`}
             >
-              {bhavaNameFromLagna(lagna, sign)}
+              {houseName}
             </text>
           </g>
         );

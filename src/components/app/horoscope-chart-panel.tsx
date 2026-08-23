@@ -10,6 +10,7 @@ import {
 import { getPlanetTheme } from "@/lib/chart-theme";
 import { TaksaNineGrid } from "./taksa-nine-grid";
 import { ThaiChakraChart } from "./thai-chakra-chart";
+import { AstrologyGlossary } from "./astrology-glossary";
 
 function baseChart(chart: ChartJson): DerivedChart {
   const fallback = {
@@ -150,6 +151,19 @@ export function HoroscopeChartPanel({
               prominent
             />
           ) : null}
+        </div>
+      </div>
+
+      <AstrologyGlossary compact={!reference} />
+
+      <details className="border-t border-[var(--border)]">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-[var(--primary)] marker:content-none [&::-webkit-details-marker]:hidden">
+          <span>เปิดผังวิเคราะห์ขั้นสูง</span>
+          <span className="text-xs font-normal text-[var(--muted)]">
+            นวางศ์ · ตรียางศ์ · ทักษา <span aria-hidden>＋</span>
+          </span>
+        </summary>
+        <div className="border-t border-[var(--border)] px-3 py-5">
           <div className={`grid gap-4 ${reference ? "grid-cols-[repeat(auto-fit,minmax(260px,1fr))]" : "grid-cols-[repeat(auto-fit,minmax(190px,1fr))]"}`}>
             <ThaiChakraChart
               chart={d9}
@@ -162,41 +176,36 @@ export function HoroscopeChartPanel({
               size={reference ? 340 : 260}
             />
           </div>
-        </div>
-      </div>
 
-      <div
-        className={`grid gap-4 border-t border-[var(--border)] px-4 py-4 ${
-          transit ? "sm:grid-cols-2" : ""
-        }`}
-      >
-        <TaksaNineGrid
-          title="ทักษา"
-          lagna={d1.lagna}
-          slots={natal.chart?.taksa}
-          planets={d1.planets}
-        />
-        {transitChart ? (
-          <TaksaNineGrid
-            title="ทักษาจร"
-            lagna={d1.lagna}
-            slots={natal.chart?.taksa}
-            planets={transitChart.planets}
-          />
-        ) : null}
-      </div>
-
-      {hasEvidenceGrids ? (
-        <details className="border-t border-[var(--border)]">
-          <summary className="cursor-pointer list-none px-4 py-3 text-xs font-medium text-[var(--primary)] marker:content-none [&::-webkit-details-marker]:hidden">
-            ทักษาและตรีวัย <span aria-hidden>▾</span>
-          </summary>
-          <div className="grid gap-4 px-4 pb-4 sm:grid-cols-2">
-            <EvidenceGrid title="ทักษา" cells={taksa} />
-            <EvidenceGrid title="ตรีวัย" cells={triwai} />
+          <div
+            className={`mt-5 grid gap-4 border-t border-[var(--border)] pt-5 ${
+              transit ? "sm:grid-cols-2" : ""
+            }`}
+          >
+            <TaksaNineGrid
+              title="ทักษา"
+              lagna={d1.lagna}
+              slots={natal.chart?.taksa}
+              planets={d1.planets}
+            />
+            {transitChart ? (
+              <TaksaNineGrid
+                title="ทักษาจร"
+                lagna={d1.lagna}
+                slots={natal.chart?.taksa}
+                planets={transitChart.planets}
+              />
+            ) : null}
           </div>
-        </details>
-      ) : null}
+
+          {hasEvidenceGrids ? (
+            <div className="mt-5 grid gap-4 border-t border-[var(--border)] pt-5 sm:grid-cols-2">
+              <EvidenceGrid title="ทักษา" cells={taksa} />
+              <EvidenceGrid title="ตรีวัย" cells={triwai} />
+            </div>
+          ) : null}
+        </div>
+      </details>
     </section>
   );
 }

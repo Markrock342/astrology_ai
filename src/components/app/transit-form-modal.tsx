@@ -163,7 +163,7 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
         {!isPro ? (
           <div className="space-y-4 px-5 py-6 text-center">
             <p className="mx-auto max-w-xs rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-1 text-[11px] font-medium text-[var(--primary)]">
-              สิทธิ์แพ็กเกจ Pro — ระบบทำงานปกติ
+              สิทธิ์แพ็กเกจ Pro
             </p>
             <p className="text-sm leading-relaxed text-[var(--muted)]">
               ดวงจรยังไม่รวมใน Free · อัปเกรดแล้วเลือกวัน/เวลาที่อยากดูได้ทันที
