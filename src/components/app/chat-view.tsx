@@ -71,9 +71,11 @@ const THINKING_PHASE_LABEL: Record<ThinkingPhase, string> = {
 const ANSWER_MODE_KEY = "horasard:answerMode";
 const DRAFT_KEY = "horasard:chatDraft";
 const FEEDBACK_KEY = "horasard:messageFeedback";
+const FORWARDED_QUESTION_PREFIX = "horasard:forwardedQuestion:";
 
 /** Survives React Strict Mode remounts so a category intro is not double-sent. */
 const natalIntroStarted = new Set<string>();
+const forwardedQuestionStarted = new Set<string>();
 
 /** Wall-clock helper kept outside the component so React purity lint ignores it. */
 function nowMs(): number {
@@ -229,6 +231,14 @@ type ScopeTarget = {
   requiresPro: boolean;
 };
 
+type TransitContext = {
+  date: string;
+  time: string | null;
+  country: string | null;
+  province: string | null;
+  district: string | null;
+};
+
 type SendOpts = {
   retryKey?: string;
   editUserMessageId?: string;
@@ -380,6 +390,9 @@ export function ChatView() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [scopeTarget, setScopeTarget] = useState<ScopeTarget | null>(null);
+  const [scopeForwardingLabel, setScopeForwardingLabel] = useState<string | null>(
+    null,
+  );
   const [pendingRetry, setPendingRetry] = useState<PendingRetry | null>(null);
   const [loadingThread, setLoadingThread] = useState(false);
   const [threadLoadError, setThreadLoadError] = useState<string | null>(null);
@@ -392,6 +405,8 @@ export function ChatView() {
   const [threadTransitLabel, setThreadTransitLabel] = useState<string | null>(
     null,
   );
+  const [threadTransitContext, setThreadTransitContext] =
+    useState<TransitContext | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [showScrollFab, setShowScrollFab] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -628,6 +643,17 @@ export function ChatView() {
       setMessages(cached.messages as Message[]);
       setThreadCategorySlug(cached.categorySlug ?? null);
       setThreadMode(cached.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
+      setThreadTransitContext(
+        cached.mode === "TRANSIT" && cached.transitDate
+          ? {
+              date: cached.transitDate,
+              time: cached.transitTime ?? null,
+              country: cached.transitCountry ?? null,
+              province: cached.transitProvince ?? null,
+              district: cached.transitDistrict ?? null,
+            }
+          : null,
+      );
       setLoadingThread(false);
       setThreadLoadError(null);
       const pending = cached.messages.some(
@@ -660,6 +686,17 @@ export function ChatView() {
       hydrateFeedback(loaded);
       setThreadCategorySlug(payload.categorySlug ?? null);
       setThreadMode(payload.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
+      setThreadTransitContext(
+        payload.mode === "TRANSIT" && payload.transitDate
+          ? {
+              date: payload.transitDate,
+              time: payload.transitTime ?? null,
+              country: payload.transitCountry ?? null,
+              province: payload.transitProvince ?? null,
+              district: payload.transitDistrict ?? null,
+            }
+          : null,
+      );
       if (payload.mode === "TRANSIT" && payload.transitDate) {
         const d = new Date(payload.transitDate);
         const dateLabel = Number.isNaN(d.getTime())
@@ -907,6 +944,8 @@ export function ChatView() {
     setThreadCategorySlug(null);
     setThreadMode(null);
     setThreadTransitLabel(null);
+    setThreadTransitContext(null);
+    setScopeForwardingLabel(null);
     setState(locked ? "locked" : "idle");
     setInput("");
     setErrorText(null);
@@ -1056,6 +1095,7 @@ export function ChatView() {
       typeof opts === "string" ? { retryKey: opts } : (opts ?? {});
     const content = text.trim();
     if (!content) return;
+    if (scopeForwardingLabel) return;
 
     const isIntro =
       options.purpose === "category_intro" || isCategoryIntroQuestion(content);
@@ -1092,6 +1132,65 @@ export function ChatView() {
             (threadMode === "TRANSIT" && user?.plan !== "PRO") ||
             isCategoryLocked(targetCategory, user?.plan ?? "FREE"),
         };
+        if (
+          user?.plan === "PRO" &&
+          threadMode === "TRANSIT" &&
+          threadTransitContext
+        ) {
+          setScopeTarget(null);
+          setErrorCode(null);
+          setErrorText(null);
+          setPendingRetry(null);
+          setScopeForwardingLabel(target.label);
+          setInput("");
+          window.localStorage.removeItem(DRAFT_KEY);
+          try {
+            const response = await fetch("/api/conversations", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                categorySlug: target.slug,
+                mode: "TRANSIT",
+                transitDate: threadTransitContext.date,
+                transitTime: threadTransitContext.time ?? undefined,
+                transitCountry: threadTransitContext.country ?? undefined,
+                transitProvince: threadTransitContext.province ?? undefined,
+                transitDistrict: threadTransitContext.district ?? undefined,
+              }),
+            });
+            const json = await parseApiJson(response);
+            const nextThreadId = json?.data?.id as string | undefined;
+            if (!response.ok || !json?.ok || !nextThreadId) {
+              throw new Error(
+                json?.error?.message ?? "ย้ายคำถามไปหมวดที่ตรงไม่สำเร็จ",
+              );
+            }
+            window.sessionStorage.setItem(
+              `${FORWARDED_QUESTION_PREFIX}${nextThreadId}`,
+              content,
+            );
+            conversationIdRef.current = nextThreadId;
+            setScopeForwardingLabel(null);
+            softNavigate(
+              `/dashboard?thread=${nextThreadId}&cat=${target.slug}`,
+            );
+            void refreshLight();
+            return;
+          } catch (caught) {
+            setScopeForwardingLabel(null);
+            setInput(content);
+            window.localStorage.setItem(DRAFT_KEY, content);
+            setScopeTarget(target);
+            setErrorCode("CATEGORY_SCOPE_MISMATCH");
+            setErrorText(
+              caught instanceof Error
+                ? `${caught.message} — กดเปิดหมวด${target.label}ได้ด้านล่าง`
+                : `ย้ายคำถามไม่สำเร็จ — กดเปิดหมวด${target.label}ได้ด้านล่าง`,
+            );
+            setState("error");
+            return;
+          }
+        }
         setScopeTarget(target);
         setErrorCode("CATEGORY_SCOPE_MISMATCH");
         setErrorText(
@@ -1791,6 +1890,32 @@ export function ChatView() {
     }
   }
 
+  // A Pro cross-category handoff creates the correctly scoped transit thread,
+  // then this effect sends the original question after that empty thread has
+  // loaded. sessionStorage survives the soft navigation without putting the
+  // user's question in the URL or keeping it beyond this browser session.
+  useEffect(() => {
+    if (
+      !threadId ||
+      loadingThread ||
+      threadMode !== "TRANSIT" ||
+      messages.length > 0 ||
+      state !== "idle" ||
+      forwardedQuestionStarted.has(threadId)
+    ) {
+      return;
+    }
+    const key = `${FORWARDED_QUESTION_PREFIX}${threadId}`;
+    const question = window.sessionStorage.getItem(key)?.trim();
+    if (!question) return;
+    forwardedQuestionStarted.add(threadId);
+    window.sessionStorage.removeItem(key);
+    void send(question);
+    // send is an event handler recreated each render; the thread id + module
+    // guard make this handoff exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId, loadingThread, threadMode, messages.length, state]);
+
   const showEmpty =
     messages.length === 0 &&
     !locked &&
@@ -2251,6 +2376,19 @@ export function ChatView() {
               </button>
             </div>
           ) : null}
+          {scopeForwardingLabel ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mx-auto mb-2 flex w-[calc(100%-2rem)] max-w-3xl items-center gap-3 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-4 py-3 text-sm text-[var(--foreground)]"
+            >
+              <span
+                className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-[var(--primary)]/30 border-t-[var(--primary)]"
+                aria-hidden
+              />
+              กำลังย้ายคำถามไปหมวด「{scopeForwardingLabel}」และส่งให้ AI…
+            </div>
+          ) : null}
           {threadMode === "TRANSIT" || isBusy ? (
             <Composer
               ref={composerRef}
@@ -2274,7 +2412,10 @@ export function ChatView() {
                 !stopping
               }
               disabled={
-                locked || state === "locked" || threadMode !== "TRANSIT"
+                locked ||
+                state === "locked" ||
+                threadMode !== "TRANSIT" ||
+                Boolean(scopeForwardingLabel)
               }
               // Keep the field editable while streaming (ChatGPT-style). Send is
               // blocked in send() until the turn settles; Stop replaces the arrow.

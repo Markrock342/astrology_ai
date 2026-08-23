@@ -39,7 +39,7 @@ export const metadata: Metadata = {
 };
 
 function buildThemeBootScript(brandJson: string) {
-  return `(function(){try{var t=localStorage.getItem("hora-theme");if(t!=="light"&&t!=="dark")t="dark";document.documentElement.setAttribute("data-theme",t);var brand=${brandJson};if(brand&&brand.enabled){var vars=t==="light"?brand.light:brand.dark;var r=document.documentElement;for(var k in vars)if(Object.prototype.hasOwnProperty.call(vars,k))r.style.setProperty(k,vars[k]);}}catch(e){document.documentElement.setAttribute("data-theme","dark");}})();`;
+  return `(function(){try{var t=localStorage.getItem("hora-theme");if(t!=="light"&&t!=="dark")t="dark";document.documentElement.setAttribute("data-theme",t);document.documentElement.style.colorScheme=t;var brand=${brandJson};if(brand&&brand.enabled){var vars=t==="light"?brand.light:brand.dark;var r=document.documentElement;for(var k in vars)if(Object.prototype.hasOwnProperty.call(vars,k))r.style.setProperty(k,vars[k]);}}catch(e){document.documentElement.setAttribute("data-theme","dark");document.documentElement.style.colorScheme="dark";}})();`;
 }
 
 export default async function RootLayout({
