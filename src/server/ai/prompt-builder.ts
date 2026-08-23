@@ -60,6 +60,15 @@ export const RESPONSE_LAYOUT_RULE =
   "ห้ามห่อคำตอบทั้งก้อนด้วย code fence " +
   "รักษาบุคลิกและน้ำเสียงจากบล็อก persona ตลอดการสนทนา — อย่าเปลี่ยนเป็นโทนหุ่นยนต์หรือเลิกเป็นตัวละครนั้น";
 
+/** Never leave a general user alone with unexplained technical astrology terms. */
+export const ASTROLOGY_PLAIN_LANGUAGE_RULE =
+  "กฎภาษาโหราศาสตร์ (บังคับ): ผู้ใช้อาจไม่รู้ศัพท์เฉพาะ " +
+  "เมื่อใช้ศัพท์ครั้งแรกให้ใส่คำแปลภาษาคนทั่วไปสั้น ๆ ในวงเล็บ เช่น " +
+  "กดุมภะ (เรือนการเงินและทรัพย์สิน), ปัตนิ (เรือนคู่ครองและหุ้นส่วน), " +
+  "กัมมะ (เรือนอาชีพและหน้าที่), ลาภะ (เรือนรายได้และผลสำเร็จ) " +
+  "รวมถึงนวางศ์ ตรียางศ์ ทักษา อุจจ์ นีจ ประ เกษตร และมหาจักร " +
+  "ห้ามเรียงศัพท์ตำราโดยไม่อธิบายว่ามีผลต่อชีวิตด้านใด";
+
 export function buildSystemPrompt(parts: PromptParts): string {
   return [
     parts.safety,
@@ -69,6 +78,7 @@ export function buildSystemPrompt(parts: PromptParts): string {
     parts.category,
     parts.knowledge,
     parts.outputFormat,
+    ASTROLOGY_PLAIN_LANGUAGE_RULE,
     // Layout last so it overrides outdated Admin format templates that banned headings.
     RESPONSE_LAYOUT_RULE,
   ]

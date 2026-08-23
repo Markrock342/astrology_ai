@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getPlanetTheme,
+  getHouseMeaning,
   bhavaNameFromLagna,
   houseFromLagna,
   normalizeSignName,
@@ -67,5 +68,12 @@ describe("bhavaNameFromLagna", () => {
     expect(bhavaNameFromLagna("กันย์", "กันย์")).toBe("ตนุ");
     expect(bhavaNameFromLagna("กันย์", "ตุลย์")).toBe("กดุมภะ");
     expect(bhavaNameFromLagna("กันย์", "สิงห์")).toBe("วินาศ");
+  });
+
+  it("explains every printed house name in plain Thai", () => {
+    expect(getHouseMeaning("กดุมภะ")).toContain("การเงิน");
+    expect(getHouseMeaning("ปัตนิ")).toContain("คู่ครอง");
+    expect(getHouseMeaning("กัมมะ")).toContain("อาชีพ");
+    expect(getHouseMeaning("ลาภะ")).toContain("รายได้");
   });
 });
