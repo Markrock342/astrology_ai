@@ -8,6 +8,7 @@ import {
 } from "@/server/horoscope/engine/compute-chart";
 import { upsertChartMemory } from "@/server/horoscope/chart-memory-service";
 import { withPrismaRetry } from "@/server/prisma-utils";
+import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 
 /**
  * Keep the instance alive until the task settles. A bare `void promise` is
@@ -63,6 +64,7 @@ export async function queueNatalChart(userId: string, birthProfileId: string) {
       err instanceof Error ? err.message : err,
     );
   });
+  invalidateUserBootstrap(userId);
 
   runAfterResponse(() =>
     upgradeNatalChartFromScrape(userId, birthProfileId).catch((err) => {
@@ -106,6 +108,7 @@ export async function upgradeNatalChartFromScrape(
   );
 
   await upsertChartMemory(userId, chartJson);
+  invalidateUserBootstrap(userId);
 }
 
 export async function getNatalChart(userId: string) {

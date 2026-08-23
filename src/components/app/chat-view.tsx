@@ -32,6 +32,7 @@ import {
   buildCategoryIntroQuestion,
   isCategoryIntroQuestion,
 } from "@/lib/intake-survey";
+import { detectQuestionScopeMismatch } from "@/lib/question-scope";
 import {
   getCachedThread,
   prefetchThread,
@@ -221,6 +222,12 @@ type PendingRetry = {
   idempotencyKey: string;
 };
 
+type ScopeTarget = {
+  slug: string;
+  label: string;
+  requiresPro: boolean;
+};
+
 type SendOpts = {
   retryKey?: string;
   editUserMessageId?: string;
@@ -269,11 +276,31 @@ function applyApiError(
     setErrorText: (text: string | null) => void;
     setState: (state: ChatState) => void;
     setPendingRetry: (retry: PendingRetry | null) => void;
+    setScopeTarget?: (target: ScopeTarget | null) => void;
   },
   retry: PendingRetry | null,
-  opts?: { hasPendingPayment?: boolean },
+  opts?: { hasPendingPayment?: boolean; details?: unknown },
 ) {
   setters.setErrorCode(code);
+  const details = opts?.details as
+    | (Partial<ScopeTarget> & {
+        targetSlug?: string;
+        targetLabel?: string;
+      })
+    | undefined;
+  const detailSlug = details?.slug ?? details?.targetSlug;
+  const detailLabel = details?.label ?? details?.targetLabel;
+  setters.setScopeTarget?.(
+    code === "CATEGORY_SCOPE_MISMATCH" &&
+      typeof detailSlug === "string" &&
+      typeof detailLabel === "string"
+      ? {
+          slug: detailSlug,
+          label: detailLabel,
+          requiresPro: Boolean(details?.requiresPro),
+        }
+      : null,
+  );
   if (code === "CATEGORY_LOCKED") {
     setters.setState("locked");
     setters.setPendingRetry(null);
@@ -308,8 +335,15 @@ export function ChatView() {
   const threadId = searchParams.get("thread");
   const activeView = searchParams.get("view");
   const showingNatalChart = activeView === "natal-chart";
-  const { user, refreshLight, pendingPayment, natalChartStatus, natalThreads, loading } =
-    useAppData();
+  const {
+    user,
+    categories,
+    refreshLight,
+    pendingPayment,
+    natalChartStatus,
+    natalThreads,
+    loading,
+  } = useAppData();
   const category = useCategory(catSlug);
   const locked = isCategoryLocked(category, user?.plan ?? "FREE");
   const hasPendingPayment = Boolean(pendingPayment);
@@ -344,6 +378,7 @@ export function ChatView() {
   const draftHydratedRef = useRef(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [scopeTarget, setScopeTarget] = useState<ScopeTarget | null>(null);
   const [pendingRetry, setPendingRetry] = useState<PendingRetry | null>(null);
   const [loadingThread, setLoadingThread] = useState(false);
   const [threadLoadError, setThreadLoadError] = useState<string | null>(null);
@@ -1023,6 +1058,7 @@ export function ChatView() {
 
     const isIntro =
       options.purpose === "category_intro" || isCategoryIntroQuestion(content);
+    const categorySlug = catSlug ?? threadCategorySlug;
     const introStamp =
       isIntro && (catSlug ?? threadCategorySlug)
         ? `${user?.email ?? "anon"}:${catSlug ?? threadCategorySlug}`
@@ -1042,6 +1078,28 @@ export function ChatView() {
       setState("error");
       setPendingRetry(null);
       return;
+    }
+
+    if (!isIntro && categorySlug) {
+      const targetSlug = detectQuestionScopeMismatch(content, categorySlug);
+      if (targetSlug) {
+        const targetCategory = categories.find((item) => item.slug === targetSlug);
+        const target: ScopeTarget = {
+          slug: targetSlug,
+          label: targetCategory?.label ?? targetSlug,
+          requiresPro:
+            (threadMode === "TRANSIT" && user?.plan !== "PRO") ||
+            isCategoryLocked(targetCategory, user?.plan ?? "FREE"),
+        };
+        setScopeTarget(target);
+        setErrorCode("CATEGORY_SCOPE_MISMATCH");
+        setErrorText(
+          `คำถามนี้อยู่ในหมวด「${target.label}」 กรุณาเปิดหมวดนั้นเพื่อใช้สิทธิ์ที่ถูกต้อง`,
+        );
+        setState("error");
+        setPendingRetry(null);
+        return;
+      }
     }
 
     const hasLiveTurn = Boolean(inFlight) || Boolean(stopTarget);
@@ -1109,7 +1167,6 @@ export function ChatView() {
       setPendingRetry(null);
       return;
     }
-    const categorySlug = catSlug ?? threadCategorySlug;
     if (!categorySlug && !threadId && !conversationIdRef.current) {
       softNavigate("/dashboard?cat=self");
       setErrorCode("VALIDATION");
@@ -1138,6 +1195,7 @@ export function ChatView() {
 
     setErrorText(null);
     setErrorCode(null);
+    setScopeTarget(null);
     setThinkingPhase(null);
     setState("processing");
     // Event-handler timing (not render) — stamp wall-clock for stale-turn recovery.
@@ -1300,9 +1358,15 @@ export function ChatView() {
           applyApiError(
             code,
             json?.error?.message,
-            { setErrorCode, setErrorText, setState, setPendingRetry },
+            {
+              setErrorCode,
+              setErrorText,
+              setState,
+              setPendingRetry,
+              setScopeTarget,
+            },
             { question: content, idempotencyKey },
-            { hasPendingPayment },
+            { hasPendingPayment, details: json?.error?.details },
           );
           setMessages((prev) => prev.filter((m) => m.id !== assistantId));
           releaseIntroStamp();
@@ -1423,6 +1487,7 @@ export function ChatView() {
             truncated?: boolean;
             chartSnapshot?: ChartJson | null;
             transitSnapshot?: ChartJson | null;
+            details?: unknown;
             reading?: {
               responseText?: string | null;
               modelId?: string | null;
@@ -1609,9 +1674,15 @@ export function ChatView() {
             applyApiError(
               code,
               event.message,
-              { setErrorCode, setErrorText, setState, setPendingRetry },
+              {
+                setErrorCode,
+                setErrorText,
+                setState,
+                setPendingRetry,
+                setScopeTarget,
+              },
               { question: content, idempotencyKey },
-              { hasPendingPayment },
+              { hasPendingPayment, details: event.details },
             );
             releaseIntroStamp();
             if (!gotDelta) {
@@ -1838,6 +1909,7 @@ export function ChatView() {
                   state={state}
                   errorCode={errorCode}
                   errorText={errorText}
+                  scopeTarget={scopeTarget}
                   onRetry={
                     pendingRetry &&
                     errorCode &&
@@ -2093,6 +2165,7 @@ export function ChatView() {
                 state={state}
                 errorCode={errorCode}
                 errorText={errorText}
+                scopeTarget={scopeTarget}
                 onRetry={
                   pendingRetry &&
                   errorCode &&
@@ -2216,11 +2289,13 @@ function ErrorBanner({
   state,
   errorCode,
   errorText,
+  scopeTarget,
   onRetry,
 }: {
   state: "error" | "no-quota";
   errorCode: string | null;
   errorText: string | null;
+  scopeTarget?: ScopeTarget | null;
   onRetry?: () => void;
 }) {
   const showUpgrade =
@@ -2236,6 +2311,20 @@ function ErrorBanner({
         {errorText ?? "เกิดข้อผิดพลาด ลองใหม่อีกครั้ง"}
       </p>
       <div className="flex flex-wrap gap-2">
+        {errorCode === "CATEGORY_SCOPE_MISMATCH" && scopeTarget ? (
+          <a
+            href={
+              scopeTarget.requiresPro
+                ? "/account"
+                : `/dashboard?cat=${scopeTarget.slug}`
+            }
+            className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+          >
+            {scopeTarget.requiresPro
+              ? `ปลดล็อกหมวด${scopeTarget.label}`
+              : `เปิดหมวด${scopeTarget.label}`}
+          </a>
+        ) : null}
         {onRetry && (
           <button
             type="button"
@@ -2293,11 +2382,12 @@ function EmptyState({
           <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
             {chartReady
               ? `กำลังสรุปหมวด${category ? `「${category}」` : "นี้"}`
-              : "รอคำนวณพื้นดวงก่อนสรุปหมวด"}
+              : "กำลังเตรียมพื้นดวงให้พร้อม"}
           </h1>
           <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
-            สรุปจากพื้นดวงและแบบสำรวจทันที — ไม่หักเครดิต
-            อยากถามจังหวะช่วงนี้ค่อยไปโหมดดวงจร
+            {chartReady
+              ? "สรุปจากพื้นดวงและแบบสำรวจทันที — ไม่หักเครดิต"
+              : "ปกติใช้เวลาไม่กี่วินาที จากนั้นระบบจะเปิดสรุปหมวดนี้ให้อัตโนมัติ"}
           </p>
         </>
       ) : (

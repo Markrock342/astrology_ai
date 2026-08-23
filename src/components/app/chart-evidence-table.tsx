@@ -2,7 +2,7 @@
 
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
-import { normalizeSignName } from "@/lib/chart-theme";
+import { houseFromLagna, normalizeSignName, SIGNS } from "@/lib/chart-theme";
 
 type Props = {
   chart: ChartJson;
@@ -13,16 +13,43 @@ type Props = {
   onRowAsk?: (prompt: string) => void;
 };
 
-function pickRows(chart: ChartJson, mode: "natal" | "transit"): MyhoraNatalPlanet[] | null {
-  if (mode === "transit" && chart.myhora?.transitPlanets?.length) {
-    return chart.myhora.transitPlanets;
-  }
-  if (chart.myhora?.natalPlanets?.length) return chart.myhora.natalPlanets;
-  return null;
+type EvidenceRow = MyhoraNatalPlanet & {
+  fallbackDegreeText?: string;
+  resolvedHouse?: string;
+};
+
+function pickRows(
+  chart: ChartJson,
+  mode: "natal" | "transit",
+): EvidenceRow[] | null {
+  const source =
+    mode === "transit" && chart.myhora?.transitPlanets?.length
+      ? chart.myhora.transitPlanets
+      : chart.myhora?.natalPlanets?.length
+        ? chart.myhora.natalPlanets
+        : null;
+  if (!source) return null;
+
+  const lagna = chart.chart?.lagna ?? chart.meta.lagna;
+  return source.map((row) => {
+    const engineRow = chart.planets.find((planet) =>
+      row.planet.includes(planet.planet),
+    );
+    const sign = normalizeSignName(row.zodiac || engineRow?.siderealSign || "");
+    return {
+      ...row,
+      fallbackDegreeText: engineRow?.degreeText,
+      resolvedHouse:
+        row.house ||
+        (lagna && (SIGNS as readonly string[]).includes(sign)
+          ? String(houseFromLagna(lagna, sign))
+          : undefined),
+    };
+  });
 }
 
-function promptForSamrap(r: MyhoraNatalPlanet, mode: "natal" | "transit"): string {
-  const house = r.house ? ` เรือน${r.house}` : "";
+function promptForSamrap(r: EvidenceRow, mode: "natal" | "transit"): string {
+  const house = r.resolvedHouse ? ` เรือน${r.resolvedHouse}` : "";
   const scope = mode === "transit" ? "ดวงจร" : "พื้นดวง";
   return `ขอคำอธิบายเพิ่มเกี่ยวกับ${r.planet} ในราศี${normalizeSignName(r.zodiac)}${house} จาก${scope}`;
 }
@@ -35,8 +62,10 @@ function promptForPlanet(
   return `ขอคำอธิบายเพิ่มเกี่ยวกับ${p.planet} ในราศี${normalizeSignName(p.siderealSign)} จาก${scope}`;
 }
 
-function degreeText(r: MyhoraNatalPlanet): string {
-  return r.degree || r.minute ? `${r.degree || "0"}°${r.minute || "0"}'` : "—";
+function degreeText(r: EvidenceRow): string {
+  return r.degree || r.minute
+    ? `${r.degree || "0"}°${r.minute || "0"}'`
+    : (r.fallbackDegreeText ?? "ยังไม่มีข้อมูลองศา");
 }
 
 /** Evidence — card stack on phones, wide table from md up. */
@@ -92,7 +121,7 @@ export function ChartEvidenceTable({
                     </p>
                     <p className="mt-1 text-[12px] text-[var(--muted)]">
                       {degreeText(r)}
-                      {r.house ? ` · เรือน${r.house}` : ""}
+                      {r.resolvedHouse ? ` · เรือน${r.resolvedHouse}` : ""}
                       {r.nawamang ? ` · นวางศ์ ${r.nawamang}` : ""}
                       {r.rerkName || r.rerk
                         ? ` · ฤกษ์ ${r.rerkName || r.rerk}`
@@ -136,7 +165,7 @@ export function ChartEvidenceTable({
                       </td>
                       <td className="px-3 py-2">{normalizeSignName(r.zodiac)}</td>
                       <td className="px-3 py-2">{degreeText(r)}</td>
-                      <td className="px-3 py-2">{r.house || "—"}</td>
+                      <td className="px-3 py-2">{r.resolvedHouse || "—"}</td>
                       <td className="px-3 py-2">{r.nawamang || "—"}</td>
                       <td className="px-3 py-2">{r.rerkName || r.rerk || "—"}</td>
                     </tr>

@@ -8,7 +8,11 @@ import {
   type IntakeQuestionId,
 } from "@/lib/intake-survey";
 
-type Draft = Partial<Record<IntakeQuestionId, string>>;
+type Draft = Partial<Record<IntakeQuestionId, string | string[]>>;
+
+function hasAnswer(value: Draft[IntakeQuestionId]): boolean {
+  return Array.isArray(value) ? value.length > 0 : Boolean(value);
+}
 
 export function IntakeSurveyForm() {
   const router = useRouter();
@@ -16,13 +20,34 @@ export function IntakeSurveyForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const answered = INTAKE_QUESTIONS.filter((q) => draft[q.id]).length;
+  const answered = INTAKE_QUESTIONS.filter((q) =>
+    hasAnswer(draft[q.id]),
+  ).length;
   const complete = answered === INTAKE_QUESTIONS.length;
 
   const progressLabel = useMemo(
     () => `ตอบแล้ว ${answered} จาก ${INTAKE_QUESTIONS.length} ข้อ`,
     [answered],
   );
+
+  function toggleMultiple(
+    questionId: IntakeQuestionId,
+    value: string,
+    exclusiveValues: string[] = [],
+  ) {
+    setDraft((previous) => {
+      const current = Array.isArray(previous[questionId])
+        ? previous[questionId]
+        : [];
+      const isExclusive = exclusiveValues.includes(value);
+      const next = current.includes(value)
+        ? current.filter((item) => item !== value)
+        : isExclusive
+          ? [value]
+          : [...current.filter((item) => !exclusiveValues.includes(item)), value];
+      return { ...previous, [questionId]: next };
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,27 +99,43 @@ export function IntakeSurveyForm() {
             <legend className="text-sm font-semibold text-[var(--foreground)]">
               <span className="mr-2 text-[var(--muted-2)]">{index + 1}.</span>
               {q.prompt}
+              {q.selection === "multiple" ? (
+                <span className="ml-2 whitespace-nowrap text-[11px] font-normal text-[var(--primary)]">
+                  เลือกได้หลายข้อ
+                </span>
+              ) : null}
             </legend>
             <div className="mt-3 flex flex-wrap gap-2">
               {q.options.map((opt) => {
-                const selected = draft[q.id] === opt.value;
+                const current = draft[q.id];
+                const selected = Array.isArray(current)
+                  ? current.includes(opt.value)
+                  : current === opt.value;
                 return (
                   <label
                     key={opt.value}
-                    className={`press-scale cursor-pointer rounded-full border px-3.5 py-1.5 text-xs transition ${
+                    className={`press-scale inline-flex min-h-11 cursor-pointer items-center rounded-full border px-4 py-2 text-xs transition focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--primary)] ${
                       selected
                         ? "border-[var(--primary)] bg-[var(--primary)]/15 font-medium text-[var(--primary)]"
                         : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)] hover:border-[var(--primary)] hover:text-[var(--foreground)]"
                     }`}
                   >
                     <input
-                      type="radio"
+                      type={q.selection === "multiple" ? "checkbox" : "radio"}
                       name={q.id}
                       value={opt.value}
                       checked={selected}
-                      onChange={() =>
-                        setDraft((prev) => ({ ...prev, [q.id]: opt.value }))
-                      }
+                      onChange={() => {
+                        if (q.selection === "multiple") {
+                          toggleMultiple(
+                            q.id,
+                            opt.value,
+                            q.exclusiveValues,
+                          );
+                          return;
+                        }
+                        setDraft((prev) => ({ ...prev, [q.id]: opt.value }));
+                      }}
                       className="sr-only"
                     />
                     {opt.label}
