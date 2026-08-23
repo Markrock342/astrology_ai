@@ -2,6 +2,11 @@ import type { Role } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { addCredits } from "@/server/credit/credit-service";
 import { DEFAULTS } from "@/config/constants";
+import {
+  getLaunchPromotionCreditReferenceId,
+  isLaunchProPromotionActive,
+  LAUNCH_PRO_PROMOTION,
+} from "@/config/promotion";
 
 /**
  * Shared new-user provisioning. Creates the user, an (empty) credit wallet, and
@@ -42,6 +47,23 @@ export async function provisionUser(input: {
       });
     }
 
+    const promotionActive = isLaunchProPromotionActive();
+    if (promotionActive) {
+      const proPkg = await tx.package.findUnique({ where: { code: "PRO" } });
+      if (proPkg) {
+        await tx.userSubscription.create({
+          data: {
+            userId: created.id,
+            packageId: proPkg.id,
+            status: "ACTIVE",
+            startsAt: LAUNCH_PRO_PROMOTION.startsAt,
+            expiresAt: LAUNCH_PRO_PROMOTION.endsAt,
+            activationSource: "SYSTEM_DEFAULT",
+          },
+        });
+      }
+    }
+
     // The grant is the Free package's own quota, so raising it in the CMS takes
     // effect for the next sign-up. It used to come from a hardcoded constant,
     // which meant the admin's number was decorative.
@@ -51,6 +73,22 @@ export async function provisionUser(input: {
         created.id,
         grant,
         { type: "INITIAL_GRANT", note: `Free sign-up grant (${freePkg?.code ?? "default"})` },
+        tx,
+      );
+    }
+
+
+    if (promotionActive) {
+      await addCredits(
+        created.id,
+        LAUNCH_PRO_PROMOTION.creditGrant,
+        {
+          type: "PROMOTION",
+          referenceType: "PROMOTION",
+          // Ledger idempotency is global, so namespace the campaign per user.
+          referenceId: getLaunchPromotionCreditReferenceId(created.id),
+          note: `Pro ทดลอง 1 เดือน +${LAUNCH_PRO_PROMOTION.creditGrant} เครดิต`,
+        },
         tx,
       );
     }

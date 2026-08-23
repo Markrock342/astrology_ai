@@ -22,6 +22,8 @@ export type AppUser = {
   plan: "FREE" | "PRO";
   /** ISO expiry of active Pro subscription, if any. */
   proExpiresAt?: string | null;
+  promotionEndsAt?: string | null;
+  promotionCreditGrant?: number | null;
   role: "USER" | "ADMIN" | "SUPER_ADMIN";
   creditBalance: number;
   canChat: boolean;
@@ -101,6 +103,8 @@ type AppDataContextValue = {
   clearThreadsLocal: () => void;
   /** After chat — me + thread lists only (much smaller). */
   refreshLight: () => void;
+  /** Ask the server to repair/check the saved natal chart immediately. */
+  repairNatalChart: () => Promise<void>;
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -115,6 +119,10 @@ function mapMe(me: Record<string, unknown>): AppUser {
     image: (me.image as string | null | undefined) ?? null,
     plan: (me.plan as "FREE" | "PRO") ?? "FREE",
     proExpiresAt: (me.proExpiresAt as string | null | undefined) ?? null,
+    promotionEndsAt:
+      (me.promotionEndsAt as string | null | undefined) ?? null,
+    promotionCreditGrant:
+      (me.promotionCreditGrant as number | null | undefined) ?? null,
     role: (me.role as AppUser["role"]) ?? "USER",
     creditBalance: Number(me.creditBalance ?? 0),
     canChat: Boolean(me.canChat ?? me.plan === "PRO"),
@@ -275,6 +283,31 @@ export function AppDataProvider({
     }
   }, []);
 
+  const repairNatalChart = useCallback(async () => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
+    try {
+      const response = await fetch("/api/me/natal-chart", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      const json = await response.json().catch(() => null);
+      const status = json?.data?.chart?.status as
+        | NatalChartStatus["status"]
+        | undefined;
+      if (!response.ok || !json?.ok || !status) return;
+      setNatalChartStatus({
+        status,
+        note: json.data.chart.note ?? null,
+      });
+    } catch {
+      // Polling continues after transient network/compute failures. The loading
+      // surface also offers an explicit retry for users on unstable mobile data.
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }, []);
+
   useEffect(() => {
     if (initialData) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -283,25 +316,23 @@ export function AppDataProvider({
 
   useEffect(() => {
     if (loading || natalChartStatus?.status === "READY") return;
-    const controller = new AbortController();
-    void fetch("/api/me/natal-chart", {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const json = await response.json().catch(() => null);
-        const status = json?.data?.chart?.status as
-          | NatalChartStatus["status"]
-          | undefined;
-        if (!response.ok || !json?.ok || !status) return;
-        setNatalChartStatus({
-          status,
-          note: json.data.chart.note ?? null,
-        });
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, [loading, natalChartStatus?.status]);
+    let active = true;
+    let timer: number | null = null;
+    let attempts = 0;
+
+    const poll = async () => {
+      attempts += 1;
+      await repairNatalChart();
+      if (!active || attempts >= 24) return;
+      timer = window.setTimeout(poll, attempts < 8 ? 2_500 : 5_000);
+    };
+
+    void poll();
+    return () => {
+      active = false;
+      if (timer != null) window.clearTimeout(timer);
+    };
+  }, [loading, natalChartStatus?.status, repairNatalChart]);
 
   const q = searchQuery.trim().toLowerCase();
   const filteredCategories = useMemo(
@@ -370,6 +401,7 @@ export function AppDataProvider({
       removeThreadLocal,
       clearThreadsLocal,
       refreshLight,
+      repairNatalChart,
     }),
     [
       user,
@@ -389,6 +421,7 @@ export function AppDataProvider({
       removeThreadLocal,
       clearThreadsLocal,
       refreshLight,
+      repairNatalChart,
     ],
   );
 
