@@ -103,6 +103,29 @@ export const HOUSE_NAMES = [
   "วินาศ",
 ] as const;
 
+/** Plain-Thai meanings for bhava labels printed on the inner chart ring. */
+export const HOUSE_MEANING: Record<(typeof HOUSE_NAMES)[number], string> = {
+  ตนุ: "ตัวตน บุคลิก และสุขภาพโดยรวม",
+  กดุมภะ: "การเงิน ทรัพย์สิน และคำพูด",
+  สหัชชะ: "พี่น้อง การสื่อสาร และความกล้าลงมือ",
+  พันธุ: "บ้าน ครอบครัว ที่อยู่อาศัย และความมั่นคง",
+  ปุตตะ: "บุตร ความรักแบบสร้างสรรค์ การเรียนรู้ และผลงาน",
+  อริ: "งานประจำ อุปสรรค หนี้ และสุขภาพที่ต้องดูแล",
+  ปัตนิ: "คู่ครอง หุ้นส่วน และความสัมพันธ์แบบตัวต่อตัว",
+  มรณะ: "การเปลี่ยนผ่าน วิกฤต มรดก และเรื่องที่ซ่อนอยู่",
+  ศุภะ: "โชค การศึกษา ความเชื่อ การเดินทางไกล และผู้ใหญ่",
+  กัมมะ: "อาชีพ หน้าที่ ชื่อเสียง และความรับผิดชอบ",
+  ลาภะ: "รายได้ ผลสำเร็จ เพื่อน และเครือข่าย",
+  วินาศ: "รายจ่าย การพักฟื้น ต่างแดน และเรื่องเบื้องหลัง",
+};
+
+export function getHouseMeaning(houseName: string): string {
+  return (
+    HOUSE_MEANING[houseName as (typeof HOUSE_NAMES)[number]] ??
+    "ภพหรือเรือนหนึ่งในดวงชะตา"
+  );
+}
+
 /** Display labels for the outer rasi ring (template uses กุมภ์). */
 export const SIGN_LABEL: Record<(typeof SIGNS)[number], string> = {
   เมษ: "เมษ",

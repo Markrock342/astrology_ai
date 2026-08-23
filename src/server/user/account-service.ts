@@ -2,9 +2,17 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getBalance } from "@/server/credit/credit-service";
 import { MAX_BIRTH_EDITS, isStaffRole } from "@/server/user/birth-profile-service";
+import {
+  isLaunchProPromotionActive,
+  LAUNCH_PRO_PROMOTION,
+} from "@/config/promotion";
 
 /** Effective plan = an ACTIVE, non-expired Pro subscription, else FREE. */
 export async function getEffectivePlan(userId: string): Promise<"FREE" | "PRO"> {
+  // The database migration/provisioner also creates a timed Pro subscription.
+  // This override keeps access correct during a rolling deploy before every
+  // app instance has observed the migrated row.
+  if (isLaunchProPromotionActive()) return "PRO";
   const sub = await prisma.userSubscription.findFirst({
     where: {
       userId,
@@ -40,6 +48,7 @@ export async function getMe(userId: string) {
           package: { type: "PRO" },
           OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
         },
+        orderBy: { expiresAt: "desc" },
         take: 1,
         select: { id: true, expiresAt: true },
       },
@@ -47,9 +56,17 @@ export async function getMe(userId: string) {
   });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
 
-  const plan: "FREE" | "PRO" = user.subscriptions.length > 0 ? "PRO" : "FREE";
+  const promotionActive = isLaunchProPromotionActive(now);
+  const plan: "FREE" | "PRO" =
+    user.subscriptions.length > 0 || promotionActive ? "PRO" : "FREE";
   const balance = user.creditWallet?.balance ?? 0;
-  const proExpiresAt = user.subscriptions[0]?.expiresAt?.toISOString() ?? null;
+  const paidExpiry = user.subscriptions[0]?.expiresAt ?? null;
+  const effectiveExpiry =
+    promotionActive &&
+    (!paidExpiry || paidExpiry < LAUNCH_PRO_PROMOTION.endsAt)
+      ? LAUNCH_PRO_PROMOTION.endsAt
+      : paidExpiry;
+  const proExpiresAt = effectiveExpiry?.toISOString() ?? null;
 
   const editsRemaining = isStaffRole(user.role)
     ? 999
@@ -72,6 +89,12 @@ export async function getMe(userId: string) {
     birthEditsUnlimited: isStaffRole(user.role),
     plan,
     proExpiresAt,
+    promotionEndsAt: promotionActive
+      ? LAUNCH_PRO_PROMOTION.endsAt.toISOString()
+      : null,
+    promotionCreditGrant: promotionActive
+      ? LAUNCH_PRO_PROMOTION.creditGrant
+      : null,
     creditBalance: balance,
     /** Free cannot chat AI — must upgrade to Pro (`CHAT_REQUIRES_PRO`). */
     canChat: plan === "PRO",

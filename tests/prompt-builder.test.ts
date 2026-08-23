@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSystemPrompt,
   buildConversationHistory,
   trimConversationHistory,
 } from "@/server/ai/prompt-builder";
@@ -45,6 +46,21 @@ const chart = {
 } as unknown as ChartJson;
 
 const memory = deriveChartMemory(chart);
+
+describe("buildSystemPrompt plain-language contract", () => {
+  it("requires a short translation when the answer uses astrology jargon", () => {
+    const prompt = buildSystemPrompt({
+      safety: "safe",
+      persona: "persona",
+      plan: "pro",
+      category: "finance",
+      outputFormat: "markdown",
+    });
+    expect(prompt).toContain("กฎภาษาโหราศาสตร์");
+    expect(prompt).toContain("กดุมภะ (เรือนการเงินและทรัพย์สิน)");
+    expect(prompt).toContain("ห้ามเรียงศัพท์ตำราโดยไม่อธิบาย");
+  });
+});
 
 describe("buildConversationHistory (M3 B1)", () => {
   it("requires engine natal chart on every turn", () => {
