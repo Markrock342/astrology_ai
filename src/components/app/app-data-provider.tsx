@@ -281,6 +281,28 @@ export function AppDataProvider({
     void load();
   }, [initialData, load]);
 
+  useEffect(() => {
+    if (loading || natalChartStatus?.status === "READY") return;
+    const controller = new AbortController();
+    void fetch("/api/me/natal-chart", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const json = await response.json().catch(() => null);
+        const status = json?.data?.chart?.status as
+          | NatalChartStatus["status"]
+          | undefined;
+        if (!response.ok || !json?.ok || !status) return;
+        setNatalChartStatus({
+          status,
+          note: json.data.chart.note ?? null,
+        });
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [loading, natalChartStatus?.status]);
+
   const q = searchQuery.trim().toLowerCase();
   const filteredCategories = useMemo(
     () =>

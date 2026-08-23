@@ -18,6 +18,7 @@ import {
 } from "@/server/horoscope/thread-service";
 import type { ConversationMode } from "@prisma/client";
 import { isCategoryIntroQuestion } from "@/lib/intake-survey";
+import { assertQuestionWithinCategory } from "@/server/horoscope/question-scope";
 
 /**
  * Superseded turns (edited question / regenerated answer) are hidden, not
@@ -113,6 +114,13 @@ async function assertCanSend(input: SendMessageInput) {
     isFollowUp: priorTurns > 0,
     skipEmailVerify: isIntro,
   });
+
+  if (!isIntro) {
+    await assertQuestionWithinCategory({
+      currentSlug: conversation.category.slug,
+      question: input.content,
+    });
+  }
 
   return conversation;
 }

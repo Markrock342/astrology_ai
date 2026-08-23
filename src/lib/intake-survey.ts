@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Bump when question ids or option values change incompatibly. */
-export const INTAKE_VERSION = 1;
+export const INTAKE_VERSION = 2;
 
 export const CATEGORY_INTRO_PREFIX = "[[category-intro]]";
 
@@ -24,6 +24,9 @@ export type IntakeQuestion = {
   prompt: string;
   /** Fortune category this answer mainly informs. */
   category: "overview" | "career" | "finance" | "love" | "health" | "fortune" | "self";
+  selection: "single" | "multiple";
+  /** Values such as "none" cannot be combined with another answer. */
+  exclusiveValues?: string[];
   options: IntakeOption[];
 };
 
@@ -31,6 +34,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "focus",
     category: "overview",
+    selection: "multiple",
     prompt: "ตอนนี้โฟกัสชีวิตเรื่องไหนเป็นหลัก",
     options: [
       { value: "career", label: "การงาน" },
@@ -38,12 +42,12 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
       { value: "love", label: "ความรัก" },
       { value: "health", label: "สุขภาพ" },
       { value: "self", label: "พัฒนาตัวเอง" },
-      { value: "mixed", label: "หลายเรื่องพร้อมกัน" },
     ],
   },
   {
     id: "work",
     category: "career",
+    selection: "multiple",
     prompt: "สถานะการงานตอนนี้",
     options: [
       { value: "employee", label: "ทำงานประจำ" },
@@ -56,6 +60,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "finance",
     category: "finance",
+    selection: "multiple",
     prompt: "สถานะการเงินตอนนี้",
     options: [
       { value: "tight", label: "ตึงตัว อยากให้คล่อง" },
@@ -67,6 +72,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "love",
     category: "love",
+    selection: "single",
     prompt: "สถานะความรัก",
     options: [
       { value: "single", label: "โสด" },
@@ -78,6 +84,8 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "health",
     category: "health",
+    selection: "multiple",
+    exclusiveValues: ["none"],
     prompt: "สุขภาพที่กังวลเป็นพิเศษมีไหม",
     options: [
       { value: "none", label: "ไม่มีเป็นพิเศษ" },
@@ -90,6 +98,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "fortune",
     category: "fortune",
+    selection: "single",
     prompt: "อยากรู้เรื่องโชคลาภ เลข หรือวันมงคลไหม",
     options: [
       { value: "yes", label: "อยากรู้ประกอบการตัดสินใจ" },
@@ -100,6 +109,8 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "strength",
     category: "self",
+    selection: "multiple",
+    exclusiveValues: ["unsure"],
     prompt: "จุดแข็งที่ตัวเองรู้สึก",
     options: [
       { value: "persist", label: "อดทน พากเพียร" },
@@ -112,6 +123,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "improve",
     category: "self",
+    selection: "multiple",
     prompt: "สิ่งที่อยากปรับในตัวเอง",
     options: [
       { value: "confidence", label: "ความมั่นใจ" },
@@ -124,6 +136,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "goal",
     category: "overview",
+    selection: "multiple",
     prompt: "ปีนี้ตั้งเป้าอะไรเป็นหลัก",
     options: [
       { value: "work", label: "งาน / อาชีพ" },
@@ -136,6 +149,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "style",
     category: "overview",
+    selection: "multiple",
     prompt: "สไตล์คำตอบที่อยากได้",
     options: [
       { value: "short", label: "สั้น กระชับ" },
@@ -150,17 +164,57 @@ function enumFromOptions(options: IntakeOption[]) {
   return z.enum(values);
 }
 
+function multipleFromOptions(
+  options: IntakeOption[],
+  exclusiveValues: string[] = [],
+  legacy?: (value: string) => string[],
+) {
+  const optionEnum = enumFromOptions(options);
+  return z.preprocess(
+    (value) => {
+      if (typeof value === "string") return legacy?.(value) ?? [value];
+      return value;
+    },
+    z
+      .array(optionEnum)
+      .min(1)
+      .max(options.length)
+      .refine((values) => new Set(values).size === values.length, {
+        message: "เลือกคำตอบเดิมซ้ำไม่ได้",
+      })
+      .refine(
+        (values) =>
+          values.length === 1 ||
+          !values.some((value) => exclusiveValues.includes(value)),
+        { message: "คำตอบนี้เลือกพร้อมตัวเลือกอื่นไม่ได้" },
+      ),
+  );
+}
+
+const question = (id: IntakeQuestionId) =>
+  INTAKE_QUESTIONS.find((item) => item.id === id)!;
+
 export const intakeAnswersSchema = z.object({
-  focus: enumFromOptions(INTAKE_QUESTIONS[0]!.options),
-  work: enumFromOptions(INTAKE_QUESTIONS[1]!.options),
-  finance: enumFromOptions(INTAKE_QUESTIONS[2]!.options),
-  love: enumFromOptions(INTAKE_QUESTIONS[3]!.options),
-  health: enumFromOptions(INTAKE_QUESTIONS[4]!.options),
-  fortune: enumFromOptions(INTAKE_QUESTIONS[5]!.options),
-  strength: enumFromOptions(INTAKE_QUESTIONS[6]!.options),
-  improve: enumFromOptions(INTAKE_QUESTIONS[7]!.options),
-  goal: enumFromOptions(INTAKE_QUESTIONS[8]!.options),
-  style: enumFromOptions(INTAKE_QUESTIONS[9]!.options),
+  focus: multipleFromOptions(question("focus").options, [], (value) =>
+    value === "mixed"
+      ? ["career", "money", "love", "health", "self"]
+      : [value],
+  ),
+  work: multipleFromOptions(question("work").options),
+  finance: multipleFromOptions(question("finance").options),
+  love: enumFromOptions(question("love").options),
+  health: multipleFromOptions(
+    question("health").options,
+    question("health").exclusiveValues,
+  ),
+  fortune: enumFromOptions(question("fortune").options),
+  strength: multipleFromOptions(
+    question("strength").options,
+    question("strength").exclusiveValues,
+  ),
+  improve: multipleFromOptions(question("improve").options),
+  goal: multipleFromOptions(question("goal").options),
+  style: multipleFromOptions(question("style").options),
 });
 
 export type IntakeAnswers = z.infer<typeof intakeAnswersSchema>;
@@ -169,8 +223,15 @@ export const upsertIntakeSchema = z.object({
   answers: intakeAnswersSchema,
 });
 
-function labelFor(question: IntakeQuestion, value: string): string {
-  return question.options.find((o) => o.value === value)?.label ?? value;
+function labelFor(question: IntakeQuestion, value: string | string[]): string {
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .map(
+      (answer) =>
+        question.options.find((option) => option.value === answer)?.label ??
+        answer,
+    )
+    .join(" · ");
 }
 
 /** Compact block for the AI user prompt. */

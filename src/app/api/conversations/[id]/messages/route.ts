@@ -322,7 +322,14 @@ export async function POST(
               : err instanceof Error
                 ? err.message
                 : "AI request failed";
-          send({ type: "error", code, message });
+          send({
+            type: "error",
+            code,
+            message,
+            ...(err instanceof AppError && err.details
+              ? { details: err.details }
+              : {}),
+          });
           close();
         } finally {
           clearInterval(heartbeat);

@@ -5,20 +5,21 @@ import {
   formatIntakeForPrompt,
   intakeAnswersSchema,
   isCategoryIntroQuestion,
+  type IntakeAnswers,
 } from "@/lib/intake-survey";
 
 const sample = {
-  focus: "career",
-  work: "employee",
-  finance: "stable",
+  focus: ["career", "money"],
+  work: ["employee"],
+  finance: ["stable"],
   love: "single",
-  health: "none",
+  health: ["none"],
   fortune: "mild",
-  strength: "persist",
-  improve: "confidence",
-  goal: "work",
-  style: "direct",
-} as const;
+  strength: ["persist", "think"],
+  improve: ["confidence"],
+  goal: ["work", "money"],
+  style: ["direct"],
+} satisfies IntakeAnswers;
 
 describe("intake survey", () => {
   it("has ten questions covering the fortune categories", () => {
@@ -33,8 +34,39 @@ describe("intake survey", () => {
     expect(intakeAnswersSchema.parse(sample)).toEqual(sample);
   });
 
+  it("upgrades legacy single answers and the old mixed focus value", () => {
+    expect(
+      intakeAnswersSchema.parse({
+        focus: "mixed",
+        work: "employee",
+        finance: "stable",
+        love: "single",
+        health: "none",
+        fortune: "mild",
+        strength: "persist",
+        improve: "confidence",
+        goal: "work",
+        style: "direct",
+      }),
+    ).toMatchObject({
+      focus: ["career", "money", "love", "health", "self"],
+      work: ["employee"],
+      style: ["direct"],
+    });
+  });
+
+  it("does not combine an exclusive answer with another selection", () => {
+    expect(
+      intakeAnswersSchema.safeParse({
+        ...sample,
+        health: ["none", "sleep"],
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects a missing question", () => {
-    const { focus: _drop, ...rest } = sample;
+    const rest: Partial<IntakeAnswers> = { ...sample };
+    delete rest.focus;
     expect(intakeAnswersSchema.safeParse(rest).success).toBe(false);
   });
 

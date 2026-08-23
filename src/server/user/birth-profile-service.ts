@@ -112,8 +112,10 @@ export async function upsertBirthProfile(
     const profile = await prisma.birthProfile.create({
       data: { userId, ...data, editCount: 0 },
     });
-    // Do not await scrape/compute — it can take 10–60s and freezes the form.
-    void queueNatalChart(userId, profile.id);
+    // Await only the fast local chart so onboarding never reaches a dead
+    // "waiting" screen. queueNatalChart schedules the slower scrape upgrade
+    // with Next.js after() and returns as soon as the usable chart is stored.
+    await queueNatalChart(userId, profile.id);
     return profile;
   }
 
@@ -124,7 +126,7 @@ export async function upsertBirthProfile(
       ? { ...data }
       : { ...data, editCount: { increment: 1 } },
   });
-  void queueNatalChart(userId, profile.id);
+  await queueNatalChart(userId, profile.id);
   return profile;
 }
 
