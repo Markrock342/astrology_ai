@@ -22,8 +22,8 @@ export default async function OnboardingSurveyPage() {
           เล่าชีวิตตอนนี้สั้น ๆ
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-          ตอบ 10 ข้อ ใช้ประกอบสรุปพื้นดวงทุกหมวด — ไม่หักเครดิต
-          อยากถามจังหวะช่วงนี้ค่อยไปโหมดดวงจร
+          ตอบ 10 ข้อ ใช้ประกอบสรุปพื้นดวงทุกหมวด — ข้อที่ชีวิตเกิดพร้อมกันได้เลือกได้หลายคำตอบ
+          และไม่หักเครดิต
         </p>
       </div>
       <IntakeSurveyForm />
