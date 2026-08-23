@@ -31,6 +31,7 @@ function isTheme(value: string | null): value is Theme {
 
 function applyThemeAttr(theme: Theme) {
   document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.style.colorScheme = theme;
 }
 
 function readStoredTheme(): Theme {

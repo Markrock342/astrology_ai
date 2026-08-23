@@ -8,6 +8,7 @@ import {
   SETTINGS_POPOVER_ATTR,
   isOutsideSettingsPopover,
 } from "./settings-popover-outside";
+import { ThemeSettingsControl } from "./theme-picker";
 
 // Total birthday settings allowed = 1 initial + 1 edit (design shows x/2).
 const BIRTH_TOTAL = 2;
@@ -140,7 +141,7 @@ export function SettingsPopover({
       ref={ref}
       {...{ [SETTINGS_POPOVER_ATTR]: "" }}
       style={pos ? { left: pos.left, bottom: pos.bottom } : undefined}
-      className={`animate-fade-up fixed z-[60] w-[340px] max-w-[calc(100vw-24px)] overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface-2)] p-3 shadow-2xl ${
+      className={`animate-fade-up fixed z-[60] max-h-[calc(100dvh-7rem)] w-[340px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface-2)] p-3 shadow-2xl ${
         pos ? "" : "invisible pointer-events-none"
       }`}
     >
@@ -149,6 +150,13 @@ export function SettingsPopover({
           การตั้งค่า
         </span>
         <span className="h-px flex-1 bg-[var(--border)]" />
+      </div>
+      <div className="px-1 pb-3">
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <p className="text-xs font-medium text-[var(--foreground)]">รูปแบบหน้าจอ</p>
+          <p className="text-[10px] text-[var(--muted-2)]">จำค่าไว้ในอุปกรณ์นี้</p>
+        </div>
+        <ThemeSettingsControl />
       </div>
       <div className="flex flex-col gap-2">
         {isStaff ? (

@@ -21,6 +21,9 @@ export type CachedThreadPayload = {
   mode?: "NATAL" | "TRANSIT" | null;
   transitDate?: string | null;
   transitTime?: string | null;
+  transitCountry?: string | null;
+  transitProvince?: string | null;
+  transitDistrict?: string | null;
   fetchedAt: number;
 };
 
@@ -96,6 +99,9 @@ export async function prefetchThread(
         mode: json.data.mode === "TRANSIT" ? "TRANSIT" : "NATAL",
         transitDate: json.data.transitDate ?? null,
         transitTime: json.data.transitTime ?? null,
+        transitCountry: json.data.transitCountry ?? null,
+        transitProvince: json.data.transitProvince ?? null,
+        transitDistrict: json.data.transitDistrict ?? null,
         fetchedAt: Date.now(),
       };
       cache.set(threadId, payload);

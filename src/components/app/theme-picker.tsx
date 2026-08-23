@@ -99,3 +99,37 @@ export function ThemePicker({
     </div>
   );
 }
+
+/** Explicit settings control — unlike the icon shortcut, both choices are visible. */
+export function ThemeSettingsControl() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="ธีมหน้าจอ"
+      className="grid grid-cols-2 gap-1 rounded-xl bg-[var(--background)] p-1"
+    >
+      {THEME_OPTIONS.map((option) => {
+        const active = option.id === theme;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => setTheme(option.id)}
+            className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition ${
+              active
+                ? "bg-[var(--surface-3)] text-[var(--primary)] shadow-[inset_0_0_0_1px_var(--border)]"
+                : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            <ThemeGlyph theme={option.id} size={17} />
+            {option.id === "light" ? "สว่าง" : "มืด"}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

@@ -60,6 +60,19 @@ describe("buildSystemPrompt plain-language contract", () => {
     expect(prompt).toContain("กดุมภะ (เรือนการเงินและทรัพย์สิน)");
     expect(prompt).toContain("ห้ามเรียงศัพท์ตำราโดยไม่อธิบาย");
   });
+
+  it("never sends a transit user back to the transit form", () => {
+    const prompt = buildSystemPrompt({
+      safety: "safe",
+      persona: "persona",
+      plan: "pro",
+      category: "fortune",
+      outputFormat: "markdown",
+    });
+    expect(prompt).toContain("ถ้ามีบล็อก [transit]");
+    expect(prompt).toContain("ห้ามแนะนำให้เปิด เริ่ม หรือไปดูดวงจรซ้ำ");
+    expect(prompt).toContain("ให้ตอบจากดวงจรที่แนบมาทันที");
+  });
 });
 
 describe("buildConversationHistory (M3 B1)", () => {

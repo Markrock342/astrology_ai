@@ -35,6 +35,27 @@ function todayParts() {
   };
 }
 
+function applyDateTimeParts(
+  parts: ReturnType<typeof todayParts>,
+  setters: {
+    setDay: (value: string) => void;
+    setMonth: (value: string) => void;
+    setYear: (value: string) => void;
+    setHour: (value: string) => void;
+    setMinute: (value: string) => void;
+  },
+) {
+  setters.setDay(parts.day);
+  setters.setMonth(parts.month);
+  setters.setYear(parts.year);
+  setters.setHour(parts.hour);
+  setters.setMinute(parts.minute);
+}
+
+type LocationFeedback =
+  | { kind: "success"; message: string; attributionUrl: string }
+  | { kind: "error"; message: string };
+
 /**
  * Wave D — create a TRANSIT conversation with date/time/place, then open chat.
  * Pro-only; Free users see upgrade CTA.
@@ -64,6 +85,9 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationFeedback, setLocationFeedback] =
+    useState<LocationFeedback | null>(null);
 
   const districtOptions = province ? (DISTRICTS[province] ?? []) : [];
   const hasDistrictData = districtOptions.length > 0;
@@ -71,6 +95,90 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
     const y = new Date().getFullYear();
     return Array.from({ length: 11 }, (_, i) => String(y - 2 + i));
   }, []);
+
+  async function handleUseCurrentMomentAndLocation() {
+    applyDateTimeParts(todayParts(), {
+      setDay,
+      setMonth,
+      setYear,
+      setHour,
+      setMinute,
+    });
+    setError(null);
+    setLocationFeedback(null);
+
+    if (!navigator.geolocation) {
+      setLocationFeedback({
+        kind: "error",
+        message: "ตั้งวันเวลาให้แล้ว · อุปกรณ์นี้ไม่รองรับการค้นหาตำแหน่ง เลือกจังหวัดและเขตเองได้เลย",
+      });
+      return;
+    }
+
+    setLocating(true);
+    try {
+      const position = await new Promise<GeolocationPosition>(
+        (resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: false,
+            timeout: 10_000,
+            maximumAge: 60_000,
+          }),
+      );
+      const response = await fetch("/api/geo/reverse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }),
+      });
+      const json = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        data?: {
+          country?: string;
+          province?: string;
+          district?: string;
+          areaLabel?: string;
+          attributionUrl?: string;
+        };
+        error?: { message?: string };
+      } | null;
+      if (!response.ok || !json?.ok || !json.data?.province) {
+        throw new Error(
+          json?.error?.message ??
+            "ค้นหาจังหวัดและเขตไม่ได้ เลือกจากช่องด้านล่างแทนได้เลย",
+        );
+      }
+      setCountry(json.data.country ?? "ไทย");
+      setProvince(json.data.province);
+      setDistrict(json.data.district ?? "");
+      setLocationFeedback({
+        kind: "success",
+        message: `พร้อมใช้ · ตอนนี้ · ${json.data.areaLabel ?? json.data.province}`,
+        attributionUrl:
+          json.data.attributionUrl ?? "https://www.openstreetmap.org/copyright",
+      });
+    } catch (caught) {
+      const denied =
+        typeof caught === "object" &&
+        caught !== null &&
+        "code" in caught &&
+        caught.code === 1;
+      setLocationFeedback({
+        kind: "error",
+        message: denied
+          ? "ตั้งวันเวลาให้แล้ว · เปิดสิทธิ์ตำแหน่งให้ horasard.com แล้วกดอีกครั้ง หรือเลือกจังหวัดเอง"
+          : `ตั้งวันเวลาให้แล้ว · ${
+              caught instanceof Error
+                ? caught.message
+                : "ค้นหาตำแหน่งไม่ได้ เลือกจังหวัดเองได้เลย"
+            }`,
+      });
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -146,7 +254,7 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="transit-form-title"
-        className="animate-fade-up relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
+        className="animate-fade-up relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
       >
         <div className="border-b border-[var(--border)] px-5 py-4">
           <h2
@@ -184,6 +292,59 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 px-5 py-5">
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => void handleUseCurrentMomentAndLocation()}
+                disabled={locating}
+                className="press-scale flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[var(--primary)]/45 bg-[var(--primary)]/10 px-4 py-3 text-left transition hover:border-[var(--primary)] hover:bg-[var(--primary)]/15 disabled:cursor-wait disabled:opacity-70"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)]">
+                  <CurrentLocationIcon locating={locating} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-[var(--foreground)]">
+                    {locating
+                      ? "กำลังหาจังหวัดและเขต…"
+                      : "ใช้วัน เวลา และตำแหน่งตอนนี้"}
+                  </span>
+                  <span className="block text-xs leading-5 text-[var(--muted)]">
+                    กดครั้งเดียว ระบบเติมช่องด้านล่างให้
+                  </span>
+                </span>
+              </button>
+              {locationFeedback ? (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className={`text-xs leading-5 ${
+                    locationFeedback.kind === "success"
+                      ? "text-[var(--secondary-active)]"
+                      : "text-[var(--muted)]"
+                  }`}
+                >
+                  {locationFeedback.message}
+                  {locationFeedback.kind === "success" ? (
+                    <>
+                      {" · "}
+                      <a
+                        href={locationFeedback.attributionUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline underline-offset-2 hover:text-[var(--foreground)]"
+                      >
+                        © OpenStreetMap contributors
+                      </a>
+                    </>
+                  ) : null}
+                </p>
+              ) : (
+                <p className="text-[11px] leading-4 text-[var(--muted-2)]">
+                  ระบบขอสิทธิ์ตำแหน่งเมื่อกดเท่านั้น และส่งต่อเพียงพิกัดแบบลดความละเอียดเพื่อหาเขต
+                </p>
+              )}
+            </div>
+
             <label className="block text-xs text-[var(--muted)]">
               หมวดคำถาม
               <select
@@ -322,6 +483,27 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
         )}
       </div>
     </div>
+  );
+}
+
+function CurrentLocationIcon({ locating }: { locating: boolean }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className={locating ? "animate-spin" : ""}
+    >
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M12 2v3M12 19v3M2 12h3M19 12h3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
