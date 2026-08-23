@@ -58,6 +58,8 @@ import {
   formatIntakeForPrompt,
 } from "@/lib/intake-survey";
 import { parseIntakeAnswers } from "@/server/user/intake-service";
+import { assertQuestionWithinCategory } from "@/server/horoscope/question-scope";
+import { categoryScopeInstruction } from "@/lib/question-scope";
 
 /**
  * Orchestrates the reading flow (spec 5.6). Enforces the four hard rules:
@@ -219,6 +221,13 @@ async function runReading(
     skipEmailVerify: skipCredits,
   });
 
+  if (!skipCredits) {
+    await assertQuestionWithinCategory({
+      currentSlug: category.slug,
+      question,
+    });
+  }
+
   // Chart phase — natal + optional transit evidence.
   onPhase?.("chart");
   const [profile, wallet, , natalChartRaw, intakeRow] = await Promise.all([
@@ -325,6 +334,7 @@ async function runReading(
     ...promptParts,
     knowledge,
   });
+  systemPrompt = `${systemPrompt}\n\n${categoryScopeInstruction(category.slug, category.nameTh)}`;
   if (answerMode === "brief") {
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
   } else if (plan === "FREE") {
