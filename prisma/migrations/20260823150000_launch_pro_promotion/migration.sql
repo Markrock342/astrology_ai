@@ -26,7 +26,7 @@ WHERE NOT EXISTS (
   FROM "credit_transactions" t
   WHERE t."userId" = w."userId"
     AND t."referenceType" = 'PROMOTION'
-    AND t."referenceId" = 'horasard-pro-month-2026-08'
+    AND t."referenceId" = CONCAT('horasard-pro-month-2026-08:', w."userId")
 );
 
 INSERT INTO "credit_transactions" (
@@ -38,7 +38,7 @@ SELECT
   50,
   'PROMOTION'::"CreditTxnType",
   'PROMOTION',
-  'horasard-pro-month-2026-08',
+  CONCAT('horasard-pro-month-2026-08:', u."id"),
   'Pro ทดลอง 1 เดือน +50 เครดิต',
   NOW()
 FROM "users" u
@@ -47,7 +47,7 @@ WHERE NOT EXISTS (
   FROM "credit_transactions" t
   WHERE t."userId" = u."id"
     AND t."referenceType" = 'PROMOTION'
-    AND t."referenceId" = 'horasard-pro-month-2026-08'
+    AND t."referenceId" = CONCAT('horasard-pro-month-2026-08:', u."id")
 );
 
 INSERT INTO "user_subscriptions" (

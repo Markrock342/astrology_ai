@@ -12,6 +12,10 @@ export const LAUNCH_PRO_PROMOTION = {
   creditGrant: 50,
 } as const;
 
+export function getLaunchPromotionCreditReferenceId(userId: string) {
+  return `${LAUNCH_PRO_PROMOTION.id}:${userId}`;
+}
+
 export function isLaunchProPromotionActive(now = new Date()): boolean {
   return (
     now.getTime() >= LAUNCH_PRO_PROMOTION.startsAt.getTime() &&
