@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { addCredits } from "@/server/credit/credit-service";
 import { DEFAULTS } from "@/config/constants";
 import {
+  getLaunchPromotionCreditReferenceId,
   isLaunchProPromotionActive,
   LAUNCH_PRO_PROMOTION,
 } from "@/config/promotion";
@@ -84,7 +85,8 @@ export async function provisionUser(input: {
         {
           type: "PROMOTION",
           referenceType: "PROMOTION",
-          referenceId: LAUNCH_PRO_PROMOTION.id,
+          // Ledger idempotency is global, so namespace the campaign per user.
+          referenceId: getLaunchPromotionCreditReferenceId(created.id),
           note: `Pro ทดลอง 1 เดือน +${LAUNCH_PRO_PROMOTION.creditGrant} เครดิต`,
         },
         tx,
