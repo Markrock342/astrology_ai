@@ -5,7 +5,7 @@ import {
   formatBirthDisplay,
   formatLocationDisplay,
 } from "@/server/horoscope/engine/newhora/dateTimeUtils";
-import { computeTaksaFromLagna } from "@/server/horoscope/engine/newhora/formulas/taksa";
+import { computeTaksaFromBirth, taksaSlotsFromMyhoraGrid } from "@/lib/taksa";
 import { chartFromMyhoraRows } from "@/lib/chart-derivations";
 import { myhoraAbbrToSign } from "./sign-codes";
 import type { MyhoraScrapeResult } from "./fetch-myhora";
@@ -84,7 +84,8 @@ export function mapScrapeToChartJson(
       lagna,
       planets: enriched,
     })?.planets ?? enriched;
-  const taksa = computeTaksaFromLagna(lagna);
+  const taksa =
+    taksaSlotsFromMyhoraGrid(scrape.tables.taksa) ?? computeTaksaFromBirth(input);
 
   return {
     input,

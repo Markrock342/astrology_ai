@@ -10,6 +10,7 @@ import type {
 } from "@prisma/client";
 import { isCategoryIntroQuestion } from "@/lib/intake-survey";
 import type { ChartJson } from "@/types/chart";
+import { requireReadyNatalChart } from "@/server/horoscope/chart-context";
 
 /**
  * Every message still part of the conversation.
@@ -142,7 +143,7 @@ export async function getThreadDetail(
   // too — waiting for the user's next message left the old one "generating".
   await sweepStalePendingAssistants(threadId);
 
-  const [conversation, natalChart] = await Promise.all([
+  const [conversation, persistedNatal] = await Promise.all([
     prisma.conversation.findFirst({
       where: { id: threadId, userId },
       select: {
@@ -177,16 +178,8 @@ export async function getThreadDetail(
         },
       },
     }),
-    prisma.natalChart.findUnique({
-      where: { userId },
-      select: { status: true, chartJson: true },
-    }),
+    requireReadyNatalChart(userId).catch(() => null),
   ]);
-
-  const persistedNatal =
-    natalChart?.status === "READY" && natalChart.chartJson
-      ? (natalChart.chartJson as unknown as ChartJson)
-      : null;
 
   if (conversation) {
     // Allow empty threads (e.g. just-created TRANSIT before first message).

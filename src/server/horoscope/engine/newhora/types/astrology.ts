@@ -26,7 +26,7 @@ export interface CalculationSettings {
   timeMethod: 'antonathi_samrap_sunrise_local'
   rahuRule: 'eight_signs_aquarius'
   taksaRahuLord: 'mercury_night'
-  taksaCountFrom: 'center'
+  taksaCountFrom: 'center' | 'birth-weekday'
 }
 
 // ——— Output: ตาราง ดาว | สถิตรราศี + กราฟราศีจักร ———
@@ -40,8 +40,10 @@ export interface PlanetSignRow {
 
 export interface TaksaSlot {
   taksa: string
-  sign: string
+  planet: string
+  planetNum: number
   index: number
+  sign?: string
 }
 
 export interface ChartSnapshot {

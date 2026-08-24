@@ -40,8 +40,16 @@ export async function getOrRefreshChartMemory(
 ): Promise<UserChartMemoryJson> {
   const expectedHash = hashBirthInput(natalChart.input);
   const row = await prisma.userChartMemory.findUnique({ where: { userId } });
-  if (row?.memoryJson && row.birthHash === expectedHash) {
-    return row.memoryJson as unknown as UserChartMemoryJson;
+  const stored = row?.memoryJson as unknown as UserChartMemoryJson | undefined;
+  const hasCurrentTaksa =
+    Array.isArray(stored?.taksa) &&
+    stored.taksa.length === 8 &&
+    stored.taksa.every(
+      (slot) =>
+        typeof slot.planet === "string" && typeof slot.planetNum === "number",
+    );
+  if (stored && row?.birthHash === expectedHash && hasCurrentTaksa) {
+    return stored;
   }
   return upsertChartMemory(userId, natalChart);
 }
