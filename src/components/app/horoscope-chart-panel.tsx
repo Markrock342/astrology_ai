@@ -20,11 +20,13 @@ function baseChart(chart: ChartJson): DerivedChart {
   return chartFromMyhoraRows(chart.myhora?.natalPlanets, fallback) ?? fallback;
 }
 
-function EvidenceGrid({
+export function EvidenceGrid({
   title,
   cells,
+  kind,
 }: {
   title: string;
+  kind: "taksa" | "triwai";
   cells: Array<
     Array<
       | {
@@ -32,6 +34,7 @@ function EvidenceGrid({
           planetNum?: number | null;
           house?: string;
           ageRange?: string;
+          transitLabel?: string;
           highlighted?: boolean;
           isCenter?: boolean;
         }
@@ -40,6 +43,9 @@ function EvidenceGrid({
   >;
 }) {
   if (!cells.length || !cells.some((row) => row.some(Boolean))) return null;
+  const visibleRows = cells.filter((row) => row.some(Boolean));
+  const columnCount = Math.max(...visibleRows.map((row) => row.length));
+  const lifeStages = ["วัยต้น", "วัยกลาง", "วัยปลาย", "วัยเทียบ"];
 
   return (
     <div className="min-w-0">
@@ -47,10 +53,10 @@ function EvidenceGrid({
       <div
         className="grid overflow-hidden rounded-lg border border-[var(--border)]"
         style={{
-          gridTemplateColumns: `repeat(${Math.max(...cells.map((row) => row.length))}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
         }}
       >
-        {cells.flatMap((row, rowIndex) =>
+        {visibleRows.flatMap((row, rowIndex) =>
           row.map((cell, columnIndex) => {
             const planet = cell?.planetNum != null
               ? ["มฤตยู", "อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "ราหู", "เกตุ"][
@@ -72,7 +78,16 @@ function EvidenceGrid({
                     <span className="text-[10px] text-[var(--muted)]">
                       {cell.label || cell.house || "—"}
                     </span>
-                    {theme ? (
+                    {cell.isCenter ? (
+                      <span
+                        className="flex items-center gap-1 text-sm text-[var(--muted-2)]"
+                        aria-label="จุดกึ่งกลางทักษา"
+                      >
+                        <span aria-hidden>↙</span>
+                        <span aria-hidden>↑</span>
+                        <span aria-hidden>๙</span>
+                      </span>
+                    ) : theme ? (
                       <span className="text-sm" style={{ color: theme.color }}>
                         {theme.symbol}
                       </span>
@@ -82,6 +97,11 @@ function EvidenceGrid({
                         {cell.ageRange}
                       </span>
                     ) : null}
+                    {cell.transitLabel ? (
+                      <span className="text-[9px] leading-tight text-[var(--primary)]/75">
+                        {cell.transitLabel}
+                      </span>
+                    ) : null}
                   </>
                 ) : null}
               </div>
@@ -89,6 +109,23 @@ function EvidenceGrid({
           }),
         )}
       </div>
+      {kind === "triwai" ? (
+        <>
+          <div
+            className="mt-1 grid text-center text-[9px] text-[var(--muted)]"
+            style={{
+              gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+            }}
+          >
+            {lifeStages.slice(0, columnCount).map((stage) => (
+              <span key={stage}>{stage}</span>
+            ))}
+          </div>
+          <p className="mt-3 text-center text-[10px] text-[var(--muted)]">
+            นับตรีวัยจาก <span className="font-medium text-[var(--primary)]">ตนุเศษ</span>
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -203,8 +240,12 @@ export function HoroscopeChartPanel({
 
           {hasEvidenceGrids ? (
             <div className="mt-5 grid gap-4 border-t border-[var(--border)] pt-5 sm:grid-cols-2">
-              <EvidenceGrid title="ทักษาอ้างอิง · กำเนิดและจร" cells={taksa} />
-              <EvidenceGrid title="ตรีวัย" cells={triwai} />
+              <EvidenceGrid
+                title="ทักษาอ้างอิง · กำเนิดและจร"
+                cells={taksa}
+                kind="taksa"
+              />
+              <EvidenceGrid title="ตรีวัย" cells={triwai} kind="triwai" />
             </div>
           ) : null}
         </div>
