@@ -3,6 +3,7 @@
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
 import { houseFromLagna, normalizeSignName, SIGNS } from "@/lib/chart-theme";
+import { formatMyhoraDegreeText } from "@/lib/chart-derivations";
 
 type Props = {
   chart: ChartJson;
@@ -63,9 +64,7 @@ function promptForPlanet(
 }
 
 function degreeText(r: EvidenceRow): string {
-  return r.degree || r.minute
-    ? `${r.degree || "0"}°${r.minute || "0"}'`
-    : (r.fallbackDegreeText ?? "ยังไม่มีข้อมูลองศา");
+  return formatMyhoraDegreeText(r) ?? r.fallbackDegreeText ?? "ยังไม่มีข้อมูลองศา";
 }
 
 /** Evidence — card stack on phones, wide table from md up. */

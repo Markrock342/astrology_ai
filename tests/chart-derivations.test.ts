@@ -4,6 +4,7 @@ import {
   computeDrekkanaSign,
   computeNavamsaSign,
   deriveDivisionalChart,
+  formatMyhoraDegreeText,
 } from "@/lib/chart-derivations";
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
@@ -56,6 +57,15 @@ describe("chart derivations for HoraSard SVG charts", () => {
     });
     // A partial scrape must not erase planets already present in the engine.
     expect(chart?.planets[2]).toEqual(fallback.planets[2]);
+  });
+
+  it("formats the minute mark before MyHora motion markers", () => {
+    expect(
+      formatMyhoraDegreeText({ degree: "20", minute: "55 ส." }),
+    ).toBe("20°55′ ส.");
+    expect(formatMyhoraDegreeText({ degree: "03", minute: "37" })).toBe(
+      "03°37′",
+    );
   });
 
   it("uses the same D9/D3 functions for client charts and engine formulas", async () => {
