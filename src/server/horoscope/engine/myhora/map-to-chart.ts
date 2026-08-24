@@ -6,17 +6,15 @@ import {
   formatLocationDisplay,
 } from "@/server/horoscope/engine/newhora/dateTimeUtils";
 import { computeTaksaFromBirth, taksaSlotsFromMyhoraGrid } from "@/lib/taksa";
-import { chartFromMyhoraRows } from "@/lib/chart-derivations";
+import {
+  chartFromMyhoraRows,
+  formatMyhoraDegreeText,
+} from "@/lib/chart-derivations";
 import { myhoraAbbrToSign } from "./sign-codes";
 import type { MyhoraScrapeResult } from "./fetch-myhora";
 
 function degreeTextFromSamrap(row: MyhoraNatalPlanet): string | undefined {
-  const d = row.degree?.trim();
-  const m = row.minute?.trim();
-  if (!d && !m) return undefined;
-  if (d && m) return `${d}°${m}'`;
-  if (d) return `${d}°`;
-  return undefined;
+  return formatMyhoraDegreeText(row);
 }
 
 function enrichPlanetsFromSamrap(

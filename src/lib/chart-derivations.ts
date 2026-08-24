@@ -68,6 +68,21 @@ function degreeFromRow(row: MyhoraNatalPlanet): number | undefined {
   return Math.min(29.9999, Math.max(0, degree + minute / 60));
 }
 
+/** Keep MyHora motion markers (พ./ส.) while placing the minute mark correctly. */
+export function formatMyhoraDegreeText(
+  row: Pick<MyhoraNatalPlanet, "degree" | "minute">,
+): string | undefined {
+  const degree = row.degree?.trim();
+  const rawMinute = row.minute?.trim();
+  if (!degree && !rawMinute) return undefined;
+  const minute = rawMinute?.match(/[๐-๙0-9]+/)?.[0] ?? "0";
+  const marker = rawMinute
+    ?.replace(minute, "")
+    .replace(/[′']/g, "")
+    .trim();
+  return `${degree || "0"}°${minute}′${marker ? ` ${marker}` : ""}`;
+}
+
 /** Convert a MyHora samrap table into the same small shape used by our SVGs. */
 export function chartFromMyhoraRows(
   rows: MyhoraNatalPlanet[] | null | undefined,
@@ -88,10 +103,7 @@ export function chartFromMyhoraRows(
         planet: normalizePlanet(row.planet),
         siderealSign: normalizeMyhoraSign(row.zodiac),
         degreeInSign,
-        degreeText:
-          row.degree || row.minute
-            ? `${row.degree || "0"}°${row.minute || "0"}′`
-            : undefined,
+        degreeText: formatMyhoraDegreeText(row),
       };
     })
     .filter(
