@@ -46,7 +46,7 @@ describe("HoraSard Standard v1", () => {
       timeMethod: "antonathi_samrap_sunrise_local",
       rahuRule: "eight_signs_aquarius",
       taksaRahuLord: "mercury_night",
-      taksaCountFrom: "center",
+      taksaCountFrom: "birth-weekday",
     });
   });
 

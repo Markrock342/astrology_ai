@@ -33,7 +33,8 @@ export type UserChartMemoryJson = {
   source?: CalculationSource | string;
   birthHash: string;
   computedAt: string;
-  taksa: Array<{ taksa: string; sign: string }>;
+  taksaBirthDay?: string;
+  taksa: Array<{ taksa: string; planet: string; planetNum: number }>;
   houseOccupants: Array<{ house: number; sign: string; planets: string[] }>;
   categories: {
     career: CategoryFocus;

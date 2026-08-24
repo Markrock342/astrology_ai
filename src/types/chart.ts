@@ -19,7 +19,8 @@ export type CalculationSettings = {
   timeMethod: "antonathi_samrap_sunrise_local";
   rahuRule: "eight_signs_aquarius";
   taksaRahuLord: "mercury_night";
-  taksaCountFrom: "center";
+  /** `center` is retained only to read pre-fix cached JSON. */
+  taksaCountFrom: "center" | "birth-weekday";
 };
 
 export type PlanetSignRow = {
@@ -31,8 +32,11 @@ export type PlanetSignRow = {
 
 export type TaksaSlot = {
   taksa: string;
-  sign: string;
+  planet: string;
+  planetNum: number;
   index: number;
+  /** Legacy pre-2026-08-24 cache field; never used for new calculations. */
+  sign?: string;
 };
 
 export type ChartSnapshot = {

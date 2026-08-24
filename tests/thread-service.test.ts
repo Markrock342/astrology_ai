@@ -21,6 +21,11 @@ const mocks = vi.hoisted(() => ({
   // Kept purely so the soft-delete tests can assert it is NEVER called.
   messageDeleteMany: vi.fn(),
   conversationUpdate: vi.fn(),
+  requireReadyNatalChart: vi.fn(),
+}));
+
+vi.mock("@/server/horoscope/chart-context", () => ({
+  requireReadyNatalChart: mocks.requireReadyNatalChart,
 }));
 
 vi.mock("@/server/db", () => ({
@@ -74,6 +79,7 @@ describe("getThreadDetail (M3)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.natalFindUnique.mockResolvedValue(null);
+    mocks.requireReadyNatalChart.mockRejectedValue(new Error("no chart"));
   });
 
   it("returns all messages from a conversation thread", async () => {
@@ -100,10 +106,7 @@ describe("getThreadDetail (M3)", () => {
       planets: [],
       chart: { lagna: "พิจิก", taksa: [] },
     };
-    mocks.natalFindUnique.mockResolvedValue({
-      status: "READY",
-      chartJson: persistedChart,
-    });
+    mocks.requireReadyNatalChart.mockResolvedValue(persistedChart);
     mocks.findFirst.mockResolvedValueOnce({
       id: "conv-1",
       mode: "NATAL",
@@ -167,6 +170,7 @@ describe("pollThreadForUser", () => {
     vi.clearAllMocks();
     mocks.findFirst.mockResolvedValue({ id: "conv-1" });
     mocks.natalFindUnique.mockResolvedValue(null);
+    mocks.requireReadyNatalChart.mockRejectedValue(new Error("no chart"));
   });
 
   it("returns hasPending without loading full messages", async () => {

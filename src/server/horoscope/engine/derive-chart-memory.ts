@@ -8,6 +8,7 @@ import type {
 } from "@/types/chart-memory";
 import { SIGNS } from "@/server/horoscope/engine/newhora/data/astrologyConstants";
 import { houseFromLagna } from "@/server/horoscope/engine/format-chart-prompt";
+import { resolveTaksaBirthDay } from "@/lib/taksa";
 
 const SIGN_LORDS: Record<string, string> = {
   เมษ: "อังคาร",
@@ -169,7 +170,12 @@ export function deriveChartMemory(chart: ChartJson): UserChartMemoryJson {
     source: chart.meta.calculationSource,
     birthHash,
     computedAt: new Date().toISOString(),
-    taksa: (chart.chart?.taksa ?? []).map((t) => ({ taksa: t.taksa, sign: t.sign })),
+    taksaBirthDay: resolveTaksaBirthDay(chart.input),
+    taksa: (chart.chart?.taksa ?? []).flatMap((t) =>
+      t.planet && t.planetNum
+        ? [{ taksa: t.taksa, planet: t.planet, planetNum: t.planetNum }]
+        : [],
+    ),
     houseOccupants,
     categories: {
       career: buildCategoryFocus(lagna, CATEGORY_HOUSES.career, planetRows, "งาน/อาชีพ"),
@@ -264,7 +270,7 @@ export function formatMemoryForPrompt(
 
   if (memory.taksa.length) {
     lines.push(
-      `ทักษา: ${memory.taksa.map((t) => `${t.taksa}=${t.sign}`).join(", ")}`,
+      `ทักษาตามวันเกิด${memory.taksaBirthDay ? ` (${memory.taksaBirthDay})` : ""}: ${memory.taksa.map((t) => `${t.taksa}=${t.planet}(${t.planetNum})`).join(", ")}`,
     );
   }
 

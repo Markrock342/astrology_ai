@@ -10,7 +10,7 @@ import { birthAstroTime } from './birthMoment'
 import { computeSiderealPlanets } from './siderealPlanets'
 import { computeAntonathiSamrapLagna } from './antonathiSamrap'
 import { applyRahuEightSignsAquarius } from './rahuEightAquarius'
-import { computeTaksaFromLagna, type TaksaSlot } from './taksa'
+import { computeTaksaFromBirth, type TaksaSlot } from './taksa'
 import { birthLocalMinutes, localMinutesFromMidnight, sunriseLocalMinutes } from './sunrise'
 import { lookupSuryayatSync, lookupLagnaSync } from './suryayat/lookup'
 
@@ -88,7 +88,7 @@ export function computeFullChartSync(
     return {
       planets: signsToRows(lookup.signs),
       lagna,
-      taksa: computeTaksaFromLagna(lagna),
+      taksa: computeTaksaFromBirth(input),
       source:
         lookup.source === 'reference' ? 'suryayat-100-reference' : 'suryayat-100-year',
     }
@@ -100,7 +100,7 @@ export function computeFullChartSync(
   return {
     planets,
     lagna: rawLagna,
-    taksa: computeTaksaFromLagna(rawLagna),
+    taksa: computeTaksaFromBirth(input),
     source: 'formula-pipeline',
   }
 }
