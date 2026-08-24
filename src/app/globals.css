@@ -26,6 +26,7 @@
     --secondary-foreground: #04120e;
     --danger: #f87171;
     --ring: rgba(201, 162, 75, 0.45);
+    --category-icon-filter: none;
 
     /* Motion system */
     --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
@@ -51,6 +52,8 @@
     --secondary-foreground: #f0fdfa;
     --danger: #dc2626;
     --ring: rgba(138, 106, 34, 0.4);
+    /* Uploaded category artwork is authored white for the dark theme. */
+    --category-icon-filter: brightness(0) saturate(100%) opacity(0.72);
   }
 
 }
@@ -80,6 +83,11 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-thai), "Noto Sans Thai", system-ui, sans-serif;
+}
+
+.category-custom-icon {
+  filter: var(--category-icon-filter);
+  transition: filter 160ms var(--ease-out-quart), opacity 160ms var(--ease-out-quart);
 }
 
 /* Thin, subtle scrollbars to match the dark UI. */

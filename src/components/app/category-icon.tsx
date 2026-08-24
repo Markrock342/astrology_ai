@@ -39,7 +39,7 @@ export function CategoryIcon({
         alt=""
         width={size}
         height={size}
-        className={`shrink-0 object-contain ${className}`}
+        className={`category-custom-icon shrink-0 object-contain ${className}`}
         aria-hidden
       />
     );
