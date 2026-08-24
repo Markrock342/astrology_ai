@@ -641,7 +641,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
                   }`}
                 >
-                  แก้ชื่อ
+                  ชื่อ
                 </button>
                 <button
                   type="button"
@@ -756,7 +756,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
                   }`}
                 >
-                  แก้ชื่อ
+                  ชื่อ
                 </button>
                 <button
                   type="button"

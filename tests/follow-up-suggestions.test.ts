@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   generateFollowUpMeta,
+  generateThreadTitle,
+  isReplaceableThreadTitle,
   sanitizeFollowUpMeta,
+  sanitizeThreadTitle,
 } from "@/server/horoscope/follow-up-suggestions";
 
 const generateWithFallbackMock = vi.fn();
 const resolveConfigMock = vi.fn();
 const findManyMock = vi.fn();
+const conversationFindFirstMock = vi.fn();
+const conversationUpdateManyMock = vi.fn();
+const messageCountMock = vi.fn();
 
 vi.mock("@/server/ai/router", () => ({
   generateWithFallback: (...args: unknown[]) => generateWithFallbackMock(...args),
@@ -19,11 +25,11 @@ vi.mock("@/server/db", () => ({
       findMany: (...args: unknown[]) => findManyMock(...args),
     },
     conversation: {
-      findFirst: vi.fn(),
-      update: vi.fn(),
+      findFirst: (...args: unknown[]) => conversationFindFirstMock(...args),
+      updateMany: (...args: unknown[]) => conversationUpdateManyMock(...args),
     },
     message: {
-      count: vi.fn(),
+      count: (...args: unknown[]) => messageCountMock(...args),
     },
   },
 }));
@@ -47,6 +53,92 @@ describe("sanitizeFollowUpMeta", () => {
   it("returns empty followUps for invalid input", () => {
     expect(sanitizeFollowUpMeta(null)).toEqual({ followUps: [] });
     expect(sanitizeFollowUpMeta({ followUps: "bad" })).toEqual({ followUps: [] });
+  });
+});
+
+describe("thread title helpers", () => {
+  it("cleans model framing and keeps only a compact title", () => {
+    expect(sanitizeThreadTitle('หัวข้อ: “โอกาสย้ายงานปีนี้”\nคำอธิบายอื่น')).toBe(
+      "โอกาสย้ายงานปีนี้",
+    );
+  });
+
+  it("rejects generic titles that do not describe the question", () => {
+    expect(sanitizeThreadTitle("ดวงจร 24 ส.ค. 2569")).toBeNull();
+    expect(sanitizeThreadTitle("คำทำนาย")).toBeNull();
+  });
+
+  it("replaces automatic placeholders but preserves a manual title", () => {
+    const question = "ช่วงนี้มีโอกาสย้ายงานหรือไม่";
+    expect(isReplaceableThreadTitle(question, question)).toBe(true);
+    expect(isReplaceableThreadTitle("ดวงจร 24 ส.ค. 2569", question)).toBe(true);
+    expect(isReplaceableThreadTitle("แผนย้ายงานของฉัน", question)).toBe(false);
+  });
+});
+
+describe("generateThreadTitle", () => {
+  beforeEach(() => {
+    generateWithFallbackMock.mockReset();
+    resolveConfigMock.mockReset();
+    findManyMock.mockReset();
+    conversationFindFirstMock.mockReset();
+    conversationUpdateManyMock.mockReset();
+    messageCountMock.mockReset();
+  });
+
+  it("replaces a transit date with an intent-based title", async () => {
+    conversationFindFirstMock.mockResolvedValue({
+      id: "conv-1",
+      title: "ดวงจร 24 ส.ค. 2569",
+      categoryId: "cat-1",
+    });
+    messageCountMock.mockResolvedValue(1);
+    resolveConfigMock.mockResolvedValue({ id: "cfg-lite" });
+    generateWithFallbackMock.mockResolvedValue({
+      ok: true,
+      rawText: "หัวข้อ: โอกาสย้ายงานปีนี้",
+      modelId: "gemini-lite",
+      latencyMs: 70,
+      provider: "GEMINI",
+    });
+    conversationUpdateManyMock.mockResolvedValue({ count: 1 });
+
+    const title = await generateThreadTitle({
+      conversationId: "conv-1",
+      userId: "u1",
+      question: "ปีนี้ผมมีโอกาสย้ายงานไหม",
+      answer: "มีจังหวะเปลี่ยนงานเด่นช่วงปลายปี",
+    });
+
+    expect(title).toBe("โอกาสย้ายงานปีนี้");
+    expect(conversationUpdateManyMock).toHaveBeenCalledWith({
+      where: {
+        id: "conv-1",
+        userId: "u1",
+        title: "ดวงจร 24 ส.ค. 2569",
+      },
+      data: { title: "โอกาสย้ายงานปีนี้" },
+    });
+  });
+
+  it("does not call AI or overwrite a manually named chat", async () => {
+    conversationFindFirstMock.mockResolvedValue({
+      id: "conv-1",
+      title: "แผนย้ายงานของฉัน",
+      categoryId: "cat-1",
+    });
+    messageCountMock.mockResolvedValue(1);
+
+    const title = await generateThreadTitle({
+      conversationId: "conv-1",
+      userId: "u1",
+      question: "ปีนี้ผมมีโอกาสย้ายงานไหม",
+      answer: "มีโอกาส",
+    });
+
+    expect(title).toBeNull();
+    expect(generateWithFallbackMock).not.toHaveBeenCalled();
+    expect(conversationUpdateManyMock).not.toHaveBeenCalled();
   });
 });
 

@@ -10,7 +10,6 @@ import {
   isStopRequested,
 } from "@/server/horoscope/message-service";
 import { generateThreadTitle } from "@/server/horoscope/follow-up-suggestions";
-import { isCategoryIntroQuestion } from "@/lib/intake-survey";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -292,14 +291,12 @@ export async function POST(
           try {
             const [metaRes, titleRes] = await Promise.allSettled([
               metaPromise ?? Promise.resolve(null),
-              isCategoryIntroQuestion(content)
-                ? Promise.resolve(null)
-                : generateThreadTitle({
-                    conversationId: id,
-                    userId: user.id,
-                    question: content,
-                    answer: reading?.responseText ?? "",
-                  }),
+              generateThreadTitle({
+                conversationId: id,
+                userId: user.id,
+                question: content,
+                answer: reading?.responseText ?? "",
+              }),
             ]);
             const meta = metaRes.status === "fulfilled" ? metaRes.value : null;
             const title =
