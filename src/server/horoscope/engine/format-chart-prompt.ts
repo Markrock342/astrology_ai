@@ -45,22 +45,19 @@ function pad(s: string, n: number): string {
 }
 
 function formatSamrapTable(rows: MyhoraNatalPlanet[]): string[] {
-  const lines = [
-    "ตารางสมผุส:",
-    `${pad("ดาว", 12)} | ${pad("ราศี", 8)} | ${pad("องศา", 6)} | ${pad("เรือน", 5)} | ${pad("นวางศ์", 6)} | ${pad("ฤกษ์", 8)} | มาตรฐานฤกษ์`,
-    `${"-".repeat(12)}-+-${"-".repeat(8)}-+-${"-".repeat(6)}-+-${"-".repeat(5)}-+-${"-".repeat(6)}-+-${"-".repeat(8)}-+-${"-".repeat(10)}`,
-  ];
+  const lines = ["ตารางสมผุสดวงกำเนิดฉบับเต็ม:"];
   for (const r of rows) {
     const deg =
       r.degree || r.minute
         ? `${r.degree || "0"}°${r.minute || "0"}'`
         : "—";
-    lines.push(
-      `${pad(r.planet, 12)} | ${pad(r.zodiac, 8)} | ${pad(deg, 6)} | ${pad(r.house || "—", 5)} | ${pad(
-        r.nawamang || "—",
-        6,
-      )} | ${pad(r.rerkName || r.rerk || "—", 8)} | ${r.rerkStandard || "—"}`,
-    );
+    lines.push([
+      `- ${r.planet}: ราศี ${r.zodiac}, ${deg}, เรือน ${r.house || "—"}`,
+      `ตรียางค์ ${r.triyang || "—"}, พิษ ${r.poison || "—"}, นวางศ์ ${r.nawamang || "—"}`,
+      `ฤกษ์:นาที ${r.rerk || "—"}, นักษัตร ${r.rerkName || "—"}, บาท ${r.baht || "—"}`,
+      `ฤกษ์ ${r.rerk2 || "—"}, ฤกษ์ใหญ่ ${r.rerkBig || "—"}, เจ้าเรือน ${r.rerkOwner || "—"}`,
+      `มาตรฐาน/เกณฑ์ ${r.rerkStandard || "—"}`,
+    ].join(" | "));
   }
   return lines;
 }
