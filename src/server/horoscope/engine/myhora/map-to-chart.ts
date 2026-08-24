@@ -94,6 +94,7 @@ export function mapScrapeToChartJson(
     meta: {
       birthDisplay: formatBirthDisplay(input),
       locationDisplay: formatLocationDisplay(input),
+      evidenceVersion: 2,
       calculationSource: "myhora-scrape",
       lagna,
     },

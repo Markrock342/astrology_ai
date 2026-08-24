@@ -78,6 +78,26 @@ function fromFormulaPipeline(input: BirthInput, place: PlaceCoords): {
   return { planets, lagna: lagnaResult.sign }
 }
 
+/**
+ * Keep the Suriyayat sign as the authority. Formula degrees are attached only
+ * when the independently calculated sign agrees, so an apparent degree can
+ * never contradict the sign shown to the user.
+ */
+export function mergeVerifiedFormulaDegrees(
+  suryayatRows: PlanetSignRow[],
+  formulaRows: PlanetSignRow[],
+): PlanetSignRow[] {
+  return suryayatRows.map((row) => {
+    const formula = formulaRows.find((candidate) => candidate.planet === row.planet)
+    if (!formula || formula.siderealSign !== row.siderealSign) return row
+    return {
+      ...row,
+      degreeInSign: formula.degreeInSign,
+      degreeText: formula.degreeText,
+    }
+  })
+}
+
 export function computeFullChartSync(
   input: BirthInput,
   place: PlaceCoords,
@@ -85,8 +105,11 @@ export function computeFullChartSync(
   const lookup = lookupSuryayatSync(input, place)
   if (lookup) {
     const lagna = lookupLagnaSync(input, place) ?? 'เมษ'
+    const suryayatRows = signsToRows(lookup.signs)
+    const formula = fromFormulaPipeline(input, place)
+    const verifiedFormulaRows = applyRahuEightSignsAquarius(formula.planets, formula.lagna)
     return {
-      planets: signsToRows(lookup.signs),
+      planets: mergeVerifiedFormulaDegrees(suryayatRows, verifiedFormulaRows),
       lagna,
       taksa: computeTaksaFromBirth(input),
       source:

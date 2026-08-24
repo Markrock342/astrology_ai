@@ -8,6 +8,7 @@ import {
   PrivacyPolicyModal,
 } from "@/components/cms/privacy-policy-modal";
 import { WheelColumn, WheelGroup, type WheelOption } from "./wheel-picker";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import type { CmsDocument } from "@/lib/cms-keys";
 import type { BirthFormInitialValues } from "@/lib/birth-profile-form";
 
@@ -374,26 +375,23 @@ export function BirthForm({
           {isThai ? (
             <>
               <Field label="จังหวัด / รัฐ ที่เกิด" required>
-                <Select
+                <SearchableSelect
                   value={province}
                   onChange={(v) => {
                     setProvince(v);
                     setDistrict("");
                   }}
+                  options={PROVINCES}
                   placeholder="จังหวัด / รัฐ"
-                >
-                  {PROVINCES.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </Select>
+                  ariaLabel="จังหวัดหรือรัฐที่เกิด"
+                />
               </Field>
 
               <Field label="อำเภอ / เขต ที่เกิด" required={hasDistrictData}>
-                <Select
+                <SearchableSelect
                   value={district}
                   onChange={setDistrict}
+                  options={districtOptions}
                   placeholder={
                     !province
                       ? "เลือกจังหวัดก่อน"
@@ -402,13 +400,8 @@ export function BirthForm({
                         : "ยังไม่มีข้อมูลอำเภอ"
                   }
                   disabled={!hasDistrictData}
-                >
-                  {districtOptions.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </Select>
+                  ariaLabel="อำเภอ เขต หรือเมืองที่เกิด"
+                />
               </Field>
             </>
           ) : (

@@ -251,12 +251,13 @@ export function RasiTemplateChart({
         const planets = planetsBySign.get(sign) ?? [];
         const entries = [
           ...(sign === lagna
-            ? [{ planet: "ลัคนา", symbol: LAGNA_MARK, color: GOLD }]
+            ? [{ planet: "ลัคนา", symbol: LAGNA_MARK, color: GOLD, degreeText: undefined }]
             : []),
           ...planets.map((row) => ({
             planet: row.planet,
             symbol: getPlanetTheme(row.planet).numeral,
             color: getPlanetTheme(row.planet).color,
+            degreeText: row.degreeText,
           })),
         ];
         const offsets = planetOffsets(entries.length);
@@ -290,6 +291,11 @@ export function RasiTemplateChart({
                   }
                   style={interactive ? { cursor: "pointer", outline: "none" } : undefined}
                 >
+                  <title>
+                    {entry.planet === "ลัคนา"
+                      ? `ลัคนา ราศี${signLabel(sign)}`
+                      : `${entry.planet} ราศี${signLabel(sign)}${entry.degreeText ? ` ${entry.degreeText}` : ""}`}
+                  </title>
                   {interactive ? <circle cx={x} cy={y} r="20" fill="transparent" /> : null}
                   {selected ? (
                     <circle
@@ -303,7 +309,7 @@ export function RasiTemplateChart({
                   ) : null}
                   <text
                     x={x}
-                    y={y + 1}
+                    y={entry.degreeText ? y - 2 : y + 1}
                     textAnchor="middle"
                     dominantBaseline="middle"
                     fill={entry.color}
@@ -312,6 +318,20 @@ export function RasiTemplateChart({
                   >
                     {entry.symbol}
                   </text>
+                  {entry.degreeText ? (
+                    <text
+                      x={x}
+                      y={y + 9}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill={CREAM}
+                      fontSize="5.5"
+                      fontWeight="500"
+                      opacity="0.88"
+                    >
+                      {entry.degreeText.replace(/\s+/g, "")}
+                    </text>
+                  ) : null}
                 </g>
               );
             })}

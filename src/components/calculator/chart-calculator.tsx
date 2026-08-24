@@ -10,6 +10,7 @@ import {
   type WheelOption,
 } from "@/components/birth/wheel-picker";
 import type { ChartJson } from "@/types/chart";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const THAI_MONTHS = [
   "มกราคม",
@@ -321,47 +322,35 @@ export function ChartCalculator() {
                 <span className="text-[11px] text-[var(--muted)]">
                   จังหวัดที่เกิด <span className="text-[var(--primary)]">*</span>
                 </span>
-                <select
+                <SearchableSelect
                   value={province}
-                  onChange={(e) => {
-                    setProvince(e.target.value);
+                  onChange={(value) => {
+                    setProvince(value);
                     setDistrict("");
                   }}
-                  className="w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-                >
-                  <option value="" disabled>
-                    จังหวัด
-                  </option>
-                  {PROVINCES.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
+                  options={PROVINCES}
+                  placeholder="พิมพ์หรือเลือกจังหวัด"
+                  ariaLabel="จังหวัดที่เกิด"
+                />
               </label>
               <label className="flex flex-col gap-1.5">
                 <span className="text-[11px] text-[var(--muted)]">
                   อำเภอ / เขตที่เกิด
                 </span>
-                <select
+                <SearchableSelect
                   value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
+                  onChange={setDistrict}
+                  options={districtOptions}
                   disabled={!hasDistrictData}
-                  className="w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)] disabled:opacity-50"
-                >
-                  <option value="">
-                    {!province
+                  placeholder={
+                    !province
                       ? "เลือกจังหวัดก่อน"
                       : hasDistrictData
-                        ? "อำเภอ / เขต"
-                        : "ยังไม่มีข้อมูลอำเภอ"}
-                  </option>
-                  {districtOptions.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+                        ? "พิมพ์หรือเลือกอำเภอ / เขต"
+                        : "ยังไม่มีข้อมูลอำเภอ"
+                  }
+                  ariaLabel="อำเภอหรือเขตที่เกิด"
+                />
               </label>
             </>
           ) : (

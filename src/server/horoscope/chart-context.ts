@@ -61,6 +61,7 @@ export async function requireReadyNatalChart(userId: string): Promise<ChartJson>
   if (
     existing &&
     chartInputMatches(existing.input, input) &&
+    existing.meta?.evidenceVersion === 2 &&
     existing.settings?.taksaCountFrom === "birth-weekday" &&
     isCurrentTaksaSlots(existing.chart?.taksa)
   ) {

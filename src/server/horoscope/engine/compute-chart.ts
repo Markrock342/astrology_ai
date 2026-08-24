@@ -26,6 +26,7 @@ function toChartJsonFromFormula(input: BirthInputSnapshot): ChartJson {
     meta: {
       birthDisplay: formatBirthDisplay(input),
       locationDisplay: formatLocationDisplay(input),
+      evidenceVersion: 2,
       calculationSource: chart.source,
       lagna: chart.lagna,
     },

@@ -111,7 +111,15 @@ describe("chart derivations for HoraSard SVG charts", () => {
         lagnaSign: "สิงห์",
         summaryNatal: null,
         summaryTransit: null,
-        natalPlanets: rows,
+        natalPlanets: [
+          ...rows,
+          {
+            planet: "๓.อังคาร",
+            zodiac: "มิถุน",
+            degree: "12",
+            minute: "30",
+          },
+        ],
         transitPlanets: null,
         taksa: [],
         triwaiNatal: [],
@@ -122,6 +130,9 @@ describe("chart derivations for HoraSard SVG charts", () => {
     const d9 = deriveDivisionalChart(chart, "navamsa");
     const d3 = deriveDivisionalChart(chart, "drekkana");
 
+    expect(d9).not.toBeNull();
+    expect(d3).not.toBeNull();
+    if (!d9 || !d3) throw new Error("expected complete MyHora divisional charts");
     expect(d9.lagna).toBe(computeNavamsaSign("สิงห์", 10.5));
     expect(d9.planets[0]?.siderealSign).toBe(
       computeNavamsaSign("มิถุน", 5 + 10 / 60),
@@ -129,5 +140,39 @@ describe("chart derivations for HoraSard SVG charts", () => {
     expect(d3.planets[1]?.siderealSign).toBe(
       computeDrekkanaSign("พิจิก", 20),
     );
+  });
+
+  it("does not invent D9/D3 from a 15-degree placeholder", () => {
+    const chart: ChartJson = {
+      input: {
+        day: 18,
+        month: 11,
+        year: 2001,
+        time: "02:08",
+        country: "ไทย",
+        province: "นครราชสีมา",
+        district: "โชคชัย",
+      },
+      calculatedAt: new Date(0).toISOString(),
+      settings: {
+        calendar: "suryayat",
+        ayanamsa: "lahiri",
+        timeMethod: "antonathi_samrap_sunrise_local",
+        rahuRule: "eight_signs_aquarius",
+        taksaRahuLord: "mercury_night",
+        taksaCountFrom: "birth-weekday",
+      },
+      meta: {
+        birthDisplay: "test",
+        locationDisplay: "test",
+        calculationSource: "suryayat-100-year",
+        lagna: "เมษ",
+      },
+      planets: fallback.planets,
+      chart: { lagna: "เมษ", taksa: [] },
+    };
+
+    expect(deriveDivisionalChart(chart, "navamsa")).toBeNull();
+    expect(deriveDivisionalChart(chart, "drekkana")).toBeNull();
   });
 });
