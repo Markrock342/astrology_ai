@@ -13,6 +13,7 @@ export type FollowUpMeta = {
 const SUMMARY_MAX_CHARS = 120;
 const FOLLOW_UP_MAX_CHARS = 60;
 const FOLLOW_UP_MAX_COUNT = 3;
+const THREAD_TITLE_MAX_CHARS = 40;
 
 function parseFollowUpJson(raw: string): unknown {
   const trimmed = raw.trim();
@@ -90,6 +91,51 @@ export async function resolveAuxConfig(opts?: {
   return lite ?? candidates[0];
 }
 
+function truncateQuestionTitle(text: string, max = 48): string {
+  const trimmed = text.trim();
+  return trimmed.length > max ? `${trimmed.slice(0, max)}…` : trimmed;
+}
+
+/** Only placeholder titles may be replaced by the first AI-generated title. */
+export function isReplaceableThreadTitle(
+  currentTitle: string | null,
+  question: string,
+): boolean {
+  const title = currentTitle?.trim() ?? "";
+  if (!title || title === "สรุปพื้นดวง") return true;
+  if (title === truncateQuestionTitle(question)) return true;
+
+  // Transit threads are initially named from their date before a question is
+  // available. The first real exchange should replace that utility label.
+  return /^ดวงจร\s+\d{1,2}\s+\S+\s+\d{4}$/u.test(title);
+}
+
+/** Normalize a model title into the same compact, single-line shape as ChatGPT. */
+export function sanitizeThreadTitle(raw: string): string | null {
+  const firstLine = raw
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .find(Boolean);
+  if (!firstLine) return null;
+
+  const cleaned = firstLine
+    .replace(/^#{1,6}\s*/u, "")
+    .replace(/^[-*•]\s*/u, "")
+    .replace(/^(?:ชื่อ(?:แชท|บทสนทนา)?|หัวข้อ)\s*[:：-]\s*/u, "")
+    .replace(/^["'“”‘’「『]+|["'“”‘’」』]+$/gu, "")
+    .replace(/[.!。…]+$/u, "")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .slice(0, THREAD_TITLE_MAX_CHARS)
+    .trim();
+
+  if (cleaned.length < 4) return null;
+  if (/^(?:ดวงจร(?:\s+\d.*)?|ดูดวง|คำทำนาย|สรุปพื้นดวง)$/u.test(cleaned)) {
+    return null;
+  }
+  return cleaned;
+}
+
 /**
  * Name a conversation after its first exchange.
  *
@@ -108,7 +154,7 @@ export async function generateThreadTitle(input: {
 }): Promise<string | null> {
   try {
     // Only the FIRST exchange names the thread — and only while the title is
-    // still the auto-truncated question, so a rename by the user is never
+    // still an automatic placeholder, so a rename by the user is never
     // overwritten.
     const [conversation, liveAnswers] = await Promise.all([
       prisma.conversation.findFirst({
@@ -124,7 +170,13 @@ export async function generateThreadTitle(input: {
         },
       }),
     ]);
-    if (!conversation || liveAnswers > 1) return null;
+    if (
+      !conversation ||
+      liveAnswers > 1 ||
+      !isReplaceableThreadTitle(conversation.title, input.question)
+    ) {
+      return null;
+    }
 
     const cfg = await resolveAuxConfig({
       categoryId: input.categoryId ?? conversation.categoryId,
@@ -134,8 +186,11 @@ export async function generateThreadTitle(input: {
 
     const result = await generateWithFallback(cfg.id, {
       systemPrompt:
-        "ตั้งชื่อหัวข้อบทสนทนาดูดวงเป็นภาษาไทย สั้น กระชับ ไม่เกิน 30 ตัวอักษร " +
-        "ตอบเป็นชื่อหัวข้ออย่างเดียว ห้ามใส่เครื่องหมายคำพูด ห้ามอธิบาย",
+        "ตั้งชื่อแชทภาษาไทยจากเจตนาหลักของคำถาม ให้เป็นวลีสั้นที่อ่านแล้วรู้ทันทีว่าคุยเรื่องอะไร " +
+        "ความยาวประมาณ 4–30 ตัวอักษร ใช้คำตอบช่วยแยกบริบทเท่านั้นและห้ามเปิดเผยข้อมูลส่วนตัว " +
+        "หลีกเลี่ยงคำทั่วไป เช่น ดูดวง คำทำนาย สรุปพื้นดวง ดวงจร และไม่ใช้วันที่ เว้นแต่วันที่คือประเด็นหลัก " +
+        "ตัวอย่างรูปแบบ: โอกาสย้ายงานปีนี้, จังหวะความรักครั้งใหม่, แนวทางจัดการหนี้ " +
+        "ตอบชื่อหัวข้ออย่างเดียว ห้ามใส่คำนำ เครื่องหมายคำพูด อีโมจิ หรือคำอธิบาย",
       userPrompt: `คำถาม: ${input.question.slice(0, 300)}\n\nคำตอบ (ย่อ): ${input.answer.slice(0, 400)}`,
       // Gemini 3.x draws MINIMAL-level thinking from THIS budget (2.5 kept it
       // separate). 96 could be spent entirely on thinking → empty title, so the
@@ -145,13 +200,33 @@ export async function generateThreadTitle(input: {
     });
     if (!result.ok || !result.rawText) return null;
 
-    const title = result.rawText.trim().replace(/^["'「]+|["'」]+$/g, "").slice(0, 48);
+    const title = sanitizeThreadTitle(result.rawText);
     if (!title) return null;
 
-    await prisma.conversation.update({
-      where: { id: conversation.id },
+    // Compare-and-set closes the race where the user renames the chat while
+    // this auxiliary model call is still running.
+    const updated = await prisma.conversation.updateMany({
+      where: {
+        id: conversation.id,
+        userId: input.userId,
+        title: conversation.title,
+      },
       data: { title },
     });
+    if (updated.count === 0) return null;
+
+    void logUsage({
+      userId: input.userId,
+      provider: result.provider,
+      modelId: result.modelId,
+      status: "SUCCESS",
+      latencyMs: result.latencyMs,
+      inputUsage: result.usage?.inputTokens,
+      outputUsage: result.usage?.outputTokens,
+      cachedUsage: result.usage?.cachedTokens,
+      errorCode: "THREAD_TITLE",
+    }).catch(() => {});
+
     return title;
   } catch {
     return null;
