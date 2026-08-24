@@ -188,6 +188,12 @@ export function SettingsPopover({
           onClick={() => go("/onboarding")}
         />
         <Row
+          icon={<MemoryIcon />}
+          label="ความจำของ AI"
+          hint="(ดู / ล้าง)"
+          onClick={() => go("/account#ai-memory")}
+        />
+        <Row
           icon={<PackageIcon />}
           label="จัดการแพ็กเกจ"
           onClick={() => go("/account")}
@@ -295,6 +301,14 @@ function CalendarIcon() {
     <svg {...ICON}>
       <rect x="3.5" y="5" width="17" height="15" rx="2.5" {...LINE} />
       <path d="M3.5 9.5h17M8 3v3M16 3v3" {...LINE} />
+    </svg>
+  );
+}
+function MemoryIcon() {
+  return (
+    <svg {...ICON}>
+      <path d="M7 8.5a3.5 3.5 0 1 1 1.2-6.8A4 4 0 0 1 15 4.6a3.8 3.8 0 0 1 2.1 7 3.6 3.6 0 0 1-2.6 6.1A3.5 3.5 0 0 1 8 17a3.6 3.6 0 0 1-1-6.9" {...LINE} />
+      <path d="M9 7.5c1.1.2 1.8.8 2.1 1.8M14.8 11.5c-1 .1-1.8.6-2.3 1.5M10 17.5V21M14 17.5V21" {...LINE} />
     </svg>
   );
 }

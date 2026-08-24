@@ -162,6 +162,10 @@ model User {
   /// Highest accepted TOTP time-step — reject codes at or below it so a valid
   /// code can't be replayed within its ~90s window.
   totpLastStep Int?
+  /// Shared AI context across conversations. Users can disable it or move the
+  /// memory boundary forward without deleting their chat history.
+  aiMemoryEnabled Boolean  @default(true)
+  aiMemoryResetAt DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

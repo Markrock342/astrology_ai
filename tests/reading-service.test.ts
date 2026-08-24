@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   loadChart: vi.fn(),
   requireReadyNatalChart: vi.fn(),
   getOrRefreshChartMemory: vi.fn(),
+  getUserAiMemory: vi.fn(),
   getOrComputeDailyTransit: vi.fn(),
   questionWantsTodayTransit: vi.fn(() => false),
   generateWithFallback: vi.fn(),
@@ -79,6 +80,11 @@ vi.mock("@/server/horoscope/chart-context", () => ({
 
 vi.mock("@/server/horoscope/chart-memory-service", () => ({
   getOrRefreshChartMemory: mocks.getOrRefreshChartMemory,
+}));
+
+vi.mock("@/server/user/ai-memory-service", () => ({
+  getUserAiMemory: mocks.getUserAiMemory,
+  formatUserAiMemoryForPrompt: vi.fn(() => null),
 }));
 
 vi.mock("@/server/horoscope/daily-transit-service", () => ({
@@ -218,6 +224,13 @@ function setupHappyPath() {
         summaryLines: ["สุขภาพ: เรือน 1, 6, 8"],
       },
     },
+  });
+  mocks.getUserAiMemory.mockResolvedValue({
+    enabled: true,
+    nickname: "ทดสอบ",
+    resetAt: null,
+    commonTopics: [],
+    recentQuestions: [],
   });
   mocks.questionWantsTodayTransit.mockReturnValue(false);
   mocks.generateWithFallback.mockResolvedValue({
