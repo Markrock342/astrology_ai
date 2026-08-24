@@ -8,6 +8,7 @@ import {
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";
 import { upgradeNatalChartFromScrape } from "@/server/horoscope/natal-chart-service";
 import { upsertChartMemory } from "@/server/horoscope/chart-memory-service";
+import { isCurrentTaksaSlots } from "@/lib/taksa";
 
 /** Chart is usable as AI evidence only if lagna + planet rows exist. */
 export function isUsableEngineChart(
@@ -57,7 +58,14 @@ export async function requireReadyNatalChart(userId: string): Promise<ChartJson>
   // Charts created before the timezone fix used UTC calendar fields. For Thai
   // births before 07:00 that shifted the input to the previous civil date.
   // Repair stale cached charts automatically on the next chat request.
-  if (existing && chartInputMatches(existing.input, input)) return existing;
+  if (
+    existing &&
+    chartInputMatches(existing.input, input) &&
+    existing.settings?.taksaCountFrom === "birth-weekday" &&
+    isCurrentTaksaSlots(existing.chart?.taksa)
+  ) {
+    return existing;
+  }
 
   const formula = computeNatalChartFormula(input);
   assertUsableEngineChart(formula);

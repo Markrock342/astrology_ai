@@ -1,91 +1,61 @@
 "use client";
 
-import type { PlanetSignRow, TaksaSlot } from "@/types/chart";
+import type { BirthInputSnapshot, TaksaSlot } from "@/types/chart";
+import { getPlanetTheme, toThaiNumeral } from "@/lib/chart-theme";
 import {
-  getPlanetTheme,
-  LAGNA_MARK,
-  normalizeSignName,
-  PLANET_ORDER,
-  signLabel,
-  toThaiNumeral,
-} from "@/lib/chart-theme";
-import {
-  planetsInSign,
+  resolveTaksaBirthDay,
   resolveTaksaSlots,
-  TAKSA_CELL_NUMBERS,
-  taksaIndexFromCellNumber,
+  TAKSA_CELL_PLANETS,
+  TAKSA_PLANET_NAMES,
 } from "@/lib/taksa";
 
 export function TaksaNineGrid({
   title,
-  lagna,
+  input,
   slots,
-  planets,
 }: {
   title: string;
-  lagna: string;
+  input: BirthInputSnapshot;
   slots?: TaksaSlot[] | null;
-  planets: PlanetSignRow[];
 }) {
-  const resolved = resolveTaksaSlots(lagna, slots);
-  const lagnaSign = normalizeSignName(lagna);
+  const resolved = resolveTaksaSlots(input, slots);
+  const birthDay = resolveTaksaBirthDay(input);
 
   return (
-    <div className="min-w-0">
-      <p className="mb-2 text-center text-xs font-semibold tracking-wide text-[var(--primary)]">
-        {title}
-      </p>
+    <div className="mx-auto w-full min-w-0 max-w-md">
+      <div className="mb-3 text-center">
+        <p className="text-xs font-semibold tracking-wide text-[var(--primary)]">{title}</p>
+        <p className="mt-1 text-[11px] text-[var(--muted)]">
+          เกิดวัน{birthDay} · คำนวณจากวันและเวลาเกิด
+        </p>
+      </div>
       <div className="grid grid-cols-3 overflow-hidden rounded-xl border border-[var(--border)]">
-        {TAKSA_CELL_NUMBERS.flatMap((row) =>
-          row.map((cell) => {
-            const slot = resolved[taksaIndexFromCellNumber(cell)];
-            const sign = slot?.sign ?? "เมษ";
-            const isCenter = cell === 9;
-            const isLagnaSign = normalizeSignName(sign) === lagnaSign;
-            const occupants = planetsInSign(planets, sign).sort(
-              (a, b) =>
-                PLANET_ORDER.indexOf(a.planet as (typeof PLANET_ORDER)[number]) -
-                PLANET_ORDER.indexOf(b.planet as (typeof PLANET_ORDER)[number]),
-            );
+        {TAKSA_CELL_PLANETS.flatMap((row) =>
+          row.map((planetNum) => {
+            const planet = TAKSA_PLANET_NAMES[planetNum] ?? "เกตุ";
+            const slot = resolved.find((item) => item.planetNum === planetNum);
+            const theme = getPlanetTheme(planet);
+            const isCenter = planetNum === 9;
             return (
               <div
-                key={`${title}-${cell}`}
-                className={`flex min-h-[4.75rem] flex-col items-center justify-center gap-0.5 border-b border-r border-[var(--border)] px-1 py-1.5 text-center last:border-r-0 ${
-                  isCenter || isLagnaSign
-                    ? "bg-[var(--primary)]/16"
-                    : "bg-[var(--surface-2)]/55"
+                key={`${title}-${planetNum}`}
+                className={`flex min-h-[5.25rem] flex-col items-center justify-center gap-1 border-b border-r border-[var(--border)] px-2 py-2 text-center ${
+                  isCenter ? "bg-[var(--background)]" : "bg-[var(--surface-2)]/55"
                 }`}
               >
                 <span
-                  className={`text-lg font-semibold leading-none ${
-                    isCenter ? "text-[var(--primary)]" : "text-[var(--foreground)]"
-                  }`}
+                  className="text-xl font-semibold leading-none"
+                  style={{ color: theme.color }}
+                  aria-label={`${planetNum} ${planet}`}
                 >
-                  {toThaiNumeral(cell)}
+                  {toThaiNumeral(planetNum)}
                 </span>
-                <span className="text-[10px] text-[var(--muted)]">
-                  {signLabel(sign)}
-                  {isLagnaSign ? ` ${LAGNA_MARK}` : ""}
-                </span>
+                <span className="text-[10px] text-[var(--muted)]">{planet}</span>
                 {slot ? (
-                  <span className="text-[9px] text-[var(--muted-2)]">{slot.taksa}</span>
-                ) : null}
-                {occupants.length > 0 ? (
-                  <span className="mt-0.5 flex flex-wrap justify-center gap-x-1 text-sm font-semibold leading-none">
-                    {occupants.map((row) => {
-                      const theme = getPlanetTheme(row.planet);
-                      return (
-                        <span
-                          key={`${sign}-${row.planet}`}
-                          style={{ color: theme.color }}
-                          title={`${theme.numeral} ${row.planet}`}
-                        >
-                          {theme.numeral}
-                        </span>
-                      );
-                    })}
-                  </span>
-                ) : null}
+                  <span className="text-xs font-medium text-[var(--foreground)]">{slot.taksa}</span>
+                ) : (
+                  <span className="text-[10px] text-[var(--muted-2)]">ตากลาง</span>
+                )}
               </div>
             );
           }),

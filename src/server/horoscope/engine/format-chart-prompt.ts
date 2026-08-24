@@ -182,12 +182,12 @@ export function formatChartForPrompt(
 
   if (chart.myhora?.taksa?.length) {
     lines.push(...formatTaksaGrid(chart.myhora.taksa));
-  } else if (chart.chart?.taksa?.length) {
-    lines.push("", "ทักษา (จากลัคนา):");
-    lines.push(`${pad("ทักษา", 12)} | ราศี`);
-    lines.push(`${"-".repeat(12)}-+-${"-".repeat(8)}`);
+  } else if (!options.preferTransitSamrap && chart.chart?.taksa?.length) {
+    lines.push("", "ทักษา (ตามวันและเวลาเกิด):");
+    lines.push(`${pad("ทักษา", 12)} | ดาวเจ้า`);
+    lines.push(`${"-".repeat(12)}-+-${"-".repeat(12)}`);
     for (const t of chart.chart.taksa) {
-      lines.push(`${pad(t.taksa, 12)} | ${t.sign}`);
+      lines.push(`${pad(t.taksa, 12)} | ${t.planet} (${t.planetNum})`);
     }
   }
 

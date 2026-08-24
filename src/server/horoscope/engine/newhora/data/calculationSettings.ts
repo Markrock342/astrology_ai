@@ -11,7 +11,7 @@ import type { CalculationSettings } from '../types/astrology'
  * ลัคนา อันโตนาทีฯ      →  timeMethod
  * ดาวเกษตร ราหู(๘)กุมภ์ →  rahuRule
  * ทักษาราหู=พุธกลางคืน  →  taksaRahuLord
- * ทักษานับตากลาง       →  taksaCountFrom
+ * ทักษาตามวันเกิด       →  taksaCountFrom
  */
 export const CALCULATION_SETTINGS: CalculationSettings = {
   calendar: 'suryayat',
@@ -19,7 +19,7 @@ export const CALCULATION_SETTINGS: CalculationSettings = {
   timeMethod: 'antonathi_samrap_sunrise_local',
   rahuRule: 'eight_signs_aquarius',
   taksaRahuLord: 'mercury_night',
-  taksaCountFrom: 'center',
+  taksaCountFrom: 'birth-weekday',
 }
 
 /** ป้ายแสดง — ตรงข้อความที่ user กำหนด */
@@ -30,7 +30,7 @@ export const CALCULATION_SETTINGS_LABELS: { key: keyof CalculationSettings; labe
     { key: 'timeMethod', label: 'อันโตนาทีสามัญ สมผุสอาทิตย์อุทัย ปรับเวลาท้องถิ่น' },
     { key: 'rahuRule', label: 'ราหู ๘ ราศีกุมภ์' },
     { key: 'taksaRahuLord', label: 'ทักษา ราหู = พุธกลางคืน' },
-    { key: 'taksaCountFrom', label: 'ทักษานับตากลาง' },
+    { key: 'taksaCountFrom', label: 'ทักษาตามวันเกิด (พุธกลางคืน = ราหู)' },
   ]
 
 /** สิ่งใน myhora ที่ไม่เอา — ห้ามเพิ่มใน UI จนกว่า user สั่ง */

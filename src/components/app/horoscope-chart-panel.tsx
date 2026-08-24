@@ -184,23 +184,14 @@ export function HoroscopeChartPanel({
           >
             <TaksaNineGrid
               title="ทักษา"
-              lagna={d1.lagna}
+              input={natal.input}
               slots={natal.chart?.taksa}
-              planets={d1.planets}
             />
-            {transitChart ? (
-              <TaksaNineGrid
-                title="ทักษาจร"
-                lagna={d1.lagna}
-                slots={natal.chart?.taksa}
-                planets={transitChart.planets}
-              />
-            ) : null}
           </div>
 
           {hasEvidenceGrids ? (
             <div className="mt-5 grid gap-4 border-t border-[var(--border)] pt-5 sm:grid-cols-2">
-              <EvidenceGrid title="ทักษา" cells={taksa} />
+              <EvidenceGrid title="ทักษาอ้างอิง · กำเนิดและจร" cells={taksa} />
               <EvidenceGrid title="ตรีวัย" cells={triwai} />
             </div>
           ) : null}

@@ -48,7 +48,7 @@ const chart = {
   ],
   chart: {
     lagna: "เมษ",
-    taksa: [{ taksa: "กาลกุล", sign: "เมษ", index: 0 }],
+    taksa: [{ taksa: "บริวาร", planet: "อาทิตย์", planetNum: 1, index: 0 }],
   },
 } as ChartJson;
 
@@ -59,7 +59,7 @@ describe("deriveChartMemory", () => {
     expect(memory.birthHash).toBe(hashBirthInput(chart.input));
     expect(memory.categories.career.houses).toEqual([10, 6, 2]);
     expect(memory.categories.love.houses).toEqual([7, 5]);
-    expect(memory.taksa[0]?.taksa).toBe("กาลกุล");
+    expect(memory.taksa[0]?.taksa).toBe("บริวาร");
     expect(memory.houseOccupants).toHaveLength(12);
   });
 
