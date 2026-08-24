@@ -152,6 +152,74 @@ describe("chart derivations for HoraSard SVG charts", () => {
     );
   });
 
+  it("prefers the exact MyHora divisional signs when Samrap provides them", () => {
+    const explicitRows: MyhoraNatalPlanet[] = [
+      {
+        planet: "ล.ลัคนา",
+        zodiac: "05 : กน",
+        degree: "12",
+        minute: "55",
+        triyang: "2 : 7 : มก",
+        nawamang: "4 : 3 : มษ",
+      },
+      {
+        planet: "๓.อังคาร",
+        zodiac: "09 : มก",
+        degree: "20",
+        minute: "55 ส.",
+        triyang: "3 : 4 : กน",
+        nawamang: "7 : 2 : กฎ",
+      },
+    ];
+    const chart = {
+      input: {
+        day: 18,
+        month: 11,
+        year: 2001,
+        time: "02:08",
+        country: "ไทย",
+        province: "นครราชสีมา",
+        district: "โชคชัย",
+      },
+      calculatedAt: new Date(0).toISOString(),
+      settings: {
+        calendar: "suryayat",
+        ayanamsa: "lahiri",
+        timeMethod: "antonathi_samrap_sunrise_local",
+        rahuRule: "eight_signs_aquarius",
+        taksaRahuLord: "mercury_night",
+        taksaCountFrom: "birth-weekday",
+      },
+      meta: {
+        birthDisplay: "test",
+        locationDisplay: "test",
+        calculationSource: "myhora-scrape",
+        lagna: "กันย์",
+      },
+      planets: [{ planet: "อังคาร", siderealSign: "มกร" }],
+      chart: { lagna: "กันย์", taksa: [] },
+      myhora: {
+        lagnaSign: "กันย์",
+        summaryNatal: null,
+        summaryTransit: null,
+        natalPlanets: explicitRows,
+        transitPlanets: null,
+        taksa: [],
+        triwaiNatal: [],
+        triwaiTransit: [],
+      },
+    } satisfies ChartJson;
+
+    expect(deriveDivisionalChart(chart, "navamsa")).toMatchObject({
+      lagna: "เมษ",
+      planets: [{ planet: "อังคาร", siderealSign: "กรกฎ" }],
+    });
+    expect(deriveDivisionalChart(chart, "drekkana")).toMatchObject({
+      lagna: "มกร",
+      planets: [{ planet: "อังคาร", siderealSign: "กันย์" }],
+    });
+  });
+
   it("does not invent D9/D3 from a 15-degree placeholder", () => {
     const chart: ChartJson = {
       input: {
