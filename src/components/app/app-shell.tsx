@@ -89,6 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     user,
     refresh,
     removeThreadLocal,
+    renameThreadLocal,
     clearThreadsLocal,
     refreshLight,
     filteredCategories,
@@ -205,8 +206,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         setRenameError(json?.error?.message ?? "เปลี่ยนชื่อไม่สำเร็จ");
         return;
       }
+      renameThreadLocal(renameTarget.threadId, trimmed);
       setRenameTarget(null);
-      await refreshLight();
+      void refreshLight();
     } catch {
       setRenameError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
     } finally {
@@ -639,7 +641,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
                   }`}
                 >
-                  ชื่อ
+                  แก้ชื่อ
                 </button>
                 <button
                   type="button"
@@ -754,7 +756,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
                   }`}
                 >
-                  ชื่อ
+                  แก้ชื่อ
                 </button>
                 <button
                   type="button"
