@@ -242,10 +242,10 @@ export function ThreadRenameModal({
         className="animate-fade-up w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-5 shadow-2xl outline-none"
         role="dialog"
         aria-modal="true"
-        aria-label="เปลี่ยนชื่อแชท"
+        aria-label="ตั้งชื่อแชทใหม่"
       >
         <h3 className="text-sm font-semibold text-[var(--foreground)]">
-          เปลี่ยนชื่อแชท
+          ตั้งชื่อแชทใหม่
         </h3>
         <form
           className="mt-3 flex flex-col gap-3"
@@ -254,15 +254,22 @@ export function ThreadRenameModal({
             if (!busy) onSubmit(title);
           }}
         >
+          <label
+            htmlFor="thread-title"
+            className="text-xs text-[var(--muted)]"
+          >
+            ชื่อใหม่
+          </label>
           <input
+            id="thread-title"
             ref={inputRef}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={80}
             disabled={busy}
             className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)] disabled:opacity-60"
-            placeholder="ชื่อแชท"
-            aria-label="ชื่อแชท"
+            placeholder="เช่น งานที่เหมาะกับฉัน"
+            aria-label="ชื่อแชทใหม่"
           />
           {error ? (
             <p className="text-xs text-[var(--danger)]" role="alert">
@@ -283,7 +290,7 @@ export function ThreadRenameModal({
               disabled={busy || !title.trim()}
               className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
             >
-              {busy ? "กำลังบันทึก…" : "บันทึก"}
+              {busy ? "กำลังบันทึก…" : "บันทึกชื่อ"}
             </button>
           </div>
         </form>

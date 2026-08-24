@@ -99,6 +99,8 @@ type AppDataContextValue = {
   refresh: () => void;
   /** Optimistic remove from sidebar lists (delete chat). */
   removeThreadLocal: (threadId: string) => void;
+  /** Optimistic rename so the new title appears without waiting for reload. */
+  renameThreadLocal: (threadId: string, title: string) => void;
   /** Optimistic clear of all sidebar threads (clear history). */
   clearThreadsLocal: () => void;
   /** After chat — me + thread lists only (much smaller). */
@@ -108,6 +110,16 @@ type AppDataContextValue = {
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
+
+export function renameThreadInList(
+  threads: Thread[],
+  threadId: string,
+  title: string,
+): Thread[] {
+  return threads.map((thread) =>
+    thread.id === threadId ? { ...thread, title } : thread,
+  );
+}
 
 function mapMe(me: Record<string, unknown>): AppUser {
   return {
@@ -374,6 +386,11 @@ export function AppDataProvider({
     setTransitThreads((prev) => prev.filter((t) => t.id !== threadId));
   }, []);
 
+  const renameThreadLocal = useCallback((threadId: string, title: string) => {
+    setNatalThreads((prev) => renameThreadInList(prev, threadId, title));
+    setTransitThreads((prev) => renameThreadInList(prev, threadId, title));
+  }, []);
+
   const clearThreadsLocal = useCallback(() => {
     setNatalThreads([]);
     setTransitThreads([]);
@@ -399,6 +416,7 @@ export function AppDataProvider({
       filteredThreads: filteredNatalThreads,
       refresh: load,
       removeThreadLocal,
+      renameThreadLocal,
       clearThreadsLocal,
       refreshLight,
       repairNatalChart,
@@ -419,6 +437,7 @@ export function AppDataProvider({
       filteredTransitThreads,
       load,
       removeThreadLocal,
+      renameThreadLocal,
       clearThreadsLocal,
       refreshLight,
       repairNatalChart,
