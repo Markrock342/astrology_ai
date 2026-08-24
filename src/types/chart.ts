@@ -59,6 +59,8 @@ export type ChartJson = {
   meta: {
     birthDisplay: string;
     locationDisplay: string;
+    /** Rebuild cached charts when evidence/derivation rules change. */
+    evidenceVersion?: number;
     calculationSource?: CalculationSource;
     lagna?: string;
   };

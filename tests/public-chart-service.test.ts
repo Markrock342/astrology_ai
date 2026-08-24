@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { computePublicNatalChart } from "@/server/horoscope/public-chart-service";
 
 describe("public natal calculator", () => {
-  it("accepts a Buddhist year and returns lagna plus planet rows", () => {
-    const chart = computePublicNatalChart({
+  it("accepts a Buddhist year and returns lagna plus planet rows", async () => {
+    const chart = await computePublicNatalChart({
       year: 2549,
       month: 5,
       day: 21,
@@ -14,7 +14,7 @@ describe("public natal calculator", () => {
       birthCountry: "ไทย",
       birthProvince: "กรุงเทพมหานคร",
       birthDistrict: "พระนคร",
-    });
+    }, { scrape: false });
 
     expect(chart.input.year).toBe(2006);
     expect(chart.input.time).toBe("18:31");
@@ -22,8 +22,8 @@ describe("public natal calculator", () => {
     expect(chart.chart?.lagna).toBeTruthy();
   });
 
-  it("uses noon when birth time is unknown", () => {
-    const chart = computePublicNatalChart({
+  it("uses noon when birth time is unknown", async () => {
+    const chart = await computePublicNatalChart({
       year: 2006,
       month: 5,
       day: 21,
@@ -32,7 +32,7 @@ describe("public natal calculator", () => {
       birthCountry: "ไทย",
       birthProvince: "กรุงเทพมหานคร",
       birthDistrict: "พระนคร",
-    });
+    }, { scrape: false });
 
     expect(chart.input.time).toBe("12:00");
   });

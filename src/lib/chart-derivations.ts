@@ -170,7 +170,7 @@ export function computeDrekkanaSign(
 export function deriveDivisionalChart(
   chart: ChartJson,
   kind: DivisionalChartKind,
-): DerivedChart {
+): DerivedChart | null {
   const base: DerivedChart = {
     lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
     planets: chart.planets,
@@ -180,17 +180,26 @@ export function deriveDivisionalChart(
     row.planet.includes("ลัคนา"),
   );
   const lagnaDegree = lagnaRow ? degreeFromRow(lagnaRow) : undefined;
+  // D9/D3 depend on the exact segment inside each sign. Never substitute 15°:
+  // that creates a complete-looking chart whose planets can all be wrong.
+  if (
+    lagnaDegree == null ||
+    myhora.planets.length === 0 ||
+    myhora.planets.some((planet) => planet.degreeInSign == null)
+  ) {
+    return null;
+  }
   const mapSign =
     kind === "navamsa" ? computeNavamsaSign : computeDrekkanaSign;
 
   return {
-    lagna: mapSign(myhora.lagna, lagnaDegree ?? 15),
-    planets: myhora.planets.map((planet) => ({
-      ...planet,
-      siderealSign: mapSign(
-        planet.siderealSign,
-        planet.degreeInSign ?? 15,
-      ),
-    })),
+    lagna: mapSign(myhora.lagna, lagnaDegree),
+    planets: myhora.planets.map((planet) => {
+      const degree = planet.degreeInSign as number;
+      return {
+        ...planet,
+        siderealSign: mapSign(planet.siderealSign, degree),
+      };
+    }),
   };
 }

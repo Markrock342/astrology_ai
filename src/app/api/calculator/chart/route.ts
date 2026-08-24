@@ -11,6 +11,6 @@ export async function POST(req: Request) {
   return handle(async () => {
     await rateLimit(`calculator:${rateLimitIp(req)}`, 20, 60_000);
     const input = birthProfileSchema.parse(await req.json());
-    return ok({ chart: computePublicNatalChart(input) });
+    return ok({ chart: await computePublicNatalChart(input) });
   });
 }

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useChatNav } from "./chat-nav";
 import { COUNTRIES, DISTRICTS, PROVINCES } from "@/lib/th-geo";
 import { useAppData } from "./app-data-provider";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const THAI_MONTHS = [
   "มกราคม",
@@ -420,39 +421,33 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className="block text-xs text-[var(--muted)]">
                   จังหวัด (ไม่บังคับ)
-                  <select
+                  <SearchableSelect
                     value={province}
-                    onChange={(e) => {
-                      setProvince(e.target.value);
+                    onChange={(value) => {
+                      setProvince(value);
                       setDistrict("");
                     }}
-                    className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
-                  >
-                    <option value="">ใช้จากดวงกำเนิด</option>
-                    {PROVINCES.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
+                    options={PROVINCES}
+                    placeholder="พิมพ์หรือเลือกจังหวัด"
+                    emptyLabel="ใช้จากดวงกำเนิด"
+                    ariaLabel="จังหวัดสำหรับดวงจร"
+                    className="mt-1.5"
+                  />
                 </label>
                 <label className="block text-xs text-[var(--muted)]">
                   อำเภอ/เขต (ไม่บังคับ)
-                  <select
+                  <SearchableSelect
                     value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
+                    onChange={setDistrict}
+                    options={districtOptions}
                     disabled={!province || !hasDistrictData}
-                    className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)] disabled:opacity-50"
-                  >
-                    <option value="">
-                      {province ? "ใช้จากดวงกำเนิด" : "เลือกจังหวัดก่อน"}
-                    </option>
-                    {districtOptions.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder={
+                      province ? "พิมพ์หรือเลือกอำเภอ / เขต" : "เลือกจังหวัดก่อน"
+                    }
+                    emptyLabel="ใช้จากดวงกำเนิด"
+                    ariaLabel="อำเภอหรือเขตสำหรับดวงจร"
+                    className="mt-1.5"
+                  />
                 </label>
               </div>
             ) : null}

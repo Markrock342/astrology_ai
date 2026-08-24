@@ -164,18 +164,30 @@ export function HoroscopeChartPanel({
           </span>
         </summary>
         <div className="border-t border-[var(--border)] px-3 py-5">
-          <div className={`grid gap-4 ${reference ? "grid-cols-[repeat(auto-fit,minmax(260px,1fr))]" : "grid-cols-[repeat(auto-fit,minmax(190px,1fr))]"}`}>
-            <ThaiChakraChart
-              chart={d9}
-              title="นวางศ์จักร"
-              size={reference ? 340 : 260}
-            />
-            <ThaiChakraChart
-              chart={d3}
-              title="ตรียางศ์จักร"
-              size={reference ? 340 : 260}
-            />
-          </div>
+          {d9 && d3 ? (
+            <div className={`grid gap-4 ${reference ? "grid-cols-[repeat(auto-fit,minmax(260px,1fr))]" : "grid-cols-[repeat(auto-fit,minmax(190px,1fr))]"}`}>
+              <ThaiChakraChart
+                chart={d9}
+                title="นวางศ์จักร"
+                size={reference ? 340 : 260}
+              />
+              <ThaiChakraChart
+                chart={d3}
+                title="ตรียางศ์จักร"
+                size={reference ? 340 : 260}
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)]/55 px-4 py-5 text-center">
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                ยังไม่แสดงนวางศ์และตรียางศ์
+              </p>
+              <p className="mx-auto mt-1 max-w-lg text-xs leading-5 text-[var(--muted)]">
+                ผังสองชุดนี้ต้องใช้องศาและลิปดาของลัคนากับดาวครบทุกดวง
+                ระบบจึงไม่ใช้ค่าองศาสมมติมาสร้างผังแทนข้อมูลจริง
+              </p>
+            </div>
+          )}
 
           <div
             className={`mt-5 grid gap-4 border-t border-[var(--border)] pt-5 ${
