@@ -60,6 +60,10 @@ import {
 import { parseIntakeAnswers } from "@/server/user/intake-service";
 import { assertQuestionWithinCategory } from "@/server/horoscope/question-scope";
 import { categoryScopeInstruction } from "@/lib/question-scope";
+import {
+  formatUserAiMemoryForPrompt,
+  getUserAiMemory,
+} from "@/server/user/ai-memory-service";
 
 /**
  * Orchestrates the reading flow (spec 5.6). Enforces the four hard rules:
@@ -308,8 +312,9 @@ async function runReading(
   // Brief mode routes to the fast lite model (see resolveConfig) — resolved
   // here so the config fetch already reflects the chosen answer mode.
   const answerMode = input.answerMode ?? "detailed";
-  const [chartMemory, config, knowledgeDocs] = await Promise.all([
+  const [chartMemory, userAiMemory, config, knowledgeDocs] = await Promise.all([
     getOrRefreshChartMemory(userId, natalChart),
+    getUserAiMemory(userId, { excludeQuestion: question }),
     resolveConfig(category.id, plan, { preferFast: answerMode === "brief" }),
     prisma.knowledgeDoc.findMany({
       where: {
@@ -354,6 +359,7 @@ async function runReading(
       categorySlug,
       transitChartJson: transitChart,
       intakeText: intakeAnswers ? formatIntakeForPrompt(intakeAnswers) : null,
+      userContextText: formatUserAiMemoryForPrompt(userAiMemory),
     },
   );
 

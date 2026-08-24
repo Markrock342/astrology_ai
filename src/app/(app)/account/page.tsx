@@ -4,6 +4,7 @@ import { listPublicPackages } from "@/server/admin/catalog-admin-service";
 import { getPaymentInfo } from "@/server/settings/settings-service";
 import { getMe, getMyPackage } from "@/server/user/account-service";
 import { requireSessionUserId } from "@/server/auth/session-guard";
+import { getUserAiMemory } from "@/server/user/ai-memory-service";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +16,11 @@ export default async function AccountPage() {
   const userId = await requireSessionUserId();
   const me = await getMe(userId);
 
-  const [pkgResult, packagesResult, paymentResult] = await Promise.allSettled([
+  const [pkgResult, packagesResult, paymentResult, memoryResult] = await Promise.allSettled([
     getMyPackage(userId),
     listPublicPackages(),
     getPaymentInfo(),
+    getUserAiMemory(userId),
   ]);
 
   const myPackage =
@@ -38,6 +40,17 @@ export default async function AccountPage() {
       ? paymentResult.value
       : (CMS_DEFAULTS[CMS_KEYS.paymentInfo] as CmsPaymentInfo);
 
+  const aiMemory =
+    memoryResult.status === "fulfilled"
+      ? memoryResult.value
+      : {
+          enabled: true,
+          nickname: null,
+          resetAt: null,
+          commonTopics: [],
+          recentQuestions: [],
+        };
+
   return (
     <AccountView
       profile={{
@@ -49,6 +62,7 @@ export default async function AccountPage() {
       myPackage={myPackage}
       packages={packages}
       paymentInfo={paymentInfo}
+      aiMemory={aiMemory}
     />
   );
 }

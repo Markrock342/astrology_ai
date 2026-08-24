@@ -5,6 +5,8 @@ import { UsageSummary } from "./usage-summary";
 import { DeleteAccountCard } from "./delete-account-card";
 import type { UsageLimitsFallback } from "@/types/my-usage";
 import { PRO_EXPIRY_WARN_DAYS } from "@/config/constants";
+import { AiMemoryCard } from "./ai-memory-card";
+import type { UserAiMemory } from "@/server/user/ai-memory-service";
 
 export type PublicPackage = {
   id: string;
@@ -72,6 +74,7 @@ export function AccountView({
   myPackage,
   packages,
   paymentInfo,
+  aiMemory,
 }: {
   profile: {
     name: string;
@@ -82,6 +85,7 @@ export function AccountView({
   myPackage: MyPackage;
   packages: PublicPackage[];
   paymentInfo: CmsPaymentInfo;
+  aiMemory: UserAiMemory;
 }) {
   const isPro = myPackage.plan === "PRO";
   // CREDIT_TOPUP is also type PRO — exclude credit-only from plan price/renew.
@@ -175,6 +179,8 @@ export function AccountView({
         ) : null}
 
         <UsageSummary fallbackLimits={usageLimits} />
+
+        <AiMemoryCard initialMemory={aiMemory} />
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {packages
