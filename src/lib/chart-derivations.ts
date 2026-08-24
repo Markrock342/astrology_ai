@@ -204,13 +204,32 @@ export function deriveDivisionalChart(
   const mapSign =
     kind === "navamsa" ? computeNavamsaSign : computeDrekkanaSign;
 
+  // Samrap already returns the authoritative divisional sign in `nawamang`
+  // and `triyang` (for example `4 : 3 : มษ`). Prefer that value over
+  // deriving it again so the rendered chart is a direct projection of the
+  // same MyHora evidence shown in the table below it.
+  const explicitSign = (row: MyhoraNatalPlanet | undefined) => {
+    const raw = kind === "navamsa" ? row?.nawamang : row?.triyang;
+    if (!raw?.trim()) return undefined;
+    const abbreviation = raw.split(":").at(-1)?.trim() ?? raw.trim();
+    const sign = SIGN_ABBR[abbreviation] ?? normalizeMyhoraSign(abbreviation);
+    return (SIGNS as readonly string[]).includes(sign) ? sign : undefined;
+  };
+
+  const derivedLagna =
+    explicitSign(lagnaRow) ?? mapSign(myhora.lagna, lagnaDegree);
+
   return {
-    lagna: mapSign(myhora.lagna, lagnaDegree),
+    lagna: derivedLagna,
     planets: myhora.planets.map((planet) => {
       const degree = planet.degreeInSign as number;
+      const sourceRow = chart.myhora?.natalPlanets?.find((row) =>
+        row.planet.includes(planet.planet),
+      );
       return {
         ...planet,
-        siderealSign: mapSign(planet.siderealSign, degree),
+        siderealSign:
+          explicitSign(sourceRow) ?? mapSign(planet.siderealSign, degree),
       };
     }),
   };
