@@ -1,7 +1,12 @@
 import type { ChartJson } from "@/types/chart";
-import type { MyhoraNatalPlanet, MyhoraTaksaCell, MyhoraTriwaiCell } from "@/types/myhora";
+import type { MyhoraNatalPlanet, MyhoraTriwaiCell } from "@/types/myhora";
 import { SIGNS } from "@/server/horoscope/engine/newhora/data/astrologyConstants";
 import { MYHORA_PLANET_NUM } from "@/server/horoscope/engine/myhora/sign-codes";
+import {
+  computeTransitTaksaMethod1,
+  formatTaksaDayHeading,
+  resolveTaksaBirthDay,
+} from "@/lib/taksa";
 
 export type FormatChartOptions = {
   /** Heading for this chart block (natal vs transit). */
@@ -62,20 +67,17 @@ function formatSamrapTable(rows: MyhoraNatalPlanet[]): string[] {
   return lines;
 }
 
-function formatTaksaGrid(taksa: (MyhoraTaksaCell | null)[][]): string[] {
-  if (!taksa.length) return [];
-  const lines = ["", "ทักษา:"];
-  for (const row of taksa) {
-    const cells = row
-      .filter(Boolean)
-      .map((c) => {
-        const p = c!.planetNum != null ? MYHORA_PLANET_NUM[c!.planetNum] ?? String(c!.planetNum) : "";
-        const t = c!.transitLabel ? `/${c!.transitLabel}` : "";
-        return `${c!.label || "·"}${p ? `(${p})` : ""}${t}`;
-      });
-    if (cells.length) lines.push(`- ${cells.join(" | ")}`);
-  }
-  return lines;
+function formatTaksaSlots(
+  label: string,
+  dayHeading: string,
+  slots: Array<{ taksa: string; planet: string; planetNum: number }>,
+): string[] {
+  if (!slots.length) return [];
+  return [
+    "",
+    `${label} (${dayHeading}):`,
+    ...slots.map((t) => `- ${t.taksa} = ${t.planet} (${t.planetNum})`),
+  ];
 }
 
 function formatTriwaiGrid(
@@ -101,7 +103,9 @@ function formatDateDetail(chart: ChartJson, kind: "natal" | "transit"): string[]
       ? chart.myhora?.dateDetailNatal
       : chart.myhora?.dateDetailTransit;
   if (!detail?.lines?.length) return [];
-  return ["", detail.title || (kind === "natal" ? "ดวงกำเนิด" : "ดวงจร"), ...detail.lines.map((l) => `- ${l.text}`)];
+  const lines = detail.lines.filter((l) => l.type !== "place" && l.type !== "coords");
+  if (!lines.length) return [];
+  return ["", detail.title || (kind === "natal" ? "ดวงกำเนิด" : "ดวงจร"), ...lines.map((l) => `- ${l.text}`)];
 }
 
 /**
@@ -177,15 +181,25 @@ export function formatChartForPrompt(
     );
   }
 
-  if (chart.myhora?.taksa?.length) {
-    lines.push(...formatTaksaGrid(chart.myhora.taksa));
-  } else if (!options.preferTransitSamrap && chart.chart?.taksa?.length) {
-    lines.push("", "ทักษา (ตามวันและเวลาเกิด):");
-    lines.push(`${pad("ทักษา", 12)} | ดาวเจ้า`);
-    lines.push(`${"-".repeat(12)}-+-${"-".repeat(12)}`);
-    for (const t of chart.chart.taksa) {
-      lines.push(`${pad(t.taksa, 12)} | ${t.planet} (${t.planetNum})`);
-    }
+  const natalTaksa = chart.chart?.taksa ?? [];
+  if (!options.preferTransitSamrap && natalTaksa.length) {
+    lines.push(
+      ...formatTaksaSlots(
+        "ทักษากำเนิด",
+        formatTaksaDayHeading(resolveTaksaBirthDay(chart.input), "natal"),
+        natalTaksa,
+      ),
+    );
+  }
+  if (options.preferTransitSamrap) {
+    const transitTaksa = computeTransitTaksaMethod1(chart.input);
+    lines.push(
+      ...formatTaksaSlots(
+        "ทักษาจร",
+        formatTaksaDayHeading(resolveTaksaBirthDay(chart.input), "transit"),
+        transitTaksa,
+      ),
+    );
   }
 
   if (chart.myhora?.triwaiNatal?.length) {

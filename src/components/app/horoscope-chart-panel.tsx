@@ -165,6 +165,13 @@ export function HoroscopeChartPanel({
           <p className="mt-0.5 text-[11px] text-[var(--muted)]">
             {description}
           </p>
+          {natal.meta.locationDisplay ? (
+            <p className="mt-1 text-[11px] text-[var(--muted-2)]">
+              {natal.meta.birthDisplay}
+              {natal.meta.birthDisplay ? " · " : ""}
+              {natal.meta.locationDisplay}
+            </p>
+          ) : null}
         </div>
       </header>
 
@@ -185,15 +192,33 @@ export function HoroscopeChartPanel({
             />
           ) : null}
         </div>
+
+        <div
+          className={`mt-6 grid gap-5 border-t border-[var(--border)] pt-5 ${
+            transit ? "sm:grid-cols-2" : "mx-auto max-w-sm"
+          }`}
+        >
+          <TaksaNineGrid
+            input={natal.input}
+            slots={natal.chart?.taksa}
+            mode="natal"
+          />
+          {transit ? (
+            <TaksaNineGrid
+              input={transit.input}
+              mode="transit"
+            />
+          ) : null}
+        </div>
       </div>
 
       <AstrologyGlossary compact={!reference} />
 
       <details className="border-t border-[var(--border)]">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-[var(--primary)] marker:content-none [&::-webkit-details-marker]:hidden">
-          <span>เปิดผังวิเคราะห์ขั้นสูง</span>
+          <span>ผังวิเคราะห์เพิ่ม</span>
           <span className="text-xs font-normal text-[var(--muted)]">
-            นวางศ์ · ตรียางศ์ · ทักษา <span aria-hidden>＋</span>
+            นวางศ์ · ตรียางศ์ · ตรีวัย <span aria-hidden>＋</span>
           </span>
         </summary>
         <div className="border-t border-[var(--border)] px-3 py-5">
@@ -221,26 +246,6 @@ export function HoroscopeChartPanel({
               </p>
             </div>
           )}
-
-          <div
-            className={`mt-5 grid gap-4 border-t border-[var(--border)] pt-5 ${
-              transit ? "sm:grid-cols-2" : ""
-            }`}
-          >
-            <TaksaNineGrid
-              title="ทักษาเดิม"
-              input={natal.input}
-              slots={natal.chart?.taksa}
-              mode="natal"
-            />
-            {transit ? (
-              <TaksaNineGrid
-                title="ทักษาจร"
-                input={transit.input}
-                mode="transit"
-              />
-            ) : null}
-          </div>
 
           {triwai.some((row) => row.some(Boolean)) ? (
             <div className="mt-5 border-t border-[var(--border)] pt-5">

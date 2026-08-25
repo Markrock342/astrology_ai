@@ -1,4 +1,5 @@
 import type { BirthInput, BirthFormErrors } from './types/astrology'
+import { formatThaiLocationLine } from '@/lib/thai-address'
 
 const TIME_PATTERN = /^([01]?\d|2[0-3]):([0-5]\d)$/
 
@@ -35,8 +36,7 @@ export function formatBirthDisplay(input: BirthInput): string {
 }
 
 export function formatLocationDisplay(input: BirthInput): string {
-  const parts = [input.district, input.province, input.country].filter(Boolean)
-  return parts.join(', ')
+  return formatThaiLocationLine(input)
 }
 
 export function validateBirthInput(input: BirthInput): BirthFormErrors {

@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EvidenceGrid } from "@/components/app/horoscope-chart-panel";
+import { TaksaNineGrid } from "@/components/app/taksa-nine-grid";
 
 describe("horoscope chart evidence grids", () => {
   it("renders every Taksa transit label returned by MyHora", () => {
@@ -48,5 +49,26 @@ describe("horoscope chart evidence grids", () => {
     expect(html).toContain("วัยเทียบ");
     expect(html).toContain("นับตรีวัยจาก");
     expect(html).toContain("ตนุเศษ");
+  });
+
+  it("renders the gold template grid for Sunday natal (บริวาร at ๑)", () => {
+    const html = renderToStaticMarkup(
+      createElement(TaksaNineGrid, {
+        input: {
+          day: 23,
+          month: 8,
+          year: 2026,
+          time: "12:00",
+          country: "ไทย",
+          province: "กรุงเทพมหานคร",
+          district: "วัฒนา",
+        },
+        mode: "natal",
+      }),
+    );
+    expect(html).toContain("ทักษากำเนิด");
+    expect(html).toContain("วันอาทิตย์");
+    expect(html).toContain("บริวาร");
+    expect(html).toContain("๑");
   });
 });
