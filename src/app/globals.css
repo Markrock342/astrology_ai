@@ -373,6 +373,8 @@ html[data-theme-origin="1"]::view-transition-new(root) {
     animation: none;
   }
 }
+
+.press-scale {
   transition: transform 0.15s var(--ease-out-quart);
 }
 .press-scale:active:not(:disabled) {
