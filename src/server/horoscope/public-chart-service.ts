@@ -24,7 +24,7 @@ function normalizePublicInput(input: PublicChartInput) {
     time,
     country: input.birthCountry?.trim() || "ไทย",
     province: input.birthProvince,
-    district: input.birthDistrict || input.birthProvince,
+    district: input.birthDistrict?.trim() || "",
   };
 }
 

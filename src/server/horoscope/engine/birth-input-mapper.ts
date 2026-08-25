@@ -17,7 +17,7 @@ export function birthProfileToChartInput(profile: BirthProfile): BirthInputSnaps
     time,
     country: profile.birthCountry || "ไทย",
     province: profile.birthProvince ?? profile.birthLocation ?? "กรุงเทพมหานคร",
-    district: profile.birthDistrict ?? "_default",
+    district: profile.birthDistrict?.trim() || "",
   };
 }
 

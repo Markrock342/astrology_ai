@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchThaiReverseAddress } from "@/lib/thai-address";
+import { matchThaiReverseAddress, formatThaiLocationLine } from "@/lib/thai-address";
 
 describe("matchThaiReverseAddress", () => {
   it("maps Bangkok khet names to canonical dropdown values", () => {
@@ -42,6 +42,34 @@ describe("matchThaiReverseAddress", () => {
     ).toMatchObject({ province: "เชียงใหม่", district: "หางดง" });
   });
 
+  it("does not stamp Bangkok GPS as พระนคร just because the city field is กรุงเทพมหานคร", () => {
+    expect(
+      matchThaiReverseAddress({
+        country_code: "th",
+        city: "กรุงเทพมหานคร",
+        suburb: "แขวงคลองตันเหนือ",
+        city_district: "เขตวัฒนา",
+      }),
+    ).toEqual({
+      province: "กรุงเทพมหานคร",
+      district: "วัฒนา",
+      areaLabel: "คลองตันเหนือ · วัฒนา · กรุงเทพมหานคร",
+    });
+  });
+
+  it("does not treat the province name itself as a district", () => {
+    expect(
+      matchThaiReverseAddress({
+        country_code: "th",
+        state: "กรุงเทพมหานคร",
+        city: "กรุงเทพมหานคร",
+      }),
+    ).toMatchObject({
+      province: "กรุงเทพมหานคร",
+      district: "",
+    });
+  });
+
   it("does not pretend an overseas coordinate is supported", () => {
     expect(
       matchThaiReverseAddress({
@@ -49,5 +77,24 @@ describe("matchThaiReverseAddress", () => {
         state: "Singapore",
       }),
     ).toBeNull();
+  });
+});
+
+describe("formatThaiLocationLine", () => {
+  it("labels Bangkok as เขต and other provinces as อำเภอ", () => {
+    expect(
+      formatThaiLocationLine({
+        district: "วัฒนา",
+        province: "กรุงเทพมหานคร",
+        country: "ไทย",
+      }),
+    ).toBe("เขตวัฒนา กรุงเทพมหานคร");
+    expect(
+      formatThaiLocationLine({
+        district: "หางดง",
+        province: "เชียงใหม่",
+        country: "ไทย",
+      }),
+    ).toBe("อำเภอหางดง จังหวัดเชียงใหม่");
   });
 });

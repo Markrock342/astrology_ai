@@ -11,6 +11,7 @@ type Props = {
   /** Prefer transit samrap rows when present. */
   mode?: "natal" | "transit";
   className?: string;
+  defaultOpen?: boolean;
   /** Prefill composer with a follow-up about the clicked planet row. */
   onRowAsk?: (prompt: string) => void;
 };
@@ -73,6 +74,7 @@ export function ChartEvidenceTable({
   chart,
   mode = "natal",
   className,
+  defaultOpen = false,
   onRowAsk,
 }: Props) {
   const samrap = pickRows(chart, mode);
@@ -82,7 +84,7 @@ export function ChartEvidenceTable({
 
   return (
     <details
-      open
+      defaultOpen={defaultOpen}
       className={
         className ??
         "mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-sm leading-snug text-[var(--muted)]"
@@ -90,7 +92,7 @@ export function ChartEvidenceTable({
     >
       <summary className="cursor-pointer list-none px-3 py-2.5 text-xs tracking-wide text-[var(--primary)] marker:content-none [&::-webkit-details-marker]:hidden">
         <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="font-medium">หลักฐานดวง ▾</span>
+          <span className="font-medium">ตารางดาว ▾</span>
           <span className="normal-case text-[var(--muted)]">ลัคนา {lagna}</span>
           {clickable ? (
             <span className="normal-case text-[var(--muted-2)]">

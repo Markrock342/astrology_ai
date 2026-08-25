@@ -118,7 +118,7 @@ export function NatalChartReferenceView() {
       />
 
       <div className="mt-5">
-        <ChartEvidenceTable chart={chart} mode="natal" />
+        <ChartEvidenceTable chart={chart} mode="natal" defaultOpen />
       </div>
 
       <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-5">

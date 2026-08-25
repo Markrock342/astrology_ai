@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeTaksaFromBirth,
   computeTransitTaksaMethod1,
+  formatTaksaDayHeading,
   resolveTaksaBirthDay,
   slotsForWeekday,
   TAKSA_CELL_PLANETS,
@@ -193,5 +194,11 @@ describe("customer reference grids (ทักษาเดิม + ทักษ�
       1: "มนตรีจร",
       2: "กาลกิณีจร",
     });
+  });
+
+  it("prints template weekday titles for natal and transit grids", () => {
+    expect(formatTaksaDayHeading("อาทิตย์", "natal")).toBe("วันอาทิตย์");
+    expect(formatTaksaDayHeading("เสาร์", "transit")).toBe("วันเสาร์จร");
+    expect(formatTaksaDayHeading("พุธกลางคืน", "transit")).toBe("วันพุธกลางคืนจร");
   });
 });

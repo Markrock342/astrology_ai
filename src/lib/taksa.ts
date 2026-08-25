@@ -112,6 +112,33 @@ export function resolveTaksaBirthDay(input: BirthInputSnapshot): TaksaBirthDay {
   return labels[effective.getUTCDay()] ?? "อาทิตย์";
 }
 
+export function formatTaksaDayHeading(
+  day: TaksaBirthDay,
+  mode: TaksaMode = "natal",
+): string {
+  const natal: Record<TaksaBirthDay, string> = {
+    อาทิตย์: "วันอาทิตย์",
+    จันทร์: "วันจันทร์",
+    อังคาร: "วันอังคาร",
+    พุธกลางวัน: "วันพุธ",
+    พุธกลางคืน: "วันพุธกลางคืน",
+    พฤหัสบดี: "วันพฤหัสบดี",
+    ศุกร์: "วันศุกร์",
+    เสาร์: "วันเสาร์",
+  };
+  const transit: Record<TaksaBirthDay, string> = {
+    อาทิตย์: "วันอาทิตย์จร",
+    จันทร์: "วันจันทร์จร",
+    อังคาร: "วันอังคารจร",
+    พุธกลางวัน: "วันพุธจร",
+    พุธกลางคืน: "วันพุธกลางคืนจร",
+    พฤหัสบดี: "วันพฤหัสบดีจร",
+    ศุกร์: "วันศุกร์จร",
+    เสาร์: "วันเสาร์จร",
+  };
+  return mode === "transit" ? transit[day] : natal[day];
+}
+
 export function computeTaksaFromBirth(input: BirthInputSnapshot): TaksaSlot[] {
   return slotsForWeekday(resolveTaksaBirthDay(input), "natal").map((slot) => ({
     ...slot,
