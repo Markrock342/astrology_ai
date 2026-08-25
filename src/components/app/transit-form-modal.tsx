@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useChatNav } from "./chat-nav";
 import { COUNTRIES, DISTRICTS, PROVINCES } from "@/lib/th-geo";
 import { useAppData } from "./app-data-provider";
@@ -95,20 +95,17 @@ export function TransitFormModal({
   const [country, setCountry] = useState("ไทย");
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
-  const [categorySlug, setCategorySlug] = useState(
-    () => pickUnlockedSlug(unlockedCategories, initialCategorySlug),
-  );
+  const [categoryOverride, setCategoryOverride] = useState<string | null>(null);
+  const categorySlug =
+    categoryOverride &&
+    unlockedCategories.some((item) => item.slug === categoryOverride)
+      ? categoryOverride
+      : pickUnlockedSlug(unlockedCategories, initialCategorySlug);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationFeedback, setLocationFeedback] =
     useState<LocationFeedback | null>(null);
-
-  useEffect(() => {
-    // Categories load after the modal mounts; apply the natal category once
-    // they are available so we don't default to ตัวตน.
-    setCategorySlug(pickUnlockedSlug(unlockedCategories, initialCategorySlug));
-  }, [unlockedCategories, initialCategorySlug]);
 
   const districtOptions = province ? (DISTRICTS[province] ?? []) : [];
   const hasDistrictData = districtOptions.length > 0;
@@ -373,7 +370,7 @@ export function TransitFormModal({
               ) : null}
               <select
                 value={categorySlug}
-                onChange={(e) => setCategorySlug(e.target.value)}
+                onChange={(e) => setCategoryOverride(e.target.value)}
                 className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
               >
                 {unlockedCategories.map((c) => (
