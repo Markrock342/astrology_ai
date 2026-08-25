@@ -1124,7 +1124,7 @@ function CollapsedRail({
             {creditBalance}
           </Link>
         )}
-        <ThemePicker align="center" />
+        <ThemePicker />
         <button
           ref={railBtnRef}
           type="button"
