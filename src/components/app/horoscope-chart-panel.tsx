@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { ChartJson } from "@/types/chart";
 import {
   chartFromMyhoraRows,
@@ -150,6 +150,7 @@ export function HoroscopeChartPanel({
     [transit],
   );
   const triwai = natal.myhora?.triwaiNatal ?? [];
+  const [countFromCenter, setCountFromCenter] = useState(true);
 
   const reference = presentation === "reference";
 
@@ -193,11 +194,19 @@ export function HoroscopeChartPanel({
           ) : null}
         </div>
 
-        <div className="mx-auto mt-6 max-w-sm border-t border-[var(--border)] pt-5">
+        <div className="mt-6 grid gap-6 border-t border-[var(--border)] pt-5 sm:grid-cols-2">
           <TaksaNineGrid
             input={natal.input}
             slots={natal.chart?.taksa}
+            mode="natal"
+          />
+          <TaksaNineGrid
+            input={natal.input}
             scraped={natal.myhora?.taksa}
+            mode="transit"
+            countFromCenter={countFromCenter}
+            onCountFromCenterChange={setCountFromCenter}
+            transitInput={transit?.input}
           />
         </div>
       </div>

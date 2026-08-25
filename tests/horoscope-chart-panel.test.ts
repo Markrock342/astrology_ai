@@ -63,30 +63,32 @@ describe("horoscope chart evidence grids", () => {
           province: "กรุงเทพมหานคร",
           district: "วัฒนา",
         },
+        mode: "natal",
         asOf: new Date(2026, 7, 25),
       }),
     );
-    expect(html).toContain("ทักษา");
+    expect(html).toContain("ทักษากำเนิด");
     expect(html).toContain("วันอาทิตย์");
     expect(html).toContain("บริวาร");
     expect(html).toContain("๑");
     expect(html).toContain("๙");
-    expect(html).toContain("นับอายุจรตากลาง");
   });
 
-  it("overlays natal and transit labels on the same cells", () => {
+  it("renders a separate ทักษาจร grid with จร labels", () => {
     const html = renderToStaticMarkup(
       createElement(TaksaNineGrid, {
         input: {
           day: 26,
           month: 8,
-          year: 1999,
+          year: 2026,
           time: "20:00",
           country: "ไทย",
           province: "กรุงเทพมหานคร",
           district: "วัฒนา",
         },
-        asOf: new Date(2026, 7, 25),
+        mode: "transit",
+        asOf: new Date(2028, 7, 26, 12),
+        onCountFromCenterChange: () => {},
         scraped: [
           [
             { label: "เดช", planetNum: 1, transitLabel: "บริวารจร", highlighted: true },
@@ -106,8 +108,9 @@ describe("horoscope chart evidence grids", () => {
         ],
       }),
     );
-    expect(html).toContain("เดช");
+    expect(html).toContain("ทักษาจร");
     expect(html).toContain("บริวารจร");
     expect(html).toContain("๙");
+    expect(html).toContain("นับอายุจรตากลาง");
   });
 });
