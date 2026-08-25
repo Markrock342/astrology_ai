@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useState } from "react";
 import { THEME_OPTIONS, useTheme, type Theme } from "@/components/theme-provider";
 import { MoonIcon, SunIcon } from "./sidebar-icons";
 
@@ -10,7 +10,7 @@ function ThemeGlyph({ theme, size = 18 }: { theme: Theme; size?: number }) {
 
 export function ThemePicker() {
   const { theme, toggleTheme } = useTheme();
-  const hasToggled = useRef(false);
+  const [hasToggled, setHasToggled] = useState(false);
   const next = theme === "dark" ? "light" : "dark";
   const nextLabel =
     THEME_OPTIONS.find((option) => option.id === next)?.label ?? next;
@@ -19,7 +19,7 @@ export function ThemePicker() {
     <button
       type="button"
       onClick={(event) => {
-        hasToggled.current = true;
+        setHasToggled(true);
         toggleTheme({ x: event.clientX, y: event.clientY });
       }}
       className="theme-toggle press-scale rounded-full p-2 text-[var(--muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
@@ -27,7 +27,7 @@ export function ThemePicker() {
       title={`เปลี่ยนเป็นโหมด${nextLabel}`}
     >
       <span
-        className={hasToggled.current ? "theme-toggle-glyph" : "inline-flex"}
+        className={hasToggled ? "theme-toggle-glyph" : "inline-flex"}
         data-to={next}
         key={next}
       >
