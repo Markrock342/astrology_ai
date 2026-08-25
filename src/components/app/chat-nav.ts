@@ -2,6 +2,12 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import {
+  categorySlugFromLabel,
+  dispatchOpenTransit,
+  natalCategoryHref,
+  parseDashboardChatHref,
+} from "@/lib/chat-navigation-links";
 
 /** Soft chat switches broadcast on this event (see softNavigate / useChatNav). */
 export const CHAT_SOFT_NAV_EVENT = "horasard:soft-nav";
@@ -140,4 +146,33 @@ export function isPlainLeftClick(e: React.MouseEvent): boolean {
   return (
     e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
   );
+}
+
+/**
+ * Dashboard links in chat must not use Next `<Link>` navigation: that remounts
+ * ChatView and can drop `?cat=`, sending the user back to the empty picker.
+ */
+export function handleDashboardChatLinkClick(
+  event: React.MouseEvent,
+  href: string,
+  linkText?: string,
+): void {
+  if (!isPlainLeftClick(event)) return;
+  const parsed = parseDashboardChatHref(href);
+  if (!parsed.isDashboard) return;
+
+  const cat = parsed.cat ?? (linkText ? categorySlugFromLabel(linkText) : null);
+
+  if (parsed.action === "transit") {
+    event.preventDefault();
+    const fromUrl =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("cat")
+        : null;
+    dispatchOpenTransit(cat ?? fromUrl);
+    return;
+  }
+
+  if (!cat) return;
+  if (softNavigate(natalCategoryHref(cat))) event.preventDefault();
 }

@@ -42,7 +42,7 @@ import {
   invalidateCachedThread,
   prefetchThread,
 } from "./thread-cache";
-import { OPEN_TRANSIT_EVENT } from "@/lib/chat-navigation-links";
+import { OPEN_TRANSIT_EVENT, readOpenTransitDetail } from "@/lib/chat-navigation-links";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const searchParams = useChatRouteSearchParams();
@@ -56,6 +56,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [threadActionsOpen, setThreadActionsOpen] = useState<string | null>(null);
   const [transitOpen, setTransitOpen] = useState(
     () => searchParams.get("action") === "transit",
+  );
+  const [transitCategorySlug, setTransitCategorySlug] = useState<string | null>(
+    () => searchParams.get("cat"),
   );
   const [activeModal, setActiveModal] = useState<SettingsModal>(null);
   // Destructive-action confirm (delete one thread / clear all history) uses a
@@ -103,7 +106,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   } = useAppData();
 
   useEffect(() => {
-    const openTransit = () => setTransitOpen(true);
+    const openTransit = (event: Event) => {
+      const fromEvent = readOpenTransitDetail(event);
+      const fromUrl = new URLSearchParams(window.location.search).get("cat");
+      setTransitCategorySlug(fromEvent ?? fromUrl);
+      setTransitOpen(true);
+    };
     window.addEventListener(OPEN_TRANSIT_EVENT, openTransit);
     return () => window.removeEventListener(OPEN_TRANSIT_EVENT, openTransit);
   }, []);
@@ -669,6 +677,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           onClick={() => {
+            setTransitCategorySlug(activeCat);
             setTransitOpen(true);
             closeMobile();
           }}
@@ -970,7 +979,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onCancelled={() => refreshLight()}
         />
       )}
-      {transitOpen && <TransitFormModal onClose={() => setTransitOpen(false)} />}
+      {transitOpen && (
+        <TransitFormModal
+          onClose={() => setTransitOpen(false)}
+          initialCategorySlug={transitCategorySlug}
+        />
+      )}
     </div>
   );
 }

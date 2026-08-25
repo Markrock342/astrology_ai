@@ -7,10 +7,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CopyCodeButton } from "./copy-code-button";
 import { completeMarkdown } from "./complete-markdown";
-import {
-  linkChatNavigationCtas,
-  OPEN_TRANSIT_EVENT,
-} from "@/lib/chat-navigation-links";
+import { handleDashboardChatLinkClick } from "./chat-nav";
+import { linkChatNavigationCtas } from "@/lib/chat-navigation-links";
 
 const components: Components = {
   h1: ({ children }) => (
@@ -57,7 +55,6 @@ const components: Components = {
     const safe = sanitizeHref(href ?? "");
     if (!safe) return <span>{children}</span>;
     const external = safe.startsWith("http");
-    const opensTransit = safe === "/dashboard?action=transit";
     const className =
       "font-semibold text-[var(--primary)] underline decoration-[var(--primary)]/70 underline-offset-2 transition hover:text-[var(--primary-hover)]";
     if (!external) {
@@ -65,14 +62,13 @@ const components: Components = {
         <Link
           href={safe}
           className={className}
-          onClick={
-            opensTransit
-              ? (event) => {
-                  event.preventDefault();
-                  window.dispatchEvent(new Event(OPEN_TRANSIT_EVENT));
-                }
-              : undefined
-          }
+          onClick={(event) => {
+            handleDashboardChatLinkClick(
+              event,
+              safe,
+              reactNodeText(children),
+            );
+          }}
         >
           {children}
         </Link>
@@ -166,6 +162,22 @@ function sanitizeHref(raw: string): string | null {
     return null;
   }
   return null;
+}
+
+function reactNodeText(node: unknown): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(reactNodeText).join("");
+  if (
+    typeof node === "object" &&
+    "props" in node &&
+    typeof (node as { props?: { children?: unknown } }).props === "object"
+  ) {
+    return reactNodeText(
+      (node as { props?: { children?: unknown } }).props?.children,
+    );
+  }
+  return "";
 }
 
 /**

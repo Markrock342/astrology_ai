@@ -17,7 +17,8 @@ import {
   useCategory,
 } from "./app-data-provider";
 import { BrandMark } from "@/components/brand-logo";
-import { softNavigate, useChatRouteSearchParams } from "./chat-nav";
+import { softNavigate, useChatRouteSearchParams, isPlainLeftClick } from "./chat-nav";
+import { dispatchOpenTransit } from "@/lib/chat-navigation-links";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { HoroscopeChartPanel } from "./horoscope-chart-panel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
@@ -2270,12 +2271,17 @@ export function ChatView() {
                             ))
                           : m.status === "SUCCESS"
                             ? (
-                                <a
-                                  href="/dashboard?action=transit"
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    dispatchOpenTransit(
+                                      catSlug ?? threadCategorySlug,
+                                    )
+                                  }
                                   className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20"
                                 >
                                   เปลี่ยนไปถามดวงจร ▸
-                                </a>
+                                </button>
                               )
                             : null}
                       </div>
@@ -2474,6 +2480,15 @@ function ErrorBanner({
                 ? "/account"
                 : `/dashboard?cat=${scopeTarget.slug}`
             }
+            onClick={(event) => {
+              if (scopeTarget.requiresPro) return;
+              if (
+                isPlainLeftClick(event) &&
+                softNavigate(`/dashboard?cat=${scopeTarget.slug}`)
+              ) {
+                event.preventDefault();
+              }
+            }}
             className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
           >
             {scopeTarget.requiresPro
@@ -2584,6 +2599,14 @@ function EmptyState({
               <a
                 key={item.slug}
                 href={`/dashboard?cat=${item.slug}`}
+                onClick={(event) => {
+                  if (
+                    isPlainLeftClick(event) &&
+                    softNavigate(`/dashboard?cat=${item.slug}`)
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
                 className="press-scale flex min-h-12 items-center gap-2.5 bg-[var(--surface-2)] px-3 py-3 text-left text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
               >
                 <span className="shrink-0 text-[var(--primary)]" aria-hidden>
