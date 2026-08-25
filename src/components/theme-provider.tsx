@@ -17,10 +17,12 @@ export const THEME_OPTIONS: { id: Theme; label: string }[] = [
 
 const STORAGE_KEY = "hora-theme";
 
+type ThemeOrigin = { x: number; y: number };
+
 type ThemeContextValue = {
   theme: Theme;
-  setTheme: (theme: Theme) => void;
-  toggleTheme: () => void;
+  setTheme: (theme: Theme, origin?: ThemeOrigin) => void;
+  toggleTheme: (origin?: ThemeOrigin) => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -32,6 +34,42 @@ function isTheme(value: string | null): value is Theme {
 function applyThemeAttr(theme: Theme) {
   document.documentElement.setAttribute("data-theme", theme);
   document.documentElement.style.colorScheme = theme;
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function setThemeRevealOrigin(origin?: ThemeOrigin) {
+  const root = document.documentElement;
+  if (!origin) {
+    root.removeAttribute("data-theme-origin");
+    root.style.removeProperty("--theme-x");
+    root.style.removeProperty("--theme-y");
+    root.style.removeProperty("--theme-r");
+    return;
+  }
+  const radius = Math.hypot(
+    Math.max(origin.x, window.innerWidth - origin.x),
+    Math.max(origin.y, window.innerHeight - origin.y),
+  );
+  root.style.setProperty("--theme-x", `${origin.x}px`);
+  root.style.setProperty("--theme-y", `${origin.y}px`);
+  root.style.setProperty("--theme-r", `${Math.ceil(radius)}px`);
+  root.setAttribute("data-theme-origin", "1");
+}
+
+function startThemeViewTransition(apply: () => void, origin?: ThemeOrigin) {
+  const doc = document as Document & {
+    startViewTransition?: (update: () => void) => { finished: Promise<void> };
+  };
+  if (!doc.startViewTransition || prefersReducedMotion()) {
+    apply();
+    return;
+  }
+  setThemeRevealOrigin(origin);
+  const transition = doc.startViewTransition(apply);
+  void transition.finished.finally(() => setThemeRevealOrigin());
 }
 
 function readStoredTheme(): Theme {
@@ -78,19 +116,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyThemeAttr(theme);
   }, [theme]);
 
-  const setTheme = useCallback((next: Theme) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      /* ignore */
-    }
-    applyThemeAttr(next);
-    emitThemeChange();
+  const setTheme = useCallback((next: Theme, origin?: ThemeOrigin) => {
+    startThemeViewTransition(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, next);
+      } catch {
+        /* ignore */
+      }
+      applyThemeAttr(next);
+      emitThemeChange();
+    }, origin);
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  }, [setTheme, theme]);
+  const toggleTheme = useCallback(
+    (origin?: ThemeOrigin) => {
+      setTheme(theme === "dark" ? "light" : "dark", origin);
+    },
+    [setTheme, theme],
+  );
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>

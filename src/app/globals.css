@@ -308,8 +308,71 @@ select option {
   border: 0;
 }
 
-/* Button press feedback */
-.press-scale {
+/* Theme switch — circular reveal from the sun/moon control */
+.theme-toggle {
+  view-transition-name: theme-toggle;
+}
+.theme-toggle-glyph {
+  display: inline-flex;
+  transform-origin: center;
+}
+.theme-toggle-glyph[data-to="light"] {
+  animation: theme-sun-in 360ms var(--ease-out-quart) both;
+}
+.theme-toggle-glyph[data-to="dark"] {
+  animation: theme-moon-in 360ms var(--ease-out-quart) both;
+}
+@keyframes theme-sun-in {
+  from {
+    opacity: 0;
+    transform: rotate(-72deg) scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes theme-moon-in {
+  from {
+    opacity: 0;
+    transform: rotate(48deg) scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+html[data-theme-origin="1"]::view-transition-old(root) {
+  z-index: 1;
+  animation: none;
+  mix-blend-mode: normal;
+}
+html[data-theme-origin="1"]::view-transition-new(root) {
+  z-index: 2;
+  animation: theme-reveal 520ms var(--ease-out-quart) both;
+  mix-blend-mode: normal;
+}
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0px at var(--theme-x) var(--theme-y));
+  }
+  to {
+    clip-path: circle(var(--theme-r) at var(--theme-x) var(--theme-y));
+  }
+}
+
+::view-transition-old(theme-toggle),
+::view-transition-new(theme-toggle) {
+  animation-duration: 280ms;
+  animation-timing-function: var(--ease-out-quart);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle-glyph {
+    animation: none;
+  }
+}
   transition: transform 0.15s var(--ease-out-quart);
 }
 .press-scale:active:not(:disabled) {
