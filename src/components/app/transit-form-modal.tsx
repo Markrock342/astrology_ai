@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useChatNav } from "./chat-nav";
 import { COUNTRIES, DISTRICTS, PROVINCES } from "@/lib/th-geo";
 import { useAppData } from "./app-data-provider";
@@ -53,6 +53,14 @@ function applyDateTimeParts(
   setters.setMinute(parts.minute);
 }
 
+function pickUnlockedSlug(
+  unlocked: Array<{ slug: string }>,
+  preferred?: string | null,
+): string {
+  if (preferred && unlocked.some((c) => c.slug === preferred)) return preferred;
+  return unlocked[0]?.slug ?? "overview";
+}
+
 type LocationFeedback =
   | { kind: "success"; message: string; attributionUrl: string }
   | { kind: "error"; message: string };
@@ -61,7 +69,13 @@ type LocationFeedback =
  * Wave D — create a TRANSIT conversation with date/time/place, then open chat.
  * Pro-only; Free users see upgrade CTA.
  */
-export function TransitFormModal({ onClose }: { onClose: () => void }) {
+export function TransitFormModal({
+  onClose,
+  initialCategorySlug,
+}: {
+  onClose: () => void;
+  initialCategorySlug?: string | null;
+}) {
   const chatNav = useChatNav();
   const { user, categories, refresh } = useAppData();
   const isPro = user?.plan === "PRO";
@@ -82,13 +96,19 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
   const [categorySlug, setCategorySlug] = useState(
-    () => unlockedCategories[0]?.slug ?? "overview",
+    () => pickUnlockedSlug(unlockedCategories, initialCategorySlug),
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationFeedback, setLocationFeedback] =
     useState<LocationFeedback | null>(null);
+
+  useEffect(() => {
+    // Categories load after the modal mounts; apply the natal category once
+    // they are available so we don't default to ตัวตน.
+    setCategorySlug(pickUnlockedSlug(unlockedCategories, initialCategorySlug));
+  }, [unlockedCategories, initialCategorySlug]);
 
   const districtOptions = province ? (DISTRICTS[province] ?? []) : [];
   const hasDistrictData = districtOptions.length > 0;
@@ -347,7 +367,10 @@ export function TransitFormModal({ onClose }: { onClose: () => void }) {
             </div>
 
             <label className="block text-xs text-[var(--muted)]">
-              หมวดคำถาม
+              หมวด
+              {initialCategorySlug && categorySlug === initialCategorySlug ? (
+                <span className="text-[var(--muted-2)]"> · ต่อจากพื้นดวงหมวดนี้</span>
+              ) : null}
               <select
                 value={categorySlug}
                 onChange={(e) => setCategorySlug(e.target.value)}
