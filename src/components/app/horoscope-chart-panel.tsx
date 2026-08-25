@@ -149,11 +149,7 @@ export function HoroscopeChartPanel({
     () => (transit ? baseChart(transit) : null),
     [transit],
   );
-  const taksa = natal.myhora?.taksa ?? [];
   const triwai = natal.myhora?.triwaiNatal ?? [];
-  const hasEvidenceGrids =
-    taksa.some((row) => row.some(Boolean)) ||
-    triwai.some((row) => row.some(Boolean));
 
   const reference = presentation === "reference";
 
@@ -232,19 +228,22 @@ export function HoroscopeChartPanel({
             }`}
           >
             <TaksaNineGrid
-              title="ทักษา"
+              title="ทักษาเดิม"
               input={natal.input}
               slots={natal.chart?.taksa}
+              mode="natal"
             />
+            {transit ? (
+              <TaksaNineGrid
+                title="ทักษาจร"
+                input={transit.input}
+                mode="transit"
+              />
+            ) : null}
           </div>
 
-          {hasEvidenceGrids ? (
-            <div className="mt-5 grid gap-4 border-t border-[var(--border)] pt-5 sm:grid-cols-2">
-              <EvidenceGrid
-                title="ทักษาอ้างอิง · กำเนิดและจร"
-                cells={taksa}
-                kind="taksa"
-              />
+          {triwai.some((row) => row.some(Boolean)) ? (
+            <div className="mt-5 border-t border-[var(--border)] pt-5">
               <EvidenceGrid title="ตรีวัย" cells={triwai} kind="triwai" />
             </div>
           ) : null}

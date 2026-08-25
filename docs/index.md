@@ -25,6 +25,7 @@ DB (prisma/)                  →  PostgreSQL บนโฮสต์เดีย�
 **Performance:** [backend_performance.md](./backend_performance.md)  
 **Chart memory / token:** [backend_chart_memory.md](./backend_chart_memory.md) · [TOKEN_COST_OPTIMIZATION_CLIENT_SUMMARY.md](./TOKEN_COST_OPTIMIZATION_CLIENT_SUMMARY.md)  
 **ราศีจักร / ภพเรือนตามลัคนา:** [rasi_chakra_houses.md](./rasi_chakra_houses.md)  
+**ทักษาเดิม / ทักษาจร:** [taksa.md](./taksa.md)  
 **UX Wave F:** [UX_WAVE_F_ASSIGN.md](../UX_WAVE_F_ASSIGN.md) · [UX_WAVE_F_BE.md](../UX_WAVE_F_BE.md) · [UX_WAVE_F_FE.md](../UX_WAVE_F_FE.md)  
 **Gemini billing ops:** [ops_gemini_billing_alerts.md](./ops_gemini_billing_alerts.md)  
 **App UI / mobile:** [frontend_app_ui.md](./frontend_app_ui.md)  
@@ -55,6 +56,7 @@ DB (prisma/)                  →  PostgreSQL บนโฮสต์เดีย�
 | **ย้ายโฮสต์ + DB รวมกับผู้ให้บริการ** | ✅ Coolify/Nixpacks + Postgres โฮสต์เดียวกัน — [ops_hosting.md](./ops_hosting.md) |
 | **Onboarding intake survey** | ✅ `/onboarding/survey` + `user_intake` — briefing หมวดไม่หักเครดิต |
 | **ราศีจักร / ภพเรือนตามลัคนา** | 🟡 เริ่มลง UI แล้ว (D1 + วงเล็ก) — [rasi_chakra_houses.md](./rasi_chakra_houses.md) |
+| **ทักษาเดิม / ทักษาจร** | 🟡 Method A (วันจร) ลง UI แล้ว · ปีจร/วิธี 2 รอ — [taksa.md](./taksa.md) |
 
 **Feature gating:** `src/config/features.ts` — `NEXT_PUBLIC_APP_PHASE=2` ปิด AI chat + Admin AI CMS; ไม่ตั้ง = เปิดทั้งหมด
 

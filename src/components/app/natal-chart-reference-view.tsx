@@ -94,7 +94,7 @@ export function NatalChartReferenceView() {
         <div className="max-w-2xl">
           <p className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-wide text-[var(--primary)]">
             <NatalChartIcon size={16} />
-            ข้อมูลอ้างอิงประจำดวง
+            ข้อมูลประจำดวง
           </p>
           <h1 className="text-2xl font-semibold leading-tight text-[var(--foreground)] sm:text-3xl">
             ดวงจักรกำเนิด
