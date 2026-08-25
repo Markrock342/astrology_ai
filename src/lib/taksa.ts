@@ -50,20 +50,7 @@ export function slotsForWeekday(
   day: TaksaBirthDay,
   mode: TaksaMode = "natal",
 ): TaksaSlot[] {
-  const names = mode === "transit" ? TAKSA_TRANSIT_NAMES : TAKSA_NAMES;
-  const start = TAKSA_PLANET_CYCLE.indexOf(
-    DAY_START_PLANET[day] as (typeof TAKSA_PLANET_CYCLE)[number],
-  );
-  return names.map((taksa, index) => {
-    const planetNum =
-      TAKSA_PLANET_CYCLE[(start + index) % TAKSA_PLANET_CYCLE.length] ?? 1;
-    return {
-      taksa,
-      planet: TAKSA_PLANET_NAMES[planetNum] ?? "อาทิตย์",
-      planetNum,
-      index,
-    };
-  });
+  return slotsFromStartPlanet(DAY_START_PLANET[day], mode);
 }
 
 /** Complete seven-day reference table; Wednesday night uses Rahu as its lord. */
@@ -162,6 +149,162 @@ export function taksaLabelByPlanetNum(
   slots: TaksaSlot[],
 ): Record<number, string> {
   return Object.fromEntries(slots.map((slot) => [slot.planetNum, slot.taksa]));
+}
+
+export type CombinedTaksaCell = {
+  planetNum: number;
+  natalLabel: string | null;
+  transitLabel: string | null;
+  isCenter: boolean;
+  highlightTransit: boolean;
+};
+
+export type AgeTransitTaksa = {
+  slots: TaksaSlot[];
+  yangKao: number;
+  centerIsBorivanTransit: boolean;
+};
+
+function slotsFromStartPlanet(
+  startPlanet: number,
+  mode: TaksaMode,
+): TaksaSlot[] {
+  const names = mode === "transit" ? TAKSA_TRANSIT_NAMES : TAKSA_NAMES;
+  const start = TAKSA_PLANET_CYCLE.indexOf(
+    startPlanet as (typeof TAKSA_PLANET_CYCLE)[number],
+  );
+  const origin = start >= 0 ? start : 0;
+  return names.map((taksa, index) => {
+    const planetNum =
+      TAKSA_PLANET_CYCLE[(origin + index) % TAKSA_PLANET_CYCLE.length] ?? 1;
+    return {
+      taksa,
+      planet: TAKSA_PLANET_NAMES[planetNum] ?? "อาทิตย์",
+      planetNum,
+      index,
+    };
+  });
+}
+
+/** อายุย่างเข้า = completed solar years + 1 (never below 1). */
+export function yangKaoAge(birth: BirthInputSnapshot, asOf: Date): number {
+  const asY = asOf.getFullYear();
+  const asM = asOf.getMonth() + 1;
+  const asD = asOf.getDate();
+  let completed = asY - birth.year;
+  if (asM < birth.month || (asM === birth.month && asD < birth.day)) {
+    completed -= 1;
+  }
+  return Math.max(1, completed + 1);
+}
+
+/**
+ * ทักษาปีจร: บริวารจร walks the natal circuit with อายุย่างเข้า.
+ * `countFromCenter` adds Ketu as year 9 (นับอายุจรตากลาง).
+ */
+export function computeTransitTaksaByAge(
+  input: BirthInputSnapshot,
+  asOf: Date,
+  countFromCenter = true,
+): AgeTransitTaksa {
+  const natalBorivan = computeTaksaFromBirth(input)[0]?.planetNum ?? 1;
+  const yangKao = yangKaoAge(input, asOf);
+  const startIdx = TAKSA_PLANET_CYCLE.indexOf(
+    natalBorivan as (typeof TAKSA_PLANET_CYCLE)[number],
+  );
+  const origin = startIdx >= 0 ? startIdx : 0;
+
+  if (!countFromCenter) {
+    const steps = (yangKao - 1) % 8;
+    const transitBorivan =
+      TAKSA_PLANET_CYCLE[(origin + steps) % TAKSA_PLANET_CYCLE.length] ??
+      natalBorivan;
+    return {
+      slots: slotsFromStartPlanet(transitBorivan, "transit"),
+      yangKao,
+      centerIsBorivanTransit: false,
+    };
+  }
+
+  const ninePath = [
+    ...Array.from(
+      { length: 8 },
+      (_, index) =>
+        TAKSA_PLANET_CYCLE[(origin + index) % TAKSA_PLANET_CYCLE.length] ??
+        natalBorivan,
+    ),
+    9,
+  ];
+  const landing = ninePath[(yangKao - 1) % 9] ?? 9;
+  if (landing === 9) {
+    return {
+      slots: slotsFromStartPlanet(natalBorivan, "transit").map((slot) =>
+        slot.taksa === "บริวารจร" ? { ...slot, taksa: "" } : slot,
+      ),
+      yangKao,
+      centerIsBorivanTransit: true,
+    };
+  }
+  return {
+    slots: slotsFromStartPlanet(landing, "transit"),
+    yangKao,
+    centerIsBorivanTransit: false,
+  };
+}
+
+export function buildCombinedTaksaGrid(
+  natalSlots: TaksaSlot[],
+  transitSlots: TaksaSlot[],
+  centerIsBorivanTransit = false,
+): CombinedTaksaCell[] {
+  return TAKSA_CELL_PLANETS.flat().map((planetNum) => {
+    const isCenter = planetNum === 9;
+    const natal = natalSlots.find((slot) => slot.planetNum === planetNum);
+    const transit = transitSlots.find((slot) => slot.planetNum === planetNum);
+    const transitLabel = isCenter
+      ? centerIsBorivanTransit
+        ? "บริวารจร"
+        : null
+      : transit?.taksa || null;
+    return {
+      planetNum,
+      natalLabel: isCenter ? null : natal?.taksa ?? null,
+      transitLabel,
+      isCenter,
+      highlightTransit: transitLabel === "บริวารจร",
+    };
+  });
+}
+
+/** Use the scraped MyHora overlay when natal + จร labels are both present. */
+export function combinedGridFromScraped(
+  grid: (MyhoraTaksaCell | null)[][] | null | undefined,
+): CombinedTaksaCell[] | null {
+  if (!grid?.length) return null;
+  const byPlanet = new Map<number, MyhoraTaksaCell>();
+  for (const cell of grid.flat()) {
+    if (!cell?.planetNum) continue;
+    byPlanet.set(cell.planetNum, cell);
+  }
+  if (![1, 2, 3, 4, 5, 6, 7, 8].every((num) => byPlanet.has(num))) return null;
+  const hasTransit = [...byPlanet.values()].some((cell) =>
+    Boolean(cell.transitLabel),
+  );
+  if (!hasTransit) return null;
+
+  return TAKSA_CELL_PLANETS.flat().map((planetNum) => {
+    const cell = byPlanet.get(planetNum);
+    const isCenter = planetNum === 9 || Boolean(cell?.isCenter);
+    const transitLabel = cell?.transitLabel || null;
+    return {
+      planetNum,
+      natalLabel: isCenter ? null : cell?.label || null,
+      transitLabel,
+      isCenter,
+      highlightTransit:
+        Boolean(cell?.highlighted) || transitLabel === "บริวารจร",
+    };
+  });
 }
 
 /** Prefer the exact parsed MyHora natal grid when all eight lords are present. */

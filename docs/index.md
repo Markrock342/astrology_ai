@@ -56,7 +56,7 @@ DB (prisma/)                  →  PostgreSQL บนโฮสต์เดีย�
 | **ย้ายโฮสต์ + DB รวมกับผู้ให้บริการ** | ✅ Coolify/Nixpacks + Postgres โฮสต์เดียวกัน — [ops_hosting.md](./ops_hosting.md) |
 | **Onboarding intake survey** | ✅ `/onboarding/survey` + `user_intake` — briefing หมวดไม่หักเครดิต |
 | **ราศีจักร / ภพเรือนตามลัคนา** | 🟡 เริ่มลง UI แล้ว (D1 + วงเล็ก) — [rasi_chakra_houses.md](./rasi_chakra_houses.md) |
-| **ทักษาเดิม / ทักษาจร** | 🟡 Method A (วันจร) ลง UI แล้ว · ปีจร/วิธี 2 รอ — [taksa.md](./taksa.md) |
+| **ทักษาเดิม / ทักษาจร** | 🟢 ตารางเดียว (กำเนิด+จร+๙) + ปีจรอายุย่าง — [taksa.md](./taksa.md) |
 
 **Feature gating:** `src/config/features.ts` — `NEXT_PUBLIC_APP_PHASE=2` ปิด AI chat + Admin AI CMS; ไม่ตั้ง = เปิดทั้งหมด
 
