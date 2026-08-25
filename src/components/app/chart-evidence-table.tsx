@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
 import { houseFromLagna, normalizeSignName, SIGNS } from "@/lib/chart-theme";
@@ -81,10 +82,12 @@ export function ChartEvidenceTable({
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "—";
   const clickable = Boolean(onRowAsk);
   const standards = mode === "natal" ? collectAstrologyStandards(samrap) : [];
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <details
-      defaultOpen={defaultOpen}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
       className={
         className ??
         "mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-sm leading-snug text-[var(--muted)]"
