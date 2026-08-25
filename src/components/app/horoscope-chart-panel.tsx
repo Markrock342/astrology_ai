@@ -193,22 +193,12 @@ export function HoroscopeChartPanel({
           ) : null}
         </div>
 
-        <div
-          className={`mt-6 grid gap-5 border-t border-[var(--border)] pt-5 ${
-            transit ? "sm:grid-cols-2" : "mx-auto max-w-sm"
-          }`}
-        >
+        <div className="mx-auto mt-6 max-w-sm border-t border-[var(--border)] pt-5">
           <TaksaNineGrid
             input={natal.input}
             slots={natal.chart?.taksa}
-            mode="natal"
+            scraped={natal.myhora?.taksa}
           />
-          {transit ? (
-            <TaksaNineGrid
-              input={transit.input}
-              mode="transit"
-            />
-          ) : null}
         </div>
       </div>
 

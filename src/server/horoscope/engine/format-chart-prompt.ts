@@ -3,6 +3,7 @@ import type { MyhoraNatalPlanet, MyhoraTriwaiCell } from "@/types/myhora";
 import { SIGNS } from "@/server/horoscope/engine/newhora/data/astrologyConstants";
 import { MYHORA_PLANET_NUM } from "@/server/horoscope/engine/myhora/sign-codes";
 import {
+  computeTransitTaksaByAge,
   computeTransitTaksaMethod1,
   formatTaksaDayHeading,
   resolveTaksaBirthDay,
@@ -188,6 +189,16 @@ export function formatChartForPrompt(
         "ทักษากำเนิด",
         formatTaksaDayHeading(resolveTaksaBirthDay(chart.input), "natal"),
         natalTaksa,
+      ),
+    );
+    const yearTransit = computeTransitTaksaByAge(chart.input, new Date(), true);
+    lines.push(
+      ...formatTaksaSlots(
+        "ทักษาปีจร",
+        `อายุย่างเข้า ${yearTransit.yangKao}${
+          yearTransit.centerIsBorivanTransit ? " · บริวารจรที่ตากลาง" : ""
+        }`,
+        yearTransit.slots.filter((slot) => slot.taksa),
       ),
     );
   }

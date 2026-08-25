@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  combinedGridFromScraped,
   computeTaksaFromBirth,
+  computeTransitTaksaByAge,
   computeTransitTaksaMethod1,
   formatTaksaDayHeading,
   resolveTaksaBirthDay,
@@ -11,6 +13,7 @@ import {
   TAKSA_WEEKDAY_TABLE,
   taksaLabelByPlanetNum,
   taksaSlotsFromMyhoraGrid,
+  yangKaoAge,
   type TaksaBirthDay,
 } from "@/lib/taksa";
 import type { BirthInputSnapshot } from "@/types/chart";
@@ -200,5 +203,86 @@ describe("customer reference grids (ทักษาเดิม + ทักษ�
     expect(formatTaksaDayHeading("อาทิตย์", "natal")).toBe("วันอาทิตย์");
     expect(formatTaksaDayHeading("เสาร์", "transit")).toBe("วันเสาร์จร");
     expect(formatTaksaDayHeading("พุธกลางคืน", "transit")).toBe("วันพุธกลางคืนจร");
+  });
+});
+
+describe("ทักษาปีจร (อายุย่าง)", () => {
+  const wednesdayNight: BirthInputSnapshot = {
+    day: 26,
+    month: 8,
+    year: 2026,
+    time: "20:00",
+    country: "ไทย",
+    province: "กรุงเทพมหานคร",
+    district: "วัฒนา",
+  };
+
+  it("counts อายุย่างเข้า as completed years plus one", () => {
+    expect(yangKaoAge(wednesdayNight, new Date(2026, 7, 26, 12))).toBe(1);
+    expect(yangKaoAge(wednesdayNight, new Date(2027, 7, 25, 12))).toBe(1);
+    expect(yangKaoAge(wednesdayNight, new Date(2027, 7, 26, 12))).toBe(2);
+  });
+
+  it("puts บริวารจร on ๑ in year 3, matching the combined MyHora overlay", () => {
+    const asOf = new Date(2028, 7, 26, 12);
+    expect(resolveTaksaBirthDay(wednesdayNight)).toBe("พุธกลางคืน");
+    expect(yangKaoAge(wednesdayNight, asOf)).toBe(3);
+    const withCenter = computeTransitTaksaByAge(wednesdayNight, asOf, true);
+    const withoutCenter = computeTransitTaksaByAge(wednesdayNight, asOf, false);
+    expect(withCenter.slots[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 1 });
+    expect(withoutCenter.slots[0]).toMatchObject({
+      taksa: "บริวารจร",
+      planetNum: 1,
+    });
+  });
+
+  it("lands บริวารจร on Ketu in year 9 when counting through the centre", () => {
+    const asOf = new Date(2034, 7, 26, 12);
+    expect(yangKaoAge(wednesdayNight, asOf)).toBe(9);
+    const withCenter = computeTransitTaksaByAge(wednesdayNight, asOf, true);
+    expect(withCenter.centerIsBorivanTransit).toBe(true);
+    expect(withCenter.slots.some((slot) => slot.taksa === "บริวารจร")).toBe(
+      false,
+    );
+    const withoutCenter = computeTransitTaksaByAge(wednesdayNight, asOf, false);
+    expect(withoutCenter.centerIsBorivanTransit).toBe(false);
+    expect(withoutCenter.slots[0]).toMatchObject({
+      taksa: "บริวารจร",
+      planetNum: 8,
+    });
+  });
+
+  it("reads natal + จร labels from a scraped MyHora grid", () => {
+    const grid = TAKSA_CELL_PLANETS.map((row) =>
+      row.map((planetNum) => {
+        if (planetNum === 9) {
+          return {
+            label: "กลาง",
+            planetNum: 9,
+            transitLabel: "",
+            isCenter: true,
+          };
+        }
+        const natal = TAKSA_WEEKDAY_TABLE.พุธกลางคืน.find(
+          (slot) => slot.planetNum === planetNum,
+        )!;
+        const transit = slotsForWeekday("อาทิตย์", "transit").find(
+          (slot) => slot.planetNum === planetNum,
+        )!;
+        return {
+          label: natal.taksa,
+          planetNum,
+          transitLabel: transit.taksa,
+          highlighted: transit.taksa === "บริวารจร",
+        };
+      }),
+    );
+    const combined = combinedGridFromScraped(grid);
+    expect(combined?.find((cell) => cell.planetNum === 1)).toMatchObject({
+      natalLabel: "เดช",
+      transitLabel: "บริวารจร",
+      highlightTransit: true,
+    });
+    expect(combined?.find((cell) => cell.planetNum === 9)?.isCenter).toBe(true);
   });
 });

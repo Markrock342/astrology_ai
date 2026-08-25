@@ -63,12 +63,51 @@ describe("horoscope chart evidence grids", () => {
           province: "กรุงเทพมหานคร",
           district: "วัฒนา",
         },
-        mode: "natal",
+        asOf: new Date(2026, 7, 25),
       }),
     );
-    expect(html).toContain("ทักษากำเนิด");
+    expect(html).toContain("ทักษา");
     expect(html).toContain("วันอาทิตย์");
     expect(html).toContain("บริวาร");
     expect(html).toContain("๑");
+    expect(html).toContain("๙");
+    expect(html).toContain("นับอายุจรตากลาง");
+  });
+
+  it("overlays natal and transit labels on the same cells", () => {
+    const html = renderToStaticMarkup(
+      createElement(TaksaNineGrid, {
+        input: {
+          day: 26,
+          month: 8,
+          year: 1999,
+          time: "20:00",
+          country: "ไทย",
+          province: "กรุงเทพมหานคร",
+          district: "วัฒนา",
+        },
+        asOf: new Date(2026, 7, 25),
+        scraped: [
+          [
+            { label: "เดช", planetNum: 1, transitLabel: "บริวารจร", highlighted: true },
+            { label: "ศรี", planetNum: 2, transitLabel: "อายุจร" },
+            { label: "มูละ", planetNum: 3, transitLabel: "เดชจร" },
+          ],
+          [
+            { label: "อายุ", planetNum: 6, transitLabel: "กาลกิณีจร" },
+            { label: "กลาง", planetNum: 9, transitLabel: "", isCenter: true },
+            { label: "อุตสาหะ", planetNum: 4, transitLabel: "ศรีจร" },
+          ],
+          [
+            { label: "บริวาร", planetNum: 8, transitLabel: "มนตรีจร" },
+            { label: "กาลกิณี", planetNum: 5, transitLabel: "อุตสาหะจร" },
+            { label: "มนตรี", planetNum: 7, transitLabel: "มูละจร" },
+          ],
+        ],
+      }),
+    );
+    expect(html).toContain("เดช");
+    expect(html).toContain("บริวารจร");
+    expect(html).toContain("๙");
   });
 });
