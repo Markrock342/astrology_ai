@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   computeTaksaFromBirth,
+  computeTransitTaksaMethod1,
   resolveTaksaBirthDay,
+  slotsForWeekday,
   TAKSA_CELL_PLANETS,
   TAKSA_NAMES,
+  TAKSA_TRANSIT_NAMES,
   TAKSA_WEEKDAY_TABLE,
+  taksaLabelByPlanetNum,
   taksaSlotsFromMyhoraGrid,
+  type TaksaBirthDay,
 } from "@/lib/taksa";
 import type { BirthInputSnapshot } from "@/types/chart";
 
@@ -21,6 +26,42 @@ function input(day: number, time = "12:00"): BirthInputSnapshot {
   };
 }
 
+/** Customer reference grids (ทักษาเดิม) — planetNum → label. */
+const NATAL_REF: Record<TaksaBirthDay, Record<number, string>> = {
+  อาทิตย์: {
+    1: "บริวาร", 2: "อายุ", 3: "เดช", 4: "ศรี",
+    7: "มูละ", 5: "อุตสาหะ", 8: "มนตรี", 6: "กาลกิณี",
+  },
+  จันทร์: {
+    2: "บริวาร", 3: "อายุ", 4: "เดช", 7: "ศรี",
+    5: "มูละ", 8: "อุตสาหะ", 6: "มนตรี", 1: "กาลกิณี",
+  },
+  อังคาร: {
+    3: "บริวาร", 4: "อายุ", 7: "เดช", 5: "ศรี",
+    8: "มูละ", 6: "อุตสาหะ", 1: "มนตรี", 2: "กาลกิณี",
+  },
+  พุธกลางวัน: {
+    4: "บริวาร", 7: "อายุ", 5: "เดช", 8: "ศรี",
+    6: "มูละ", 1: "อุตสาหะ", 2: "มนตรี", 3: "กาลกิณี",
+  },
+  พุธกลางคืน: {
+    8: "บริวาร", 6: "อายุ", 1: "เดช", 2: "ศรี",
+    3: "มูละ", 4: "อุตสาหะ", 7: "มนตรี", 5: "กาลกิณี",
+  },
+  พฤหัสบดี: {
+    5: "บริวาร", 8: "อายุ", 6: "เดช", 1: "ศรี",
+    2: "มูละ", 3: "อุตสาหะ", 4: "มนตรี", 7: "กาลกิณี",
+  },
+  ศุกร์: {
+    6: "บริวาร", 1: "อายุ", 2: "เดช", 3: "ศรี",
+    4: "มูละ", 7: "อุตสาหะ", 5: "มนตรี", 8: "กาลกิณี",
+  },
+  เสาร์: {
+    7: "บริวาร", 5: "อายุ", 8: "เดช", 6: "ศรี",
+    1: "มูละ", 2: "อุตสาหะ", 3: "มนตรี", 4: "กาลกิณี",
+  },
+};
+
 describe("traditional seven-day Taksa", () => {
   it("contains all seven days plus the Wednesday-night Rahu variant", () => {
     expect(Object.keys(TAKSA_WEEKDAY_TABLE)).toEqual([
@@ -34,9 +75,17 @@ describe("traditional seven-day Taksa", () => {
       "เสาร์",
     ]);
     for (const slots of Object.values(TAKSA_WEEKDAY_TABLE)) {
-      expect(slots.map((slot) => slot.taksa)).toEqual(TAKSA_NAMES);
+      expect(slots.map((slot) => slot.taksa)).toEqual([...TAKSA_NAMES]);
       expect(new Set(slots.map((slot) => slot.planetNum)).size).toBe(8);
     }
+  });
+
+  it("keeps the fixed 3×3 number layout from the customer template", () => {
+    expect(TAKSA_CELL_PLANETS).toEqual([
+      [1, 2, 3],
+      [6, 9, 4],
+      [8, 5, 7],
+    ]);
   });
 
   it("starts บริวาร from each weekday lord", () => {
@@ -101,5 +150,48 @@ describe("traditional seven-day Taksa", () => {
       }),
     );
     expect(taksaSlotsFromMyhoraGrid(grid)).toEqual(sunday);
+  });
+});
+
+describe("customer reference grids (ทักษาเดิม + ทักษาจร Method 1)", () => {
+  it("locks natal labels for all 8 weekday grids from the attached template", () => {
+    for (const [day, expected] of Object.entries(NATAL_REF) as Array<
+      [TaksaBirthDay, Record<number, string>]
+    >) {
+      expect(taksaLabelByPlanetNum(slotsForWeekday(day, "natal"))).toEqual(expected);
+    }
+  });
+
+  it("locks transit Method-1 labels as natal + จร for the same weekday", () => {
+    for (const [day, natalExpected] of Object.entries(NATAL_REF) as Array<
+      [TaksaBirthDay, Record<number, string>]
+    >) {
+      const transitExpected = Object.fromEntries(
+        Object.entries(natalExpected).map(([num, label]) => [Number(num), `${label}จร`]),
+      );
+      expect(taksaLabelByPlanetNum(slotsForWeekday(day, "transit"))).toEqual(
+        transitExpected,
+      );
+      expect(slotsForWeekday(day, "transit").map((s) => s.taksa)).toEqual([
+        ...TAKSA_TRANSIT_NAMES,
+      ]);
+    }
+  });
+
+  it("Method 1 uses the transit weekday as บริวารจร (e.g. Tuesday → planet 3)", () => {
+    // 2026-08-25 is Tuesday
+    const tuesday = computeTransitTaksaMethod1(input(25));
+    expect(resolveTaksaBirthDay(input(25))).toBe("อังคาร");
+    expect(tuesday[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 3 });
+    expect(taksaLabelByPlanetNum(tuesday)).toEqual({
+      3: "บริวารจร",
+      4: "อายุจร",
+      7: "เดชจร",
+      5: "ศรีจร",
+      8: "มูละจร",
+      6: "อุตสาหะจร",
+      1: "มนตรีจร",
+      2: "กาลกิณีจร",
+    });
   });
 });

@@ -6,6 +6,21 @@ export const TAKSA_NAMES = [
 ] as const;
 
 export type TaksaName = (typeof TAKSA_NAMES)[number];
+
+/** Method-1 daily transit labels — same 8 roles with 「จร」suffix. */
+export const TAKSA_TRANSIT_NAMES = [
+  "บริวารจร",
+  "อายุจร",
+  "เดชจร",
+  "ศรีจร",
+  "มูละจร",
+  "อุตสาหะจร",
+  "มนตรีจร",
+  "กาลกิณีจร",
+] as const;
+
+export type TaksaTransitName = (typeof TAKSA_TRANSIT_NAMES)[number];
+export type TaksaMode = "natal" | "transit";
 export type TaksaBirthDay =
   | "อาทิตย์" | "จันทร์" | "อังคาร" | "พุธกลางวัน"
   | "พุธกลางคืน" | "พฤหัสบดี" | "ศุกร์" | "เสาร์";
@@ -30,12 +45,18 @@ const DAY_START_PLANET: Record<TaksaBirthDay, number> = {
   พุธกลางคืน: 8, พฤหัสบดี: 5, ศุกร์: 6, เสาร์: 7,
 };
 
-function slotsForDay(day: TaksaBirthDay): TaksaSlot[] {
+/** Build the 8 slots for a weekday key (natal names or transit 「…จร」 names). */
+export function slotsForWeekday(
+  day: TaksaBirthDay,
+  mode: TaksaMode = "natal",
+): TaksaSlot[] {
+  const names = mode === "transit" ? TAKSA_TRANSIT_NAMES : TAKSA_NAMES;
   const start = TAKSA_PLANET_CYCLE.indexOf(
     DAY_START_PLANET[day] as (typeof TAKSA_PLANET_CYCLE)[number],
   );
-  return TAKSA_NAMES.map((taksa, index) => {
-    const planetNum = TAKSA_PLANET_CYCLE[(start + index) % TAKSA_PLANET_CYCLE.length] ?? 1;
+  return names.map((taksa, index) => {
+    const planetNum =
+      TAKSA_PLANET_CYCLE[(start + index) % TAKSA_PLANET_CYCLE.length] ?? 1;
     return {
       taksa,
       planet: TAKSA_PLANET_NAMES[planetNum] ?? "อาทิตย์",
@@ -47,14 +68,26 @@ function slotsForDay(day: TaksaBirthDay): TaksaSlot[] {
 
 /** Complete seven-day reference table; Wednesday night uses Rahu as its lord. */
 export const TAKSA_WEEKDAY_TABLE = {
-  อาทิตย์: slotsForDay("อาทิตย์"),
-  จันทร์: slotsForDay("จันทร์"),
-  อังคาร: slotsForDay("อังคาร"),
-  พุธกลางวัน: slotsForDay("พุธกลางวัน"),
-  พุธกลางคืน: slotsForDay("พุธกลางคืน"),
-  พฤหัสบดี: slotsForDay("พฤหัสบดี"),
-  ศุกร์: slotsForDay("ศุกร์"),
-  เสาร์: slotsForDay("เสาร์"),
+  อาทิตย์: slotsForWeekday("อาทิตย์"),
+  จันทร์: slotsForWeekday("จันทร์"),
+  อังคาร: slotsForWeekday("อังคาร"),
+  พุธกลางวัน: slotsForWeekday("พุธกลางวัน"),
+  พุธกลางคืน: slotsForWeekday("พุธกลางคืน"),
+  พฤหัสบดี: slotsForWeekday("พฤหัสบดี"),
+  ศุกร์: slotsForWeekday("ศุกร์"),
+  เสาร์: slotsForWeekday("เสาร์"),
+} satisfies Record<TaksaBirthDay, TaksaSlot[]>;
+
+/** Method-1 daily transit tables (same geometry as natal, labels with จร). */
+export const TAKSA_TRANSIT_WEEKDAY_TABLE = {
+  อาทิตย์: slotsForWeekday("อาทิตย์", "transit"),
+  จันทร์: slotsForWeekday("จันทร์", "transit"),
+  อังคาร: slotsForWeekday("อังคาร", "transit"),
+  พุธกลางวัน: slotsForWeekday("พุธกลางวัน", "transit"),
+  พุธกลางคืน: slotsForWeekday("พุธกลางคืน", "transit"),
+  พฤหัสบดี: slotsForWeekday("พฤหัสบดี", "transit"),
+  ศุกร์: slotsForWeekday("ศุกร์", "transit"),
+  เสาร์: slotsForWeekday("เสาร์", "transit"),
 } satisfies Record<TaksaBirthDay, TaksaSlot[]>;
 
 /**
@@ -80,7 +113,28 @@ export function resolveTaksaBirthDay(input: BirthInputSnapshot): TaksaBirthDay {
 }
 
 export function computeTaksaFromBirth(input: BirthInputSnapshot): TaksaSlot[] {
-  return TAKSA_WEEKDAY_TABLE[resolveTaksaBirthDay(input)].map((slot) => ({ ...slot }));
+  return slotsForWeekday(resolveTaksaBirthDay(input), "natal").map((slot) => ({
+    ...slot,
+  }));
+}
+
+/**
+ * Method 1 (Practical): the transit weekday itself is บริวารจร.
+ * Uses the same 06:00 / Wednesday-night day boundary as natal.
+ */
+export function computeTransitTaksaMethod1(
+  input: BirthInputSnapshot,
+): TaksaSlot[] {
+  return slotsForWeekday(resolveTaksaBirthDay(input), "transit").map((slot) => ({
+    ...slot,
+  }));
+}
+
+/** Flatten slots to `{ planetNum: label }` for grid / fixture asserts. */
+export function taksaLabelByPlanetNum(
+  slots: TaksaSlot[],
+): Record<number, string> {
+  return Object.fromEntries(slots.map((slot) => [slot.planetNum, slot.taksa]));
 }
 
 /** Prefer the exact parsed MyHora natal grid when all eight lords are present. */

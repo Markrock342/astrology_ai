@@ -493,7 +493,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
               ดวงจักรกำเนิด
             </span>
-            <span className="text-[10px] text-[var(--muted-2)]">อ้างอิง</span>
+            <span className="text-[10px] text-[var(--muted-2)]">พื้นดวง</span>
           </Link>
           {filteredCategories.map((cat) => {
             const locked = isCategoryLocked(cat, user?.plan ?? "FREE");
