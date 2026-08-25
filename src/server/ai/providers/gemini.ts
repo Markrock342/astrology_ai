@@ -1,5 +1,6 @@
 import type { AIProviderAdapter } from "@/server/ai/adapter";
 import type { GenerateAIInput, GenerateAIResult, HoroscopeResponse } from "@/types";
+import { gemini3ThinkingLevel } from "@/config/gemini-models";
 import { normalizeGeminiError } from "@/server/ai/provider-alerts";
 
 type GeminiApiResponse = {
@@ -48,7 +49,7 @@ function buildGenerationConfig(input: GenerateAIInput) {
   };
   const id = input.modelId.toLowerCase();
   if (id.includes("gemini-3")) {
-    config.thinkingConfig = { thinkingLevel: "MINIMAL" };
+    config.thinkingConfig = { thinkingLevel: gemini3ThinkingLevel(input.modelId) };
   } else if (id.includes("gemini-2.5")) {
     config.thinkingConfig = { thinkingBudget: 0 };
   }

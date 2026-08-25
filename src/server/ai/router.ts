@@ -6,6 +6,12 @@ import { OpenAIAdapter } from "@/server/ai/providers/openai";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { resolveApiKey } from "@/server/ai/secret-resolver";
+import {
+  briefGeminiRank,
+  detailedGeminiRank,
+  isBriefGeminiModel,
+  isDetailedGeminiModel,
+} from "@/config/gemini-models";
 
 /**
  * Model router (spec 3 / 6.5). Resolves an AIProviderConfig from the DB, picks
@@ -34,7 +40,8 @@ function adapterFor(provider: AIProvider): AIProviderAdapter {
  * When multiple configs share the same top score, a warning is logged so ops
  * can remove overlapping rows.
  *
- * `preferFast` (brief mode): prefer a "lite" model when one is configured.
+ * `preferFast` (brief / กระชับ): prefer 3.5 Flash, then any *lite* model.
+ * Detailed (ละเอียด): prefer 3.7 / 3.6 Flash when one is in the eligible pool.
  */
 export async function resolveConfig(
   categoryId: string,
@@ -56,10 +63,15 @@ export async function resolveConfig(
   const score = (c: (typeof candidates)[number]) =>
     (c.categoryId === categoryId ? 2 : 0) + (c.planScope === planScope ? 1 : 0);
 
-  const pickDeterministic = (pool: typeof candidates) => {
+  const pickDeterministic = (
+    pool: typeof candidates,
+    extraRank: (c: (typeof candidates)[number]) => number = () => 0,
+  ) => {
     const ranked = [...pool].sort((a, b) => {
       const scoreDiff = score(b) - score(a);
       if (scoreDiff !== 0) return scoreDiff;
+      const extraDiff = extraRank(b) - extraRank(a);
+      if (extraDiff !== 0) return extraDiff;
       const timeDiff = b.updatedAt.getTime() - a.updatedAt.getTime();
       if (timeDiff !== 0) return timeDiff;
       return a.id.localeCompare(b.id);
@@ -78,8 +90,15 @@ export async function resolveConfig(
   };
 
   if (opts?.preferFast) {
-    const lite = candidates.filter((c) => c.modelId.toLowerCase().includes("lite"));
-    if (lite.length > 0) return pickDeterministic(lite);
+    const brief = candidates.filter((c) => isBriefGeminiModel(c.modelId));
+    if (brief.length > 0) {
+      return pickDeterministic(brief, (c) => briefGeminiRank(c.modelId));
+    }
+  } else {
+    const detailed = candidates.filter((c) => isDetailedGeminiModel(c.modelId));
+    if (detailed.length > 0) {
+      return pickDeterministic(detailed, (c) => detailedGeminiRank(c.modelId));
+    }
   }
 
   return pickDeterministic(candidates);
