@@ -4,6 +4,7 @@ import {
   resolveConfig,
 } from "@/server/ai/router";
 import { logUsage } from "@/server/ai/usage-logger";
+import { briefGeminiRank, isBriefGeminiModel } from "@/config/gemini-models";
 
 export type FollowUpMeta = {
   summaryLine?: string;
@@ -63,8 +64,8 @@ export function sanitizeFollowUpMeta(raw: unknown): FollowUpMeta {
 
 /**
  * Resolve a cheap/fast config for auxiliary calls (title + follow-up chips).
- * Prefers the same routing as brief chat (`preferFast`), then any enabled lite
- * model, then the first enabled config. Never throws — callers treat miss as skip.
+ * Prefers the same routing as brief chat (`preferFast`), then any enabled brief
+ * model (3.5 Flash / lite), then the first enabled config. Never throws — callers treat miss as skip.
  */
 export async function resolveAuxConfig(opts?: {
   categoryId?: string | null;
@@ -85,10 +86,10 @@ export async function resolveAuxConfig(opts?: {
     orderBy: [{ provider: "asc" }, { displayName: "asc" }],
   });
   if (candidates.length === 0) return null;
-  const lite = candidates.find((c) =>
-    c.modelId.toLowerCase().includes("lite"),
-  );
-  return lite ?? candidates[0];
+  const brief = candidates
+    .filter((c) => isBriefGeminiModel(c.modelId))
+    .sort((a, b) => briefGeminiRank(b.modelId) - briefGeminiRank(a.modelId));
+  return brief[0] ?? candidates[0];
 }
 
 function truncateQuestionTitle(text: string, max = 48): string {

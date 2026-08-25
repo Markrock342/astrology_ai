@@ -79,7 +79,7 @@ export const PRO_MAX_OUTPUT_TOKENS = 1_536;
  * the hint asks for (Thai runs ~3–4 tokens/word).
  *
  * These stay below the detailed plan caps (brief < detailed by design). Brief
- * mode now routes to the fast lite model whose MINIMAL thinking is small, so
+ * mode now routes to Gemini 3.5 Flash whose MINIMAL thinking is small, so
  * these leave enough room; if a complex chart ever starves brief on Gemini 3,
  * raise the fallback retry's cap rather than pushing brief above detailed.
  */

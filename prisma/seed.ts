@@ -1,5 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import {
+  DEFAULT_GEMINI_BRIEF_MODEL_ID,
+  DEFAULT_GEMINI_LITE_MODEL_ID,
+  DEFAULT_GEMINI_MODEL_ID,
+} from "../src/config/gemini-models";
 import { seedAiContent } from "./seed-ai-content";
 import { seedCmsDefaults } from "./seed-cms-defaults";
 
@@ -197,7 +202,7 @@ async function main() {
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-default" },
     update: {
-      modelId: "gemini-3.5-flash-lite",
+      modelId: DEFAULT_GEMINI_LITE_MODEL_ID,
       displayName: "Gemini 3.5 Flash Lite (fallback ทุกแพลน)",
       planScope: "ALL",
       secretReference: null,
@@ -211,7 +216,7 @@ async function main() {
     create: {
       id: "seed-gemini-default",
       provider: "GEMINI",
-      modelId: "gemini-3.5-flash-lite",
+      modelId: DEFAULT_GEMINI_LITE_MODEL_ID,
       displayName: "Gemini 3.5 Flash Lite (fallback ทุกแพลน)",
       planScope: "ALL",
       promptTemplateId: undefined,
@@ -224,9 +229,10 @@ async function main() {
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-free" },
     update: {
-      modelId: "gemini-3.5-flash-lite",
-      displayName: "Free — Gemini 3.5 Flash Lite (ประหยัด)",
-      planScope: "FREE",
+      modelId: DEFAULT_GEMINI_BRIEF_MODEL_ID,
+      displayName: "กระชับ — Gemini 3.5 Flash",
+      planScope: "ALL",
+      maxOutputTokens: 1024,
       secretReference: null,
       ...(seedSecretFields.encryptedApiKey
         ? {
@@ -238,14 +244,14 @@ async function main() {
     create: {
       id: "seed-gemini-free",
       provider: "GEMINI",
-      modelId: "gemini-3.5-flash-lite",
-      displayName: "Free — Gemini 3.5 Flash Lite (ประหยัด)",
-      planScope: "FREE",
+      modelId: DEFAULT_GEMINI_BRIEF_MODEL_ID,
+      displayName: "กระชับ — Gemini 3.5 Flash",
+      planScope: "ALL",
       maxOutputTokens: 1024,
       fallbackConfigId: "seed-gemini-default",
       promptTemplateId: undefined,
       versionLabel: "v1",
-      notes: "Free users: cheaper model, shorter answers.",
+      notes: "Brief (กระชับ) mode: Gemini 3.5 Flash for all plans.",
       ...seedSecretFields,
     },
   });
@@ -253,9 +259,12 @@ async function main() {
   await prisma.aIProviderConfig.upsert({
     where: { id: "seed-gemini-pro" },
     update: {
-      modelId: "gemini-3.6-flash",
-      displayName: "Pro — Gemini 3.6 Flash (ละเอียด)",
-      planScope: "PRO",
+      modelId: DEFAULT_GEMINI_MODEL_ID,
+      displayName: "ละเอียด — Gemini 3.7 Flash",
+      planScope: "ALL",
+      maxOutputTokens: 4096,
+      timeoutMs: 45_000,
+      fallbackConfigId: "seed-gemini-free",
       secretReference: null,
       ...(seedSecretFields.encryptedApiKey
         ? {
@@ -267,14 +276,15 @@ async function main() {
     create: {
       id: "seed-gemini-pro",
       provider: "GEMINI",
-      modelId: "gemini-3.6-flash",
-      displayName: "Pro — Gemini 3.6 Flash (ละเอียด)",
-      planScope: "PRO",
+      modelId: DEFAULT_GEMINI_MODEL_ID,
+      displayName: "ละเอียด — Gemini 3.7 Flash",
+      planScope: "ALL",
       maxOutputTokens: 4096,
-      fallbackConfigId: "seed-gemini-default",
+      timeoutMs: 45_000,
+      fallbackConfigId: "seed-gemini-free",
       promptTemplateId: undefined,
       versionLabel: "v1",
-      notes: "Pro users: fuller model, longer answers.",
+      notes: "Detailed (ละเอียด) mode: Gemini 3.7 Flash for all plans.",
       ...seedSecretFields,
     },
   });

@@ -18,6 +18,12 @@ export type ModelPricing = {
 };
 
 export const AI_PRICING: Record<string, ModelPricing> = {
+  // Intro pricing through 2026-12-31; list price after that is $1.50 / $7.50.
+  "gemini-3.7-flash": {
+    inputPerMTok: 0.75,
+    outputPerMTok: 3.75,
+    cachedInputPerMTok: 0.075,
+  },
   "gemini-3.6-flash": {
     inputPerMTok: 1.5,
     outputPerMTok: 9.0,

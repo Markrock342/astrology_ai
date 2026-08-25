@@ -27,12 +27,12 @@ export function modelPresetsForProvider(provider: SupportedAIProvider) {
 }
 
 export function modelPlaceholderForProvider(provider: SupportedAIProvider): string {
-  return provider === "GEMINI" ? "gemini-3.6-flash" : "gpt-5.6 หรือ composer-2.5";
+  return provider === "GEMINI" ? "gemini-3.7-flash" : "gpt-5.6 หรือ composer-2.5";
 }
 
 export function displayNamePlaceholderForProvider(provider: SupportedAIProvider): string {
   return provider === "GEMINI"
-    ? "เช่น Free — Flash Lite"
+    ? "เช่น กระชับ — 3.5 Flash"
     : "เช่น GPT 5.6 (OpenAI) หรือ Composer 2.5 (Cursor)";
 }
 

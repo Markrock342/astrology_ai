@@ -4,6 +4,7 @@ import { estimateCostUsd, pricingFor } from "@/config/ai-pricing";
 describe("pricingFor — provider-aware fallback", () => {
   it("prices known Gemini and OpenAI models from the table", () => {
     expect(pricingFor("gemini-3.5-flash").inputPerMTok).toBe(1.5);
+    expect(pricingFor("gemini-3.7-flash").inputPerMTok).toBe(0.75);
     expect(pricingFor("gpt-4o-mini").inputPerMTok).toBe(0.15);
   });
 

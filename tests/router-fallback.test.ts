@@ -72,42 +72,89 @@ describe("resolveConfig (M3 B2)", () => {
     expect(config.id).toBe("category");
   });
 
-  it("brief mode (preferFast) drops to the lite model over the heavy Pro one", async () => {
+  it("brief mode (preferFast) uses 3.5 Flash over the 3.7 detailed model", async () => {
     mocks.findMany.mockResolvedValue([
       {
-        id: "pro-heavy",
-        categoryId: null,
-        planScope: "PRO",
-        enabled: true,
-        modelId: "gemini-3.5-flash",
-        updatedAt: t1,
-      },
-      {
-        id: "all-lite",
+        id: "pro-detailed",
         categoryId: null,
         planScope: "ALL",
         enabled: true,
-        modelId: "gemini-3.1-flash-lite",
+        modelId: "gemini-3.7-flash",
+        updatedAt: t1,
+      },
+      {
+        id: "all-brief",
+        categoryId: null,
+        planScope: "ALL",
+        enabled: true,
+        modelId: "gemini-3.5-flash",
         updatedAt: t0,
       },
     ]);
 
     const brief = await resolveConfig("cat-1", "PRO", { preferFast: true });
-    expect(brief.id).toBe("all-lite");
+    expect(brief.id).toBe("all-brief");
 
-    // Detailed mode keeps the heavy Pro model.
     const detailed = await resolveConfig("cat-1", "PRO");
-    expect(detailed.id).toBe("pro-heavy");
+    expect(detailed.id).toBe("pro-detailed");
   });
 
-  it("preferFast falls back to normal resolution when no lite model exists", async () => {
+  it("brief mode prefers 3.5 Flash over lite when both exist", async () => {
+    mocks.findMany.mockResolvedValue([
+      {
+        id: "all-lite",
+        categoryId: null,
+        planScope: "ALL",
+        enabled: true,
+        modelId: "gemini-3.5-flash-lite",
+        updatedAt: t1,
+      },
+      {
+        id: "all-brief",
+        categoryId: null,
+        planScope: "ALL",
+        enabled: true,
+        modelId: "gemini-3.5-flash",
+        updatedAt: t0,
+      },
+    ]);
+
+    const brief = await resolveConfig("cat-1", "PRO", { preferFast: true });
+    expect(brief.id).toBe("all-brief");
+  });
+
+  it("detailed mode prefers 3.7 Flash even when a 3.5 row is newer", async () => {
+    mocks.findMany.mockResolvedValue([
+      {
+        id: "newer-brief",
+        categoryId: null,
+        planScope: "ALL",
+        enabled: true,
+        modelId: "gemini-3.5-flash",
+        updatedAt: t1,
+      },
+      {
+        id: "older-detailed",
+        categoryId: null,
+        planScope: "ALL",
+        enabled: true,
+        modelId: "gemini-3.7-flash",
+        updatedAt: t0,
+      },
+    ]);
+
+    const detailed = await resolveConfig("cat-1", "FREE");
+    expect(detailed.id).toBe("older-detailed");
+  });
+
+  it("preferFast falls back to normal resolution when no brief model exists", async () => {
     mocks.findMany.mockResolvedValue([
       {
         id: "pro-only",
         categoryId: null,
         planScope: "PRO",
         enabled: true,
-        modelId: "gemini-3.5-flash",
+        modelId: "gemini-3.7-flash",
         updatedAt: t0,
       },
     ]);
