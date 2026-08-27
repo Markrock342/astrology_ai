@@ -155,10 +155,16 @@ async function main() {
       creditOnly: true,
       name: "เติม usage",
       usageBudgetUnits: 555_556,
+      description: "เติม usage เพิ่มสำหรับสมาชิก Pro (ไม่ต่ออายุแพ็กเกจ)",
       features: [
         "เติม AI usage อีก 50%",
         "สำหรับสมาชิก Pro ที่ usage ใกล้หมด",
         "ไม่เปลี่ยนแพ็กเกจหรือวันหมดอายุ",
+      ],
+      upgradeSteps: [
+        "โอนเงินตามยอดเติม usage (99 บาท)",
+        "เลือกแพ็กเกจ \"เติม usage\" ตอนส่งสลิป",
+        "แอดมินตรวจสอบและเพิ่ม usage ให้บัญชีของคุณ",
       ],
     },
     create: {
