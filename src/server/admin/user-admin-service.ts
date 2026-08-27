@@ -2,18 +2,23 @@ import type { Prisma, Role, UserStatus, CreditTxnType } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
-import { addCredits, deductCredits } from "@/server/credit/credit-service";
+import { addCredits } from "@/server/credit/credit-service";
+import {
+  addPurchasedUsage,
+  availableUsagePercent,
+  deductUsageCost,
+  grantIncludedUsage,
+} from "@/server/usage/usage-budget-service";
 import { writeAudit } from "@/server/audit/audit-service";
-import { getMyUsageSummary } from "@/server/account/usage-service";
-import { bangkokBoundaries } from "@/server/credit/quota-service";
+import { getMyUsage } from "@/server/account/usage-service";
 import { getUserCost } from "@/server/admin/cost-admin-service";
 import { provisionUser } from "@/server/auth/provisioning";
 import { normalizeEmail } from "@/server/auth/account-lookup";
 
 /**
  * Admin user-management service. Every mutation writes an audit log with the
- * acting admin + before/after snapshots (business rule 7). Credit changes go
- * through the credit-service ledger — never touch `balance` directly.
+ * acting admin + before/after snapshots (business rule 7). Usage changes go
+ * through the immutable usage ledger.
  */
 
 type Actor = { id: string; role?: Role; ip?: string };
@@ -54,7 +59,13 @@ export async function listUsers(args: ListUsersArgs) {
         role: true,
         status: true,
         createdAt: true,
-        creditWallet: { select: { balance: true } },
+        usageWallet: {
+          select: {
+            includedBalanceUnits: true,
+            includedAllowanceUnits: true,
+            purchasedBalanceUnits: true,
+          },
+        },
         subscriptions: {
           where: { status: "ACTIVE" },
           orderBy: { createdAt: "desc" },
@@ -109,7 +120,7 @@ export async function getUserDetail(userId: string) {
   });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
   const [usage, cost] = await Promise.all([
-    getMyUsageSummary(userId),
+    getMyUsage(userId),
     getUserCost(userId),
   ]);
   return {
@@ -255,43 +266,133 @@ export async function setUserRole(userId: string, role: Role, actor: Actor) {
   });
 }
 
-/**
- * Reset the AI usage quota (used-today / used-this-month back to 0).
- *
- * Quota is derived by counting SUCCESS rows in ai_usage_logs since the start of
- * the Bangkok month (see quota-service.getUsageCounts), so the reset clears this
- * period's rows. Older months stay for cost history. A user sitting at 101/100
- * is hard-blocked from chatting until this runs.
- */
+/** Restore the included pool to 100% without deleting cost history or top-ups. */
 export async function adminResetUsageQuota(userId: string, actor: Actor) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true },
-  });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
 
-  const { monthStart } = bangkokBoundaries();
-
   return prisma.$transaction(async (tx) => {
-    const before = await tx.aIUsageLog.count({
-      where: { userId, createdAt: { gte: monthStart } },
-    });
-    const result = await tx.aIUsageLog.deleteMany({
-      where: { userId, createdAt: { gte: monthStart } },
-    });
+    const [wallet, activeSubscription] = await Promise.all([
+      tx.usageWallet.findUnique({ where: { userId } }),
+      tx.userSubscription.findFirst({
+        where: { userId, status: "ACTIVE" },
+        orderBy: { createdAt: "desc" },
+        select: {
+          startsAt: true,
+          expiresAt: true,
+          package: { select: { usageBudgetUnits: true, code: true } },
+        },
+      }),
+    ]);
+    const allowanceUnits =
+      wallet?.includedAllowanceUnits ||
+      activeSubscription?.package.usageBudgetUnits ||
+      0;
+    if (allowanceUnits <= 0) {
+      throw new AppError("VALIDATION", "แพ็กเกจนี้ไม่มีงบ usage ให้รีเซ็ต");
+    }
+    const before = wallet
+      ? {
+          includedBalanceUnits: wallet.includedBalanceUnits,
+          purchasedBalanceUnits: wallet.purchasedBalanceUnits,
+        }
+      : null;
+    const updated = await grantIncludedUsage(
+      userId,
+      allowanceUnits,
+      {
+        type: "ADMIN_ADD",
+        referenceType: "admin_usage_reset",
+        referenceId: `${actor.id}:${Date.now()}`,
+        note: `คืน usage รอบแพ็กเกจเป็น 100% โดยแอดมิน${activeSubscription ? ` (${activeSubscription.package.code})` : ""}`,
+        createdByAdminId: actor.id,
+      },
+      {
+        startsAt: wallet?.periodStartedAt ?? activeSubscription?.startsAt ?? new Date(),
+        endsAt: wallet?.periodEndsAt ?? activeSubscription?.expiresAt ?? null,
+      },
+      tx,
+    );
+    const after = {
+      includedBalanceUnits: updated.includedBalanceUnits,
+      purchasedBalanceUnits: updated.purchasedBalanceUnits,
+      remainingPercent: availableUsagePercent(
+        updated.includedBalanceUnits,
+        updated.purchasedBalanceUnits,
+        updated.includedAllowanceUnits,
+      ),
+    };
     await writeAudit(
       {
         adminUserId: actor.id,
-        action: "user.usage_quota.reset",
-        entityType: "user",
+        action: "user.usage_budget.reset",
+        entityType: "usage_wallet",
         entityId: userId,
-        before: { periodStart: monthStart.toISOString(), usageRows: before },
-        after: { periodStart: monthStart.toISOString(), usageRows: 0 },
+        before,
+        after,
         ipAddress: actor.ip,
       },
       tx,
     );
-    return { deleted: result.count };
+    return after;
+  });
+}
+
+/** Adjust cost-weighted usage in percentage points; positive adjustments are top-up-like. */
+export async function adjustUserCredits(
+  userId: string,
+  input: { amount: number; type: CreditTxnType; note?: string },
+  actor: Actor,
+) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!user) throw new AppError("NOT_FOUND", "User not found");
+
+  return prisma.$transaction(async (tx) => {
+    const wallet = await tx.usageWallet.findUnique({
+      where: { userId },
+    });
+    if (!wallet || wallet.includedAllowanceUnits <= 0) {
+      throw new AppError("VALIDATION", "ผู้ใช้นี้ยังไม่มีฐาน usage 100%");
+    }
+    const amountUnits = Math.max(
+      1,
+      Math.round((wallet.includedAllowanceUnits * input.amount) / 100),
+    );
+    const ref = {
+      type: input.type,
+      note: input.note,
+      createdByAdminId: actor.id,
+      referenceType: "admin",
+      referenceId: `${actor.id}:${Date.now()}`,
+    };
+    if (input.type === "ADMIN_DEDUCT") {
+      await deductUsageCost(userId, amountUnits, ref, tx);
+    } else {
+      await addPurchasedUsage(userId, amountUnits, ref, tx);
+    }
+    const updated = await tx.usageWallet.findUniqueOrThrow({ where: { userId } });
+    const remainingPercent = availableUsagePercent(
+      updated.includedBalanceUnits,
+      updated.purchasedBalanceUnits,
+      updated.includedAllowanceUnits,
+    );
+    await writeAudit(
+      {
+        adminUserId: actor.id,
+        action: "user.usage.adjust",
+        entityType: "usage_wallet",
+        entityId: userId,
+        before: { remainingPercent: availableUsagePercent(
+          wallet.includedBalanceUnits,
+          wallet.purchasedBalanceUnits,
+          wallet.includedAllowanceUnits,
+        ) },
+        after: { amountPercent: input.amount, type: input.type, note: input.note, remainingPercent },
+        ipAddress: actor.ip,
+      },
+      tx,
+    );
+    return { remainingPercent };
   });
 }
 
@@ -322,42 +423,6 @@ export async function adminResetBirthEdits(userId: string, actor: Actor) {
       tx,
     );
     return updated;
-  });
-}
-
-export async function adjustUserCredits(
-  userId: string,
-  input: { amount: number; type: CreditTxnType; note?: string },
-  actor: Actor,
-) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
-  if (!user) throw new AppError("NOT_FOUND", "User not found");
-
-  return prisma.$transaction(async (tx) => {
-    const ref = {
-      type: input.type,
-      note: input.note,
-      createdByAdminId: actor.id,
-      referenceType: "admin",
-      referenceId: userId,
-    };
-    const result =
-      input.type === "ADMIN_DEDUCT"
-        ? await deductCredits(userId, input.amount, ref, tx)
-        : await addCredits(userId, input.amount, ref, tx);
-
-    await writeAudit(
-      {
-        adminUserId: actor.id,
-        action: "user.credits.adjust",
-        entityType: "credit_wallet",
-        entityId: userId,
-        after: { amount: input.amount, type: input.type, note: input.note, balance: result.balance },
-        ipAddress: actor.ip,
-      },
-      tx,
-    );
-    return result;
   });
 }
 
@@ -417,6 +482,21 @@ export async function setUserSubscription(
         tx,
       );
       grantedCredits = pkg.creditQuota;
+    }
+    if (input.grantCredits && pkg.usageBudgetUnits > 0) {
+      await grantIncludedUsage(
+        userId,
+        pkg.usageBudgetUnits,
+        {
+          type: "PACKAGE_RENEWAL",
+          referenceType: "user_subscription",
+          referenceId: `usage:${created.id}`,
+          note: `เปิดรอบ usage แพ็กเกจ ${pkg.code} โดยแอดมิน`,
+          createdByAdminId: actor.id,
+        },
+        { startsAt: new Date(), endsAt: input.expiresAt ?? null },
+        tx,
+      );
     }
 
     await writeAudit(

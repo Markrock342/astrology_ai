@@ -1,7 +1,10 @@
 import type { AIProvider, Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
-import { lockWalletForUpdate } from "@/server/credit/credit-service";
+import {
+  assertHasUsageBudget,
+  lockUsageWalletForUpdate,
+} from "@/server/usage/usage-budget-service";
 
 /**
  * Package-level usage limits (Package.dailyLimit / monthlyLimit). Counts
@@ -202,24 +205,32 @@ export async function getUsageCounts(userId: string): Promise<UsageSnapshot> {
 
 export type ReserveUsageInput = {
   userId: string;
-  creditCost: number;
   provider: AIProvider;
   modelId: string;
 };
 
 /**
- * Reserve a quota slot + verify balance under row lock BEFORE calling AI.
+ * Reserve a quota slot + verify cost-weighted usage under row lock BEFORE AI.
  * Prevents concurrent requests from both invoking Gemini when one slot remains.
  */
 export async function reserveUsageSlot(input: ReserveUsageInput): Promise<string> {
   return prisma.$transaction(async (tx) => {
     await purgeStaleReservations(input.userId, tx);
-    const wallet = await lockWalletForUpdate(input.userId, tx);
-    await assertWithinUsageLimitsInTx(input.userId, tx);
-
-    if (wallet.balance < input.creditCost) {
-      throw new AppError("NO_QUOTA", "Not enough credit");
+    await lockUsageWalletForUpdate(input.userId, tx);
+    // Only one metered generation per user may be in flight. Without this, a
+    // nearly exhausted wallet could fan out many concurrent provider calls;
+    // reconciliation would cap the first charge and the rest would become free.
+    const activeReservation = await tx.aIUsageLog.count({
+      where: { userId: input.userId, status: "RESERVED" },
+    });
+    if (activeReservation > 0) {
+      throw new AppError(
+        "DUPLICATE_REQUEST",
+        "มีคำตอบที่กำลังสร้างอยู่ กรุณารอให้เสร็จก่อนถามคำถามถัดไป",
+      );
     }
+    await assertWithinUsageLimitsInTx(input.userId, tx);
+    await assertHasUsageBudget(input.userId, tx);
 
     const log = await tx.aIUsageLog.create({
       data: {

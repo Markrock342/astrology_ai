@@ -25,7 +25,11 @@ type UserRow = {
   role: string;
   status: "ACTIVE" | "DISABLED";
   createdAt: string;
-  creditWallet: { balance: number } | null;
+  usageWallet: {
+    includedBalanceUnits: number;
+    includedAllowanceUnits: number;
+    purchasedBalanceUnits: number;
+  } | null;
   subscriptions: Array<{
     package: { code: string; type: string };
     expiresAt: string | null;
@@ -121,7 +125,7 @@ export function UsersManager({
     <AdminPage>
       <PageHeader
         title="ผู้ใช้"
-        description="ค้นหา · เปิด-ปิดบัญชี · ตั้งแพ็กเกจ · ปรับเครดิต — ทุกการเปลี่ยนแปลงลง audit log"
+        description="ค้นหา · เปิด-ปิดบัญชี · ตั้งแพ็กเกจ · ปรับ usage — ทุกการเปลี่ยนแปลงลง audit log"
         action={
           canCreateStaff ? (
             <Button onClick={() => setCreateOpen(true)}>เพิ่มแอดมิน</Button>
@@ -167,7 +171,7 @@ export function UsersManager({
               <Th>ผู้ใช้</Th>
               <Th>บทบาท</Th>
               <Th>แพ็กเกจ</Th>
-              <Th>เครดิต</Th>
+              <Th>usage เหลือ</Th>
               <Th>สถานะ</Th>
               <Th>สมัครเมื่อ</Th>
               <Th className="text-right">จัดการ</Th>
@@ -199,7 +203,16 @@ export function UsersManager({
                   <Td>
                     <Badge tone={plan === "PRO" ? "gold" : "muted"}>{plan}</Badge>
                   </Td>
-                  <Td>{u.creditWallet?.balance ?? 0}</Td>
+                  <Td>
+                    {u.usageWallet && u.usageWallet.includedAllowanceUnits > 0
+                      ? `${Math.round(
+                          ((u.usageWallet.includedBalanceUnits +
+                            u.usageWallet.purchasedBalanceUnits) /
+                            u.usageWallet.includedAllowanceUnits) *
+                            1_000,
+                        ) / 10}%`
+                      : "—"}
+                  </Td>
                   <Td>
                     <Badge tone={u.status === "ACTIVE" ? "green" : "red"}>
                       {u.status === "ACTIVE" ? "ใช้งาน" : "ระงับ"}

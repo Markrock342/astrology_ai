@@ -36,7 +36,7 @@ export function DeleteAccountCard({ email }: { email: string }) {
     <div className="mt-10 rounded-2xl border border-[var(--danger)]/35 bg-[var(--surface)] p-6">
       <h2 className="text-sm font-semibold text-[var(--danger)]">ลบบัญชี</h2>
       <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-        ลบโปรไฟล์ วันเกิด บทสนทนา เครดิต และสลิปที่เกี่ยวข้องถาวร — ทำแล้วกู้คืนไม่ได้
+        ลบโปรไฟล์ วันเกิด บทสนทนา usage และสลิปที่เกี่ยวข้องถาวร — ทำแล้วกู้คืนไม่ได้
       </p>
       {!open ? (
         <button

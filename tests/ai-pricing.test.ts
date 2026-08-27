@@ -5,7 +5,12 @@ describe("pricingFor — provider-aware fallback", () => {
   it("prices known Gemini and OpenAI models from the table", () => {
     expect(pricingFor("gemini-3.5-flash").inputPerMTok).toBe(1.5);
     expect(pricingFor("gemini-3.7-flash").inputPerMTok).toBe(0.75);
+    expect(pricingFor("gemini-3.6-flash").outputPerMTok).toBe(3.75);
+    expect(pricingFor("gemini-3.5-flash-lite").outputPerMTok).toBe(2.5);
     expect(pricingFor("gpt-4o-mini").inputPerMTok).toBe(0.15);
+    expect(pricingFor("gpt-5.6").outputPerMTok).toBe(20);
+    expect(pricingFor("gpt-5.6-terra").cachedInputPerMTok).toBe(0.2);
+    expect(pricingFor("gpt-5.6-luna").inputPerMTok).toBe(0.2);
   });
 
   it("does NOT price a GPT model with the Gemini fallback", () => {

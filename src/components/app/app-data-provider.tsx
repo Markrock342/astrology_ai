@@ -26,6 +26,7 @@ export type AppUser = {
   promotionCreditGrant?: number | null;
   role: "USER" | "ADMIN" | "SUPER_ADMIN";
   creditBalance: number;
+  usageRemainingPercent: number;
   canChat: boolean;
   emailVerified: boolean;
   needsEmailVerification: boolean;
@@ -137,6 +138,7 @@ function mapMe(me: Record<string, unknown>): AppUser {
       (me.promotionCreditGrant as number | null | undefined) ?? null,
     role: (me.role as AppUser["role"]) ?? "USER",
     creditBalance: Number(me.creditBalance ?? 0),
+    usageRemainingPercent: Number(me.usageRemainingPercent ?? 0),
     canChat: Boolean(me.canChat ?? me.plan === "PRO"),
     emailVerified: Boolean(me.emailVerified ?? true),
     needsEmailVerification: Boolean(me.needsEmailVerification ?? false),

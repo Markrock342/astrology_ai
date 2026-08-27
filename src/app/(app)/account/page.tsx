@@ -29,6 +29,9 @@ export default async function AccountPage() {
       : {
           plan: me.plan,
           creditBalance: me.creditBalance,
+          usageRemainingPercent: me.usageRemainingPercent,
+          usageUsedPercent: Math.max(0, 100 - me.usageRemainingPercent),
+          usagePeriodEndsAt: me.proExpiresAt,
           subscription: null,
         };
 

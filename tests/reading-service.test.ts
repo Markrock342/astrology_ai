@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
   findReading: vi.fn(),
   findUser: vi.fn(),
   findCategory: vi.fn(),
-  findWallet: vi.fn(),
   findProfile: vi.fn(),
   findKnowledge: vi.fn(),
   findIntake: vi.fn(),
@@ -30,7 +29,9 @@ const mocks = vi.hoisted(() => ({
   questionWantsTodayTransit: vi.fn(() => false),
   generateWithFallback: vi.fn(),
   logUsage: vi.fn(),
-  deductCredits: vi.fn(),
+  assertHasUsageBudget: vi.fn(),
+  deductUsageCost: vi.fn(),
+  usageUnitsFromUsd: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -38,7 +39,6 @@ vi.mock("@/server/db", () => ({
     horoscopeReading: { findUnique: mocks.findReading },
     user: { findUnique: mocks.findUser },
     horoscopeCategory: { findUnique: mocks.findCategory },
-    creditWallet: { findUnique: mocks.findWallet },
     birthProfile: { findUnique: mocks.findProfile },
     knowledgeDoc: { findMany: mocks.findKnowledge },
     userIntake: { findUnique: mocks.findIntake },
@@ -99,9 +99,10 @@ vi.mock("@/server/ai/usage-logger", () => ({
   logUsage: mocks.logUsage,
 }));
 
-vi.mock("@/server/credit/credit-service", () => ({
-  deductCredits: mocks.deductCredits,
-  lockWalletForUpdate: vi.fn().mockResolvedValue(undefined),
+vi.mock("@/server/usage/usage-budget-service", () => ({
+  assertHasUsageBudget: mocks.assertHasUsageBudget,
+  deductUsageCost: mocks.deductUsageCost,
+  usageUnitsFromUsd: mocks.usageUnitsFromUsd,
 }));
 
 const baseCategory = {
@@ -130,7 +131,7 @@ function setupHappyPath() {
   mocks.findUser.mockResolvedValue({ id: "user-1", status: "ACTIVE" });
   mocks.findCategory.mockResolvedValue(baseCategory);
   mocks.getEffectivePlan.mockResolvedValue("PRO");
-  mocks.findWallet.mockResolvedValue({ balance: 10 });
+  mocks.assertHasUsageBudget.mockResolvedValue(undefined);
   mocks.assertWithinUsageLimits.mockResolvedValue(undefined);
   mocks.reserveUsageSlot.mockResolvedValue("reservation-1");
   mocks.releaseUsageReservation.mockResolvedValue(undefined);
@@ -247,7 +248,17 @@ function setupHappyPath() {
         create: vi.fn().mockResolvedValue({
           id: "reading-1",
           responseText: "คำตอบจาก AI",
-          creditCost: 1,
+          creditCost: 0,
+          usageCostUnits: 0,
+          status: "SUCCESS",
+          provider: "GEMINI",
+          modelId: "gemini-2.5-flash",
+        }),
+        update: vi.fn().mockResolvedValue({
+          id: "reading-1",
+          responseText: "คำตอบจาก AI",
+          creditCost: 0,
+          usageCostUnits: 7,
           status: "SUCCESS",
           provider: "GEMINI",
           modelId: "gemini-2.5-flash",
@@ -260,7 +271,8 @@ function setupHappyPath() {
     };
     return fn(tx);
   });
-  mocks.deductCredits.mockResolvedValue({ balance: 9 });
+  mocks.usageUnitsFromUsd.mockReturnValue(7);
+  mocks.deductUsageCost.mockResolvedValue({ chargedUnits: 7, remainingUnits: 93 });
   mocks.logUsage.mockResolvedValue(undefined);
 }
 
@@ -332,8 +344,10 @@ describe("createReading (M3 B2)", () => {
     );
   });
 
-  it("throws NO_QUOTA when wallet balance is too low", async () => {
-    mocks.findWallet.mockResolvedValue({ balance: 0 });
+  it("throws NO_QUOTA when usage budget is exhausted", async () => {
+    mocks.assertHasUsageBudget.mockRejectedValue(
+      new AppError("NO_QUOTA", "usage exhausted"),
+    );
 
     await expect(
       createReading({ userId: "user-1", categorySlug: "career", question: "q" }),
@@ -342,8 +356,7 @@ describe("createReading (M3 B2)", () => {
     expect(mocks.generateWithFallback).not.toHaveBeenCalled();
   });
 
-  it("skips wallet, quota reservation, and credit deduction for a natal category intro", async () => {
-    mocks.findWallet.mockResolvedValue({ balance: 0 });
+  it("skips wallet, quota reservation, and usage deduction for a natal category intro", async () => {
 
     await createReading({
       userId: "user-1",
@@ -357,7 +370,7 @@ describe("createReading (M3 B2)", () => {
     );
     expect(mocks.assertWithinUsageLimits).not.toHaveBeenCalled();
     expect(mocks.reserveUsageSlot).not.toHaveBeenCalled();
-    expect(mocks.deductCredits).not.toHaveBeenCalled();
+    expect(mocks.deductUsageCost).not.toHaveBeenCalled();
     expect(mocks.generateWithFallback).toHaveBeenCalled();
   });
 
@@ -376,17 +389,17 @@ describe("createReading (M3 B2)", () => {
     ).rejects.toMatchObject({ code: "AI_TIMEOUT" });
 
     expect(mocks.reserveUsageSlot).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "user-1", creditCost: 1 }),
+      expect.objectContaining({ userId: "user-1" }),
     );
     expect(mocks.logUsage).toHaveBeenCalledWith(
       expect.objectContaining({ status: "TIMEOUT", userId: "user-1" }),
     );
     expect(mocks.releaseUsageReservation).toHaveBeenCalledWith("reservation-1");
     expect(mocks.transaction).not.toHaveBeenCalled();
-    expect(mocks.deductCredits).not.toHaveBeenCalled();
+    expect(mocks.deductUsageCost).not.toHaveBeenCalled();
   });
 
-  it("deducts credits on successful AI response", async () => {
+  it("deducts cost-weighted usage on successful AI response", async () => {
     const result = await createReading({
       userId: "user-1",
       categorySlug: "career",
@@ -405,9 +418,9 @@ describe("createReading (M3 B2)", () => {
     expect(aiCall.systemPrompt).toContain("กฎบังคับ");
     expect(mocks.reserveUsageSlot).toHaveBeenCalledOnce();
     expect(mocks.transaction).toHaveBeenCalledOnce();
-    expect(mocks.deductCredits).toHaveBeenCalledWith(
+    expect(mocks.deductUsageCost).toHaveBeenCalledWith(
       "user-1",
-      1,
+      7,
       expect.objectContaining({ type: "AI_USAGE", referenceType: "reading" }),
       expect.anything(),
     );

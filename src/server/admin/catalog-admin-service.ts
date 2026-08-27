@@ -34,6 +34,7 @@ export type PackageCreateInput = {
   price: number;
   billingLabel?: string;
   creditQuota: number;
+  usageBudgetUnits: number;
   dailyLimit?: number | null;
   monthlyLimit?: number | null;
   enabled?: boolean;
@@ -152,6 +153,7 @@ export function listPublicPackages() {
       price: true,
       billingLabel: true,
       creditQuota: true,
+      usageBudgetUnits: true,
       description: true,
       features: true,
       upgradeSteps: true,

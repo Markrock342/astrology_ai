@@ -23,7 +23,7 @@ export default async function OnboardingSurveyPage() {
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
           ตอบ 10 ข้อ ใช้ประกอบสรุปพื้นดวงทุกหมวด — ข้อที่ชีวิตเกิดพร้อมกันได้เลือกได้หลายคำตอบ
-          และไม่หักเครดิต
+          และไม่หัก usage
         </p>
       </div>
       <IntakeSurveyForm />

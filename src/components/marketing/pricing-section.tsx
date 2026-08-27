@@ -8,6 +8,7 @@ export type MarketingPackage = {
   price: number;
   billingLabel: string | null;
   creditQuota: number;
+  usageBudgetUnits: number;
   description: string | null;
   features: string[];
   upgradeSteps: string[];
@@ -16,16 +17,24 @@ export type MarketingPackage = {
 };
 
 function displayFeatures(pkg: MarketingPackage): string[] {
-  if (pkg.features.length > 0) return pkg.features;
+  if (pkg.features.length > 0) {
+    return pkg.features.map((feature) =>
+      feature.startsWith("เครดิต")
+        ? pkg.type === "PRO"
+          ? "AI usage 100% ต่อรอบแพ็กเกจ"
+          : "AI usage ทดลอง 100%"
+        : feature,
+    );
+  }
   if (pkg.type === "PRO") {
     return [
-      `เครดิต ${pkg.creditQuota} ครั้ง`,
+      "AI usage 100% ต่อรอบแพ็กเกจ",
       "ปลดล็อกทุกหมวด + โหมดดวงจร",
       "คำถามแนะนำครบทุกหมวด",
     ];
   }
   return [
-    `เครดิต ${pkg.creditQuota} ครั้ง`,
+    "AI usage ทดลอง 100%",
     "หมวด「ตัวตน」กับ「การงาน」",
     "ถาม–ตอบกับ AI (ยืนยันอีเมลก่อน)",
   ];

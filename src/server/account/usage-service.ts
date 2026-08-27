@@ -1,10 +1,13 @@
 import { prisma } from "@/server/db";
-import { getBalance } from "@/server/credit/credit-service";
 import { getUsageCounts } from "@/server/credit/quota-service";
+import {
+  getUsageBudgetSnapshot,
+  percentageOf,
+} from "@/server/usage/usage-budget-service";
 
 export type UsageHistoryItem = {
   id: string;
-  amount: number;
+  amountPercent: number;
   type: string;
   note: string | null;
   referenceType: string | null;
@@ -12,59 +15,74 @@ export type UsageHistoryItem = {
   createdAt: string;
 };
 
-export type MyUsageResult = {
+export type MyUsageSummary = {
+  /** Compatibility alias for older clients; now means remaining percentage. */
   balance: number;
+  usedPercent: number;
+  remainingPercent: number;
+  includedRemainingPercent: number;
+  purchasedRemainingPercent: number;
+  periodStartedAt: string | null;
+  periodEndsAt: string | null;
   dailyLimit: number | null;
   monthlyLimit: number | null;
   usedToday: number;
   usedThisMonth: number;
+};
+
+export type MyUsageResult = MyUsageSummary & {
   history: {
     items: UsageHistoryItem[];
     nextCursor: string | null;
   };
 };
 
-export type MyUsageSummary = {
-  balance: number;
-  dailyLimit: number | null;
-  monthlyLimit: number | null;
-  usedToday: number;
-  usedThisMonth: number;
-};
-
 const HISTORY_PAGE_SIZE = 20;
 
-/** Balance + quota counts only (chat bar / header). */
-export async function getMyUsageSummary(userId: string): Promise<MyUsageSummary> {
-  const [balance, usage] = await Promise.all([
-    getBalance(userId),
-    getUsageCounts(userId),
-  ]);
+function serializeSummary(
+  budget: Awaited<ReturnType<typeof getUsageBudgetSnapshot>>,
+  counts: Awaited<ReturnType<typeof getUsageCounts>>,
+): MyUsageSummary {
   return {
-    balance,
-    dailyLimit: usage.dailyLimit,
-    monthlyLimit: usage.monthlyLimit,
-    usedToday: usage.usedToday,
-    usedThisMonth: usage.usedThisMonth,
+    balance: budget.remainingPercent,
+    usedPercent: budget.usedPercent,
+    remainingPercent: budget.remainingPercent,
+    includedRemainingPercent: budget.includedRemainingPercent,
+    purchasedRemainingPercent: budget.purchasedRemainingPercent,
+    periodStartedAt: budget.periodStartedAt?.toISOString() ?? null,
+    periodEndsAt: budget.periodEndsAt?.toISOString() ?? null,
+    dailyLimit: counts.dailyLimit,
+    monthlyLimit: counts.monthlyLimit,
+    usedToday: counts.usedToday,
+    usedThisMonth: counts.usedThisMonth,
   };
 }
 
-/** GET /api/me/usage — balance, plan limits, and paginated credit ledger. */
+/** Cost-weighted usage percentage + request-count safety limits. */
+export async function getMyUsageSummary(userId: string): Promise<MyUsageSummary> {
+  const [budget, counts] = await Promise.all([
+    getUsageBudgetSnapshot(userId),
+    getUsageCounts(userId),
+  ]);
+  return serializeSummary(budget, counts);
+}
+
+/** GET /api/me/usage — current percentage plus paginated usage ledger. */
 export async function getMyUsage(
   userId: string,
   cursor?: string,
 ): Promise<MyUsageResult> {
-  const [balance, usage, rows] = await Promise.all([
-    getBalance(userId),
+  const [budget, counts, rows] = await Promise.all([
+    getUsageBudgetSnapshot(userId),
     getUsageCounts(userId),
-    prisma.creditTransaction.findMany({
+    prisma.usageTransaction.findMany({
       where: { userId },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: HISTORY_PAGE_SIZE + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       select: {
         id: true,
-        amount: true,
+        amountUnits: true,
         type: true,
         note: true,
         referenceType: true,
@@ -76,17 +94,14 @@ export async function getMyUsage(
 
   const hasMore = rows.length > HISTORY_PAGE_SIZE;
   const page = hasMore ? rows.slice(0, HISTORY_PAGE_SIZE) : rows;
-
   return {
-    balance,
-    dailyLimit: usage.dailyLimit,
-    monthlyLimit: usage.monthlyLimit,
-    usedToday: usage.usedToday,
-    usedThisMonth: usage.usedThisMonth,
+    ...serializeSummary(budget, counts),
     history: {
       items: page.map((row) => ({
         id: row.id,
-        amount: row.amount,
+        amountPercent:
+          Math.sign(row.amountUnits) *
+          percentageOf(Math.abs(row.amountUnits), budget.allowanceUnits),
         type: row.type,
         note: row.note,
         referenceType: row.referenceType,

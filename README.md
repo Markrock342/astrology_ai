@@ -1,7 +1,7 @@
 # HORASARD — ดูดวงด้วย AI (โหราศาสตร์ไทย)
 
 แอปเว็บตัวเดียว: สมัคร → กรอกวันเกิด → เลือกหมวด → แชทถาม AI (Gemini)
-มีแพ็กเกจ Free/Pro, เครดิต, และ Admin CMS
+มีแพ็กเกจ Free/Pro, cost-weighted usage (%), top-up และ Admin CMS
 
 **เว็บที่ลูกค้าใช้:** [horasard.com](https://horasard.com/)
 
@@ -81,7 +81,7 @@ Vercel รัน `vercel-build` (`npm run ci` แล้วค่อย `next bui
 - **UI ไม่มี business logic** — หน้าเว็บเรียก `src/server/*` ผ่าน API เท่านั้น
 - **ห้ามเรียก Gemini/OpenAI จาก browser**
 - **ห้ามเก็บ API key เป็น plain text ใน DB** — ใช้ AES-GCM (`encryptedApiKey`) ดู [`docs/backend_ai_admin.md`](./docs/backend_ai_admin.md)
-- **หักเครดิตหลัง AI สำเร็จเท่านั้น** และต้องมี `Idempotency-Key`
+- **หัก usage ตามต้นทุนโมเดลหลัง AI สำเร็จเท่านั้น** และต้องมี `Idempotency-Key`
 
 ```
 src/app/        หน้าเว็บ + API routes (บาง — เรียก service)

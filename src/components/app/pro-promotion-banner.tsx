@@ -21,7 +21,7 @@ export function ProPromotionBanner() {
       <span>
         {" "}ถึง {formatDate(user.promotionEndsAt)}
         {user.promotionCreditGrant
-          ? ` · เพิ่มเครดิตให้ ${user.promotionCreditGrant} เครดิตแล้ว`
+          ? ` · เพิ่ม usage ให้ ${user.promotionCreditGrant}% แล้ว`
           : ""}
       </span>
     </div>

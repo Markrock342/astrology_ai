@@ -6,17 +6,17 @@ import { getEffectivePlan } from "@/server/user/account-service";
 /**
  * Who may ask the AI for a reading.
  *
- * Free is a **trial**, not a viewer tier — credits granted at sign-up must be
+ * Free is a **trial**, not a viewer tier — usage granted at sign-up must be
  * spendable. Walls that keep the trial from becoming an open bar:
  *
  *  1. Free categories only — Pro categories stay locked.
  *  2. Natal only — transit is a Pro feature.
  *  3. Verified email — stops farming throwaway accounts for the trial grant.
  *
- * Follow-ups are allowed on Free: each turn still spends a credit / quota slot
+ * Follow-ups are allowed on Free: each turn still spends usage / a quota slot
  * (same as ChatGPT). Blocking them made the chat feel broken ("คุยต่อไม่ได้").
  *
- * Credit balance + package day/month limits are enforced separately.
+ * Cost-weighted balance + optional package request limits are enforced separately.
  */
 export async function assertCanRequestReading(input: {
   userId: string;
@@ -49,7 +49,7 @@ export async function assertCanRequestReading(input: {
     select: { emailVerifiedAt: true, passwordHash: true },
   });
   // OAuth accounts have no password and are verified by the provider.
-  // Natal intros skip this wall — they do not spend trial credits.
+  // Natal intros skip this wall — they do not spend trial usage.
   if (
     !input.skipEmailVerify &&
     user?.passwordHash &&
@@ -57,7 +57,7 @@ export async function assertCanRequestReading(input: {
   ) {
     throw new AppError(
       "EMAIL_NOT_VERIFIED",
-      "กรุณายืนยันอีเมลก่อนใช้เครดิตทดลองฟรี — เราส่งลิงก์ยืนยันไปให้แล้ว",
+      "กรุณายืนยันอีเมลก่อนใช้ usage ทดลอง — เราส่งลิงก์ยืนยันไปให้แล้ว",
     );
   }
 

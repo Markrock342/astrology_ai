@@ -8,7 +8,7 @@ const usageQuerySchema = z.object({
   view: z.enum(["summary", "full"]).optional(),
 });
 
-/** GET /api/me/usage — balance, plan limits, usage counts, credit history. */
+/** GET /api/me/usage — cost-weighted percentage and immutable usage history. */
 export async function GET(req: Request) {
   return handle(async () => {
     const user = await requireUser();

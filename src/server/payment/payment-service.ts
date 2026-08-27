@@ -2,6 +2,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { addCredits } from "@/server/credit/credit-service";
+import {
+  addPurchasedUsage,
+  grantIncludedUsage,
+} from "@/server/usage/usage-budget-service";
 import { writeAudit } from "@/server/audit/audit-service";
 import {
   notifyAdminsNewPayment,
@@ -189,6 +193,7 @@ export async function reviewPayment(
             code: true,
             price: true,
             creditQuota: true,
+            usageBudgetUnits: true,
             creditOnly: true,
           },
         })
@@ -234,6 +239,20 @@ export async function reviewPayment(
     let subscription = null;
     if (input.status === "APPROVED" && pkg) {
       if (pkg.creditOnly) {
+        if (pkg.usageBudgetUnits > 0) {
+          await addPurchasedUsage(
+            payment.userId,
+            pkg.usageBudgetUnits,
+            {
+              type: "TOP_UP",
+              referenceType: "payment",
+              referenceId: `usage:${paymentId}`,
+              note: `เติม usage จากการชำระเงิน ${payment.amount} บาท (${pkg.code})`,
+              createdByAdminId: actor.id,
+            },
+            tx,
+          );
+        }
         if (pkg.creditQuota > 0) {
           await addCredits(
             payment.userId,
@@ -242,7 +261,7 @@ export async function reviewPayment(
               type: "PROMOTION",
               referenceType: "payment",
               referenceId: paymentId,
-              note: `เติมเครดิตจากการชำระเงิน ${payment.amount} บาท (${pkg.code})`,
+              note: `เติม usage สำรองเดิมจากการชำระเงิน ${payment.amount} บาท (${pkg.code})`,
               createdByAdminId: actor.id,
             },
             tx,
@@ -286,6 +305,22 @@ export async function reviewPayment(
           },
           select: { id: true, package: { select: { code: true, creditQuota: true } } },
         });
+
+        if (pkg.usageBudgetUnits > 0) {
+          await grantIncludedUsage(
+            payment.userId,
+            pkg.usageBudgetUnits,
+            {
+              type: "PACKAGE_RENEWAL",
+              referenceType: "payment",
+              referenceId: `usage:${paymentId}`,
+              note: `เริ่มรอบ usage จากการชำระเงิน ${payment.amount} บาท`,
+              createdByAdminId: actor.id,
+            },
+            { startsAt: now, endsAt: newExpiresAt },
+            tx,
+          );
+        }
 
         if (pkg.creditQuota > 0) {
           await addCredits(

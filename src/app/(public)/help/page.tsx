@@ -30,7 +30,7 @@ export default async function HelpPage() {
       </Link>
       <h1 className="text-2xl font-semibold text-[var(--foreground)]">คำถามที่พบบ่อย</h1>
       <p className="mt-2 text-sm text-[var(--muted)]">
-        คำตอบเกี่ยวกับเครดิต แพ็กเกจ Pro การชำระเงิน และการใช้งาน
+        คำตอบเกี่ยวกับ usage แพ็กเกจ Pro การชำระเงิน และการใช้งาน
       </p>
       <div className="mt-8">
         {items.length > 0 ? (

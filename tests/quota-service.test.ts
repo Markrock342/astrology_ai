@@ -14,7 +14,8 @@ const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
   create: vi.fn(),
   deleteMany: vi.fn(),
-  lockWallet: vi.fn(),
+  lockUsageWallet: vi.fn(),
+  assertHasUsageBudget: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -27,8 +28,9 @@ vi.mock("@/server/db", () => ({
   },
 }));
 
-vi.mock("@/server/credit/credit-service", () => ({
-  lockWalletForUpdate: mocks.lockWallet,
+vi.mock("@/server/usage/usage-budget-service", () => ({
+  lockUsageWalletForUpdate: mocks.lockUsageWallet,
+  assertHasUsageBudget: mocks.assertHasUsageBudget,
 }));
 
 describe("assertWithinUsageLimits (Wave E)", () => {
@@ -99,14 +101,19 @@ describe("reserveUsageSlot", () => {
     mocks.findFirstSub.mockResolvedValue({
       package: { dailyLimit: null, monthlyLimit: null },
     });
-    mocks.lockWallet.mockResolvedValue({ balance: 10, version: 1 });
+    mocks.lockUsageWallet.mockResolvedValue({
+      includedBalanceUnits: 100,
+      purchasedBalanceUnits: 0,
+      version: 1,
+    });
+    mocks.count.mockResolvedValue(0);
+    mocks.assertHasUsageBudget.mockResolvedValue(undefined);
     mocks.create.mockResolvedValue({ id: "res-1" });
   });
 
   it("creates RESERVED log when balance and quota allow", async () => {
     const id = await reserveUsageSlot({
       userId: "user-1",
-      creditCost: 1,
       provider: "GEMINI",
       modelId: "gemini-2.5-flash",
     });
@@ -118,12 +125,25 @@ describe("reserveUsageSlot", () => {
     );
   });
 
-  it("throws NO_QUOTA when balance is insufficient", async () => {
-    mocks.lockWallet.mockResolvedValue({ balance: 0, version: 1 });
+  it("blocks a second in-flight generation from consuming the same tail budget", async () => {
+    mocks.count.mockResolvedValue(1);
     await expect(
       reserveUsageSlot({
         userId: "user-1",
-        creditCost: 5,
+        provider: "GEMINI",
+        modelId: "gemini-2.5-flash",
+      }),
+    ).rejects.toMatchObject({ code: "DUPLICATE_REQUEST" });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("throws NO_QUOTA when usage is exhausted", async () => {
+    mocks.assertHasUsageBudget.mockRejectedValue(
+      Object.assign(new Error("usage exhausted"), { code: "NO_QUOTA" }),
+    );
+    await expect(
+      reserveUsageSlot({
+        userId: "user-1",
         provider: "GEMINI",
         modelId: "gemini-2.5-flash",
       }),

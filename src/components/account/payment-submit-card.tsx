@@ -109,11 +109,13 @@ export function PaymentSubmitCard({
   proPrice,
   paymentInfo,
   variant = "upgrade",
+  usagePercent,
 }: {
   proPrice: number;
   paymentInfo: CmsPaymentInfo;
-  /** `upgrade` = Free→Pro; `renew` = extend Pro; `topup` = credit refill. */
+  /** `upgrade` = Free→Pro; `renew` = extend Pro; `topup` = usage refill. */
   variant?: "upgrade" | "renew" | "topup";
+  usagePercent?: number;
 }) {
   const { refresh } = useAppData();
   const [file, setFile] = useState<File | null>(null);
@@ -210,7 +212,7 @@ export function PaymentSubmitCard({
     ? history.find((p) => p.status === "REJECTED")
     : undefined;
   const cardTitle = isTopUp
-    ? "เติมเครดิตเพิ่ม"
+    ? "เติม usage เพิ่ม"
     : isRenew
       ? "ต่ออายุสมาชิก Pro"
       : paymentInfo.title;
@@ -219,14 +221,14 @@ export function PaymentSubmitCard({
     : latestRejected
       ? "ส่งสลิปใหม่"
       : isTopUp
-        ? "แจ้งชำระเติมเครดิต"
+        ? "แจ้งชำระเติม usage"
         : isRenew
           ? "แจ้งชำระต่ออายุ Pro"
           : "แจ้งชำระเงิน";
 
   // Soften Pro-centric CMS copy on topup/renew (amountNote defaults to "แพ็กเกจ Pro").
   const amountNote = isTopUp
-    ? `โอนตามยอดเติมเครดิต (${amount} บาท)`
+    ? `โอนตามยอดเติม usage (${amount} บาท)`
     : isRenew
       ? `โอนตามยอดต่ออายุ Pro (${amount} บาท)`
       : paymentInfo.amountNote;
@@ -234,8 +236,9 @@ export function PaymentSubmitCard({
     let text = step.replaceAll("{price}", String(proPrice));
     if (isTopUp) {
       text = text
-        .replaceAll("แพ็กเกจ Pro", "เติมเครดิต")
-        .replaceAll("อัปเกรด Pro", "เติมเครดิต");
+        .replaceAll("แพ็กเกจ Pro", "เติม usage")
+        .replaceAll("อัปเกรด Pro", "เติม usage")
+        .replaceAll("เติมเครดิต", "เติม usage");
     } else if (isRenew) {
       text = text.replaceAll("อัปเกรด Pro", "ต่ออายุ Pro");
     }
@@ -249,12 +252,13 @@ export function PaymentSubmitCard({
       </h2>
       {isTopUp ? (
         <p className="mt-2 text-xs text-[var(--muted)]">
-          สมาชิก Pro สามารถโอนเงินเพื่อเติมเครดิตเพิ่มได้ — แอดมินจะตรวจสลิปและเติมเครดิตให้ภายใน
-          1–2 วันทำการ
+          สมาชิก Pro สามารถโอนเงินเพื่อเติม usage
+          {usagePercent ? ` อีก ${usagePercent}%` : " เพิ่ม"} — ยอดที่เติมแยกจะไม่หายเมื่อต่ออายุ
+          แอดมินจะตรวจสลิปและเพิ่ม usage ให้ภายใน 1–2 วันทำการ
         </p>
       ) : isRenew ? (
         <p className="mt-2 text-xs text-[var(--muted)]">
-          โอนตามยอดแพ็ก Pro เพื่อต่ออายุสมาชิกอีก 30 วัน — ไม่ใช่การเติมเครดิตอย่างเดียว
+          โอนตามยอดแพ็ก Pro เพื่อต่ออายุสมาชิกอีก 30 วัน และเริ่ม usage รอบใหม่
         </p>
       ) : null}
       <div className="mt-3 rounded-xl bg-[var(--surface-2)] p-4 text-sm text-[var(--muted)]">

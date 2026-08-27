@@ -206,7 +206,7 @@ export function PaymentsPanel() {
     <AdminPage>
       <PageHeader
         title="ตรวจการโอนเงิน"
-        description="ผู้ใช้แจ้งชำระจากหน้าบัญชี — อนุมัติตามแพ็กเกจที่เลือก (Pro หรือเติมเครดิต) อัตโนมัติ"
+        description="ผู้ใช้แจ้งชำระจากหน้าบัญชี — อนุมัติตามแพ็กเกจที่เลือก (Pro หรือเติม usage) อัตโนมัติ"
       />
 
       <InfoBox>
@@ -289,7 +289,7 @@ export function PaymentsPanel() {
                   }
                 >
                   {p.packageCode === "CREDIT_TOPUP" || p.packageCode === "TOPUP"
-                    ? "เติมเครดิต"
+                    ? "เติม usage"
                     : p.packageCode === "PRO"
                       ? "Pro"
                       : (p.packageCode ?? "—")}

@@ -294,7 +294,7 @@ export async function restoreFaqRevision(
 
 export const FAQ_CATEGORIES = [
   { id: "general", label: "ทั่วไป" },
-  { id: "credits", label: "เครดิต & การใช้งาน" },
+  { id: "credits", label: "usage & การใช้งาน" },
   { id: "pro", label: "แพ็กเกจ Pro" },
   { id: "payment", label: "การชำระเงิน" },
   { id: "accuracy", label: "ความแม่นยำ" },
@@ -303,9 +303,9 @@ export const FAQ_CATEGORIES = [
 export const DEFAULT_FAQ_SEED: FaqInput[] = [
   {
     category: "credits",
-    question: "เครดิตใช้ทำอะไรได้บ้าง?",
+    question: "usage คิดอย่างไร?",
     answer:
-      "เครดิตใช้สำหรับขอคำทำนายและสนทนากับ AI ในแต่ละหมวดดูดวง แต่ละคำถามอาจใช้เครดิตตามที่หมวดนั้นกำหนด",
+      "usage แสดงเป็นเปอร์เซ็นต์เดียว โดยระบบแปลง token และราคาของโมเดลที่ใช้จริงเป็นต้นทุน คำตอบแต่ละครั้งจึงใช้เปอร์เซ็นต์ไม่เท่ากัน",
     sortOrder: 1,
   },
   {

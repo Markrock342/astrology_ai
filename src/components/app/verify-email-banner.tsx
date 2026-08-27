@@ -62,7 +62,7 @@ export function VerifyEmailBanner() {
           ยืนยันอีเมล{" "}
           <span className="font-medium">{user.email}</span>{" "}
           <span className="text-[var(--muted)]">
-            ก่อนใช้เครดิตทดลอง — เช็กกล่องจดหมายหรือโฟลเดอร์สแปม
+            ก่อนใช้ usage ทดลอง — เช็กกล่องจดหมายหรือโฟลเดอร์สแปม
           </span>
         </p>
         <button

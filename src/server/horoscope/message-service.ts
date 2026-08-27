@@ -172,7 +172,7 @@ export async function acceptMessage(
     data: {
       status: "FAILED",
       content:
-        "ระบบใช้เวลานานเกินไปหรือถูกตัดการเชื่อมต่อ กรุณาลองถามใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
+        "ระบบใช้เวลานานเกินไปหรือถูกตัดการเชื่อมต่อ กรุณาลองถามใหม่อีกครั้ง (ไม่ถูกหัก usage)",
     },
   });
 
@@ -191,7 +191,7 @@ export async function acceptMessage(
     },
     data: {
       status: "FAILED",
-      content: "ถูกยกเลิกเพราะมีคำถามใหม่ (ไม่ถูกหักเครดิต)",
+      content: "ถูกยกเลิกเพราะมีคำถามใหม่ (ไม่ถูกหัก usage)",
       creditCost: 0,
       stopRequested: true,
       idempotencyKey: null,
@@ -348,7 +348,7 @@ export async function requestStopGeneration(input: {
         status: "FAILED",
         content:
           pending.content ||
-          "หยุดการทำนายแล้ว (ไม่ถูกหักเครดิตเพราะยังไม่มีคำตอบ)",
+          "หยุดการทำนายแล้ว (ไม่ถูกหัก usage เพราะยังไม่มีคำตอบ)",
         creditCost: 0,
       },
     });

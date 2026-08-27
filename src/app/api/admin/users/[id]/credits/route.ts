@@ -3,7 +3,7 @@ import { requireAdmin } from "@/server/auth/rbac";
 import { userCreditSchema } from "@/lib/admin-schemas";
 import { adjustUserCredits } from "@/server/admin/user-admin-service";
 
-/** POST /api/admin/users/:id/credits — adjust credits via the ledger (audited). */
+/** Compatibility endpoint: adjust cost-weighted usage percentage (audited). */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   return handle(async () => {
     const admin = await requireAdmin();
