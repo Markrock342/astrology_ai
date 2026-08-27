@@ -3,10 +3,6 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { assertCanRequestReading } from "@/server/horoscope/access-policy";
 import {
-  deductCredits,
-  lockWalletForUpdate,
-} from "@/server/credit/credit-service";
-import {
   assertWithinUsageLimits,
   releaseUsageReservation,
   reserveUsageSlot,
@@ -27,7 +23,15 @@ import {
 } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
-import { estimateCostUsd } from "@/config/ai-pricing";
+import {
+  AI_PRICING_VERSION,
+  estimateCostUsd,
+} from "@/config/ai-pricing";
+import {
+  assertHasUsageBudget,
+  deductUsageCost,
+  usageUnitsFromUsd,
+} from "@/server/usage/usage-budget-service";
 import {
   assertUsableEngineChart,
   requireReadyNatalChart,
@@ -71,9 +75,9 @@ import {
 /**
  * Orchestrates the reading flow (spec 5.6). Enforces the four hard rules:
  *   - quota slot reserved under lock BEFORE any AI call (SUCCESS + RESERVED count)
- *   - AI failure/timeout => release reservation, NO credit charged
+ *   - AI failure/timeout => release reservation, NO usage charged
  *   - retry / double-click => idempotencyKey returns the existing reading
- *   - credit deduction + reading + usage finalize committed in ONE transaction
+ *   - usage deduction + reading + log finalize committed in ONE transaction
  *
  * Engine-first: every Gemini call gets natal + user chart memory (+ transit when needed).
  */
@@ -254,11 +258,11 @@ async function runReading(
 
   // Chart phase — natal + optional transit evidence.
   onPhase?.("chart");
-  const [profile, wallet, , natalChartRaw, intakeRow] = await Promise.all([
+  const [profile, , , natalChartRaw, intakeRow] = await Promise.all([
     prisma.birthProfile.findUnique({ where: { userId } }),
     skipCredits
-      ? Promise.resolve(null)
-      : prisma.creditWallet.findUnique({ where: { userId } }),
+      ? Promise.resolve(undefined)
+      : assertHasUsageBudget(userId),
     skipCredits ? Promise.resolve(undefined) : assertWithinUsageLimits(userId),
     requireReadyNatalChart(userId),
     prisma.userIntake.findUnique({
@@ -267,9 +271,6 @@ async function runReading(
     }),
   ]);
   if (!profile) throw new AppError("VALIDATION", "Birth profile is required");
-  if (!skipCredits && (wallet?.balance ?? 0) < category.creditCost) {
-    throw new AppError("NO_QUOTA", "Not enough credit");
-  }
 
   const natalChart = assertUsableEngineChart(natalChartRaw);
   const birthInput = natalChart.input;
@@ -405,7 +406,6 @@ async function runReading(
     ? null
     : await reserveUsageSlot({
         userId,
-        creditCost: category.creditCost,
         provider: config.provider,
         modelId: config.modelId,
       });
@@ -450,7 +450,7 @@ async function runReading(
       });
       return {
         id: "",
-        responseText: "หยุดการทำนายแล้ว (ไม่ถูกหักเครดิตเพราะยังไม่มีคำตอบ)",
+        responseText: "หยุดการทำนายแล้ว (ไม่ถูกหัก usage เพราะยังไม่มีคำตอบ)",
         provider: result.provider,
         modelId: result.modelId,
         creditCost: 0,
@@ -499,16 +499,39 @@ async function runReading(
         ? `${result.rawText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
         : result.rawText;
 
-    const creditCost = skipCredits ? 0 : category.creditCost;
+    const creditCost = 0;
+    // Providers normally return authoritative counts. If a compatible endpoint
+    // omits them, meter conservatively from text length instead of making that
+    // model accidentally unlimited. The pricingVersion marks the fallback.
+    const usageWasEstimated =
+      result.usage?.inputTokens == null || result.usage?.outputTokens == null;
+    const meteredInputUsage =
+      result.usage?.inputTokens ??
+      Math.ceil(
+        (systemPrompt.length +
+          userPrompt.length +
+          JSON.stringify(conversationHistory).length) /
+          3,
+      );
+    const meteredOutputUsage =
+      result.usage?.outputTokens ?? Math.ceil(result.rawText.length / 3);
+    const meteredCachedUsage = result.usage?.cachedTokens ?? 0;
+    const estimatedCost = estimateCostUsd(
+      result.modelId,
+      meteredInputUsage,
+      meteredOutputUsage,
+      meteredCachedUsage,
+    );
+    const requestedUsageUnits = skipCredits
+      ? 0
+      : usageUnitsFromUsd(estimatedCost);
 
-    // Success => persist reading. Paid turns finalize the reservation and deduct.
+    // Success => persist reading. Metered turns reconcile actual provider cost.
     const reading = await prisma.$transaction(async (tx) => {
       if (!skipCredits) {
         if (!reservationId) {
           throw new AppError("INTERNAL", "Usage reservation missing");
         }
-        await lockWalletForUpdate(userId, tx);
-
         const reserved = await tx.aIUsageLog.findFirst({
           where: { id: reservationId, userId, status: "RESERVED" },
           select: { id: true },
@@ -536,16 +559,24 @@ async function runReading(
           promptVersion: undefined,
           status: "SUCCESS",
           creditCost,
+          usageCostUnits: 0,
         },
       });
 
+      let usageCostUnits = 0;
       if (!skipCredits && reservationId) {
-        await deductCredits(
+        const charge = await deductUsageCost(
           userId,
-          category.creditCost,
-          { type: "AI_USAGE", referenceType: "reading", referenceId: created.id },
+          requestedUsageUnits,
+          {
+            type: "AI_USAGE",
+            referenceType: "reading",
+            referenceId: created.id,
+            note: "ใช้ AI วิเคราะห์ดวง",
+          },
           tx,
         );
+        usageCostUnits = charge.chargedUnits;
 
         await tx.aIUsageLog.update({
           where: { id: reservationId },
@@ -558,20 +589,20 @@ async function runReading(
             // and the admin's per-model attribution disagree with reality.
             provider: result.provider,
             modelId: result.modelId,
-            inputUsage: result.usage?.inputTokens,
-            outputUsage: result.usage?.outputTokens,
+            inputUsage: meteredInputUsage,
+            outputUsage: meteredOutputUsage,
+            cachedInputUsage: meteredCachedUsage,
             latencyMs: result.latencyMs,
             firstTokenMs: result.firstTokenMs,
             // The billable row is UPDATED from its reservation, so it never passes
             // through logUsage() — price it here or the one row that actually
             // costs money is the one row with no cost on it. Cache hits are
             // priced at 10%, so this is the true bill, not a list-price guess.
-            estimatedCost: estimateCostUsd(
-              result.modelId,
-              result.usage?.inputTokens,
-              result.usage?.outputTokens,
-              result.usage?.cachedTokens,
-            ),
+            estimatedCost,
+            usageCostUnits,
+            pricingVersion: usageWasEstimated
+              ? `${AI_PRICING_VERSION}:local-estimate`
+              : AI_PRICING_VERSION,
           },
         });
       } else {
@@ -591,7 +622,11 @@ async function runReading(
         );
       }
 
-      return created;
+      if (usageCostUnits === 0) return created;
+      return tx.horoscopeReading.update({
+        where: { id: created.id },
+        data: { usageCostUnits },
+      });
     });
 
     // Meta (summaryLine + follow-up chips) is a second Flash-Lite call. Awaiting

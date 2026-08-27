@@ -221,13 +221,13 @@ export function CategoriesManager({
     <AdminPage>
       <PageHeader
         title="หมวดดูดวง"
-        description="หัวข้อที่ผู้ใช้เลือกใน sidebar — กำหนดว่า Free/Pro ใช้เครดิตกี่ครั้ง และอัปโหลดไอคอนได้เอง"
+        description="หัวข้อที่ผู้ใช้เลือกใน sidebar — กำหนดสิทธิ์ Free/Pro และอัปโหลดไอคอนได้เอง"
         action={<Button onClick={startCreate}>+ หมวดใหม่</Button>}
       />
 
       <InfoBox>
         <strong className="text-[var(--foreground)]">Slug</strong> = ชื่อใน URL (ภาษาอังกฤษ, ไม่มีช่องว่าง) ·{" "}
-        <strong className="text-[var(--foreground)]">เครดิต/คำถาม</strong> = หักกี่ครั้งต่อคำถาม ·{" "}
+        usage ของแต่ละคำตอบคำนวณจากต้นทุนโมเดลจริง ·{" "}
         <strong className="text-[var(--foreground)]">ลำดับ</strong> = เรียงใน sidebar (เลขน้อยอยู่บน) ·{" "}
         <strong className="text-[var(--foreground)]">ไอคอน</strong> = PNG โปร่งใส{" "}
         <strong className="text-[var(--foreground)]">64×64 หรือ 128×128 px</strong> (สูงสุด 256×256)
@@ -276,16 +276,6 @@ export function CategoriesManager({
                 <option value="FREE">ทุกคน (ฟรี)</option>
                 <option value="PRO">เฉพาะ Pro</option>
               </Select>
-            </Field>
-            <Field label="เครดิตต่อคำถาม" hint="หักจากยอดผู้ใช้ทุกครั้งที่ถาม">
-              <TextInput
-                type="number"
-                min={0}
-                value={form.creditCost}
-                onChange={(e) =>
-                  setForm({ ...form, creditCost: Number(e.target.value) })
-                }
-              />
             </Field>
             <Field label="ลำดับใน sidebar" hint="เลขน้อย = แสดงบน">
               <TextInput
@@ -394,7 +384,7 @@ export function CategoriesManager({
               <Badge tone={cat.accessLevel === "PRO" ? "gold" : "green"}>
                 {cat.accessLevel === "PRO" ? "Pro" : "ฟรี"}
               </Badge>
-              <Badge>{cat.creditCost} เครดิต</Badge>
+              <Badge>คิดตามต้นทุนจริง</Badge>
               {isCustomCategoryIcon(cat.icon) ? (
                 <Badge tone="gold">ไอคอนอัปโหลด</Badge>
               ) : null}

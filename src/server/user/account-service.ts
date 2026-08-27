@@ -1,6 +1,8 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getBalance } from "@/server/credit/credit-service";
+import { availableUsagePercent } from "@/server/usage/usage-budget-service";
+import { getUsageBudgetSnapshot } from "@/server/usage/usage-budget-service";
 import { MAX_BIRTH_EDITS, isStaffRole } from "@/server/user/birth-profile-service";
 import {
   isLaunchProPromotionActive,
@@ -42,6 +44,14 @@ export async function getMe(userId: string) {
       birthProfile: { select: { id: true, nickname: true, editCount: true } },
       intake: { select: { id: true } },
       creditWallet: { select: { balance: true } },
+      usageWallet: {
+        select: {
+          includedBalanceUnits: true,
+          includedAllowanceUnits: true,
+          purchasedBalanceUnits: true,
+          purchasedAllowanceUnits: true,
+        },
+      },
       subscriptions: {
         where: {
           status: "ACTIVE",
@@ -60,6 +70,9 @@ export async function getMe(userId: string) {
   const plan: "FREE" | "PRO" =
     user.subscriptions.length > 0 || promotionActive ? "PRO" : "FREE";
   const balance = user.creditWallet?.balance ?? 0;
+  const includedUsageBalance = user.usageWallet?.includedBalanceUnits ?? 0;
+  const purchasedUsageBalance = user.usageWallet?.purchasedBalanceUnits ?? 0;
+  const usageAllowance = user.usageWallet?.includedAllowanceUnits ?? 0;
   const paidExpiry = user.subscriptions[0]?.expiresAt ?? null;
   const effectiveExpiry =
     promotionActive &&
@@ -77,6 +90,7 @@ export async function getMe(userId: string) {
   const { passwordHash, ...profile } = user;
   // Drop relation bags that are not part of the public profile payload.
   delete (profile as { creditWallet?: unknown }).creditWallet;
+  delete (profile as { usageWallet?: unknown }).usageWallet;
   delete (profile as { subscriptions?: unknown }).subscriptions;
   delete (profile as { intake?: unknown }).intake;
 
@@ -96,6 +110,11 @@ export async function getMe(userId: string) {
       ? LAUNCH_PRO_PROMOTION.creditGrant
       : null,
     creditBalance: balance,
+    usageRemainingPercent: availableUsagePercent(
+      includedUsageBalance,
+      purchasedUsageBalance,
+      usageAllowance,
+    ),
     /** Free cannot chat AI — must upgrade to Pro (`CHAT_REQUIRES_PRO`). */
     canChat: plan === "PRO",
     emailVerified: Boolean(user.emailVerifiedAt),
@@ -120,6 +139,7 @@ export async function getMyPackage(userId: string) {
           price: true,
           billingLabel: true,
           creditQuota: true,
+          usageBudgetUnits: true,
           dailyLimit: true,
           monthlyLimit: true,
         },
@@ -127,9 +147,10 @@ export async function getMyPackage(userId: string) {
     },
   });
 
-  const [plan, balance] = await Promise.all([
+  const [plan, balance, usageBudget] = await Promise.all([
     getEffectivePlan(userId),
     getBalance(userId),
+    getUsageBudgetSnapshot(userId),
   ]);
 
   // Prefer the effective Pro subscription for expiry display (skip expired rows).
@@ -156,6 +177,7 @@ export async function getMyPackage(userId: string) {
                 price: true,
                 billingLabel: true,
                 creditQuota: true,
+                usageBudgetUnits: true,
                 dailyLimit: true,
                 monthlyLimit: true,
               },
@@ -168,6 +190,9 @@ export async function getMyPackage(userId: string) {
     plan,
     credits: balance,
     creditBalance: balance,
+    usageRemainingPercent: usageBudget.remainingPercent,
+    usageUsedPercent: usageBudget.usedPercent,
+    usagePeriodEndsAt: usageBudget.periodEndsAt?.toISOString() ?? null,
     canChat: plan === "PRO",
     subscription: effectiveSub
       ? {

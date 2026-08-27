@@ -16,6 +16,7 @@ export type PublicPackage = {
   price: number;
   billingLabel: string | null;
   creditQuota: number;
+  usageBudgetUnits: number;
   description: string | null;
   features: string[];
   upgradeSteps: string[];
@@ -26,6 +27,9 @@ export type PublicPackage = {
 type MyPackage = {
   plan: "FREE" | "PRO";
   creditBalance: number;
+  usageRemainingPercent: number;
+  usageUsedPercent: number;
+  usagePeriodEndsAt: string | null;
   subscription: {
     status?: string;
     startsAt?: string;
@@ -40,16 +44,24 @@ type MyPackage = {
 };
 
 function displayFeatures(pkg: PublicPackage): string[] {
-  if (pkg.features.length > 0) return pkg.features;
+  if (pkg.features.length > 0) {
+    return pkg.features.map((feature) =>
+      feature.startsWith("เครดิต")
+        ? pkg.type === "PRO"
+          ? "AI usage 100% ต่อรอบแพ็กเกจ"
+          : "AI usage ทดลอง 100%"
+        : feature,
+    );
+  }
   if (pkg.type === "PRO") {
     return [
-      `เครดิต ${pkg.creditQuota} ครั้ง`,
+      "AI usage 100% ต่อรอบแพ็กเกจ",
       "ปลดล็อกทุกหมวด + โหมดดวงจร",
       "คำถามแนะนำครบทุกหมวด",
     ];
   }
   return [
-    `เครดิต ${pkg.creditQuota} ครั้ง`,
+    "AI usage ทดลอง 100%",
     "หมวด「ตัวตน」กับ「การงาน」",
     "ถาม–ตอบกับ AI (ยืนยันอีเมลก่อน)",
   ];
@@ -99,11 +111,12 @@ export function AccountView({
   const topUpPkg =
     packages.find((p) => p.code === "TOPUP" || p.code === "CREDIT_TOPUP") ??
     proPkg;
-  const lowCreditThreshold = topUpPkg
-    ? Math.max(3, Math.floor(topUpPkg.creditQuota * 0.2))
-    : 5;
+  const topUpPercent =
+    topUpPkg && proPkg && proPkg.usageBudgetUnits > 0
+      ? Math.round((topUpPkg.usageBudgetUnits / proPkg.usageBudgetUnits) * 100)
+      : undefined;
   const showTopUpBanner =
-    isPro && myPackage.creditBalance <= lowCreditThreshold;
+    isPro && myPackage.usageRemainingPercent <= 20;
 
   const expiresAt = myPackage.subscription?.expiresAt ?? null;
   const daysLeft = isPro && expiresAt ? daysUntil(expiresAt) : null;
@@ -111,6 +124,8 @@ export function AccountView({
     daysLeft != null && daysLeft >= 0 && daysLeft <= PRO_EXPIRY_WARN_DAYS;
 
   const usageLimits: UsageLimitsFallback = {
+    remainingPercent: myPackage.usageRemainingPercent,
+    periodEndsAt: myPackage.usagePeriodEndsAt ?? expiresAt,
     dailyLimit: myPackage.subscription?.package.dailyLimit ?? null,
     monthlyLimit: myPackage.subscription?.package.monthlyLimit ?? null,
   };
@@ -226,17 +241,18 @@ export function AccountView({
           <>
             {showTopUpBanner && (
               <div className="mt-6 rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-4 py-3 text-sm text-[var(--muted)]">
-                เครดิตเหลือ{" "}
+                usage เหลือ{" "}
                 <span className="font-semibold text-[var(--foreground)]">
-                  {myPackage.creditBalance}
+                  {myPackage.usageRemainingPercent}%
                 </span>{" "}
-                — เติมเครดิตเพื่อถามต่อได้ไม่สะดุด
+                — เติม usage เพื่อถามต่อได้ไม่สะดุด
               </div>
             )}
             <div id="topup">
               <PaymentSubmitCard
                 variant="topup"
                 proPrice={topUpPkg.price}
+                usagePercent={topUpPercent}
                 paymentInfo={paymentInfo}
               />
             </div>

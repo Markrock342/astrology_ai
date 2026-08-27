@@ -17,6 +17,9 @@ export type ModelPricing = {
   cachedInputPerMTok: number;
 };
 
+/** Frozen onto usage logs so later rate-card edits never rewrite old billing. */
+export const AI_PRICING_VERSION = "2026-08-28";
+
 export const AI_PRICING: Record<string, ModelPricing> = {
   // Intro pricing through 2026-12-31; list price after that is $1.50 / $7.50.
   "gemini-3.7-flash": {
@@ -25,9 +28,9 @@ export const AI_PRICING: Record<string, ModelPricing> = {
     cachedInputPerMTok: 0.075,
   },
   "gemini-3.6-flash": {
-    inputPerMTok: 1.5,
-    outputPerMTok: 9.0,
-    cachedInputPerMTok: 0.15,
+    inputPerMTok: 0.75,
+    outputPerMTok: 3.75,
+    cachedInputPerMTok: 0.075,
   },
   "gemini-3.5-flash": {
     inputPerMTok: 1.5,
@@ -35,16 +38,18 @@ export const AI_PRICING: Record<string, ModelPricing> = {
     cachedInputPerMTok: 0.15,
   },
   "gemini-3.5-flash-lite": {
-    inputPerMTok: 0.25,
-    outputPerMTok: 1.5,
-    cachedInputPerMTok: 0.025,
+    inputPerMTok: 0.3,
+    outputPerMTok: 2.5,
+    cachedInputPerMTok: 0.03,
   },
   "gemini-3.1-flash-lite": {
     inputPerMTok: 0.25,
     outputPerMTok: 1.5,
     cachedInputPerMTok: 0.025,
   },
-  // OpenAI (per 1M tokens; cached input at OpenAI's 50% prompt-cache rate).
+  // OpenAI standard text-token rates per 1M tokens. Horoscope prompts stay far
+  // below the GPT-5.6 long-context threshold; if that changes, add the >272K
+  // multiplier documented on the model pages.
   // Source: https://openai.com/api/pricing — keep in sync when adding GPT rows
   // via the admin "โมเดล AI" form so cost/profit reports aren't Gemini-priced.
   "gpt-4o": { inputPerMTok: 2.5, outputPerMTok: 10.0, cachedInputPerMTok: 1.25 },
@@ -52,6 +57,14 @@ export const AI_PRICING: Record<string, ModelPricing> = {
   "gpt-4.1": { inputPerMTok: 2.0, outputPerMTok: 8.0, cachedInputPerMTok: 0.5 },
   "gpt-4.1-mini": { inputPerMTok: 0.4, outputPerMTok: 1.6, cachedInputPerMTok: 0.1 },
   "gpt-4.1-nano": { inputPerMTok: 0.1, outputPerMTok: 0.4, cachedInputPerMTok: 0.025 },
+  "gpt-5": { inputPerMTok: 1.25, outputPerMTok: 10.0, cachedInputPerMTok: 0.125 },
+  "gpt-5.6": { inputPerMTok: 4.0, outputPerMTok: 20.0, cachedInputPerMTok: 0.4 },
+  "gpt-5.6-sol": { inputPerMTok: 4.0, outputPerMTok: 20.0, cachedInputPerMTok: 0.4 },
+  "gpt-5.6-terra": { inputPerMTok: 2.0, outputPerMTok: 12.0, cachedInputPerMTok: 0.2 },
+  "gpt-5.6-luna": { inputPerMTok: 0.2, outputPerMTok: 1.2, cachedInputPerMTok: 0.02 },
+  // Compatibility for configs created before the official GPT-5.6 tier names.
+  "gpt-5.6-pro": { inputPerMTok: 4.0, outputPerMTok: 20.0, cachedInputPerMTok: 0.4 },
+  "gpt-5.6-mini": { inputPerMTok: 2.0, outputPerMTok: 12.0, cachedInputPerMTok: 0.2 },
 };
 
 /** Gemini fallback for unknown Gemini/preview ids. */

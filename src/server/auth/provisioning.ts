@@ -1,6 +1,7 @@
 import type { Role } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { addCredits } from "@/server/credit/credit-service";
+import { grantIncludedUsage } from "@/server/usage/usage-budget-service";
 import { DEFAULTS } from "@/config/constants";
 import {
   getLaunchPromotionCreditReferenceId,
@@ -34,6 +35,7 @@ export async function provisionUser(input: {
       },
     });
     await tx.creditWallet.create({ data: { userId: created.id, balance: 0 } });
+    await tx.usageWallet.create({ data: { userId: created.id } });
 
     const freePkg = await tx.package.findUnique({ where: { code: "FREE" } });
     if (freePkg) {
@@ -45,6 +47,20 @@ export async function provisionUser(input: {
           activationSource: "SYSTEM_DEFAULT",
         },
       });
+      if (freePkg.usageBudgetUnits > 0) {
+        await grantIncludedUsage(
+          created.id,
+          freePkg.usageBudgetUnits,
+          {
+            type: "INITIAL_GRANT",
+            referenceType: "user",
+            referenceId: `free-signup:${created.id}`,
+            note: "สิทธิ์ทดลองใช้งาน AI",
+          },
+          { startsAt: new Date(), endsAt: null },
+          tx,
+        );
+      }
     }
 
     const promotionActive = isLaunchProPromotionActive();
@@ -61,6 +77,27 @@ export async function provisionUser(input: {
             activationSource: "SYSTEM_DEFAULT",
           },
         });
+        const promotionUsage = Math.round(
+          (proPkg.usageBudgetUnits * LAUNCH_PRO_PROMOTION.creditGrant) /
+            Math.max(proPkg.creditQuota, 1),
+        );
+        if (promotionUsage > 0) {
+          await grantIncludedUsage(
+            created.id,
+            promotionUsage,
+            {
+              type: "PROMOTION",
+              referenceType: "PROMOTION",
+              referenceId: `usage:${getLaunchPromotionCreditReferenceId(created.id)}`,
+              note: "Pro ทดลอง — งบการใช้งาน AI",
+            },
+            {
+              startsAt: LAUNCH_PRO_PROMOTION.startsAt,
+              endsAt: LAUNCH_PRO_PROMOTION.endsAt,
+            },
+            tx,
+          );
+        }
       }
     }
 
@@ -87,7 +124,7 @@ export async function provisionUser(input: {
           referenceType: "PROMOTION",
           // Ledger idempotency is global, so namespace the campaign per user.
           referenceId: getLaunchPromotionCreditReferenceId(created.id),
-          note: `Pro ทดลอง 1 เดือน +${LAUNCH_PRO_PROMOTION.creditGrant} เครดิต`,
+          note: `สำรองเครดิตเดิมสำหรับ Pro ทดลอง 1 เดือน`,
         },
         tx,
       );

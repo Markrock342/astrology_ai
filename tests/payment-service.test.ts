@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   subscriptionCreate: vi.fn(),
   transaction: vi.fn(),
   addCredits: vi.fn(),
+  grantIncludedUsage: vi.fn(),
+  addPurchasedUsage: vi.fn(),
   writeAudit: vi.fn(),
   userFindUnique: vi.fn(),
 }));
@@ -41,6 +43,11 @@ vi.mock("@/server/db", () => ({
 
 vi.mock("@/server/credit/credit-service", () => ({
   addCredits: mocks.addCredits,
+}));
+
+vi.mock("@/server/usage/usage-budget-service", () => ({
+  grantIncludedUsage: mocks.grantIncludedUsage,
+  addPurchasedUsage: mocks.addPurchasedUsage,
 }));
 
 vi.mock("@/server/audit/audit-service", () => ({
@@ -137,6 +144,7 @@ describe("payment-service (M4)", () => {
       code: "PRO",
       price: 199,
       creditQuota: 100,
+      usageBudgetUnits: 1_111_111,
       creditOnly: false,
     };
     const updated = {
@@ -190,6 +198,13 @@ describe("payment-service (M4)", () => {
       "user-1",
       100,
       expect.objectContaining({ type: "PACKAGE_RENEWAL", referenceType: "payment" }),
+      tx,
+    );
+    expect(mocks.grantIncludedUsage).toHaveBeenCalledWith(
+      "user-1",
+      1_111_111,
+      expect.objectContaining({ type: "PACKAGE_RENEWAL" }),
+      expect.objectContaining({ startsAt: expect.any(Date), endsAt: expect.any(Date) }),
       tx,
     );
     expect(mocks.writeAudit).toHaveBeenCalled();
@@ -264,6 +279,7 @@ describe("payment-service (M4)", () => {
       code: "CREDIT_TOPUP",
       price: 99,
       creditQuota: 50,
+      usageBudgetUnits: 555_556,
       creditOnly: true,
     });
 
@@ -302,6 +318,12 @@ describe("payment-service (M4)", () => {
       "user-1",
       50,
       expect.objectContaining({ type: "PROMOTION" }),
+      tx,
+    );
+    expect(mocks.addPurchasedUsage).toHaveBeenCalledWith(
+      "user-1",
+      555_556,
+      expect.objectContaining({ type: "TOP_UP" }),
       tx,
     );
     expect(mocks.subscriptionCreate).not.toHaveBeenCalled();

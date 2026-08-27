@@ -31,13 +31,25 @@ type UserDetail = {
     birthProvince: string | null;
     editCount: number;
   } | null;
-  creditWallet: { balance: number } | null;
   usage?: {
     balance: number;
+    usedPercent: number;
+    remainingPercent: number;
+    includedRemainingPercent: number;
+    purchasedRemainingPercent: number;
     dailyLimit: number | null;
     monthlyLimit: number | null;
     usedToday: number;
     usedThisMonth: number;
+    history: {
+      items: Array<{
+        id: string;
+        amountPercent: number;
+        type: string;
+        note: string | null;
+        createdAt: string;
+      }>;
+    };
   } | null;
   cost?: {
     plan: "FREE" | "PRO";
@@ -55,13 +67,6 @@ type UserDetail = {
     status: string;
     package: { code: string; name: string; type: string };
     expiresAt: string | null;
-  }>;
-  creditTxns: Array<{
-    id: string;
-    amount: number;
-    type: string;
-    note: string | null;
-    createdAt: string;
   }>;
 };
 
@@ -194,7 +199,7 @@ export function UserDetailManager({
       setCreditNote("");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "ปรับเครดิตไม่สำเร็จ");
+      setError(e instanceof Error ? e.message : "ปรับ usage ไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -305,30 +310,17 @@ export function UserDetailManager({
                   </Badge>
                 }
               />
-              <Row label="เครดิตคงเหลือ" value={String(user.creditWallet?.balance ?? 0)} />
               <Row
-                label="ใช้วันนี้"
-                value={
-                  user.usage
-                    ? `${user.usage.usedToday}${
-                        user.usage.dailyLimit != null
-                          ? ` / ${user.usage.dailyLimit}`
-                          : " (ไม่จำกัด)"
-                      }`
-                    : "—"
-                }
+                label="usage คงเหลือ"
+                value={user.usage ? `${user.usage.remainingPercent}%` : "—"}
               />
               <Row
-                label="ใช้เดือนนี้"
-                value={
-                  user.usage
-                    ? `${user.usage.usedThisMonth}${
-                        user.usage.monthlyLimit != null
-                          ? ` / ${user.usage.monthlyLimit}`
-                          : " (ไม่จำกัด)"
-                      }`
-                    : "—"
-                }
+                label="usage จากรอบแพ็กเกจ"
+                value={user.usage ? `${user.usage.includedRemainingPercent}%` : "—"}
+              />
+              <Row
+                label="usage เติมเพิ่ม"
+                value={user.usage ? `${user.usage.purchasedRemainingPercent}%` : "—"}
               />
               <Row
                 label="แพ็กเกจ"
@@ -380,7 +372,7 @@ export function UserDetailManager({
                 {user.status === "ACTIVE" ? "ระงับบัญชี" : "เปิดใช้งาน"}
               </Button>
               <Button variant="ghost" onClick={resetUsageQuota} disabled={busy}>
-                รีเซ็ตโควตาการใช้งาน
+                คืน usage รอบนี้เป็น 100%
               </Button>
               {user.birthProfile ? (
                 <Button variant="ghost" onClick={resetBirthEdits} disabled={busy}>
@@ -436,7 +428,7 @@ export function UserDetailManager({
               <Toggle
                 checked={grantCredits}
                 onChange={setGrantCredits}
-                label="เติมเครดิตตามโควตาแพ็กเกจทันที"
+                label="เริ่ม usage ของแพ็กเกจที่ 100% ทันที"
               />
               <Button onClick={setSubscription} disabled={busy}>
                 บันทึกแพ็กเกจ
@@ -511,7 +503,7 @@ export function UserDetailManager({
                       Output แพงกว่า input 6 เท่า ($9.00 vs $1.50 ต่อ 1M token) —
                       ความยาวคำตอบคือตัวชี้ขาดต้นทุน ไม่ใช่ขนาด prompt
                       {c.aiCalls > c.readings
-                        ? ` · รวมการเรียกโมเดลเสริม ${c.aiCalls - c.readings} ครั้ง (สรุป/คำถามต่อ) ที่ไม่คิดเครดิตแต่มีต้นทุน`
+                        ? ` · รวมการเรียกโมเดลเสริม ${c.aiCalls - c.readings} ครั้ง (สรุป/คำถามต่อ) ที่ยังไม่รวมใน usage แต่มีต้นทุน`
                         : ""}
                     </p>
                   </>
@@ -521,7 +513,7 @@ export function UserDetailManager({
           ) : null}
 
           <Card className="lg:col-span-2">
-            <h2 className="text-sm font-semibold">ปรับเครดิต</h2>
+            <h2 className="text-sm font-semibold">ปรับ usage</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
               <Field label="ประเภท">
                 <Select
@@ -532,11 +524,11 @@ export function UserDetailManager({
                 >
                   <option value="ADMIN_ADD">เพิ่ม (Admin)</option>
                   <option value="PROMOTION">โปรโมชัน</option>
-                  <option value="REFUND">คืนเครดิต</option>
+                  <option value="REFUND">คืน usage</option>
                   <option value="ADMIN_DEDUCT">หัก (Admin)</option>
                 </Select>
               </Field>
-              <Field label="จำนวน">
+              <Field label="จำนวน (%)">
                 <TextInput
                   type="number"
                   min={1}
@@ -557,19 +549,19 @@ export function UserDetailManager({
                   onClick={() => adjustCredits(creditType)}
                   disabled={busy}
                 >
-                  {creditType === "ADMIN_DEDUCT" ? "หักเครดิต" : "เพิ่มเครดิต"}
+                  {creditType === "ADMIN_DEDUCT" ? "หัก usage" : "เพิ่ม usage"}
                 </Button>
               </div>
             </div>
           </Card>
 
           <Card className="lg:col-span-2">
-            <h2 className="text-sm font-semibold">ประวัติเครดิตล่าสุด</h2>
+            <h2 className="text-sm font-semibold">ประวัติ usage ล่าสุด</h2>
             <ul className="mt-3 space-y-2">
-              {user.creditTxns.length === 0 && (
+              {(user.usage?.history.items.length ?? 0) === 0 && (
                 <li className="text-xs text-[var(--muted)]">ยังไม่มีรายการ</li>
               )}
-              {user.creditTxns.map((tx) => (
+              {user.usage?.history.items.map((tx) => (
                 <li
                   key={tx.id}
                   className="flex justify-between border-b border-[var(--border)]/50 py-2 text-xs"
@@ -578,9 +570,9 @@ export function UserDetailManager({
                     {tx.type}
                     {tx.note ? ` · ${tx.note}` : ""}
                   </span>
-                  <span className={tx.amount >= 0 ? "text-[var(--secondary-active)]" : "text-[var(--danger)]"}>
-                    {tx.amount >= 0 ? "+" : ""}
-                    {tx.amount}
+                  <span className={tx.amountPercent >= 0 ? "text-[var(--secondary-active)]" : "text-[var(--danger)]"}>
+                    {tx.amountPercent >= 0 ? "+" : ""}
+                    {tx.amountPercent}%
                   </span>
                 </li>
               ))}

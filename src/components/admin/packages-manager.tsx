@@ -25,6 +25,7 @@ type Package = {
   price: number;
   billingLabel: string | null;
   creditQuota: number;
+  usageBudgetUnits: number;
   dailyLimit: number | null;
   monthlyLimit: number | null;
   enabled: boolean;
@@ -40,6 +41,7 @@ type FormState = {
   price: number;
   billingLabel: string;
   creditQuota: number;
+  usageBudgetUnits: number;
   dailyLimit: string;
   monthlyLimit: string;
   enabled: boolean;
@@ -55,6 +57,7 @@ const EMPTY_FORM: FormState = {
   price: 0,
   billingLabel: "",
   creditQuota: 0,
+  usageBudgetUnits: 0,
   dailyLimit: "",
   monthlyLimit: "",
   enabled: true,
@@ -119,6 +122,7 @@ export function PackagesManager({
       price: pkg.price,
       billingLabel: pkg.billingLabel ?? "",
       creditQuota: pkg.creditQuota,
+      usageBudgetUnits: pkg.usageBudgetUnits,
       dailyLimit: pkg.dailyLimit == null ? "" : String(pkg.dailyLimit),
       monthlyLimit: pkg.monthlyLimit == null ? "" : String(pkg.monthlyLimit),
       enabled: pkg.enabled,
@@ -139,6 +143,7 @@ export function PackagesManager({
       price: Number(form.price),
       billingLabel: form.billingLabel || undefined,
       creditQuota: Number(form.creditQuota),
+      usageBudgetUnits: Number(form.usageBudgetUnits),
       dailyLimit: limitToNumber(form.dailyLimit),
       monthlyLimit: limitToNumber(form.monthlyLimit),
       enabled: form.enabled,
@@ -178,15 +183,15 @@ export function PackagesManager({
     <AdminPage>
       <PageHeader
         title="แพ็กเกจ & โควตา"
-        description="กำหนดราคา เครดิต และจำกัดการใช้งานต่อวัน/เดือน — บันทึกแล้วมีผลทันที"
+        description="กำหนดราคา งบ AI และเพดานป้องกันการใช้งานผิดปกติ — บันทึกแล้วมีผลกับรอบใหม่"
         action={<Button onClick={startCreate}>+ สร้างแพ็กเกจ</Button>}
       />
 
       <InfoBox>
         <strong className="text-[var(--foreground)]">Free</strong> = ผู้ใช้ทั่วไป ·{" "}
         <strong className="text-[var(--foreground)]">Pro</strong> = ใช้ AI ได้ ·{" "}
-        <strong className="text-[var(--foreground)]">โควตาเครดิต</strong> = จำนวนครั้งที่ใช้ถาม
-        · จำกัดต่อวัน/เดือน = กันถามเกิน (เว้นว่าง = ไม่จำกัด)
+        <strong className="text-[var(--foreground)]">งบ AI</strong> = ต้นทุนรวมที่ผู้ใช้เห็นเป็น 100%
+        · 1,000,000 หน่วย = 1 USD · จำกัดต่อวัน/เดือน = anti-abuse
       </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
@@ -242,13 +247,16 @@ export function PackagesManager({
                 onChange={(e) => setForm({ ...form, billingLabel: e.target.value })}
               />
             </Field>
-            <Field label="เครดิตที่ให้" hint="จำนวนครั้งที่ถาม AI ได้">
+            <Field
+              label="งบ AI (หน่วยภายใน)"
+              hint="1,000,000 หน่วย = 1 USD; ผู้ใช้เห็นเป็น 100%"
+            >
               <TextInput
                 type="number"
                 min={0}
-                value={form.creditQuota}
+                value={form.usageBudgetUnits}
                 onChange={(e) =>
-                  setForm({ ...form, creditQuota: Number(e.target.value) })
+                  setForm({ ...form, usageBudgetUnits: Number(e.target.value) })
                 }
               />
             </Field>
@@ -329,7 +337,7 @@ export function PackagesManager({
               </span>
               <Badge tone="gold">{pkg.type === "PRO" ? "Pro" : "ฟรี"}</Badge>
               <Badge>฿{pkg.price}</Badge>
-              <Badge>{pkg.creditQuota} เครดิต</Badge>
+              <Badge>{pkg.usageBudgetUnits.toLocaleString("th-TH")} usage units</Badge>
               {pkg.dailyLimit != null && <Badge>{pkg.dailyLimit}/วัน</Badge>}
               {pkg.monthlyLimit != null && <Badge>{pkg.monthlyLimit}/เดือน</Badge>}
               {!pkg.enabled && <Badge tone="red">ปิดอยู่</Badge>}
@@ -345,7 +353,7 @@ export function PackagesManager({
             <ul className="mt-2 list-inside list-disc text-xs text-[var(--muted)]">
               {(pkg.features && pkg.features.length > 0
                 ? pkg.features
-                : [`เครดิต ${pkg.creditQuota} ครั้ง`]
+                : ["usage 100% ต่อรอบแพ็กเกจ"]
               ).map((f) => (
                 <li key={f}>{f}</li>
               ))}

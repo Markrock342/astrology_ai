@@ -2,7 +2,7 @@ import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
 import { adminResetUsageQuota } from "@/server/admin/user-admin-service";
 
-/** POST /api/admin/users/:id/usage/reset — clear this period's AI usage quota. */
+/** Restore the included pool to 100%; preserve top-ups and all cost history. */
 export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },

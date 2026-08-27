@@ -391,11 +391,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href="/account"
               onClick={closeMobile}
               className="shrink-0 rounded-lg px-2 py-1.5 text-[11px] text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-              title="ดูเครดิต / แพ็กเกจ"
+              title="ดู usage / แพ็กเกจ"
             >
-              เครดิต{" "}
+              เหลือ{" "}
               <span className="font-semibold tabular-nums text-[var(--foreground)]">
-                {user.creditBalance}
+                {user.usageRemainingPercent}%
               </span>
             </Link>
           )}
@@ -857,7 +857,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onOpenModal={openModal}
             displayName={displayName}
             image={user?.image}
-            creditBalance={user?.creditBalance}
+            usageRemainingPercent={user?.usageRemainingPercent}
           />
         </div>
 
@@ -1000,7 +1000,7 @@ function CollapsedRail({
   onOpenModal,
   displayName,
   image,
-  creditBalance,
+  usageRemainingPercent,
 }: {
   activeCat: string | null;
   activeView: string | null;
@@ -1012,7 +1012,7 @@ function CollapsedRail({
   onOpenModal: (m: SettingsModal) => void;
   displayName: string;
   image?: string | null;
-  creditBalance?: number;
+  usageRemainingPercent?: number;
 }) {
   const { filteredCategories } = useAppData();
   const chatNav = useChatNav();
@@ -1114,14 +1114,14 @@ function CollapsedRail({
             anchorRef={railBtnRef}
           />
         )}
-        {creditBalance != null && (
+        {usageRemainingPercent != null && (
           <Link
             href="/account"
             className="rounded-md px-1 py-0.5 text-[10px] font-semibold tabular-nums text-[var(--foreground)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-            title={`เครดิต ${creditBalance}`}
-            aria-label={`เครดิต ${creditBalance}`}
+            title={`usage เหลือ ${usageRemainingPercent}%`}
+            aria-label={`usage เหลือ ${usageRemainingPercent} เปอร์เซ็นต์`}
           >
-            {creditBalance}
+            {usageRemainingPercent}%
           </Link>
         )}
         <ThemePicker />

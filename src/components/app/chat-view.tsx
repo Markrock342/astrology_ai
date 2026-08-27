@@ -190,7 +190,7 @@ const UPGRADE_ERRORS = new Set([
 /** Map API error codes (lib/errors.ts) to friendly Thai messages. */
 const ERROR_MESSAGES: Record<string, string> = {
   NO_QUOTA:
-    "เครดิตทดลองหมดแล้ว — อัปเกรด Pro ได้คุยทุกหมวด + ดวงจร หรือเติมเครดิตถ้าเป็นสมาชิก Pro อยู่แล้ว",
+    "usage หมดแล้ว — เติม usage เพื่อถามต่อ หรืออัปเกรด Pro หากยังใช้แพ็กทดลอง",
   CATEGORY_LOCKED:
     "หมวดนี้ใช้ได้ใน Pro — แพ็ก Free ใช้หมวด「ตัวตน」กับ「การงาน」ได้",
   CHAT_REQUIRES_PRO: "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
@@ -199,17 +199,17 @@ const ERROR_MESSAGES: Record<string, string> = {
   TRANSIT_REQUIRES_PRO:
     "ดวงจรใช้ได้ใน Pro — อัปเกรดแล้วเริ่มถามได้ทุกหมวด",
   FOLLOWUP_REQUIRES_PRO:
-    "ถามต่อในบทสนทนาเดิมสำหรับสมาชิก Pro — เริ่มคำถามใหม่ได้ตราบใดที่ยังมีเครดิต",
+    "ถามต่อในบทสนทนาเดิมสำหรับสมาชิก Pro — เริ่มคำถามใหม่ได้ตราบใดที่ยังมี usage",
   EMAIL_NOT_VERIFIED:
-    "ยืนยันอีเมลก่อนใช้เครดิตทดลองฟรี — เช็กกล่องจดหมายของคุณได้เลย",
+    "ยืนยันอีเมลก่อนใช้ usage ทดลอง — เช็กกล่องจดหมายของคุณได้เลย",
   CHART_NOT_READY:
     "ยังคำนวณพื้นดวงไม่สำเร็จ กรุณาตรวจสอบข้อมูลวันเกิดแล้วลองใหม่",
-  AI_TIMEOUT: "หมอดูใช้เวลานานเกินไป ลองถามใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
-  AI_PROVIDER_ERROR: "ระบบทำนายขัดข้องชั่วคราว ลองใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
+  AI_TIMEOUT: "หมอดูใช้เวลานานเกินไป ลองถามใหม่อีกครั้ง (ไม่ถูกหัก usage)",
+  AI_PROVIDER_ERROR: "ระบบทำนายขัดข้องชั่วคราว ลองใหม่อีกครั้ง (ไม่ถูกหัก usage)",
   VALIDATION: "กรุณากรอกข้อมูลวันเกิดก่อนเริ่มดูดวง",
   RATE_LIMITED: "ถามถี่เกินไป รอสักครู่แล้วลองใหม่",
   QUOTA_EXCEEDED:
-    "โควต้าวันนี้หรือเดือนนี้ครบแล้ว รอรีเซ็ตหรือไปหน้าบัญชีเพื่อเติมเครดิต",
+    "ถึงเพดานป้องกันการใช้งานของรอบนี้แล้ว กรุณารอรีเซ็ตหรือติดต่อแอดมิน",
   UNAUTHENTICATED: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
   USER_DISABLED: "บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อแอดมิน",
   FEATURE_DISABLED: "ระบบดูดวงด้วย AI กำลังอยู่ระหว่างพัฒนา",
@@ -504,17 +504,8 @@ export function ChatView() {
 
   // Free + ≤1 credit: detailed is disabled in Composer, but localStorage can
   // still leave answerMode on "detailed" — force brief so send() matches the UI.
-  const creditBalance = usage?.balance ?? user?.creditBalance ?? 0;
-  useEffect(() => {
-    if (user?.plan === "PRO") return;
-    if (creditBalance > 1) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- low-credit force brief
-    setAnswerMode((prev) => {
-      if (prev === "brief") return prev;
-      window.localStorage.setItem(ANSWER_MODE_KEY, "brief");
-      return "brief";
-    });
-  }, [user?.plan, creditBalance]);
+  const usageRemainingPercent =
+    usage?.remainingPercent ?? user?.usageRemainingPercent ?? 0;
 
   useEffect(() => {
     if (!draftHydratedRef.current) return;
@@ -820,7 +811,7 @@ export function ChatView() {
       const lastActivity = lastDeltaAtRef.current ?? started;
       if (Date.now() - lastActivity < STALE_TURN_MS) return;
       recoverStaleTurn(
-        "ใช้เวลานานผิดปกติ — กดลองใหม่ (ยังไม่หักเครดิตถ้ายังไม่มีคำตอบ)",
+        "ใช้เวลานานผิดปกติ — กดลองใหม่ (ยังไม่หัก usage ถ้ายังไม่มีคำตอบ)",
       );
     }, 3000);
     return () => window.clearInterval(id);
@@ -844,7 +835,7 @@ export function ChatView() {
       setState("error");
       setErrorCode("AI_TIMEOUT");
       setErrorText(
-        "ใช้เวลานานเกินไป — ลองถามใหม่อีกครั้ง (ยังไม่หักเครดิตถ้ายังไม่มีคำตอบ)",
+        "ใช้เวลานานเกินไป — ลองถามใหม่อีกครั้ง (ยังไม่หัก usage ถ้ายังไม่มีคำตอบ)",
       );
     };
     const tick = async () => {
@@ -1121,7 +1112,7 @@ export function ChatView() {
     if (!isIntro && user?.needsEmailVerification && user?.plan !== "PRO") {
       setErrorCode("EMAIL_NOT_VERIFIED");
       setErrorText(
-        "ยืนยันอีเมลก่อนใช้เครดิตทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน",
+        "ยืนยันอีเมลก่อนใช้ usage ทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน",
       );
       setState("error");
       setPendingRetry(null);
@@ -1428,7 +1419,7 @@ export function ChatView() {
 
       // Free + ≤1 credit: never send detailed even if localStorage still has it.
       const effectiveAnswerMode: AnswerMode =
-        user?.plan !== "PRO" && creditBalance <= 1 ? "brief" : answerMode;
+        answerMode;
 
       const res = await fetch(
         `/api/conversations/${activeConversationId}/messages`,
@@ -2432,10 +2423,7 @@ export function ChatView() {
               // blocked in send() until the turn settles; Stop replaces the arrow.
               aiEnabled={FEATURES.aiChat}
               categoryLocked={locked}
-              creditCost={
-                usage?.creditCostPerMessage ?? DEFAULTS.creditCostPerReading
-              }
-              creditBalance={usage?.balance ?? user?.creditBalance ?? 0}
+              usageRemainingPercent={usageRemainingPercent}
               plan={user?.plan === "PRO" ? "PRO" : "FREE"}
               needsEmailVerification={Boolean(user?.needsEmailVerification)}
               answerMode={answerMode}
@@ -2570,7 +2558,7 @@ function EmptyState({
           </h1>
           <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
             {chartReady
-              ? "สรุปจากพื้นดวงและแบบสำรวจทันที — ไม่หักเครดิต"
+              ? "สรุปจากพื้นดวงและแบบสำรวจทันที — ไม่หัก usage"
               : "ปกติใช้เวลาไม่กี่วินาที จากนั้นระบบจะเปิดสรุปหมวดนี้ให้อัตโนมัติ"}
           </p>
         </>
@@ -2667,7 +2655,7 @@ function ReadingContextBar({
       ? "ถามต่อได้ในหมวดนี้"
       : mode === "reference"
         ? "ข้อมูลพื้นดวงที่ระบบใช้"
-        : "สรุปอัตโนมัติ ไม่หักเครดิต";
+        : "สรุปอัตโนมัติ ไม่หัก usage";
 
   return (
     <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 md:px-8">
@@ -2795,8 +2783,7 @@ const Composer = forwardRef<
     disabled: boolean;
     aiEnabled: boolean;
     categoryLocked?: boolean;
-    creditCost?: number;
-    creditBalance?: number;
+    usageRemainingPercent?: number;
     plan?: "FREE" | "PRO";
     needsEmailVerification?: boolean;
     answerMode: AnswerMode;
@@ -2812,8 +2799,7 @@ const Composer = forwardRef<
     disabled,
     aiEnabled,
     categoryLocked,
-    creditCost,
-    creditBalance,
+    usageRemainingPercent,
     plan = "FREE",
     needsEmailVerification = false,
     answerMode,
@@ -2829,13 +2815,14 @@ const Composer = forwardRef<
     () => false,
   );
 
-  const balance = creditBalance ?? 0;
-  const lowTrialCredits = plan === "FREE" && balance <= 1;
+  const remaining = usageRemainingPercent ?? 0;
+  const lowUsage = remaining <= 20;
+  const usageExhausted = remaining <= 0;
   const emailGate = needsEmailVerification && plan === "FREE";
   const placeholder = !aiEnabled
     ? "เปิดให้ใช้งานในเฟสถัดไป"
     : emailGate
-      ? "ยืนยันอีเมลก่อนใช้เครดิตทดลอง"
+      ? "ยืนยันอีเมลก่อนใช้ usage ทดลอง"
       : categoryLocked
         ? "หมวดนี้ใช้ได้ใน Pro — เลือกตัวตน/การงาน หรืออัปเกรด"
         : coarsePointer
@@ -2855,16 +2842,16 @@ const Composer = forwardRef<
       {emailGate ? (
         <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
           <span>
-            ยืนยันอีเมลก่อนใช้เครดิตทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน
+            ยืนยันอีเมลก่อนใช้ usage ทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน
           </span>
         </div>
       ) : null}
-      {lowTrialCredits && !categoryLocked && !emailGate ? (
+      {lowUsage && !categoryLocked && !emailGate ? (
         <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
           <span>
-            {balance <= 0
-              ? "เครดิตทดลองหมดแล้ว — อัปเกรดเพื่อคุยต่อได้ทุกหมวด"
-              : `เหลือเครดิตทดลอง ${balance} ครั้ง — ใช้โหมด「กระชับ」จะคุ้มกว่า`}
+            {usageExhausted
+              ? "usage หมดแล้ว — เติม usage หรือเริ่มรอบแพ็กเกจใหม่เพื่อถามต่อ"
+              : `เหลือ usage ${remaining}% — โหมด「กระชับ」จะใช้ได้นานกว่า`}
           </span>
           <a
             href="/account"
@@ -2899,11 +2886,11 @@ const Composer = forwardRef<
             disabled={
               !aiEnabled ||
               emailGate ||
-              (plan === "FREE" && balance <= 1)
+              usageExhausted
             }
             title={
-              plan === "FREE" && balance <= 1
-                ? "เครดิตเหลือน้อย — ใช้โหมดกระชับ"
+              usageExhausted
+                ? "usage หมดแล้ว"
                 : undefined
             }
             aria-pressed={answerMode === "detailed"}
@@ -2916,9 +2903,9 @@ const Composer = forwardRef<
             ละเอียด
           </button>
         </div>
-        {aiEnabled && creditCost != null && creditCost > 0 ? (
+        {aiEnabled ? (
           <p className="text-[11px] text-[var(--muted)]">
-            ใช้ {creditCost} เครดิต · คงเหลือ {balance}
+            เหลือ <span className="font-semibold tabular-nums text-[var(--foreground)]">{remaining}%</span>
           </p>
         ) : null}
       </div>
@@ -2938,7 +2925,7 @@ const Composer = forwardRef<
               if (!emailGate && !disabled) onSend();
             }
           }}
-          disabled={!aiEnabled || emailGate || disabled}
+          disabled={!aiEnabled || emailGate || disabled || usageExhausted}
           placeholder={placeholder}
           className="max-h-[200px] min-h-6 w-full resize-none bg-transparent text-base font-medium leading-6 text-[var(--foreground)] antialiased outline-none placeholder:font-normal placeholder:text-[var(--muted)] disabled:cursor-not-allowed md:text-[15px]"
         />
@@ -2963,6 +2950,7 @@ const Composer = forwardRef<
               !aiEnabled ||
               categoryLocked ||
               emailGate ||
+              usageExhausted ||
               !value.trim()
             }
             className="press-scale flex size-7 shrink-0 items-center justify-center rounded-full text-[var(--primary)] transition hover:bg-[var(--background)] hover:text-[var(--primary-hover)] disabled:opacity-40"

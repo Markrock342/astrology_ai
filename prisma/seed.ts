@@ -84,8 +84,9 @@ async function main() {
   const freePkg = await prisma.package.upsert({
     where: { code: "FREE" },
     update: {
+      usageBudgetUnits: 27_778,
       features: [
-        "เครดิต 3 ครั้ง",
+        "AI usage ทดลอง 100%",
         "หมวด「ตัวตน」กับ「การงาน」",
         "ถาม–ตอบกับ AI (ยืนยันอีเมลก่อน)",
       ],
@@ -96,10 +97,11 @@ async function main() {
       type: "FREE",
       price: 0,
       creditQuota: 3,
+      usageBudgetUnits: 27_778,
       dailyLimit: 3,
       description: "ทดลองใช้งานฟรี เข้าถึงหมวดพื้นฐาน",
       features: [
-        "เครดิต 3 ครั้ง",
+        "AI usage ทดลอง 100%",
         "หมวด「ตัวตน」กับ「การงาน」",
         "ถาม–ตอบกับ AI (ยืนยันอีเมลก่อน)",
       ],
@@ -109,8 +111,11 @@ async function main() {
   await prisma.package.upsert({
     where: { code: "PRO" },
     update: {
+      usageBudgetUnits: 1_111_111,
+      dailyLimit: null,
+      monthlyLimit: null,
       features: [
-        "เครดิต 100 ครั้ง",
+        "AI usage 100% ต่อรอบแพ็กเกจ",
         "ปลดล็อกทุกหมวด + โหมดดวงจร",
         "คำถามแนะนำครบทุกหมวด",
       ],
@@ -127,10 +132,12 @@ async function main() {
       price: 199,
       billingLabel: "ต่อเดือน",
       creditQuota: 100,
-      monthlyLimit: 100,
+      usageBudgetUnits: 1_111_111,
+      dailyLimit: null,
+      monthlyLimit: null,
       description: "ปลดล็อกทุกหมวดหมู่ พร้อมคำอ่านแบบละเอียด",
       features: [
-        "เครดิต 100 ครั้ง",
+        "AI usage 100% ต่อรอบแพ็กเกจ",
         "ปลดล็อกทุกหมวด + โหมดดวงจร",
         "คำถามแนะนำครบทุกหมวด",
       ],
@@ -146,30 +153,33 @@ async function main() {
     where: { code: "CREDIT_TOPUP" },
     update: {
       creditOnly: true,
+      name: "เติม usage",
+      usageBudgetUnits: 555_556,
       features: [
-        "เติมเครดิต 50 ครั้ง",
-        "สำหรับสมาชิก Pro ที่เครดิตหมด",
+        "เติม AI usage อีก 50%",
+        "สำหรับสมาชิก Pro ที่ usage ใกล้หมด",
         "ไม่เปลี่ยนแพ็กเกจหรือวันหมดอายุ",
       ],
     },
     create: {
       code: "CREDIT_TOPUP",
-      name: "เติมเครดิต",
+      name: "เติม usage",
       type: "PRO",
       creditOnly: true,
       price: 99,
       billingLabel: "ครั้งเดียว",
       creditQuota: 50,
-      description: "เติมเครดิตเพิ่มสำหรับสมาชิก Pro (ไม่ต่ออายุแพ็กเกจ)",
+      usageBudgetUnits: 555_556,
+      description: "เติม usage เพิ่มสำหรับสมาชิก Pro (ไม่ต่ออายุแพ็กเกจ)",
       features: [
-        "เติมเครดิต 50 ครั้ง",
-        "สำหรับสมาชิก Pro ที่เครดิตหมด",
+        "เติม AI usage อีก 50%",
+        "สำหรับสมาชิก Pro ที่ usage ใกล้หมด",
         "ไม่เปลี่ยนแพ็กเกจหรือวันหมดอายุ",
       ],
       upgradeSteps: [
-        "โอนเงินตามยอดเติมเครดิต (99 บาท)",
-        "เลือกแพ็กเกจ \"เติมเครดิต\" ตอนส่งสลิป",
-        "แอดมินตรวจสอบและเติมเครดิตให้บัญชีของคุณ",
+        "โอนเงินตามยอดเติม usage (99 บาท)",
+        "เลือกแพ็กเกจ \"เติม usage\" ตอนส่งสลิป",
+        "แอดมินตรวจสอบและเพิ่ม usage ให้บัญชีของคุณ",
       ],
     },
   });

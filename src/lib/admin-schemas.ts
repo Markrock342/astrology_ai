@@ -356,6 +356,7 @@ export const packageCreateSchema = z.object({
   price: z.number().int().min(0).default(0),
   billingLabel: z.string().max(60).optional(),
   creditQuota: z.number().int().min(0).default(0),
+  usageBudgetUnits: z.number().int().min(0).max(2_000_000_000).default(0),
   dailyLimit: z.number().int().min(0).nullish(),
   monthlyLimit: z.number().int().min(0).nullish(),
   enabled: z.boolean().default(true),

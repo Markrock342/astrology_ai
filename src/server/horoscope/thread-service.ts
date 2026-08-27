@@ -695,7 +695,7 @@ export async function sweepStalePendingAssistants(conversationId: string) {
     data: {
       status: "FAILED",
       content:
-        "ระบบใช้เวลานานเกินไปหรือถูกตัดการเชื่อมต่อ กรุณาลองถามใหม่อีกครั้ง (ไม่ถูกหักเครดิต)",
+        "ระบบใช้เวลานานเกินไปหรือถูกตัดการเชื่อมต่อ กรุณาลองถามใหม่อีกครั้ง (ไม่ถูกหัก usage)",
     },
   });
 }

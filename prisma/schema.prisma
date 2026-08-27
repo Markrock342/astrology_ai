@@ -60,6 +60,24 @@ enum CreditTxnType {
   PROMOTION
 }
 
+enum UsageTxnType {
+  INITIAL_GRANT
+  ADMIN_ADD
+  ADMIN_DEDUCT
+  AI_USAGE
+  REFUND
+  PACKAGE_RENEWAL
+  PROMOTION
+  TOP_UP
+  MIGRATION
+}
+
+enum UsageBucket {
+  INCLUDED
+  PURCHASED
+  MIXED
+}
+
 enum PromptType {
   SYSTEM
   PERSONA
@@ -144,48 +162,51 @@ enum AnnouncementTone {
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String     @id @default(cuid())
-  name         String?
-  email        String     @unique
+  id                  String     @id @default(cuid())
+  name                String?
+  email               String     @unique
   // Profile photo URL (Google OAuth) or data URL (email upload).
-  image        String?
+  image               String?
   // Null when the user signs in only via an OAuth provider (e.g. Google).
-  passwordHash String?
-  role         Role       @default(USER)
-  status       UserStatus @default(ACTIVE)
-  emailVerifiedAt DateTime?
+  passwordHash        String?
+  role                Role       @default(USER)
+  status              UserStatus @default(ACTIVE)
+  emailVerifiedAt     DateTime?
   /// AES-GCM encrypted TOTP secret (admin 2FA). Null = not enrolled.
-  totpSecretEnc String?
-  totpEnabledAt DateTime?
+  totpSecretEnc       String?
+  totpEnabledAt       DateTime?
   /// bcrypt hashes of one-time backup codes (JSON string array).
   totpBackupCodesJson Json?
   /// Highest accepted TOTP time-step — reject codes at or below it so a valid
   /// code can't be replayed within its ~90s window.
-  totpLastStep Int?
+  totpLastStep        Int?
   /// Shared AI context across conversations. Users can disable it or move the
   /// memory boundary forward without deleting their chat history.
-  aiMemoryEnabled Boolean  @default(true)
-  aiMemoryResetAt DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  aiMemoryEnabled     Boolean    @default(true)
+  aiMemoryResetAt     DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
-  birthProfile  BirthProfile?
-  intake        UserIntake?
-  natalChart    NatalChart?
-  chartMemory   UserChartMemory?
-  dailyTransits DailyTransitCache[]
-  creditWallet  CreditWallet?
-  subscriptions UserSubscription[]
-  creditTxns    CreditTransaction[]
-  readings      HoroscopeReading[]
-  conversations Conversation[]
-  usageLogs     AIUsageLog[]
-  messageFeedback MessageFeedback[]
-  payments      Payment[]
+  birthProfile      BirthProfile?
+  intake            UserIntake?
+  natalChart        NatalChart?
+  chartMemory       UserChartMemory?
+  dailyTransits     DailyTransitCache[]
+  creditWallet      CreditWallet?
+  usageWallet       UsageWallet?
+  subscriptions     UserSubscription[]
+  creditTxns        CreditTransaction[]
+  usageTxns         UsageTransaction[]
+  readings          HoroscopeReading[]
+  conversations     Conversation[]
+  usageLogs         AIUsageLog[]
+  messageFeedback   MessageFeedback[]
+  payments          Payment[]
   pushSubscriptions PushSubscription[]
 
   // Records where this user acted as the reviewing/acting admin.
   adminCreditTxns  CreditTransaction[] @relation("CreditTxnAdmin")
+  adminUsageTxns   UsageTransaction[]  @relation("UsageTxnAdmin")
   reviewedPayments Payment[]           @relation("PaymentReviewer")
   auditLogs        AdminAuditLog[]     @relation("AuditActor")
   contentRevisions ContentRevision[]   @relation("ContentRevisionAuthor")
@@ -198,7 +219,7 @@ model User {
   accounts Account[]
   sessions Session[]
 
-  passwordResetTokens PasswordResetToken[]
+  passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
 
   @@index([role])
@@ -293,7 +314,7 @@ model BirthProfile {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   natalChart NatalChart?
 
   @@map("birth_profiles")
@@ -398,25 +419,27 @@ model HoroscopeCategory {
 }
 
 model Package {
-  id           String      @id @default(cuid())
-  code         String      @unique
-  name         String
-  type         PackageType @default(FREE)
-  price        Int         @default(0)
-  billingLabel String?
-  creditQuota  Int         @default(0)
-  dailyLimit   Int?
-  monthlyLimit Int?
-  enabled      Boolean     @default(true)
-  description  String?
+  id               String      @id @default(cuid())
+  code             String      @unique
+  name             String
+  type             PackageType @default(FREE)
+  price            Int         @default(0)
+  billingLabel     String?
+  creditQuota      Int         @default(0)
+  /// Included AI-cost budget in micro-USD. Users see this as 100%, never money.
+  usageBudgetUnits Int         @default(0)
+  dailyLimit       Int?
+  monthlyLimit     Int?
+  enabled          Boolean     @default(true)
+  description      String?
   /// Bullet points shown on the account/package comparison cards.
-  features     String[]    @default([])
+  features         String[]    @default([])
   /// Steps for manual Pro upgrade (read from the PRO package row).
-  upgradeSteps String[]    @default([])
+  upgradeSteps     String[]    @default([])
   /// When true, approving a payment only adds credits — no subscription change.
-  creditOnly   Boolean     @default(false)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  creditOnly       Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   subscriptions UserSubscription[]
 
@@ -480,23 +503,66 @@ model CreditTransaction {
   @@map("credit_transactions")
 }
 
+// ---------------------------------------------------------------------------
+// Cost-weighted usage wallet + immutable ledger
+// ---------------------------------------------------------------------------
+
+model UsageWallet {
+  id                      String    @id @default(cuid())
+  userId                  String    @unique
+  includedBalanceUnits    Int       @default(0)
+  includedAllowanceUnits  Int       @default(0)
+  purchasedBalanceUnits   Int       @default(0)
+  purchasedAllowanceUnits Int       @default(0)
+  periodStartedAt         DateTime?
+  periodEndsAt            DateTime?
+  version                 Int       @default(0)
+  updatedAt               DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("usage_wallets")
+}
+
+model UsageTransaction {
+  id               String       @id @default(cuid())
+  userId           String
+  /// Signed micro-USD budget delta. Negative values are AI consumption.
+  amountUnits      Int
+  type             UsageTxnType
+  bucket           UsageBucket  @default(INCLUDED)
+  referenceType    String?
+  referenceId      String?
+  note             String?
+  createdByAdminId String?
+  createdAt        DateTime     @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin User? @relation("UsageTxnAdmin", fields: [createdByAdminId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([referenceType, referenceId])
+  @@index([type, createdAt])
+  @@map("usage_transactions")
+}
+
 model PromptTemplate {
-  id        String     @id @default(cuid())
-  code      String     @unique
-  name      String
-  type      PromptType
-  content   String
+  id               String     @id @default(cuid())
+  code             String     @unique
+  name             String
+  type             PromptType
+  content          String
   draftContent     String?
   draftUpdatedAt   DateTime?
   draftUpdatedById String?
-  version   Int        @default(1)
-  enabled   Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  version          Int        @default(1)
+  enabled          Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
-  draftUpdatedBy User? @relation("PromptDraftEditor", fields: [draftUpdatedById], references: [id])
-  categories HoroscopeCategory[]
-  aiConfigs  AIProviderConfig[]
+  draftUpdatedBy User?               @relation("PromptDraftEditor", fields: [draftUpdatedById], references: [id])
+  categories     HoroscopeCategory[]
+  aiConfigs      AIProviderConfig[]
 
   @@map("prompt_templates")
 }
@@ -529,9 +595,9 @@ model AIProviderConfig {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
-  fallbackConfig AIProviderConfig?   @relation("AIConfigFallback", fields: [fallbackConfigId], references: [id])
-  fallbackFor    AIProviderConfig[]  @relation("AIConfigFallback")
-  promptTemplate PromptTemplate?     @relation(fields: [promptTemplateId], references: [id])
+  fallbackConfig AIProviderConfig?  @relation("AIConfigFallback", fields: [fallbackConfigId], references: [id])
+  fallbackFor    AIProviderConfig[] @relation("AIConfigFallback")
+  promptTemplate PromptTemplate?    @relation(fields: [promptTemplateId], references: [id])
 
   @@index([enabled, planScope])
   @@map("ai_provider_configs")
@@ -542,21 +608,21 @@ model AIProviderConfig {
 // categories". If the corpus grows large, upgrade to chunked RAG (pgvector)
 // reusing this table as the source of truth.
 model KnowledgeDoc {
-  id         String   @id @default(cuid())
-  title      String
-  content    String
-  draftTitle   String?
-  draftContent String?
+  id               String    @id @default(cuid())
+  title            String
+  content          String
+  draftTitle       String?
+  draftContent     String?
   draftUpdatedAt   DateTime?
   draftUpdatedById String?
-  categoryId String?
-  enabled    Boolean  @default(true)
-  sortOrder  Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  categoryId       String?
+  enabled          Boolean   @default(true)
+  sortOrder        Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  draftUpdatedBy User? @relation("KnowledgeDraftEditor", fields: [draftUpdatedById], references: [id])
-  category HoroscopeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  draftUpdatedBy User?              @relation("KnowledgeDraftEditor", fields: [draftUpdatedById], references: [id])
+  category       HoroscopeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([enabled, categoryId])
   @@map("knowledge_docs")
@@ -583,6 +649,7 @@ model HoroscopeReading {
   promptVersion            Int?
   status                   ReadingStatus @default(SUCCESS)
   creditCost               Int           @default(0)
+  usageCostUnits           Int           @default(0)
   createdAt                DateTime      @default(now())
 
   user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -596,24 +663,27 @@ model HoroscopeReading {
 }
 
 model AIUsageLog {
-  id            String      @id @default(cuid())
-  readingId     String?     @unique
-  userId        String
-  provider      AIProvider
-  modelId       String
-  status        UsageStatus
-  inputUsage    Int?
-  outputUsage   Int?
-  estimatedCost Decimal?    @db.Decimal(12, 6)
-  latencyMs     Int?
+  id               String      @id @default(cuid())
+  readingId        String?     @unique
+  userId           String
+  provider         AIProvider
+  modelId          String
+  status           UsageStatus
+  inputUsage       Int?
+  outputUsage      Int?
+  cachedInputUsage Int?
+  estimatedCost    Decimal?    @db.Decimal(12, 6)
+  usageCostUnits   Int         @default(0)
+  pricingVersion   String?
+  latencyMs        Int?
   /// Ms from calling the model to its FIRST text token. latencyMs is the whole
   /// call; the gap between the two is generation time. This is what tells us
   /// whether a slow turn was slow to START (prep/prefill — fixable) or just a
   /// long answer being written (a product choice), instead of guessing.
-  firstTokenMs  Int?
-  errorCode     String?
-  errorMessage  String?
-  createdAt     DateTime    @default(now())
+  firstTokenMs     Int?
+  errorCode        String?
+  errorMessage     String?
+  createdAt        DateTime    @default(now())
 
   reading HoroscopeReading? @relation(fields: [readingId], references: [id], onDelete: SetNull)
   user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -632,19 +702,19 @@ model AIUsageLog {
 // A chat thread scoped to one category + mode. Credit is charged per assistant
 // message (see Message.creditCost), not per thread.
 model Conversation {
-  id         String           @id @default(cuid())
-  userId     String
-  categoryId String
-  mode       ConversationMode @default(NATAL)
-  title      String?
+  id              String           @id @default(cuid())
+  userId          String
+  categoryId      String
+  mode            ConversationMode @default(NATAL)
+  title           String?
   // Transit (ดวงจร) snapshot — Pro-only mode; populated when mode = TRANSIT.
   transitDate     DateTime?
   transitTime     String?
   transitCountry  String?
   transitProvince String?
   transitDistrict String?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   category HoroscopeCategory @relation(fields: [categoryId], references: [id])
@@ -670,6 +740,7 @@ model Message {
   promptTemplateId String?
   promptVersion    Int?
   creditCost       Int           @default(0)
+  usageCostUnits   Int           @default(0)
   status           ReadingStatus @default(SUCCESS)
   inputUsage       Int?
   outputUsage      Int?
@@ -776,7 +847,9 @@ model Payment {
   @@map("payments")
 }
 
-/** Web Push endpoints for admin PWA notifications (payment slips, etc.). */
+/**
+ * Web Push endpoints for admin PWA notifications (payment slips, etc.).
+ */
 model PushSubscription {
   id        String   @id @default(cuid())
   userId    String
@@ -839,7 +912,7 @@ model MediaAsset {
 }
 
 model ContentRevision {
-  id           String             @id @default(cuid())
+  id           String            @id @default(cuid())
   entityType   ContentEntityType
   entityId     String
   version      Int
@@ -847,7 +920,7 @@ model ContentRevision {
   adminUserId  String
   action       RevisionAction
   note         String?
-  createdAt    DateTime           @default(now())
+  createdAt    DateTime          @default(now())
 
   admin User @relation("ContentRevisionAuthor", fields: [adminUserId], references: [id])
 
@@ -874,18 +947,18 @@ model SiteAnnouncement {
 }
 
 model FaqItem {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   question         String
   answer           String
-  category         String   @default("general")
-  enabled          Boolean  @default(true)
-  sortOrder        Int      @default(0)
+  category         String    @default("general")
+  enabled          Boolean   @default(true)
+  sortOrder        Int       @default(0)
   draftQuestion    String?
   draftAnswer      String?
   draftUpdatedAt   DateTime?
   draftUpdatedById String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   draftUpdatedBy User? @relation("FaqDraftEditor", fields: [draftUpdatedById], references: [id])
 
