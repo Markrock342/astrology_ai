@@ -3,9 +3,15 @@ import type { GenerateAIInput, GenerateAIResult, HoroscopeResponse } from "@/typ
 import { gemini3ThinkingLevel } from "@/config/gemini-models";
 import { normalizeGeminiError } from "@/server/ai/provider-alerts";
 
+type GeminiPart = {
+  text?: string;
+  /** Gemini 3 thinking traces — not user-visible. */
+  thought?: boolean;
+};
+
 type GeminiApiResponse = {
   candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> };
+    content?: { parts?: Array<GeminiPart> };
     finishReason?: string;
   }>;
   usageMetadata?: {
@@ -41,6 +47,15 @@ function parseHoroscopeText(raw: string): HoroscopeResponse | undefined {
   return undefined;
 }
 
+/** Drop thought traces so they never stream into the chat bubble. */
+export function geminiVisibleText(parts: GeminiPart[] | undefined): string {
+  if (!parts?.length) return "";
+  return parts
+    .filter((p) => !p.thought)
+    .map((p) => p.text ?? "")
+    .join("");
+}
+
 /** Gemini 3.x uses thinkingLevel; 2.5 uses thinkingBudget — never both. */
 function buildGenerationConfig(input: GenerateAIInput) {
   const config: Record<string, unknown> = {
@@ -49,7 +64,10 @@ function buildGenerationConfig(input: GenerateAIInput) {
   };
   const id = input.modelId.toLowerCase();
   if (id.includes("gemini-3")) {
-    config.thinkingConfig = { thinkingLevel: gemini3ThinkingLevel(input.modelId) };
+    config.thinkingConfig = {
+      thinkingLevel: gemini3ThinkingLevel(input.modelId),
+      includeThoughts: false,
+    };
   } else if (id.includes("gemini-2.5")) {
     config.thinkingConfig = { thinkingBudget: 0 };
   }
@@ -126,10 +144,7 @@ export class GeminiAdapter implements AIProviderAdapter {
         };
       }
 
-      const rawText = data.candidates?.[0]?.content?.parts
-        ?.map((p) => p.text ?? "")
-        .join("")
-        .trim();
+      const rawText = geminiVisibleText(data.candidates?.[0]?.content?.parts).trim();
 
       if (!rawText) {
         return {
@@ -308,9 +323,7 @@ export class GeminiAdapter implements AIProviderAdapter {
           if (!payload || payload === "[DONE]") continue;
           try {
             const data = JSON.parse(payload) as GeminiApiResponse;
-            const chunk =
-              data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ??
-              "";
+            const chunk = geminiVisibleText(data.candidates?.[0]?.content?.parts);
             if (chunk) {
               if (firstTokenAt === undefined) firstTokenAt = Date.now();
               rawText += chunk;

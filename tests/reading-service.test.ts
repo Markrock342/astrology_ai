@@ -482,7 +482,7 @@ describe("createReading (M3 B2)", () => {
     const aiCall = mocks.generateWithFallback.mock.calls[0]?.[1] as {
       maxOutputTokens: number;
     };
-    expect(aiCall.maxOutputTokens).toBe(1024);
+    expect(aiCall.maxOutputTokens).toBe(2048);
   });
 });
 

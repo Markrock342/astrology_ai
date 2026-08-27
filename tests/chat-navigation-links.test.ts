@@ -4,6 +4,7 @@ import {
   linkChatNavigationCtas,
   natalCategoryHref,
   parseDashboardChatHref,
+  transitCategoryHref,
 } from "@/lib/chat-navigation-links";
 
 describe("linkChatNavigationCtas", () => {
@@ -79,5 +80,11 @@ describe("categorySlugFromLabel", () => {
 
   it("builds a natal category href", () => {
     expect(natalCategoryHref("career")).toBe("/dashboard?cat=career");
+  });
+
+  it("builds a transit category href for the home picker", () => {
+    expect(transitCategoryHref("love")).toBe(
+      "/dashboard?action=transit&cat=love",
+    );
   });
 });

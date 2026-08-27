@@ -56,14 +56,22 @@ export const KNOWLEDGE_MAX_CHARS = 28_000;
 /**
  * Plan-specific output caps (applied on top of Admin AIProviderConfig).
  *
- * These bound GENERATION TIME, which is the wait users actually feel: the model
- * emits ~40–60 tokens/sec, so 2,048 tokens is ~40s of typing. A horoscope answer
- * does not need 700 words — 1,536 (~520 Thai words) stays complete and thorough
- * while shaving a quarter off the wait. The client streams it, so the reader is
- * reading from the second token, not staring at a blank bubble.
+ * Gemini 3.x draws *thinking* from this same budget and does not count it in
+ * candidatesTokenCount. 3.7 Flash cannot use MINIMAL thinking (LOW is the
+ * floor), so a 1,536 cap routinely spends the whole allowance on reasoning and
+ * cuts the Thai answer mid-sentence. These numbers leave room for LOW thinking
+ * PLUS the visible length the DETAILED_ANSWER_HINT asks for. Visible length is
+ * still the hint — not this ceiling.
  */
-export const FREE_MAX_OUTPUT_TOKENS = 1_024;
-export const PRO_MAX_OUTPUT_TOKENS = 1_536;
+export const FREE_MAX_OUTPUT_TOKENS = 2_048;
+export const PRO_MAX_OUTPUT_TOKENS = 4_096;
+
+/**
+ * First visible token wait for ละเอียด / Gemini 3.7. Thinking-only SSE frames
+ * do not reset the idle timer, so the first real character must arrive within
+ * this window or the stream aborts as a timeout.
+ */
+export const GEMINI_DETAILED_FIRST_TOKEN_MS = 90_000;
 
 /**
  * UX Wave F — brief answer mode caps.
@@ -96,6 +104,12 @@ export const DETAILED_ANSWER_HINT_FREE =
   "โหมดละเอียด (แพ็กเกจทดลอง): ตอบชัด อ่านง่าย รวมประมาณ 250–350 คำ " +
   "ใช้หัวข้อสั้นได้ไม่เกิน 4 ข้อ ห้ามยืดยาวซ้ำซ้อน ห้ามตารางยาว " +
   "ปิดท้ายด้วยคำถามชวนคุยต่อหนึ่งประโยค";
+
+/** Pro detailed — keep the visible answer complete without filling the token cap. */
+export const DETAILED_ANSWER_HINT_PRO =
+  "โหมดละเอียด: ตอบชัด อ่านง่าย รวมประมาณ 350–500 คำ " +
+  "ใช้หัวข้อสั้นได้ไม่เกิน 6 ข้อ ห้ามยืดยาวซ้ำซ้อน ห้ามตารางยาว " +
+  "ห้ามตัดท้ายกลางประโยค — ถ้าใกล้จบให้สรุปสั้นแล้วปิดด้วยคำถามชวนคุยต่อหนึ่งประโยค";
 
 /** Delete private slip blobs this many days after admin review (PDPA retention). */
 export const SLIP_RETENTION_DAYS = 90;

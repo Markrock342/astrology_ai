@@ -17,6 +17,11 @@ export function natalCategoryHref(slug: string): string {
   return `/dashboard?cat=${encodeURIComponent(slug)}`;
 }
 
+/** Empty-state home: pick a category, then open the transit form. */
+export function transitCategoryHref(slug: string): string {
+  return `/dashboard?action=transit&cat=${encodeURIComponent(slug)}`;
+}
+
 export function parseDashboardChatHref(href: string): {
   isDashboard: boolean;
   action: string | null;
