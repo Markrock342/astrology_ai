@@ -131,7 +131,7 @@ export function IntakeSurveyForm() {
         setError(json?.error?.message ?? "บันทึกไม่สำเร็จ กรุณาลองใหม่");
         return;
       }
-      router.push("/dashboard?cat=self");
+      router.push("/dashboard");
       window.localStorage.removeItem(DRAFT_KEY);
       router.refresh();
     } catch {

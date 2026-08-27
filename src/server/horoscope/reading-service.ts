@@ -47,10 +47,13 @@ import {
   BRIEF_MAX_OUTPUT_TOKENS_FREE,
   BRIEF_MAX_OUTPUT_TOKENS_PRO,
   DETAILED_ANSWER_HINT_FREE,
+  DETAILED_ANSWER_HINT_PRO,
   FREE_MAX_OUTPUT_TOKENS,
+  GEMINI_DETAILED_FIRST_TOKEN_MS,
   KNOWLEDGE_MAX_CHARS,
   PRO_MAX_OUTPUT_TOKENS,
 } from "@/config/constants";
+import { isDetailedGeminiModel } from "@/config/gemini-models";
 import type { ChartJson } from "@/types/chart";
 import type { BirthProfileSnapshot } from "@/types";
 import {
@@ -134,6 +137,23 @@ export function resolveMaxOutputTokens(
     plan === "PRO" ? BRIEF_MAX_OUTPUT_TOKENS_PRO : BRIEF_MAX_OUTPUT_TOKENS_FREE;
   const modeCap = answerMode === "brief" ? briefCap : planCap;
   return Math.min(configMaxOutputTokens, modeCap);
+}
+
+/** Wait longer for Gemini 3.7 thinking before the first visible token. */
+export function resolveAiTimeoutMs(
+  modelId: string,
+  configTimeoutMs: number | null | undefined,
+  answerMode: AnswerMode = "detailed",
+): number {
+  const configured =
+    typeof configTimeoutMs === "number" && Number.isFinite(configTimeoutMs)
+      ? configTimeoutMs
+      : 30_000;
+  const thinkingWait =
+    answerMode === "detailed" && isDetailedGeminiModel(modelId)
+      ? GEMINI_DETAILED_FIRST_TOKEN_MS
+      : 0;
+  return Math.max(configured, thinkingWait);
 }
 
 export type CreateReadingInput = {
@@ -344,6 +364,8 @@ async function runReading(
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
   } else if (plan === "FREE") {
     systemPrompt = `${systemPrompt}\n\n${DETAILED_ANSWER_HINT_FREE}`;
+  } else {
+    systemPrompt = `${systemPrompt}\n\n${DETAILED_ANSWER_HINT_PRO}`;
   }
   if (skipCredits) {
     systemPrompt = `${systemPrompt}\n\n${CATEGORY_INTRO_SYSTEM_HINT}`;
@@ -406,6 +428,7 @@ async function runReading(
       conversationHistory:
         conversationHistory.length > 0 ? conversationHistory : undefined,
       maxOutputTokens,
+      timeoutMs: resolveAiTimeoutMs(config.modelId, config.timeoutMs, answerMode),
     };
 
     const result = onDelta

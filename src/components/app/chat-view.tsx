@@ -18,7 +18,10 @@ import {
 } from "./app-data-provider";
 import { BrandMark } from "@/components/brand-logo";
 import { softNavigate, useChatRouteSearchParams, isPlainLeftClick } from "./chat-nav";
-import { dispatchOpenTransit } from "@/lib/chat-navigation-links";
+import {
+  dispatchOpenTransit,
+  transitCategoryHref,
+} from "@/lib/chat-navigation-links";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { HoroscopeChartPanel } from "./horoscope-chart-panel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
@@ -346,6 +349,7 @@ export function ChatView() {
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
   const activeView = searchParams.get("view");
+  const openingTransit = searchParams.get("action") === "transit";
   const showingNatalChart = activeView === "natal-chart";
   const {
     user,
@@ -960,6 +964,7 @@ export function ChatView() {
     if (loading || loadingThread || locked) return;
     if (!FEATURES.aiChat) return;
     if (threadMode === "TRANSIT") return;
+    if (openingTransit) return;
     if (messages.length > 0) return;
     if (state !== "idle") return;
 
@@ -987,6 +992,7 @@ export function ChatView() {
     loadingThread,
     locked,
     threadMode,
+    openingTransit,
     messages.length,
     state,
     catSlug,
@@ -1269,9 +1275,8 @@ export function ChatView() {
       return;
     }
     if (!categorySlug && !threadId && !conversationIdRef.current) {
-      softNavigate("/dashboard?cat=self");
       setErrorCode("VALIDATION");
-      setErrorText("กำลังเปิดหมวด「ตัวตน」— เลือกคำถามแล้วส่งอีกครั้ง");
+      setErrorText("เลือกหมวดด้านบนก่อน แล้วเริ่มดวงจร");
       setState("error");
       setPendingRetry(null);
       return;
@@ -2035,10 +2040,10 @@ export function ChatView() {
             className="page-enter mx-auto flex w-full max-w-2xl flex-col items-center"
           >
             <EmptyState
-              category={category?.label}
+              category={openingTransit ? undefined : category?.label}
               categories={availableCategories}
               plan={user?.plan ?? "FREE"}
-              natalBriefing={Boolean(catSlug)}
+              natalBriefing={Boolean(catSlug) && !openingTransit}
               chartReady={natalChartStatus?.status === "READY"}
               suggestions={[]}
               onPick={send}
@@ -2572,10 +2577,10 @@ function EmptyState({
       ) : (
         <>
           <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
-            เลือกหมวดเพื่ออ่านสรุปพื้นดวง
+            เลือกหมวดเพื่อเริ่มดวงจร
           </h1>
           <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
-            แต่ละหมวดสรุปให้อัตโนมัติจากดวงและแบบสำรวจ — คำทำนายเป็นแนวทางเพื่อความบันเทิง
+            เลือกหมวดที่อยากถาม แล้วระบบจะเปิดดวงจรให้ทันที — คำทำนายเป็นแนวทางเพื่อความบันเทิง
             ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์
           </p>
         </>
@@ -2593,18 +2598,16 @@ function EmptyState({
           </div>
           <nav
             className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--border)] sm:grid-cols-3"
-            aria-label="เลือกหมวดพื้นดวง"
+            aria-label="เลือกหมวดเพื่อเริ่มดวงจร"
           >
             {categories.map((item) => (
               <a
                 key={item.slug}
-                href={`/dashboard?cat=${item.slug}`}
+                href={transitCategoryHref(item.slug)}
                 onClick={(event) => {
-                  if (
-                    isPlainLeftClick(event) &&
-                    softNavigate(`/dashboard?cat=${item.slug}`)
-                  ) {
+                  if (isPlainLeftClick(event)) {
                     event.preventDefault();
+                    dispatchOpenTransit(item.slug);
                   }
                 }}
                 className="press-scale flex min-h-12 items-center gap-2.5 bg-[var(--surface-2)] px-3 py-3 text-left text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-[var(--primary)]"

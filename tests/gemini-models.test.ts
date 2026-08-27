@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { geminiVisibleText } from "@/server/ai/providers/gemini";
 import {
   DEFAULT_GEMINI_BRIEF_MODEL_ID,
   DEFAULT_GEMINI_MODEL_ID,
@@ -34,5 +35,17 @@ describe("gemini model routing helpers", () => {
 
   it("nudges admins off 3.6 Flash", () => {
     expect(geminiReplacementHint("gemini-3.6-flash")).toContain("gemini-3.7-flash");
+  });
+});
+
+describe("geminiVisibleText", () => {
+  it("drops thought parts and keeps answer text", () => {
+    expect(
+      geminiVisibleText([
+        { thought: true, text: "internal reasoning" },
+        { text: "คำทำนาย" },
+        { thought: true, text: "more thinking" },
+      ]),
+    ).toBe("คำทำนาย");
   });
 });
