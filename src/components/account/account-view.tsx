@@ -253,6 +253,7 @@ export function AccountView({
                 variant="topup"
                 proPrice={topUpPkg.price}
                 usagePercent={topUpPercent}
+                currentUsagePercent={myPackage.usageRemainingPercent}
                 paymentInfo={paymentInfo}
               />
             </div>

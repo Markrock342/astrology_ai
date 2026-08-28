@@ -9,6 +9,7 @@ import {
   type CmsPaymentInfo,
   type CmsSeo,
 } from "@/lib/cms-keys";
+import { isPaymentInfoConfigured } from "@/lib/payment-info";
 import { metadataFromSeo } from "@/lib/seo";
 import { listPublicPackages } from "@/server/admin/catalog-admin-service";
 import { isPreviewMode } from "@/server/cms/preview-mode";
@@ -42,6 +43,7 @@ export default async function PricingPage() {
     ...section,
     enabled: true,
   };
+  const paymentConfigured = isPaymentInfoConfigured(paymentInfo);
 
   return (
     <main className="flex flex-1 flex-col">
@@ -59,37 +61,49 @@ export default async function PricingPage() {
           <h2 className="text-lg font-semibold text-[var(--foreground)]">
             {paymentInfo.title}
           </h2>
-          <dl className="mt-4 space-y-2 text-sm text-[var(--muted)]">
-            <div className="flex flex-wrap gap-x-2">
-              <dt className="text-[var(--muted-2)]">ธนาคาร</dt>
-              <dd>{paymentInfo.bankName}</dd>
-            </div>
-            <div className="flex flex-wrap gap-x-2">
-              <dt className="text-[var(--muted-2)]">ชื่อบัญชี</dt>
-              <dd>{paymentInfo.accountName}</dd>
-            </div>
-            <div className="flex flex-wrap gap-x-2">
-              <dt className="text-[var(--muted-2)]">เลขบัญชี</dt>
-              <dd className="font-medium text-[var(--foreground)]">
-                {paymentInfo.accountNumber}
-              </dd>
-            </div>
-          </dl>
-          {paymentInfo.amountNote ? (
-            <p className="mt-4 text-sm text-[var(--muted)]">{paymentInfo.amountNote}</p>
-          ) : null}
-          {paymentInfo.steps.length > 0 ? (
-            <ol className="mt-5 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-[var(--muted)]">
-              {paymentInfo.steps.map((step, i) => (
-                <li key={i}>
-                  <SimpleMarkdown text={step} />
-                </li>
-              ))}
-            </ol>
-          ) : null}
-          {paymentInfo.footer ? (
-            <p className="mt-5 text-xs text-[var(--muted-2)]">{paymentInfo.footer}</p>
-          ) : null}
+          {paymentConfigured ? (
+            <>
+              <dl className="mt-4 space-y-2 text-sm text-[var(--muted)]">
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="text-[var(--muted-2)]">ธนาคาร</dt>
+                  <dd>{paymentInfo.bankName}</dd>
+                </div>
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="text-[var(--muted-2)]">ชื่อบัญชี</dt>
+                  <dd>{paymentInfo.accountName}</dd>
+                </div>
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="text-[var(--muted-2)]">เลขบัญชี</dt>
+                  <dd className="font-medium text-[var(--foreground)]">
+                    {paymentInfo.accountNumber}
+                  </dd>
+                </div>
+              </dl>
+              {paymentInfo.amountNote ? (
+                <p className="mt-4 text-sm text-[var(--muted)]">
+                  {paymentInfo.amountNote}
+                </p>
+              ) : null}
+              {paymentInfo.steps.length > 0 ? (
+                <ol className="mt-5 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-[var(--muted)]">
+                  {paymentInfo.steps.map((step, i) => (
+                    <li key={i}>
+                      <SimpleMarkdown text={step} />
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+              {paymentInfo.footer ? (
+                <p className="mt-5 text-xs text-[var(--muted-2)]">
+                  {paymentInfo.footer}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
+              ระบบยังไม่เปิดรับชำระเงินผ่านการโอน กรุณาติดต่อทีมงานก่อนโอนเงิน
+            </p>
+          )}
         </div>
 
         <div className="mx-auto mt-10 flex max-w-md flex-wrap justify-center gap-3">
