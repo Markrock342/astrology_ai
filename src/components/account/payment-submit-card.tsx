@@ -6,6 +6,7 @@ import type { CmsPaymentInfo } from "@/lib/cms-keys";
 import { Button, Field, TextInput } from "@/components/admin/ui";
 import { useAppData } from "@/components/app/app-data-provider";
 import { PAYMENT_PENDING_SLA_HOURS } from "@/config/constants";
+import { isPaymentInfoConfigured } from "@/lib/payment-info";
 
 type PaymentRow = {
   id: string;
@@ -110,12 +111,14 @@ export function PaymentSubmitCard({
   paymentInfo,
   variant = "upgrade",
   usagePercent,
+  currentUsagePercent,
 }: {
   proPrice: number;
   paymentInfo: CmsPaymentInfo;
   /** `upgrade` = Free→Pro; `renew` = extend Pro; `topup` = usage refill. */
   variant?: "upgrade" | "renew" | "topup";
   usagePercent?: number;
+  currentUsagePercent?: number;
 }) {
   const { refresh } = useAppData();
   const [file, setFile] = useState<File | null>(null);
@@ -160,6 +163,10 @@ export function PaymentSubmitCard({
 
   const isTopUp = variant === "topup";
   const isRenew = variant === "renew";
+  const paymentConfigured = isPaymentInfoConfigured(paymentInfo);
+  const topUpPercent = usagePercent ?? 50;
+  const remainingPercent = currentUsagePercent ?? 0;
+  const projectedPercent = remainingPercent + topUpPercent;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -219,16 +226,18 @@ export function PaymentSubmitCard({
   const submitLabel = busy
     ? "กำลังส่ง…"
     : latestRejected
-      ? "ส่งสลิปใหม่"
+      ? isTopUp
+        ? `ส่งสลิปใหม่เพื่อรับ +${topUpPercent}%`
+        : "ส่งสลิปใหม่"
       : isTopUp
-        ? "แจ้งชำระเติม usage"
+        ? `ส่งสลิปเพื่อรับ +${topUpPercent}%`
         : isRenew
           ? "แจ้งชำระต่ออายุ Pro"
           : "แจ้งชำระเงิน";
 
   // Soften Pro-centric CMS copy on topup/renew (amountNote defaults to "แพ็กเกจ Pro").
   const amountNote = isTopUp
-    ? `โอนตามยอดเติม usage (${amount} บาท)`
+    ? `ยอดที่ต้องโอน: ${amount} บาท`
     : isRenew
       ? `โอนตามยอดต่ออายุ Pro (${amount} บาท)`
       : paymentInfo.amountNote;
@@ -247,42 +256,113 @@ export function PaymentSubmitCard({
 
   return (
     <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
-      <h2 className="text-sm font-semibold text-[var(--foreground)]">
-        {cardTitle}
-      </h2>
       {isTopUp ? (
-        <p className="mt-2 text-xs text-[var(--muted)]">
-          สมาชิก Pro สามารถโอนเงินเพื่อเติม usage
-          {usagePercent ? ` อีก ${usagePercent}%` : " เพิ่ม"} — ยอดที่เติมแยกจะไม่หายเมื่อต่ออายุ
-          แอดมินจะตรวจสลิปและเพิ่ม usage ให้ภายใน 1–2 วันทำการ
-        </p>
-      ) : isRenew ? (
-        <p className="mt-2 text-xs text-[var(--muted)]">
-          โอนตามยอดแพ็ก Pro เพื่อต่ออายุสมาชิกอีก 30 วัน และเริ่ม usage รอบใหม่
-        </p>
-      ) : null}
-      <div className="mt-3 rounded-xl bg-[var(--surface-2)] p-4 text-sm text-[var(--muted)]">
-        <p>
-          <span className="text-[var(--foreground)]">{paymentInfo.bankName}</span>
-          {" · "}
-          {paymentInfo.accountName}
-        </p>
-        <p className="mt-1 font-mono text-[var(--primary)]">{paymentInfo.accountNumber}</p>
-        <p className="mt-2 text-xs">{amountNote}</p>
-        <ol className="mt-3 list-inside list-decimal space-y-1 text-xs">
-          {displaySteps.map((step, i) => (
-            <li key={i}>{step}</li>
-          ))}
-        </ol>
-        {paymentInfo.footer && (
-          <p className="mt-3 text-[10px] text-[var(--muted-2)]">{paymentInfo.footer}</p>
-        )}
-      </div>
+        <>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.12em] text-[var(--primary)]">
+                TOP-UP USAGE
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-[var(--foreground)]">
+                เติม usage เพื่อใช้ AI ต่อ
+              </h2>
+              <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">
+                จ่ายครั้งเดียว ได้ usage เพิ่มเท่ากับครึ่งหนึ่งของโควตา Pro ต่อรอบ
+              </p>
+            </div>
+            <div className="grid grid-cols-[auto_auto_auto] items-center gap-x-3 self-start sm:self-auto">
+              <div className="text-right">
+                <p className="text-[11px] text-[var(--muted-2)]">โอน</p>
+                <p className="tabular-nums text-2xl font-semibold text-[var(--foreground)]">
+                  ฿{amount}
+                </p>
+              </div>
+              <span aria-hidden className="text-lg text-[var(--primary)]">→</span>
+              <div>
+                <p className="text-[11px] text-[var(--muted-2)]">ได้รับ</p>
+                <p className="tabular-nums text-2xl font-semibold text-[var(--primary)]">
+                  +{topUpPercent}%
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-y border-[var(--border)] py-4">
+            <div>
+              <p className="text-[11px] text-[var(--muted-2)]">usage ตอนนี้</p>
+              <p className="tabular-nums text-lg font-semibold text-[var(--foreground)]">
+                {remainingPercent}%
+              </p>
+            </div>
+            <span aria-hidden className="text-[var(--muted-2)]">→</span>
+            <div>
+              <p className="text-[11px] text-[var(--muted-2)]">หลังแอดมินอนุมัติ</p>
+              <p className="tabular-nums text-lg font-semibold text-[var(--primary)]">
+                {projectedPercent}%
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+            ยอดนี้บวกเพิ่มจากยอดปัจจุบัน ไม่ได้เติมให้เต็ม 100% และจะไม่หายเมื่อต่ออายุ Pro
+          </p>
+        </>
+      ) : (
+        <>
+          <h2 className="text-sm font-semibold text-[var(--foreground)]">{cardTitle}</h2>
+          {isRenew ? (
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              โอนตามยอดแพ็ก Pro เพื่อต่ออายุสมาชิกอีก 30 วัน และเริ่ม usage รอบใหม่
+            </p>
+          ) : null}
+        </>
+      )}
+
+      {paymentConfigured ? (
+        <section className="mt-6 border-t border-[var(--border)] pt-5">
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">
+            {isTopUp ? `1. โอนเงิน ${amount} บาท` : "โอนเงินเข้าบัญชีนี้"}
+          </h3>
+          <dl className="mt-3 grid gap-1.5 text-sm text-[var(--muted)]">
+            <div className="flex flex-wrap gap-x-2">
+              <dt className="text-[var(--muted-2)]">ธนาคาร</dt>
+              <dd className="text-[var(--foreground)]">{paymentInfo.bankName}</dd>
+            </div>
+            <div className="flex flex-wrap gap-x-2">
+              <dt className="text-[var(--muted-2)]">ชื่อบัญชี</dt>
+              <dd>{paymentInfo.accountName}</dd>
+            </div>
+            <div className="flex flex-wrap gap-x-2">
+              <dt className="text-[var(--muted-2)]">เลขบัญชี</dt>
+              <dd className="font-mono font-medium text-[var(--primary)]">{paymentInfo.accountNumber}</dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-xs text-[var(--muted)]">{amountNote}</p>
+          {!isTopUp && displaySteps.length > 0 ? (
+            <ol className="mt-4 list-decimal space-y-1.5 pl-5 text-xs leading-5 text-[var(--muted)]">
+              {displaySteps.map((step, i) => (
+                <li key={i}>{step}</li>
+              ))}
+            </ol>
+          ) : null}
+          {paymentInfo.footer ? (
+            <p className="mt-4 text-[11px] text-[var(--muted-2)]">{paymentInfo.footer}</p>
+          ) : null}
+        </section>
+      ) : (
+        <div role="alert" className="mt-6 rounded-xl border border-[var(--danger)]/40 bg-[var(--danger)]/10 p-4">
+          <p className="text-sm font-semibold text-[var(--foreground)]">ยังไม่เปิดรับโอนเงิน</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+            ทีมงานยังไม่ได้ตั้งค่าบัญชีรับเงินจริง จึงยังส่งสลิปไม่ได้ กรุณาติดต่อทีมงานก่อนโอนเงิน
+          </p>
+        </div>
+      )}
 
       {pending ? (
         <div className="mt-4 rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 p-4">
           <p className="text-sm font-semibold text-[var(--primary)]">
-            รอแอดมินตรวจสอบการชำระเงิน
+            {isTopUp
+              ? `รอแอดมินตรวจสลิปเพื่อเพิ่ม +${topUpPercent}%`
+              : "รอแอดมินตรวจสอบการชำระเงิน"}
           </p>
           <p className="mt-1 text-xs text-[var(--muted)]">
             จำนวน ฿{pending.amount} · ส่งเมื่อ{" "}
@@ -309,7 +389,7 @@ export function PaymentSubmitCard({
               : "ปกติภายใน 1–2 วันทำการ · ไม่สามารถส่งคำขอใหม่ได้จนกว่าแอดมินจะอนุมัติหรือปฏิเสธ"}
           </p>
         </div>
-      ) : (
+      ) : paymentConfigured ? (
         <>
           {latestRejected ? (
             <RejectedPaymentCard
@@ -323,18 +403,23 @@ export function PaymentSubmitCard({
             onSubmit={submit}
             className="mt-4 grid gap-3"
           >
+            {!isTopUp ? (
+              <Field
+                label="จำนวนเงิน (บาท)"
+                hint="โอนตามยอดนี้เท่านั้น — ระบบล็อกตามแพ็กเกจ"
+              >
+                <TextInput
+                  type="number"
+                  value={amount}
+                  readOnly
+                  className="opacity-90"
+                />
+              </Field>
+            ) : null}
             <Field
-              label="จำนวนเงิน (บาท)"
-              hint="โอนตามยอดนี้เท่านั้น — ระบบล็อกตามแพ็กเกจ"
+              label={isTopUp ? "2. แนบสลิปการโอน" : "อัปโหลดสลิปจากเครื่อง"}
+              hint="JPG / PNG / WebP สูงสุด 2 MB"
             >
-              <TextInput
-                type="number"
-                value={amount}
-                readOnly
-                className="opacity-90"
-              />
-            </Field>
-            <Field label="อัปโหลดสลิปจากเครื่อง" hint="JPG / PNG / WebP สูงสุด 2 MB">
               <input
                 ref={inputRef}
                 type="file"
@@ -351,20 +436,29 @@ export function PaymentSubmitCard({
                 className="max-h-48 rounded-lg border border-[var(--border)] object-contain"
               />
             ) : null}
-            <div>
-              {error && <p className="mb-2 text-xs text-[var(--danger)]">{error}</p>}
+            <div className="mt-1">
+              {error && (
+                <p role="alert" className="mb-2 text-xs text-[var(--danger)]">
+                  {error}
+                </p>
+              )}
               {success && (
                 <p className="mb-2 text-xs text-[var(--secondary-active)]">
                   ส่งคำขอแล้ว — รอแอดมินตรวจสอบ
                 </p>
               )}
+              <p className="mb-2 text-xs text-[var(--muted)]">
+                {isTopUp
+                  ? "3. ส่งสลิปให้แอดมินตรวจสอบ (ปกติ 1–2 วันทำการ)"
+                  : "แอดมินจะตรวจสอบสลิปภายใน 1–2 วันทำการ"}
+              </p>
               <Button type="submit" disabled={busy || !file}>
                 {submitLabel}
               </Button>
             </div>
           </form>
         </>
-      )}
+      ) : null}
 
       {history.length > 0 && (
         <ul className="mt-6 space-y-2 border-t border-[var(--border)] pt-4">
