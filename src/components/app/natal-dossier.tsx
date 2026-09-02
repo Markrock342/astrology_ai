@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { isCategoryLocked, useAppData } from "./app-data-provider";
 import { CategoryIcon } from "./category-icon";
-import { LockIcon } from "./sidebar-icons";
+import { LockIcon, NatalChartIcon } from "./sidebar-icons";
 import { isPlainLeftClick, useChatNav } from "./chat-nav";
 import { natalAtlasHref } from "@/lib/chat-navigation-links";
 import { NATAL_FACT_HOUSES } from "@/lib/natal-category-facts";
@@ -11,25 +11,50 @@ import type { Category } from "./nav-data";
 
 type Props = {
   onNavigate?: () => void;
+  activeView?: string | null;
   activeSlug?: string | null;
 };
 
-/** Sidebar: one column of category icons. The atlas opens on the right. */
-export function NatalDossier({ onNavigate, activeSlug }: Props) {
+/** Sidebar natal nav: named rows like the original list, atlas opens on the right. */
+export function NatalDossier({ onNavigate, activeView, activeSlug }: Props) {
   const { user, categories } = useAppData();
   const chatNav = useChatNav();
   const plan = user?.plan ?? "FREE";
   const natalCategories = categories.filter(
     (category) => category.slug in NATAL_FACT_HOUSES,
   );
-
-  if (natalCategories.length === 0) return null;
+  const atlasOpen = activeView === "natal-chart";
 
   return (
-    <nav className="flex flex-col items-start gap-0.5" aria-label="หมวดพื้นดวงเดิม">
+    <nav className="flex flex-col gap-0.5" aria-label="หมวดพื้นดวงเดิม">
+      <Link
+        href={natalAtlasHref()}
+        onClick={(event) => {
+          if (isPlainLeftClick(event)) {
+            event.preventDefault();
+            chatNav(natalAtlasHref());
+          }
+          onNavigate?.();
+        }}
+        aria-current={atlasOpen && !activeSlug ? "page" : undefined}
+        className={`mb-0.5 flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
+          atlasOpen && !activeSlug
+            ? "bg-[var(--background)] text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]"
+            : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+        }`}
+      >
+        <span className="flex items-center gap-2.5">
+          <span className="text-[var(--primary)]">
+            <NatalChartIcon />
+          </span>
+          ดวงจักรกำเนิด
+        </span>
+        <span className="text-[10px] text-[var(--muted-2)]">พื้นดวง</span>
+      </Link>
+
       {natalCategories.map((category) => {
         const locked = isCategoryLocked(category, plan);
-        const active = activeSlug === category.slug;
+        const active = atlasOpen && activeSlug === category.slug;
         if (locked) {
           return (
             <Link
@@ -37,13 +62,15 @@ export function NatalDossier({ onNavigate, activeSlug }: Props) {
               href="/account"
               onClick={onNavigate}
               title={`${category.label} · ปลดล็อกด้วย Pro`}
-              aria-label={`${category.label} ปลดล็อกด้วย Pro`}
-              className="relative flex h-10 w-10 items-center justify-center rounded-lg text-[var(--primary)]/55 transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--muted-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
             >
-              <CategoryIcon slug={category.slug} icon={category.icon} size={20} />
-              <span className="absolute right-1 top-1 text-[var(--muted-2)]">
-                <LockIcon size={9} />
+              <span className="relative text-[var(--primary)]/55">
+                <CategoryIcon slug={category.slug} icon={category.icon} />
+                <span className="absolute -right-1.5 -top-1 text-[var(--muted-2)]">
+                  <LockIcon size={10} />
+                </span>
               </span>
+              {category.label}
             </Link>
           );
         }
@@ -78,7 +105,6 @@ function NatalCategoryLink({
     <Link
       href={href}
       title={category.label}
-      aria-label={category.label}
       aria-current={active ? "page" : undefined}
       onClick={(event) => {
         if (isPlainLeftClick(event)) {
@@ -87,13 +113,16 @@ function NatalCategoryLink({
         }
         onNavigate?.();
       }}
-      className={`flex h-10 w-10 items-center justify-center rounded-lg transition ${
+      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
         active
-          ? "bg-[var(--background)] text-[var(--primary)] shadow-[inset_0_0_0_1px_var(--border)]"
-          : "text-[var(--primary)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+          ? "bg-[var(--background)] text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]"
+          : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
       }`}
     >
-      <CategoryIcon slug={category.slug} icon={category.icon} size={20} />
+      <span className="text-[var(--primary)]">
+        <CategoryIcon slug={category.slug} icon={category.icon} />
+      </span>
+      {category.label}
     </Link>
   );
 }
