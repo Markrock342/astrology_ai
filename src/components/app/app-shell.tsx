@@ -42,7 +42,7 @@ import {
   invalidateCachedThread,
   prefetchThread,
 } from "./thread-cache";
-import { OPEN_TRANSIT_EVENT, readOpenTransitDetail } from "@/lib/chat-navigation-links";
+import { OPEN_TRANSIT_EVENT, natalAtlasHref, readOpenTransitDetail } from "@/lib/chat-navigation-links";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const searchParams = useChatRouteSearchParams();
@@ -477,7 +477,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2">
         <section aria-label="พื้นดวงเดิม" className="shrink-0">
           <SectionLabel>พื้นดวงเดิม</SectionLabel>
-          <NatalDossier onAsk={closeMobile} />
+          <NatalDossier
+            onNavigate={closeMobile}
+            activeSlug={
+              searchParams.get("view") === "natal-chart"
+                ? searchParams.get("cat")
+                : null
+            }
+          />
         </section>
 
         <SidebarDivider />
@@ -991,7 +998,7 @@ function CollapsedRail({
           type="button"
           title="พื้นดวงเดิม"
           aria-label="เปิดพื้นดวงเดิม"
-          onClick={onExpand}
+          onClick={() => chatNav(natalAtlasHref())}
           className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--primary)]/75 transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
         >
           <NatalChartIcon size={20} />

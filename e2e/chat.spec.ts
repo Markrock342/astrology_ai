@@ -27,14 +27,17 @@ test("home is ready to chat without picking a category", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("natal chart view still keeps the composer on the same page", async ({
+test("natal chart view fills the main pane and hides the composer", async ({
   page,
 }) => {
   await page.goto("/dashboard?view=natal-chart");
 
-  await expect(page.getByRole("heading", { name: "ถามดวงได้เลย" })).toBeVisible();
-  await expect(page.getByRole("textbox")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ถามดวงได้เลย" })).toHaveCount(0);
+  await expect(page.getByRole("textbox")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "พื้นดวงเดิม" })).toBeVisible();
+  await expect(
+    page.getByText(/กำลังเปิดดวงจักรกำเนิด|กำลังวางลัคนา|ดวงจักรกำเนิด|ผังดวงชะตา|ยังเปิดดวงจักร/),
+  ).toBeVisible();
 });
 
 test("preset chips always exist, even when the API sends none", async ({
