@@ -475,14 +475,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2">
-        <section
-          aria-label="พื้นดวงเดิม"
-          className="flex min-h-0 flex-[1.35] flex-col overflow-hidden"
-        >
+        <section aria-label="พื้นดวงเดิม" className="shrink-0">
           <SectionLabel>พื้นดวงเดิม</SectionLabel>
-          <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
-            <NatalDossier onAsk={closeMobile} />
-          </div>
+          <NatalDossier onAsk={closeMobile} />
         </section>
 
         <SidebarDivider />

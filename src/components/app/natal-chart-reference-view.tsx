@@ -24,7 +24,7 @@ export function NatalChartReferenceView() {
     return <ChartUnavailableState message={load.message} />;
   }
 
-  if (load.status === "loading") {
+  if (load.status === "idle" || load.status === "loading") {
     return <ChartLoadingState label="กำลังเปิดดวงที่บันทึกไว้…" />;
   }
 
