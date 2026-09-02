@@ -126,11 +126,21 @@ export function usdToThb(usd: number): number {
   return usd * USD_TO_THB;
 }
 
+export function thbToUsd(thb: number): number {
+  return USD_TO_THB === 0 ? 0 : thb / USD_TO_THB;
+}
+
+/** Format a THB amount (already baht, not USD). */
+export function formatBaht(thb: number): string {
+  const sign = thb < 0 ? "−" : "";
+  const n = Math.abs(thb);
+  if (n === 0) return "฿0";
+  if (n < 1) return `${sign}฿${n.toFixed(3)}`;
+  if (n < 100) return `${sign}฿${n.toFixed(2)}`;
+  return `${sign}฿${n.toLocaleString("th-TH", { maximumFractionDigits: 0 })}`;
+}
+
 /** Baht, at the precision a human actually reads (sub-satang is noise). */
 export function formatThb(usd: number): string {
-  const thb = usdToThb(usd);
-  if (thb === 0) return "฿0";
-  if (thb < 1) return `฿${thb.toFixed(3)}`;
-  if (thb < 100) return `฿${thb.toFixed(2)}`;
-  return `฿${thb.toLocaleString("th-TH", { maximumFractionDigits: 0 })}`;
+  return formatBaht(usdToThb(usd));
 }

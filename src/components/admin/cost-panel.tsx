@@ -95,7 +95,7 @@ export function CostPanel() {
     <AdminPage>
       <PageHeader
         title="ต้นทุนและกำไรต่อผู้ใช้"
-        description="ต้นทุน AI จริงจาก token ที่ใช้ เทียบกับรายได้ตามแพ็กเกจ — ตอบว่าราคาที่ตั้งไว้กำไรหรือขาดทุน"
+        description="เครดิต Gemini ที่เติมอยู่ด้านบน — ตารางด้านล่างเทียบต้นทุน AI ต่อคนกับราคาแพ็กเกจ"
       />
 
       <GeminiBalanceCard />
