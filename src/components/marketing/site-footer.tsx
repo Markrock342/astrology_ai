@@ -2,6 +2,8 @@ import Link from "next/link";
 import { BrandMark } from "@/components/brand-logo";
 import type { CmsSiteFooter } from "@/lib/cms-keys";
 
+const DESIGN_CREDIT_HREF = "https://limitcode.shop";
+
 export function SiteFooter({ footer }: { footer: CmsSiteFooter }) {
   return (
     <footer className="mt-auto border-t border-[var(--border)] bg-[var(--surface)]">
@@ -61,8 +63,19 @@ export function SiteFooter({ footer }: { footer: CmsSiteFooter }) {
         </div>
       </div>
 
-      <div className="border-t border-[var(--border)] px-6 py-4 text-center text-xs text-[var(--muted-2)]">
-        {footer.copyright}
+      <div className="flex flex-col items-center justify-center gap-1 border-t border-[var(--border)] px-6 py-4 text-center text-[11px] leading-5 text-[var(--muted-2)] sm:flex-row sm:gap-2.5">
+        <p>{footer.copyright}</p>
+        <span className="hidden text-[var(--border)] sm:inline" aria-hidden>
+          ·
+        </span>
+        <a
+          href={DESIGN_CREDIT_HREF}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="tracking-wide text-[var(--muted-2)] transition hover:text-[var(--primary)]"
+        >
+          Design by Limitcode
+        </a>
       </div>
     </footer>
   );

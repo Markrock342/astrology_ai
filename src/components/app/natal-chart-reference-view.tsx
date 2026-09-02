@@ -1,60 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { ChartJson } from "@/types/chart";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import { HoroscopeChartPanel } from "./horoscope-chart-panel";
 import { useAppData } from "./app-data-provider";
 import { NatalChartIcon } from "./sidebar-icons";
 import { ChartPreparingIndicator } from "./natal-chart-banner";
-
-type LoadState =
-  | { status: "loading" }
-  | { status: "ready"; chart: ChartJson }
-  | { status: "error"; message: string };
-
-function sourceLabel(chart: ChartJson): string {
-  return chart.meta.calculationSource === "myhora-scrape"
-    ? "สมผุสและองศาจากตารางโหราศาสตร์ไทย"
-    : "คำนวณจากสูตรสุริยยาตร์–ลาหิรี";
-}
+import { useNatalChart } from "./use-natal-chart";
+import { natalSourceLabel } from "@/lib/natal-category-facts";
 
 export function NatalChartReferenceView() {
-  const { natalChartStatus, repairNatalChart } = useAppData();
-  const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
-  const [reloadKey, setReloadKey] = useState(0);
+  const { repairNatalChart } = useAppData();
+  const load = useNatalChart();
 
-  useEffect(() => {
-    if (natalChartStatus?.status !== "READY") return;
-    const controller = new AbortController();
-
-    void fetch("/api/me/natal-chart", {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const json = await response.json().catch(() => null);
-        const chart = json?.data?.chart?.chartJson as ChartJson | undefined;
-        if (!response.ok || !json?.ok || !chart) {
-          throw new Error(json?.error?.message ?? "ไม่พบข้อมูลดวงจักรกำเนิด");
-        }
-        setLoadState({ status: "ready", chart });
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        setLoadState({
-          status: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "โหลดดวงจักรกำเนิดไม่สำเร็จ",
-        });
-      });
-
-    return () => controller.abort();
-  }, [natalChartStatus?.status, reloadKey]);
-
-  if (natalChartStatus?.status === "PENDING" || !natalChartStatus) {
+  if (load.status === "pending") {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center pt-16 text-center">
         <ChartPreparingIndicator onRetry={repairNatalChart} />
@@ -62,31 +20,21 @@ export function NatalChartReferenceView() {
     );
   }
 
-  if (natalChartStatus.status === "FAILED") {
-    return (
-      <ChartUnavailableState
-        message="คำนวณดวงจักรกำเนิดไม่สำเร็จ กรุณาตรวจสอบวัน เวลา และสถานที่เกิด"
-      />
-    );
+  if (load.status === "failed") {
+    return <ChartUnavailableState message={load.message} />;
   }
 
-  if (loadState.status === "loading") {
+  if (load.status === "loading") {
     return <ChartLoadingState label="กำลังเปิดดวงที่บันทึกไว้…" />;
   }
 
-  if (loadState.status === "error") {
+  if (load.status === "error") {
     return (
-      <ChartUnavailableState
-        message={loadState.message}
-        onRetry={() => {
-          setLoadState({ status: "loading" });
-          setReloadKey((key) => key + 1);
-        }}
-      />
+      <ChartUnavailableState message={load.message} onRetry={load.retry} />
     );
   }
 
-  const chart = loadState.chart;
+  const chart = load.chart;
 
   return (
     <div className="page-enter mx-auto w-full max-w-5xl pb-10">
@@ -107,7 +55,7 @@ export function NatalChartReferenceView() {
         <div className="shrink-0 text-left text-xs leading-5 text-[var(--muted-2)] sm:text-right">
           <p>{chart.meta.birthDisplay}</p>
           <p>{chart.meta.locationDisplay}</p>
-          <p className="mt-1 text-[var(--primary)]">{sourceLabel(chart)}</p>
+          <p className="mt-1 text-[var(--primary)]">{natalSourceLabel(chart)}</p>
         </div>
       </header>
 
@@ -126,10 +74,10 @@ export function NatalChartReferenceView() {
           กราฟจะยังอยู่หลังออกจากระบบ เพราะโหลดจากพื้นดวงที่บันทึกในบัญชี ไม่ได้ผูกกับคำตอบ AI รอบใดรอบหนึ่ง
         </p>
         <a
-          href="/dashboard?cat=self"
+          href="/dashboard"
           className="press-scale rounded-xl border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-4 py-2 text-xs font-semibold text-[var(--primary)] transition hover:border-[var(--primary)]"
         >
-          ไปอ่านหมวดตัวตน
+          กลับไปถามดวง
         </a>
       </div>
     </div>

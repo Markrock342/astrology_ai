@@ -23,8 +23,6 @@ import { HoroscopeChartPanel } from "./horoscope-chart-panel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import { CopyMessageButton } from "./copy-message-button";
 import { MessageActions } from "./message-actions";
-import { NatalChartBanner } from "./natal-chart-banner";
-import { NatalChartReferenceView } from "./natal-chart-reference-view";
 import { SmoothStreamMarkdown } from "./smooth-stream-markdown";
 import { useMyUsage } from "@/hooks/use-my-usage";
 import type { ChartJson } from "@/types/chart";
@@ -39,6 +37,10 @@ import {
   setCachedThread,
   type CachedChatMessage,
 } from "./thread-cache";
+import {
+  ASK_FROM_CHART_EVENT,
+  readAskFromChartDetail,
+} from "@/lib/chat-navigation-links";
 
 type ThinkingPhase = "chart" | "memory" | "writing";
 type AnswerMode = "brief" | "detailed";
@@ -333,8 +335,6 @@ export function ChatView() {
   const searchParams = useChatRouteSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
-  const activeView = searchParams.get("view");
-  const showingNatalChart = activeView === "natal-chart";
   const {
     user,
     categories,
@@ -467,6 +467,19 @@ export function ChatView() {
   useEffect(() => {
     conversationIdRef.current = threadId;
   }, [threadId]);
+
+  useEffect(() => {
+    function onAsk(event: Event) {
+      const prompt = readAskFromChartDetail(event);
+      if (!prompt) return;
+      setEditingMessageId(null);
+      setInput(prompt);
+      window.localStorage.setItem(DRAFT_KEY, prompt);
+      composerRef.current?.focus();
+    }
+    window.addEventListener(ASK_FROM_CHART_EVENT, onAsk);
+    return () => window.removeEventListener(ASK_FROM_CHART_EVENT, onAsk);
+  }, []);
 
   // Hydrate answer mode, draft, and thumbs from localStorage once on mount /
   // when plan is known (Free defaults to brief to stretch trial credits).
@@ -1814,12 +1827,7 @@ export function ChatView() {
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {liveAnnounce}
       </div>
-      {showingNatalChart ? (
-        <ReadingContextBar
-          mode="reference"
-          category="ดวงจักรกำเนิด"
-        />
-      ) : threadMode === "TRANSIT" ? (
+      {threadMode === "TRANSIT" ? (
         <ReadingContextBar
           mode="transit"
           category={category?.label}
@@ -1838,9 +1846,7 @@ export function ChatView() {
             ตัวอย่างระบบ (เฟสนี้) — ระบบดูดวงด้วย AI จะเปิดให้ใช้งานจริงในเฟสถัดไป
           </div>
         )}
-        {showingNatalChart ? (
-          <NatalChartReferenceView />
-        ) : loadingThread ? (
+        {loadingThread ? (
           <ChatThreadSkeleton />
         ) : threadLoadError && messages.length === 0 ? (
           <div className="mx-auto flex max-w-md flex-col items-center pt-20 text-center">
@@ -2165,8 +2171,7 @@ export function ChatView() {
         ) : null}
       </div>
 
-      {!showingNatalChart ? (
-        <div className="relative shrink-0">
+      <div className="relative shrink-0">
           {editingMessageId ? (
             <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 pb-2 md:px-8">
               <p className="text-xs text-[var(--muted)]">
@@ -2197,8 +2202,7 @@ export function ChatView() {
               กำลังย้ายคำถามไปหมวด「{scopeForwardingLabel}」และส่งให้ AI…
             </div>
           ) : null}
-          {showingNatalChart ? null : (
-            <Composer
+          <Composer
               ref={composerRef}
               value={input}
               onChange={setInput}
@@ -2229,9 +2233,7 @@ export function ChatView() {
               answerMode={answerMode}
               onAnswerModeChange={updateAnswerMode}
             />
-          )}
         </div>
-      ) : null}
     </div>
   );
 }
@@ -2341,7 +2343,6 @@ function EmptyState({
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center pt-6 text-center">
-      <NatalChartBanner />
       <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
         ถามดวงได้เลย
       </h1>

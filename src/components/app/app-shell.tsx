@@ -36,6 +36,7 @@ import { SiteAnnouncementBanner } from "@/components/cms/site-announcement-banne
 import { UserAvatar } from "./user-avatar";
 import { ThemePicker } from "./theme-picker";
 import { TransitFormModal } from "./transit-form-modal";
+import { NatalDossier } from "./natal-dossier";
 import {
   clearThreadCache,
   invalidateCachedThread,
@@ -83,7 +84,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // What had focus before the drawer opened, so we can hand it back on close.
   const focusBeforeDrawer = useRef<HTMLElement | null>(null);
   const activeThread = searchParams.get("thread");
-  const activeView = searchParams.get("view");
   const chatNav = useChatNav();
 
   const {
@@ -474,36 +474,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      <div className="mt-4 flex-1 overflow-y-auto px-3 pb-2">
-        <SectionLabel>พื้นดวงเดิม</SectionLabel>
-        <nav className="flex flex-col gap-0.5">
-          <Link
-            href="/dashboard?view=natal-chart"
-            onClick={(e) => {
-              if (isPlainLeftClick(e)) {
-                e.preventDefault();
-                chatNav("/dashboard?view=natal-chart");
-              }
-              closeMobile();
-            }}
-            className={`mb-1 flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
-              activeView === "natal-chart"
-                ? "bg-[var(--background)] text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]"
-                : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
-            }`}
-          >
-            <span className="flex items-center gap-2.5">
-              <span className="text-[var(--primary)]">
-                <NatalChartIcon />
-              </span>
-              ดวงจักรกำเนิด
-            </span>
-            <span className="text-[10px] text-[var(--muted-2)]">พื้นดวง</span>
-          </Link>
-        </nav>
+      <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2">
+        <section
+          aria-label="พื้นดวงเดิม"
+          className="flex min-h-0 flex-[1.35] flex-col overflow-hidden"
+        >
+          <SectionLabel>พื้นดวงเดิม</SectionLabel>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
+            <NatalDossier onAsk={closeMobile} />
+          </div>
+        </section>
 
         <SidebarDivider />
 
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="flex items-center justify-between pr-2">
           <SectionLabel>ประวัติแชท</SectionLabel>
           {filteredNatalThreads.length > 0 || filteredTransitThreads.length > 0 ? (
@@ -739,6 +723,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))
           )}
         </nav>
+        </div>
       </div>
     </>
   );
@@ -770,7 +755,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             role="dialog"
             aria-modal="true"
             aria-label="เมนู"
-            className={`relative z-50 flex h-full w-[86vw] max-w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-transform duration-[240ms] ease-[var(--ease-out-quart)] will-change-transform ${
+            className={`relative z-50 flex h-full w-[86vw] max-w-80 flex-col border-r border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-transform duration-[240ms] ease-[var(--ease-out-quart)] will-change-transform ${
               mobileShown ? "translate-x-0" : "-translate-x-full"
             }`}
             aria-hidden={!mobileShown}
@@ -788,7 +773,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside
         className={`${
-          collapsed ? "w-16" : "w-72"
+          collapsed ? "w-16" : "w-80"
         } relative z-30 hidden shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)] md:flex md:flex-col`}
       >
         <div
@@ -800,7 +785,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           aria-hidden={!collapsed}
         >
           <CollapsedRail
-            activeView={activeView}
             settingsOpen={settingsOpen && collapsed}
             onToggleSettings={() => setSettingsOpen((v) => !v)}
             onCloseSettings={() => setSettingsOpen(false)}
@@ -821,7 +805,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           }`}
           aria-hidden={collapsed}
         >
-          <div className="flex h-full w-72 flex-col">
+          <div className="flex h-full w-80 flex-col">
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               {sidebarContent}
             </div>
@@ -942,7 +926,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function CollapsedRail({
-  activeView,
   settingsOpen,
   onToggleSettings,
   onCloseSettings,
@@ -953,7 +936,6 @@ function CollapsedRail({
   image,
   usageRemainingPercent,
 }: {
-  activeView: string | null;
   settingsOpen: boolean;
   onToggleSettings: () => void;
   onCloseSettings: () => void;
@@ -1010,24 +992,15 @@ function CollapsedRail({
       </Link>
 
       <nav className="mt-3 flex flex-1 flex-col items-center gap-1 overflow-y-auto px-1">
-        <Link
-          href="/dashboard?view=natal-chart"
-          title="ดวงจักรกำเนิด"
-          aria-label="ดวงจักรกำเนิด"
-          onClick={(e) => {
-            if (isPlainLeftClick(e)) {
-              e.preventDefault();
-              chatNav("/dashboard?view=natal-chart");
-            }
-          }}
-          className={`flex h-10 w-10 items-center justify-center rounded-lg transition ${
-            activeView === "natal-chart"
-              ? "bg-[var(--background)] text-[var(--primary)] shadow-[inset_0_0_0_1px_var(--border)]"
-              : "text-[var(--primary)]/75 hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-          }`}
+        <button
+          type="button"
+          title="พื้นดวงเดิม"
+          aria-label="เปิดพื้นดวงเดิม"
+          onClick={onExpand}
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--primary)]/75 transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
         >
           <NatalChartIcon size={20} />
-        </Link>
+        </button>
       </nav>
 
       <div className="relative mt-2 flex flex-col items-center gap-1">

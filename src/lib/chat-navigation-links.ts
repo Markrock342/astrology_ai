@@ -1,4 +1,7 @@
 export const OPEN_TRANSIT_EVENT = "horasard:open-transit";
+export const ASK_FROM_CHART_EVENT = "horasard:ask-from-chart";
+
+export type AskFromChartDetail = { prompt: string };
 
 const CATEGORY_ROUTES: Record<string, string> = {
   ตัวตน: "self",
@@ -59,6 +62,24 @@ export function readOpenTransitDetail(event: Event): string | null {
   if (!(event instanceof CustomEvent)) return null;
   const slug = (event.detail as TransitOpenDetail | undefined)?.categorySlug;
   return typeof slug === "string" && slug.length > 0 ? slug : null;
+}
+
+/** Prefill the dashboard composer from a natal graph or category card. */
+export function dispatchAskFromChart(prompt: string) {
+  if (typeof window === "undefined" || !prompt.trim()) return;
+  window.dispatchEvent(
+    new CustomEvent<AskFromChartDetail>(ASK_FROM_CHART_EVENT, {
+      detail: { prompt: prompt.trim() },
+    }),
+  );
+}
+
+export function readAskFromChartDetail(event: Event): string | null {
+  if (!(event instanceof CustomEvent)) return null;
+  const prompt = (event.detail as AskFromChartDetail | undefined)?.prompt;
+  return typeof prompt === "string" && prompt.trim().length > 0
+    ? prompt.trim()
+    : null;
 }
 
 function alreadyLinked(source: string, offset: number, match: string): boolean {

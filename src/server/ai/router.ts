@@ -11,6 +11,7 @@ import {
   detailedGeminiRank,
   isBriefGeminiModel,
   isDetailedGeminiModel,
+  isGeminiLiteModel,
 } from "@/config/gemini-models";
 
 /**
@@ -40,7 +41,9 @@ function adapterFor(provider: AIProvider): AIProviderAdapter {
  * When multiple configs share the same top score, a warning is logged so ops
  * can remove overlapping rows.
  *
- * `preferFast` (brief / กระชับ): prefer 3.5 Flash, then any *lite* model.
+ * `preferFast` (brief / กระชับ): prefer 3.5 Flash, then a non-lite model
+ * (3.7 if 3.5 is missing). Lite is last-resort only — using it as the brief
+ * primary made กระชับ answers vaguer than ละเอียด on the same account.
  * Detailed (ละเอียด): prefer 3.7 / 3.6 Flash when one is in the eligible pool.
  */
 export async function resolveConfig(
@@ -90,9 +93,15 @@ export async function resolveConfig(
   };
 
   if (opts?.preferFast) {
-    const brief = candidates.filter((c) => isBriefGeminiModel(c.modelId));
-    if (brief.length > 0) {
-      return pickDeterministic(brief, (c) => briefGeminiRank(c.modelId));
+    const briefNonLite = candidates.filter(
+      (c) => isBriefGeminiModel(c.modelId) && !isGeminiLiteModel(c.modelId),
+    );
+    if (briefNonLite.length > 0) {
+      return pickDeterministic(briefNonLite, (c) => briefGeminiRank(c.modelId));
+    }
+    const nonLite = candidates.filter((c) => !isGeminiLiteModel(c.modelId));
+    if (nonLite.length > 0) {
+      return pickDeterministic(nonLite, (c) => detailedGeminiRank(c.modelId));
     }
   } else {
     const detailed = candidates.filter((c) => isDetailedGeminiModel(c.modelId));

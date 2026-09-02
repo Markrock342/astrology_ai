@@ -136,4 +136,5 @@ export function categoryScopeInstruction(
 /** One chat answers every topic — never send the user to another category. */
 export const UNIFIED_CHAT_INSTRUCTION =
   "แชทนี้ถามได้ทุกเรื่อง (การงาน การเงิน ความรัก สุขภาพ โชคลาภ ตัวตน) จาก [natal] [memory] และ [transit] " +
-  "ตอบคำถามในแชทนี้ให้จบ ห้ามบอกให้ไปเปิดหมวดอื่น ห้ามชวนให้ถามต่อในหมวดนั้น ห้ามลิงก์ /dashboard?cat=";
+  "ตอบคำถามในแชทนี้ให้จบ ห้ามบอกให้ไปเปิดหมวดอื่น ห้ามชวนให้ถามต่อในหมวดนั้น ห้ามลิงก์ /dashboard?cat= " +
+  "ห้ามเลี่ยงคำถามเรื่องเวลาด้วยการชวนไปเรื่องเอกสารหรือหัวข้อใหม่";
