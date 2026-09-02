@@ -1,12 +1,13 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { isCategoryLocked, useAppData } from "./app-data-provider";
 import { CategoryIcon } from "./category-icon";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import { HoroscopeChartPanel } from "./horoscope-chart-panel";
 import { ChartPreparingIndicator } from "./natal-chart-banner";
-import { LockIcon, NatalChartIcon } from "./sidebar-icons";
+import { LockIcon } from "./sidebar-icons";
 import { useNatalChart } from "./use-natal-chart";
 import {
   askPromptForNatalCategory,
@@ -16,6 +17,9 @@ import {
 } from "@/lib/natal-category-facts";
 import { dispatchAskFromChart } from "@/lib/chat-navigation-links";
 import type { ChartJson } from "@/types/chart";
+import type { Category } from "./nav-data";
+
+const REVEAL_HOLD_MS = 560;
 
 type Props = {
   onAsk?: () => void;
@@ -23,195 +27,255 @@ type Props = {
 
 export function NatalDossier({ onAsk }: Props) {
   const { user, categories, repairNatalChart } = useAppData();
-  const load = useNatalChart();
   const plan = user?.plan ?? "FREE";
+  const natalCategories = categories.filter(
+    (category) => category.slug in NATAL_FACT_HOUSES,
+  );
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [holding, setHolding] = useState(false);
+  const holdTimer = useRef<number | null>(null);
+  const selected = natalCategories.find((item) => item.slug === selectedSlug);
+  const load = useNatalChart({ enabled: selectedSlug !== null });
+
+  useEffect(() => {
+    return () => {
+      if (holdTimer.current != null) window.clearTimeout(holdTimer.current);
+    };
+  }, []);
+
+  function clearHoldTimer() {
+    if (holdTimer.current != null) {
+      window.clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+  }
 
   function ask(prompt: string) {
     dispatchAskFromChart(prompt);
     onAsk?.();
   }
 
-  if (load.status === "pending") {
-    return (
-      <div className="px-1 py-3">
-        <ChartPreparingIndicator onRetry={repairNatalChart} compact />
-      </div>
-    );
+  function closeCategory() {
+    clearHoldTimer();
+    setHolding(false);
+    setSelectedSlug(null);
   }
 
-  if (load.status === "failed") {
+  function openCategory(category: Category) {
+    if (isCategoryLocked(category, plan)) return;
+    clearHoldTimer();
+    setSelectedSlug(category.slug);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      setHolding(false);
+      return;
+    }
+    setHolding(true);
+    holdTimer.current = window.setTimeout(() => {
+      setHolding(false);
+      holdTimer.current = null;
+    }, REVEAL_HOLD_MS);
+  }
+
+  if (!selected) {
     return (
-      <NatalDossierMessage
-        title="ยังเปิดพื้นดวงไม่ได้"
-        message={load.message}
-        actionHref="/onboarding"
-        actionLabel="ตรวจสอบข้อมูลเกิด"
+      <NatalCategoryIcons
+        categories={natalCategories}
+        plan={plan}
+        onOpen={openCategory}
+        onNavigate={onAsk}
       />
     );
   }
 
-  if (load.status === "loading") {
-    return (
-      <p className="px-3 py-4 text-xs text-[var(--muted-2)]" role="status">
-        กำลังเปิดพื้นดวงที่บันทึกไว้…
-      </p>
-    );
-  }
-
-  if (load.status === "error") {
-    return (
-      <NatalDossierMessage
-        title="โหลดพื้นดวงไม่สำเร็จ"
-        message={load.message}
-        onRetry={load.retry}
-      />
-    );
-  }
-
-  const chart = load.chart;
+  const revealing = holding || load.status === "idle" || load.status === "loading";
 
   return (
-    <div className="flex flex-col gap-3 pb-3">
-      <NatalBirthMeta chart={chart} />
+    <div className="flex max-h-[min(52vh,28rem)] flex-col overflow-hidden">
+      <button
+        type="button"
+        onClick={closeCategory}
+        className="mb-1 flex min-h-9 shrink-0 items-center gap-1 px-1 text-[11px] text-[var(--muted-2)] transition hover:text-[var(--foreground)]"
+      >
+        ← หมวดพื้นดวง
+      </button>
+      <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
+        {load.status === "pending" ? (
+          <div className="px-1 py-3">
+            <ChartPreparingIndicator onRetry={repairNatalChart} compact />
+          </div>
+        ) : load.status === "failed" ? (
+          <NatalDossierMessage
+            title="ยังเปิดพื้นดวงไม่ได้"
+            message={load.message}
+            actionHref="/onboarding"
+            actionLabel="ตรวจสอบข้อมูลเกิด"
+          />
+        ) : load.status === "error" ? (
+          <NatalDossierMessage
+            title="โหลดพื้นดวงไม่สำเร็จ"
+            message={load.message}
+            onRetry={load.retry}
+          />
+        ) : revealing || load.status !== "ready" ? (
+          <NatalRevealSpinner category={selected} />
+        ) : (
+          <NatalCategoryDetail
+            category={selected}
+            chart={load.chart}
+            onAsk={ask}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NatalCategoryIcons({
+  categories,
+  plan,
+  onOpen,
+  onNavigate,
+}: {
+  categories: Category[];
+  plan: "FREE" | "PRO";
+  onOpen: (category: Category) => void;
+  onNavigate?: () => void;
+}) {
+  if (categories.length === 0) return null;
+
+  return (
+    <ul className="grid grid-cols-3 gap-1.5 pb-1">
+      {categories.map((category) => {
+        const locked = isCategoryLocked(category, plan);
+        const inner = (
+          <>
+            <span className="relative flex size-10 items-center justify-center rounded-xl border border-[var(--primary)]/30 bg-[var(--background)]/50 text-[var(--primary)]">
+              <CategoryIcon slug={category.slug} icon={category.icon} size={20} />
+              {locked ? (
+                <span className="absolute -right-1 -top-1 rounded-full bg-[var(--surface)] p-0.5 text-[var(--muted-2)]">
+                  <LockIcon size={10} />
+                </span>
+              ) : null}
+            </span>
+            <span className="max-w-full truncate text-[10px] leading-4 text-[var(--muted)]">
+              {category.label}
+            </span>
+          </>
+        );
+
+        return (
+          <li key={category.slug}>
+            {locked ? (
+              <Link
+                href="/account"
+                onClick={onNavigate}
+                className="press-scale flex min-h-11 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-center opacity-70 transition hover:opacity-100"
+                title={`${category.label} · ปลดล็อกด้วย Pro`}
+              >
+                {inner}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onOpen(category)}
+                className="press-scale flex min-h-11 w-full flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-center transition hover:bg-[var(--surface-2)]"
+                title={category.label}
+              >
+                {inner}
+              </button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function NatalRevealSpinner({ category }: { category: Category }) {
+  return (
+    <div
+      className="flex flex-col items-center gap-3 py-8"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="relative size-[4.25rem]">
+        <span className="absolute inset-0 rounded-full border border-[var(--primary)]/20" />
+        <span className="natal-orbit absolute inset-1 rounded-full border border-transparent border-t-[var(--primary)] border-r-[var(--primary)]/40" />
+        <span className="absolute inset-[22%] rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/8" />
+        <span className="absolute inset-0 flex items-center justify-center text-[var(--primary)]">
+          <CategoryIcon slug={category.slug} icon={category.icon} size={22} />
+        </span>
+      </div>
+      <p className="text-xs text-[var(--muted)]">กำลังเปิดพื้นดวงหมวด{category.label}…</p>
+    </div>
+  );
+}
+
+function NatalCategoryDetail({
+  category,
+  chart,
+  onAsk,
+}: {
+  category: Category;
+  chart: ChartJson;
+  onAsk: (prompt: string) => void;
+}) {
+  const facts = natalFactsForCategory(chart, category.slug);
+  const prompt =
+    category.suggestedQuestions[0] ?? askPromptForNatalCategory(category.label);
+  const lagna = chart.chart?.lagna ?? chart.meta.lagna;
+
+  return (
+    <div className="animate-fade-up flex flex-col gap-3 pb-3">
+      <div className="rounded-xl border border-[var(--primary)]/25 bg-[var(--background)]/40 px-3 py-2.5">
+        <p className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+          <span className="text-[var(--primary)]">
+            <CategoryIcon slug={category.slug} icon={category.icon} />
+          </span>
+          {category.label}
+        </p>
+        {lagna ? (
+          <p className="mt-1 text-[11px] text-[var(--muted)]">ลัคนา {lagna}</p>
+        ) : null}
+        <p className="mt-0.5 text-[11px] leading-5 text-[var(--muted-2)]">
+          {chart.meta.birthDisplay}
+          {chart.meta.birthDisplay && chart.meta.locationDisplay ? " · " : ""}
+          {chart.meta.locationDisplay}
+        </p>
+        <p className="mt-0.5 text-[10px] text-[var(--muted-2)]">
+          {natalSourceLabel(chart)}
+        </p>
+      </div>
+
       <HoroscopeChartPanel
         natal={chart}
         presentation="compact"
-        description="ราศีจักร ทักษา และผังวิเคราะห์ชุดเดียวกับที่ AI ใช้"
+        description={`ราศีจักรและทักษาของหมวด${category.label}`}
       />
-      <NatalCategoryList
-        chart={chart}
-        plan={plan}
-        onAsk={ask}
-        onNavigate={onAsk}
-        categories={categories}
-      />
+
+      <ul className="space-y-0.5 px-1">
+        {facts.lines.slice(0, 4).map((line) => (
+          <li key={line} className="text-[11px] leading-5 text-[var(--muted)]">
+            {line}
+          </li>
+        ))}
+      </ul>
+
+      <button
+        type="button"
+        onClick={() => onAsk(prompt)}
+        className="min-h-9 self-start px-1 text-[11px] font-semibold text-[var(--primary)] hover:underline"
+      >
+        ถามหมวดนี้
+      </button>
+
       <ChartEvidenceTable
         chart={chart}
         mode="natal"
         layout="stack"
-        onRowAsk={ask}
+        onRowAsk={onAsk}
       />
-    </div>
-  );
-}
-
-function NatalBirthMeta({ chart }: { chart: ChartJson }) {
-  const lagna = chart.chart?.lagna ?? chart.meta.lagna;
-  return (
-    <div className="rounded-xl border border-[var(--primary)]/25 bg-[var(--background)]/40 px-3 py-2.5">
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-[var(--primary)]">
-        <NatalChartIcon size={14} />
-        ดวงจักรกำเนิด
-      </p>
-      {lagna ? (
-        <p className="mt-1 text-sm font-medium text-[var(--foreground)]">
-          ลัคนา {lagna}
-        </p>
-      ) : null}
-      <p className="mt-0.5 text-[11px] leading-5 text-[var(--muted)]">
-        {chart.meta.birthDisplay}
-        {chart.meta.birthDisplay && chart.meta.locationDisplay ? " · " : ""}
-        {chart.meta.locationDisplay}
-      </p>
-      <p className="mt-0.5 text-[10px] text-[var(--muted-2)]">
-        {natalSourceLabel(chart)}
-      </p>
-    </div>
-  );
-}
-
-function NatalCategoryList({
-  chart,
-  plan,
-  onAsk,
-  onNavigate,
-  categories,
-}: {
-  chart: ChartJson;
-  plan: "FREE" | "PRO";
-  onAsk: (prompt: string) => void;
-  onNavigate?: () => void;
-  categories: ReturnType<typeof useAppData>["categories"];
-}) {
-  const natalCategories = categories.filter(
-    (category) => category.slug in NATAL_FACT_HOUSES,
-  );
-  if (natalCategories.length === 0) return null;
-
-  return (
-    <div>
-      <p className="mb-1.5 px-1 text-[10px] font-semibold tracking-wide text-[var(--muted-2)]">
-        พื้นดวงตามหมวด
-      </p>
-      <ul className="flex flex-col gap-1.5">
-        {natalCategories.map((category) => {
-          const locked = isCategoryLocked(category, plan);
-          const facts = natalFactsForCategory(chart, category.slug);
-          const prompt =
-            category.suggestedQuestions[0] ??
-            askPromptForNatalCategory(category.label);
-
-          return (
-            <li key={category.slug}>
-              <article
-                className={`rounded-xl border px-3 py-2.5 ${
-                  locked
-                    ? "border-[var(--border)] bg-[var(--surface-2)]/50"
-                    : "border-[var(--border)] bg-[var(--surface-2)]"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-[var(--foreground)]">
-                    <span className="shrink-0 text-[var(--primary)]">
-                      <CategoryIcon slug={category.slug} icon={category.icon} />
-                    </span>
-                    {category.label}
-                    {locked ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-normal text-[var(--muted-2)]">
-                        <LockIcon size={11} />
-                        Pro
-                      </span>
-                    ) : null}
-                  </p>
-                </div>
-                {locked ? (
-                  <p className="mt-1.5 text-[11px] leading-5 text-[var(--muted-2)]">
-                    หมวดนี้เปิดเมื่อเป็น Pro
-                  </p>
-                ) : (
-                  <ul className="mt-1.5 space-y-0.5">
-                    {facts.lines.slice(0, 4).map((line) => (
-                      <li
-                        key={line}
-                        className="text-[11px] leading-5 text-[var(--muted)]"
-                      >
-                        {line}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {locked ? (
-                  <Link
-                    href="/account"
-                    onClick={onNavigate}
-                    className="mt-2 inline-flex min-h-9 items-center text-[11px] font-semibold text-[var(--primary)] hover:underline"
-                  >
-                    ปลดล็อกด้วย Pro
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => onAsk(prompt)}
-                    className="mt-2 min-h-9 text-[11px] font-semibold text-[var(--primary)] hover:underline"
-                  >
-                    ถามหมวดนี้
-                  </button>
-                )}
-              </article>
-            </li>
-          );
-        })}
-      </ul>
     </div>
   );
 }

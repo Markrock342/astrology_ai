@@ -281,11 +281,23 @@ select option {
   }
 }
 
+@keyframes natal-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.natal-orbit {
+  animation: natal-orbit 1.15s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stream-caret::after,
   .chat-md.stream-caret > :last-child::after {
     animation: none;
     opacity: 0.8;
+  }
+  .natal-orbit {
+    animation: none;
   }
 }
 

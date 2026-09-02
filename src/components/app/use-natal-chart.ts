@@ -5,6 +5,7 @@ import type { ChartJson } from "@/types/chart";
 import { useAppData } from "./app-data-provider";
 
 export type NatalChartLoad =
+  | { status: "idle" }
   | { status: "pending" }
   | { status: "failed"; message: string }
   | { status: "loading" }
@@ -13,25 +14,27 @@ export type NatalChartLoad =
 
 /**
  * Saved natal chart for the signed-in user.
- * Status comes from bootstrap; full JSON is fetched only when READY.
+ * Pass `enabled: false` until the sidebar icon is tapped so we don't load
+ * the full atlas on every dashboard visit.
  */
-export function useNatalChart(): NatalChartLoad {
+export function useNatalChart(opts?: { enabled?: boolean }): NatalChartLoad {
+  const enabled = opts?.enabled ?? true;
   const { natalChartStatus } = useAppData();
-  const [loadState, setLoadState] = useState<
-    | { status: "loading" }
-    | { status: "ready"; chart: ChartJson }
-    | { status: "error"; message: string }
-  >({ status: "loading" });
+  const [chart, setChart] = useState<ChartJson | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [fetchedKey, setFetchedKey] = useState(-1);
 
   const retry = useCallback(() => {
-    setLoadState({ status: "loading" });
+    setError(null);
     setReloadKey((key) => key + 1);
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     if (natalChartStatus?.status !== "READY") return;
     const controller = new AbortController();
+    const key = reloadKey;
 
     void fetch("/api/me/natal-chart", {
       cache: "no-store",
@@ -39,25 +42,28 @@ export function useNatalChart(): NatalChartLoad {
     })
       .then(async (response) => {
         const json = await response.json().catch(() => null);
-        const chart = json?.data?.chart?.chartJson as ChartJson | undefined;
-        if (!response.ok || !json?.ok || !chart) {
+        const next = json?.data?.chart?.chartJson as ChartJson | undefined;
+        if (!response.ok || !json?.ok || !next) {
           throw new Error(json?.error?.message ?? "ไม่พบข้อมูลดวงจักรกำเนิด");
         }
-        setLoadState({ status: "ready", chart });
+        setChart(next);
+        setError(null);
+        setFetchedKey(key);
       })
-      .catch((error: unknown) => {
+      .catch((caught: unknown) => {
         if (controller.signal.aborted) return;
-        setLoadState({
-          status: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "โหลดดวงจักรกำเนิดไม่สำเร็จ",
-        });
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "โหลดดวงจักรกำเนิดไม่สำเร็จ",
+        );
+        setFetchedKey(key);
       });
 
     return () => controller.abort();
-  }, [natalChartStatus?.status, reloadKey]);
+  }, [enabled, natalChartStatus?.status, reloadKey]);
+
+  if (!enabled) return { status: "idle" };
 
   if (natalChartStatus?.status === "FAILED") {
     return {
@@ -71,9 +77,8 @@ export function useNatalChart(): NatalChartLoad {
     return { status: "pending" };
   }
 
-  if (loadState.status === "loading") return { status: "loading" };
-  if (loadState.status === "error") {
-    return { status: "error", message: loadState.message, retry };
-  }
-  return { status: "ready", chart: loadState.chart };
+  if (fetchedKey !== reloadKey) return { status: "loading" };
+  if (error) return { status: "error", message: error, retry };
+  if (chart) return { status: "ready", chart };
+  return { status: "loading" };
 }
