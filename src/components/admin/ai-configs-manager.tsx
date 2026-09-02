@@ -17,6 +17,7 @@ import {
   TextInput,
   Toggle,
 } from "./ui";
+import { GeminiBalanceCard } from "./gemini-balance-card";
 
 type Category = { id: string; nameTh: string; slug: string };
 type Prompt = { id: string; name: string; type: string; enabled: boolean };
@@ -590,6 +591,8 @@ export function AiConfigsManager() {
           </Button>
         }
       />
+
+      <GeminiBalanceCard />
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 

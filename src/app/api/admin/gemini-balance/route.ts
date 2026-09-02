@@ -23,8 +23,10 @@ export async function PUT(req: Request) {
     return ok(
       await updateGeminiBalance(
         {
+          balanceThb: data.balanceThb,
           balanceUsd: data.balanceUsd,
           clear: data.clear,
+          lowThresholdThb: data.lowThresholdThb,
           lowThresholdUsd: data.lowThresholdUsd,
           note: data.note,
         },
