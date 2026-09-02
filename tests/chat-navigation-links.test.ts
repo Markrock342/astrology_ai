@@ -3,6 +3,7 @@ import {
   ASK_FROM_CHART_EVENT,
   categorySlugFromLabel,
   linkChatNavigationCtas,
+  natalAtlasHref,
   natalCategoryHref,
   parseDashboardChatHref,
   readAskFromChartDetail,
@@ -82,6 +83,13 @@ describe("categorySlugFromLabel", () => {
 
   it("builds a natal category href", () => {
     expect(natalCategoryHref("career")).toBe("/dashboard?cat=career");
+  });
+
+  it("opens the natal atlas in the main pane", () => {
+    expect(natalAtlasHref()).toBe("/dashboard?view=natal-chart");
+    expect(natalAtlasHref("fortune")).toBe(
+      "/dashboard?view=natal-chart&cat=fortune",
+    );
   });
 
   it("builds a transit category href for the home picker", () => {

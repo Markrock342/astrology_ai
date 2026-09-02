@@ -20,6 +20,12 @@ export function natalCategoryHref(slug: string): string {
   return `/dashboard?cat=${encodeURIComponent(slug)}`;
 }
 
+/** Sidebar natal icons: full atlas in the main pane, not the sidebar. */
+export function natalAtlasHref(slug?: string): string {
+  if (!slug) return "/dashboard?view=natal-chart";
+  return `/dashboard?view=natal-chart&cat=${encodeURIComponent(slug)}`;
+}
+
 /** Empty-state / CTA: pick a category, then open the transit form. */
 export function transitCategoryHref(slug: string): string {
   return `/dashboard?action=transit&cat=${encodeURIComponent(slug)}`;

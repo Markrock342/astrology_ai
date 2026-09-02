@@ -41,6 +41,7 @@ import {
   ASK_FROM_CHART_EVENT,
   readAskFromChartDetail,
 } from "@/lib/chat-navigation-links";
+import { NatalChartReferenceView } from "./natal-chart-reference-view";
 
 type ThinkingPhase = "chart" | "memory" | "writing";
 type AnswerMode = "brief" | "detailed";
@@ -335,6 +336,8 @@ export function ChatView() {
   const searchParams = useChatRouteSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
+  const showingNatalChart =
+    searchParams.get("view") === "natal-chart" && !threadId;
   const {
     user,
     categories,
@@ -940,9 +943,9 @@ export function ChatView() {
   }, []);
 
   useEffect(() => {
-    if (loadingThread) return;
+    if (loadingThread || showingNatalChart) return;
     composerRef.current?.focus();
-  }, [threadId, catSlug, loadingThread]);
+  }, [threadId, catSlug, loadingThread, showingNatalChart]);
 
   useEffect(() => {
     if (!isNearBottomRef.current) return;
@@ -1827,7 +1830,9 @@ export function ChatView() {
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {liveAnnounce}
       </div>
-      {threadMode === "TRANSIT" ? (
+      {showingNatalChart ? (
+        <ReadingContextBar mode="reference" category={category?.label} />
+      ) : threadMode === "TRANSIT" ? (
         <ReadingContextBar
           mode="transit"
           category={category?.label}
@@ -1846,7 +1851,9 @@ export function ChatView() {
             ตัวอย่างระบบ (เฟสนี้) — ระบบดูดวงด้วย AI จะเปิดให้ใช้งานจริงในเฟสถัดไป
           </div>
         )}
-        {loadingThread ? (
+        {showingNatalChart ? (
+          <NatalChartReferenceView />
+        ) : loadingThread ? (
           <ChatThreadSkeleton />
         ) : threadLoadError && messages.length === 0 ? (
           <div className="mx-auto flex max-w-md flex-col items-center pt-20 text-center">
@@ -2171,6 +2178,7 @@ export function ChatView() {
         ) : null}
       </div>
 
+      {showingNatalChart ? null : (
       <div className="relative shrink-0">
           {editingMessageId ? (
             <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 pb-2 md:px-8">
@@ -2234,6 +2242,7 @@ export function ChatView() {
               onAnswerModeChange={updateAnswerMode}
             />
         </div>
+      )}
     </div>
   );
 }

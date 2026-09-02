@@ -14,8 +14,8 @@ export type NatalChartLoad =
 
 /**
  * Saved natal chart for the signed-in user.
- * Pass `enabled: false` until the sidebar icon is tapped so we don't load
- * the full atlas on every dashboard visit.
+ * The atlas view mounts this only on `?view=natal-chart`, so we don't load
+ * the full chart on every dashboard visit.
  */
 export function useNatalChart(opts?: { enabled?: boolean }): NatalChartLoad {
   const enabled = opts?.enabled ?? true;
