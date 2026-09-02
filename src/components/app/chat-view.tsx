@@ -70,11 +70,9 @@ const THINKING_PHASE_LABEL: Record<ThinkingPhase, string> = {
 const ANSWER_MODE_KEY = "horasard:answerMode";
 const DRAFT_KEY = "horasard:chatDraft";
 const FEEDBACK_KEY = "horasard:messageFeedback";
-const FORWARDED_QUESTION_PREFIX = "horasard:forwardedQuestion:";
 
 /** Survives React Strict Mode remounts so a category intro is not double-sent. */
 const natalIntroStarted = new Set<string>();
-const forwardedQuestionStarted = new Set<string>();
 
 /** Wall-clock helper kept outside the component so React purity lint ignores it. */
 function nowMs(): number {
@@ -230,14 +228,6 @@ type ScopeTarget = {
   requiresPro: boolean;
 };
 
-type TransitContext = {
-  date: string;
-  time: string | null;
-  country: string | null;
-  province: string | null;
-  district: string | null;
-};
-
 type SendOpts = {
   retryKey?: string;
   editUserMessageId?: string;
@@ -350,9 +340,7 @@ export function ChatView() {
     categories,
     refreshLight,
     pendingPayment,
-    natalChartStatus,
     natalThreads,
-    loading,
   } = useAppData();
   const category = useCategory(catSlug);
   const locked = isCategoryLocked(category, user?.plan ?? "FREE");
@@ -404,8 +392,6 @@ export function ChatView() {
   const [threadTransitLabel, setThreadTransitLabel] = useState<string | null>(
     null,
   );
-  const [threadTransitContext, setThreadTransitContext] =
-    useState<TransitContext | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [showScrollFab, setShowScrollFab] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -633,17 +619,6 @@ export function ChatView() {
       setMessages(cached.messages as Message[]);
       setThreadCategorySlug(cached.categorySlug ?? null);
       setThreadMode(cached.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
-      setThreadTransitContext(
-        cached.mode === "TRANSIT" && cached.transitDate
-          ? {
-              date: cached.transitDate,
-              time: cached.transitTime ?? null,
-              country: cached.transitCountry ?? null,
-              province: cached.transitProvince ?? null,
-              district: cached.transitDistrict ?? null,
-            }
-          : null,
-      );
       setLoadingThread(false);
       setThreadLoadError(null);
       const pending = cached.messages.some(
@@ -676,17 +651,6 @@ export function ChatView() {
       hydrateFeedback(loaded);
       setThreadCategorySlug(payload.categorySlug ?? null);
       setThreadMode(payload.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
-      setThreadTransitContext(
-        payload.mode === "TRANSIT" && payload.transitDate
-          ? {
-              date: payload.transitDate,
-              time: payload.transitTime ?? null,
-              country: payload.transitCountry ?? null,
-              province: payload.transitProvince ?? null,
-              district: payload.transitDistrict ?? null,
-            }
-          : null,
-      );
       if (payload.mode === "TRANSIT" && payload.transitDate) {
         const d = new Date(payload.transitDate);
         const dateLabel = Number.isNaN(d.getTime())
@@ -934,7 +898,6 @@ export function ChatView() {
     setThreadCategorySlug(null);
     setThreadMode(null);
     setThreadTransitLabel(null);
-    setThreadTransitContext(null);
     setScopeForwardingLabel(null);
     setState(locked ? "locked" : "idle");
     setInput("");
@@ -1776,32 +1739,6 @@ export function ChatView() {
       sendingThreadRef.current = null;
     }
   }
-
-  // A Pro cross-category handoff creates the correctly scoped transit thread,
-  // then this effect sends the original question after that empty thread has
-  // loaded. sessionStorage survives the soft navigation without putting the
-  // user's question in the URL or keeping it beyond this browser session.
-  useEffect(() => {
-    if (
-      !threadId ||
-      loadingThread ||
-      threadMode !== "TRANSIT" ||
-      messages.length > 0 ||
-      state !== "idle" ||
-      forwardedQuestionStarted.has(threadId)
-    ) {
-      return;
-    }
-    const key = `${FORWARDED_QUESTION_PREFIX}${threadId}`;
-    const question = window.sessionStorage.getItem(key)?.trim();
-    if (!question) return;
-    forwardedQuestionStarted.add(threadId);
-    window.sessionStorage.removeItem(key);
-    void send(question);
-    // send is an event handler recreated each render; the thread id + module
-    // guard make this handoff exactly once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [threadId, loadingThread, threadMode, messages.length, state]);
 
   const showEmpty =
     messages.length === 0 &&

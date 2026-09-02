@@ -82,7 +82,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const mobileDrawerRef = useRef<HTMLElement>(null);
   // What had focus before the drawer opened, so we can hand it back on close.
   const focusBeforeDrawer = useRef<HTMLElement | null>(null);
-  const activeCat = searchParams.get("cat");
   const activeThread = searchParams.get("thread");
   const activeView = searchParams.get("view");
   const chatNav = useChatNav();
