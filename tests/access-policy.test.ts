@@ -43,10 +43,10 @@ describe("free tier access policy", () => {
     ).rejects.toMatchObject({ code: "CATEGORY_LOCKED" });
   });
 
-  it("keeps transit a Pro feature", async () => {
+  it("lets Free use transit — Pro topics are gated by the question, not the mode", async () => {
     await expect(
       assertCanRequestReading({ ...FREE_HAPPY, mode: "TRANSIT" }),
-    ).rejects.toMatchObject({ code: "TRANSIT_REQUIRES_PRO" });
+    ).resolves.toBe("FREE");
   });
 
   it("allows Free follow-ups — each turn still spends a credit like ChatGPT", async () => {

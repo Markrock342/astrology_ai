@@ -13,7 +13,7 @@ const listQuerySchema = z.object({
 });
 
 const createSchema = z.object({
-  categorySlug: z.string().min(1),
+  categorySlug: z.string().min(1).optional(),
   mode: z.enum(["NATAL", "TRANSIT"]).optional(),
   transitDate: z.string().optional(),
   transitTime: z.string().optional(),

@@ -1,30 +1,35 @@
 import { AppError } from "@/lib/errors";
-import { detectQuestionScopeMismatch } from "@/lib/question-scope";
+import { detectMentionedCategories } from "@/lib/question-scope";
 import { prisma } from "@/server/db";
 
-export async function assertQuestionWithinCategory(input: {
-  currentSlug: string;
+/**
+ * Free users share one chat with Pro. They may ask anything that is not a
+ * Pro-only topic; mentioning finance/love/health/fortune/overview forces upgrade.
+ * Pro is unrestricted — no "open that category" redirect.
+ */
+export async function assertQuestionAllowedForPlan(input: {
+  plan: "FREE" | "PRO";
   question: string;
 }) {
-  const targetSlug = detectQuestionScopeMismatch(
-    input.question,
-    input.currentSlug,
-  );
-  if (!targetSlug) return;
+  if (input.plan === "PRO") return;
 
-  const target = await prisma.horoscopeCategory.findUnique({
-    where: { slug: targetSlug },
-    select: { slug: true, nameTh: true, accessLevel: true, enabled: true },
+  const slugs = detectMentionedCategories(input.question);
+  if (slugs.length === 0) return;
+
+  const targets = await prisma.horoscopeCategory.findMany({
+    where: { slug: { in: slugs }, enabled: true },
+    select: { slug: true, nameTh: true, accessLevel: true },
   });
-  if (!target?.enabled) return;
+  const locked = targets.find((target) => target.accessLevel === "PRO");
+  if (!locked) return;
 
   throw new AppError(
-    "CATEGORY_SCOPE_MISMATCH",
-    `คำถามนี้อยู่ในหมวด「${target.nameTh}」 กรุณาเปิดหมวดนั้นเพื่อใช้สิทธิ์ที่ถูกต้อง`,
+    "CATEGORY_LOCKED",
+    `หมวด「${locked.nameTh}」ใช้ได้ใน Pro — อัปเกรดเพื่อถามเรื่องนี้`,
     {
-      targetSlug: target.slug,
-      targetLabel: target.nameTh,
-      requiresPro: target.accessLevel === "PRO",
+      targetSlug: locked.slug,
+      targetLabel: locked.nameTh,
+      requiresPro: true,
     },
   );
 }

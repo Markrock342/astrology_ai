@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   findReading: vi.fn(),
   findUser: vi.fn(),
   findCategory: vi.fn(),
+  findLockedCategories: vi.fn(),
   findProfile: vi.fn(),
   findKnowledge: vi.fn(),
   findIntake: vi.fn(),
@@ -38,7 +39,10 @@ vi.mock("@/server/db", () => ({
   prisma: {
     horoscopeReading: { findUnique: mocks.findReading },
     user: { findUnique: mocks.findUser },
-    horoscopeCategory: { findUnique: mocks.findCategory },
+    horoscopeCategory: {
+      findUnique: mocks.findCategory,
+      findMany: mocks.findLockedCategories,
+    },
     birthProfile: { findUnique: mocks.findProfile },
     knowledgeDoc: { findMany: mocks.findKnowledge },
     userIntake: { findUnique: mocks.findIntake },
@@ -144,6 +148,8 @@ function setupHappyPath() {
   mocks.findReading.mockResolvedValue(null);
   mocks.findUser.mockResolvedValue({ id: "user-1", status: "ACTIVE" });
   mocks.findCategory.mockResolvedValue(baseCategory);
+  mocks.findLockedCategories.mockResolvedValue([]);
+  mocks.getOrComputeDailyTransit.mockResolvedValue(null);
   mocks.getEffectivePlan.mockResolvedValue("PRO");
   mocks.assertHasUsageBudget.mockResolvedValue(undefined);
   mocks.assertWithinUsageLimits.mockResolvedValue(undefined);

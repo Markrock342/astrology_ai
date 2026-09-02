@@ -40,7 +40,6 @@ import { getOrRefreshChartMemory } from "@/server/horoscope/chart-memory-service
 import {
   bangkokTimeHm,
   getOrComputeDailyTransit,
-  questionWantsTodayTransit,
 } from "@/server/horoscope/daily-transit-service";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
 import {
@@ -66,8 +65,8 @@ import {
   formatIntakeForPrompt,
 } from "@/lib/intake-survey";
 import { parseIntakeAnswers } from "@/server/user/intake-service";
-import { assertQuestionWithinCategory } from "@/server/horoscope/question-scope";
-import { categoryScopeInstruction } from "@/lib/question-scope";
+import { UNIFIED_CHAT_INSTRUCTION } from "@/lib/question-scope";
+import { assertQuestionAllowedForPlan } from "@/server/horoscope/question-scope";
 import {
   formatUserAiMemoryForPrompt,
   getUserAiMemory,
@@ -251,8 +250,8 @@ async function runReading(
   });
 
   if (!skipCredits) {
-    await assertQuestionWithinCategory({
-      currentSlug: category.slug,
+    await assertQuestionAllowedForPlan({
+      plan,
       question,
     });
   }
@@ -288,49 +287,45 @@ async function runReading(
   };
 
   async function loadTransitChart(): Promise<ChartJson | null> {
-    if (mode === "TRANSIT") {
-      // Thread must have been created with a confirmed transit context, but
-      // date/time for the chart always use Asia/Bangkok "now" so predictions
-      // stay current. Location stays the place confirmed when the thread opened.
-      if (!input.transit?.date) {
-        throw new AppError(
-          "VALIDATION",
-          "โหมดดวงจรต้องระบุวันเวลา/สถานที่สำหรับคำนวณดวงจร",
-        );
-      }
-      try {
-        const now = new Date();
-        return await getOrComputeDailyTransit(userId, natalChart, {
+    const now = new Date();
+    const place = {
+      country: input.transit?.country ?? natalChart.input.country,
+      province: input.transit?.province ?? natalChart.input.province,
+      district: input.transit?.district ?? natalChart.input.district,
+    };
+    try {
+      return (
+        (await getOrComputeDailyTransit(userId, natalChart, {
           date: now,
           time: bangkokTimeHm(now),
-          place: {
-            country: input.transit.country,
-            province: input.transit.province,
-            district: input.transit.district,
-          },
+          place,
           skipCache: true,
           scrapeTimeoutMs: 500,
-        });
-      } catch (err) {
-        if (err instanceof AppError) throw err;
-        const message =
-          err instanceof Error ? err.message : "คำนวณดวงจรไม่สำเร็จ";
-        throw new AppError("CHART_NOT_READY", message);
-      }
-    }
-    if (questionWantsTodayTransit(question)) {
+        })) ?? null
+      );
+    } catch (err) {
       try {
-        return await getOrComputeDailyTransit(userId, natalChart, {
-          scrapeTimeoutMs: 500,
-        });
-      } catch (err) {
-        console.warn(
-          "[transit] daily cache miss failed:",
-          err instanceof Error ? err.message : err,
+        return (
+          (await getOrComputeDailyTransit(userId, natalChart, {
+            scrapeTimeoutMs: 500,
+          })) ?? null
         );
+      } catch (fallbackErr) {
+        console.warn(
+          "[transit] live fetch failed:",
+          err instanceof Error ? err.message : err,
+          fallbackErr instanceof Error ? fallbackErr.message : fallbackErr,
+        );
+        if (mode === "TRANSIT") {
+          if (err instanceof AppError) throw err;
+          throw new AppError(
+            "CHART_NOT_READY",
+            err instanceof Error ? err.message : "คำนวณดวงจรไม่สำเร็จ",
+          );
+        }
+        return null;
       }
     }
-    return null;
   }
 
   const transitChart = await loadTransitChart();
@@ -349,10 +344,7 @@ async function runReading(
     getUserAiMemory(userId, { excludeQuestion: question }),
     resolveConfig(category.id, plan, { preferFast: answerMode === "brief" }),
     prisma.knowledgeDoc.findMany({
-      where: {
-        enabled: true,
-        OR: [{ categoryId: category.id }, { categoryId: null }],
-      },
+      where: { enabled: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
   ]);
@@ -371,7 +363,7 @@ async function runReading(
     ...promptParts,
     knowledge,
   });
-  systemPrompt = `${systemPrompt}\n\n${categoryScopeInstruction(category.slug, category.nameTh)}`;
+  systemPrompt = `${systemPrompt}\n\n${UNIFIED_CHAT_INSTRUCTION}`;
   if (answerMode === "brief") {
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
   } else if (plan === "FREE") {

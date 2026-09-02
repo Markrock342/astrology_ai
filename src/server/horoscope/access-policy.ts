@@ -9,9 +9,8 @@ import { getEffectivePlan } from "@/server/user/account-service";
  * Free is a **trial**, not a viewer tier — usage granted at sign-up must be
  * spendable. Walls that keep the trial from becoming an open bar:
  *
- *  1. Free categories only — Pro categories stay locked.
- *  2. Natal only — transit is a Pro feature.
- *  3. Verified email — stops farming throwaway accounts for the trial grant.
+ *  1. Pro-only *topics in the question* stay locked (see question-scope).
+ *  2. Verified email — stops farming throwaway accounts for the trial grant.
  *
  * Follow-ups are allowed on Free: each turn still spends usage / a quota slot
  * (same as ChatGPT). Blocking them made the chat feel broken ("คุยต่อไม่ได้").
@@ -34,13 +33,6 @@ export async function assertCanRequestReading(input: {
     throw new AppError(
       "CATEGORY_LOCKED",
       "หมวดนี้สำหรับสมาชิก Pro — อัปเกรดเพื่อปลดล็อก",
-    );
-  }
-
-  if (input.mode === "TRANSIT") {
-    throw new AppError(
-      "TRANSIT_REQUIRES_PRO",
-      "โหมดดวงจรสำหรับสมาชิก Pro เท่านั้น",
     );
   }
 
