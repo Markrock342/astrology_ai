@@ -140,7 +140,7 @@ export function HoroscopeChartPanel({
   natal: ChartJson;
   transit?: ChartJson | null;
   description?: string;
-  presentation?: "message" | "reference";
+  presentation?: "message" | "reference" | "compact";
 }) {
   const d1 = useMemo(() => baseChart(natal), [natal]);
   const d9 = useMemo(() => deriveDivisionalChart(natal, "navamsa"), [natal]);
@@ -153,38 +153,49 @@ export function HoroscopeChartPanel({
   const [countFromCenter, setCountFromCenter] = useState(true);
 
   const reference = presentation === "reference";
+  const compact = presentation === "compact";
+  const d1Size = compact ? 248 : reference ? 520 : 360;
+  const extraSize = compact ? 220 : reference ? 340 : 260;
 
   return (
     <section
-      className={`${reference ? "" : "mb-4"} overflow-hidden rounded-2xl border border-[var(--primary)]/25 bg-[var(--surface)]`}
+      className={
+        compact
+          ? "min-w-0 overflow-hidden"
+          : `${reference ? "" : "mb-4"} overflow-hidden rounded-2xl border border-[var(--primary)]/25 bg-[var(--surface)]`
+      }
     >
-      <header className="border-b border-[var(--border)] px-4 py-3">
-        <div>
-          <h2 className={`${reference ? "text-base" : "text-sm"} font-semibold text-[var(--foreground)]`}>
-            ผังดวงชะตา
-          </h2>
-          <p className="mt-0.5 text-[11px] text-[var(--muted)]">
-            {description}
-          </p>
-          {natal.meta.locationDisplay ? (
-            <p className="mt-1 text-[11px] text-[var(--muted-2)]">
-              {natal.meta.birthDisplay}
-              {natal.meta.birthDisplay ? " · " : ""}
-              {natal.meta.locationDisplay}
+      {compact ? (
+        <p className="sr-only">{description}</p>
+      ) : (
+        <header className="border-b border-[var(--border)] px-4 py-3">
+          <div>
+            <h2 className={`${reference ? "text-base" : "text-sm"} font-semibold text-[var(--foreground)]`}>
+              ผังดวงชะตา
+            </h2>
+            <p className="mt-0.5 text-[11px] text-[var(--muted)]">
+              {description}
             </p>
-          ) : null}
-        </div>
-      </header>
+            {natal.meta.locationDisplay ? (
+              <p className="mt-1 text-[11px] text-[var(--muted-2)]">
+                {natal.meta.birthDisplay}
+                {natal.meta.birthDisplay ? " · " : ""}
+                {natal.meta.locationDisplay}
+              </p>
+            ) : null}
+          </div>
+        </header>
+      )}
 
-      <div className="px-3 py-5">
-        <div className="flex flex-col gap-6">
+      <div className={compact ? "py-1" : "px-3 py-5"}>
+        <div className={`flex flex-col ${compact ? "gap-4" : "gap-6"}`}>
           <ThaiChakraChart
             chart={d1}
             title="ราศีจักร · พื้นดวงเดิม"
-            size={reference ? 520 : 360}
+            size={d1Size}
             prominent
           />
-          {transitChart ? (
+          {!compact && transitChart ? (
             <ThaiChakraChart
               chart={transitChart}
               title="ราศีจักร · ดาวจร"
@@ -194,44 +205,54 @@ export function HoroscopeChartPanel({
           ) : null}
         </div>
 
-        <div className="mt-6 grid gap-6 border-t border-[var(--border)] pt-5 sm:grid-cols-2">
-          <TaksaNineGrid
-            input={natal.input}
-            slots={natal.chart?.taksa}
-            mode="natal"
-          />
-          <TaksaNineGrid
-            input={natal.input}
-            scraped={natal.myhora?.taksa}
-            mode="transit"
-            countFromCenter={countFromCenter}
-            onCountFromCenterChange={setCountFromCenter}
-            transitInput={transit?.input}
-          />
-        </div>
+        {compact ? (
+          <div className="mt-4">
+            <TaksaNineGrid
+              input={natal.input}
+              slots={natal.chart?.taksa}
+              mode="natal"
+            />
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-6 border-t border-[var(--border)] pt-5 sm:grid-cols-2">
+            <TaksaNineGrid
+              input={natal.input}
+              slots={natal.chart?.taksa}
+              mode="natal"
+            />
+            <TaksaNineGrid
+              input={natal.input}
+              scraped={natal.myhora?.taksa}
+              mode="transit"
+              countFromCenter={countFromCenter}
+              onCountFromCenterChange={setCountFromCenter}
+              transitInput={transit?.input}
+            />
+          </div>
+        )}
       </div>
 
-      <AstrologyGlossary compact={!reference} />
+      {compact ? null : <AstrologyGlossary compact={!reference} />}
 
-      <details className="border-t border-[var(--border)]">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-[var(--primary)] marker:content-none [&::-webkit-details-marker]:hidden">
+      <details className={compact ? "mt-2 rounded-xl border border-[var(--border)]" : "border-t border-[var(--border)]"}>
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-xs font-medium text-[var(--primary)] marker:content-none [&::-webkit-details-marker]:hidden">
           <span>ผังวิเคราะห์เพิ่ม</span>
-          <span className="text-xs font-normal text-[var(--muted)]">
+          <span className="text-[11px] font-normal text-[var(--muted)]">
             นวางศ์ · ตรียางศ์ · ตรีวัย <span aria-hidden>＋</span>
           </span>
         </summary>
-        <div className="border-t border-[var(--border)] px-3 py-5">
+        <div className="border-t border-[var(--border)] px-3 py-4">
           {d9 && d3 ? (
-            <div className={`grid gap-4 ${reference ? "grid-cols-[repeat(auto-fit,minmax(260px,1fr))]" : "grid-cols-[repeat(auto-fit,minmax(190px,1fr))]"}`}>
+            <div className={`grid gap-4 ${compact ? "grid-cols-1" : reference ? "grid-cols-[repeat(auto-fit,minmax(260px,1fr))]" : "grid-cols-[repeat(auto-fit,minmax(190px,1fr))]"}`}>
               <ThaiChakraChart
                 chart={d9}
                 title="นวางศ์จักร"
-                size={reference ? 340 : 260}
+                size={extraSize}
               />
               <ThaiChakraChart
                 chart={d3}
                 title="ตรียางศ์จักร"
-                size={reference ? 340 : 260}
+                size={extraSize}
               />
             </div>
           ) : (

@@ -71,6 +71,8 @@ describe("buildSystemPrompt plain-language contract", () => {
     });
     expect(prompt).toContain("ถ้ามีบล็อก [transit]");
     expect(prompt).toContain("ห้ามบอกให้ไปเริ่ม เปิด หรือดูดวงจรซ้ำ");
+    expect(prompt).toContain("เดือนปฏิทิน");
+    expect(prompt).toContain("ห้ามเลี่ยงด้วยคำถามคนละเรื่อง");
   });
 
   it("uses shared user context carefully and lets the current turn override it", () => {

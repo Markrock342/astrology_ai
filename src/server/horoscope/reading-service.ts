@@ -336,8 +336,7 @@ async function runReading(
 
   // Memory phase — chart memory, config, knowledge, prompt assembly.
   onPhase?.("memory");
-  // Brief mode routes to the fast lite model (see resolveConfig) — resolved
-  // here so the config fetch already reflects the chosen answer mode.
+  // Brief mode prefers 3.5 Flash (lite only if nothing smarter is enabled).
   const answerMode = input.answerMode ?? "detailed";
   const [chartMemory, userAiMemory, config, knowledgeDocs] = await Promise.all([
     getOrRefreshChartMemory(userId, natalChart),

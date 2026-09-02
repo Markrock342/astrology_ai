@@ -147,6 +147,30 @@ describe("resolveConfig (M3 B2)", () => {
     expect(detailed.id).toBe("older-detailed");
   });
 
+  it("preferFast skips lite when a smarter non-lite model exists", async () => {
+    mocks.findMany.mockResolvedValue([
+      {
+        id: "all-lite",
+        categoryId: null,
+        planScope: "ALL",
+        enabled: true,
+        modelId: "gemini-3.5-flash-lite",
+        updatedAt: t1,
+      },
+      {
+        id: "pro-detailed",
+        categoryId: null,
+        planScope: "ALL",
+        enabled: true,
+        modelId: "gemini-3.7-flash",
+        updatedAt: t0,
+      },
+    ]);
+
+    const brief = await resolveConfig("cat-1", "PRO", { preferFast: true });
+    expect(brief.id).toBe("pro-detailed");
+  });
+
   it("preferFast falls back to normal resolution when no brief model exists", async () => {
     mocks.findMany.mockResolvedValue([
       {

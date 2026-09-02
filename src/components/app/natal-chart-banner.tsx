@@ -89,7 +89,7 @@ export function ChartPreparingIndicator({
 
   return (
     <div
-      className={`mb-5 flex flex-col items-center text-center ${compact ? "gap-2" : "gap-3"}`}
+      className={`flex flex-col items-center text-center ${compact ? "mb-0 gap-2" : "mb-5 gap-3"}`}
       role="status"
       aria-live="polite"
     >

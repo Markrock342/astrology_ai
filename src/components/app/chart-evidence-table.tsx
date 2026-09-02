@@ -15,6 +15,8 @@ type Props = {
   defaultOpen?: boolean;
   /** Prefill composer with a follow-up about the clicked planet row. */
   onRowAsk?: (prompt: string) => void;
+  /** Sidebar / narrow column: always stack cards, never the wide table. */
+  layout?: "auto" | "stack";
 };
 
 type EvidenceRow = MyhoraNatalPlanet & {
@@ -77,12 +79,14 @@ export function ChartEvidenceTable({
   className,
   defaultOpen = false,
   onRowAsk,
+  layout = "auto",
 }: Props) {
   const samrap = pickRows(chart, mode);
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "—";
   const clickable = Boolean(onRowAsk);
   const standards = mode === "natal" ? collectAstrologyStandards(samrap) : [];
   const [open, setOpen] = useState(defaultOpen);
+  const stack = layout === "stack";
 
   return (
     <details
@@ -109,7 +113,7 @@ export function ChartEvidenceTable({
         {samrap ? (
           <>
             {/* Mobile: stacked cards — no horizontal scroll */}
-            <ul className="flex flex-col gap-2 p-2 md:hidden">
+            <ul className={`flex flex-col gap-2 p-2 ${stack ? "" : "md:hidden"}`}>
               {samrap.map((r) => (
                 <li key={r.planet}>
                   <button
@@ -145,7 +149,7 @@ export function ChartEvidenceTable({
               ))}
             </ul>
             {/* Desktop table */}
-            <div className="hidden overflow-x-auto md:block">
+            <div className={stack ? "hidden" : "hidden overflow-x-auto md:block"}>
               <table className="w-full min-w-[1420px] border-collapse text-left text-[12px]">
                 <thead>
                   <tr className="border-b border-[var(--border)] text-[var(--primary)]/80">
@@ -229,7 +233,7 @@ export function ChartEvidenceTable({
           </>
         ) : (
           <>
-            <ul className="flex flex-col gap-2 p-2 md:hidden">
+            <ul className={`flex flex-col gap-2 p-2 ${stack ? "" : "md:hidden"}`}>
               {chart.planets.map((p) => (
                 <li key={p.planet}>
                   <button
@@ -252,7 +256,7 @@ export function ChartEvidenceTable({
                 </li>
               ))}
             </ul>
-            <div className="hidden overflow-x-auto md:block">
+            <div className={stack ? "hidden" : "hidden overflow-x-auto md:block"}>
               <table className="w-full min-w-[400px] border-collapse text-left text-[13px]">
                 <thead>
                   <tr className="border-b border-[var(--border)] text-[var(--primary)]/80">

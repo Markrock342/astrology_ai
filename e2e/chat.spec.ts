@@ -18,12 +18,23 @@ test("home is ready to chat without picking a category", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "ถามดวงได้เลย" })).toBeVisible();
   await expect(page.getByRole("textbox")).toBeVisible();
+  await expect(page.getByRole("region", { name: "พื้นดวงเดิม" })).toBeVisible();
   await expect(
     page.getByRole("navigation", { name: "เลือกหมวดเพื่อเริ่มสนทนา" }),
   ).toHaveCount(0);
   await expect(
     page.locator('aside a[href="/dashboard?cat=self"], .w-16 a[href="/dashboard?cat=self"]'),
   ).toHaveCount(0);
+});
+
+test("natal chart view still keeps the composer on the same page", async ({
+  page,
+}) => {
+  await page.goto("/dashboard?view=natal-chart");
+
+  await expect(page.getByRole("heading", { name: "ถามดวงได้เลย" })).toBeVisible();
+  await expect(page.getByRole("textbox")).toBeVisible();
+  await expect(page.getByRole("region", { name: "พื้นดวงเดิม" })).toBeVisible();
 });
 
 test("preset chips always exist, even when the API sends none", async ({

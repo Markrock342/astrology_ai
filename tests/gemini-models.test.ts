@@ -8,13 +8,16 @@ import {
   geminiReplacementHint,
   isBriefGeminiModel,
   isDetailedGeminiModel,
+  isGeminiLiteModel,
 } from "@/config/gemini-models";
 
 describe("gemini model routing helpers", () => {
   it("treats 3.5 Flash as brief and 3.7 Flash as detailed", () => {
     expect(isBriefGeminiModel(DEFAULT_GEMINI_BRIEF_MODEL_ID)).toBe(true);
     expect(isBriefGeminiModel("gemini-3.5-flash-lite")).toBe(true);
-    expect(isBriefGeminiModel(DEFAULT_GEMINI_MODEL_ID)).toBe(false);
+    expect(isGeminiLiteModel("gemini-3.5-flash-lite")).toBe(true);
+    expect(isGeminiLiteModel("gemini-3.5-flash")).toBe(false);
+    expect(isGeminiLiteModel(DEFAULT_GEMINI_MODEL_ID)).toBe(false);
 
     expect(isDetailedGeminiModel(DEFAULT_GEMINI_MODEL_ID)).toBe(true);
     expect(isDetailedGeminiModel("gemini-3.6-flash")).toBe(true);

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  ASK_FROM_CHART_EVENT,
   categorySlugFromLabel,
   linkChatNavigationCtas,
   natalCategoryHref,
   parseDashboardChatHref,
+  readAskFromChartDetail,
   transitCategoryHref,
 } from "@/lib/chat-navigation-links";
 
@@ -86,5 +88,14 @@ describe("categorySlugFromLabel", () => {
     expect(transitCategoryHref("love")).toBe(
       "/dashboard?action=transit&cat=love",
     );
+  });
+});
+
+describe("ask from natal chart", () => {
+  it("reads the prompt from the custom event", () => {
+    const event = new CustomEvent(ASK_FROM_CHART_EVENT, {
+      detail: { prompt: "  ขอสรุปพื้นดวงหมวดการงาน  " },
+    });
+    expect(readAskFromChartDetail(event)).toBe("ขอสรุปพื้นดวงหมวดการงาน");
   });
 });

@@ -39,6 +39,10 @@ function normalizeModelId(modelId: string | null | undefined): string {
   return (modelId ?? "").trim().toLowerCase();
 }
 
+export function isGeminiLiteModel(modelId: string): boolean {
+  return normalizeModelId(modelId).includes("lite");
+}
+
 /** กระชับ: 3.5 Flash or any *lite* model. */
 export function isBriefGeminiModel(modelId: string): boolean {
   const id = normalizeModelId(modelId);
