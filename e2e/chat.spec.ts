@@ -9,38 +9,40 @@ import { stubChat, happyTurn, THREAD_ID, ASSISTANT_MSG_ID } from "./helpers/sse"
  * goes red before the push, not after a user does.
  */
 
-/**
- * The sidebar renders each category twice — once in the collapsed icon rail,
- * once in the expanded list — so name-only lookups are ambiguous. Address the
- * real nav item by its href and its visible label.
- */
-function categoryLink(page: Page, slug: string, label: string) {
+/** Empty-state category cards (sidebar category nav is intentionally hidden). */
+function emptyStateCategoryLink(page: Page, label: string) {
   return page
-    .locator(`a[href="/dashboard?cat=${slug}"]`)
-    .filter({ hasText: label });
+    .getByRole("navigation", { name: "เลือกหมวดเพื่อเริ่มสนทนา" })
+    .getByRole("link", { name: new RegExp(label) });
 }
 
 test.beforeEach(async ({ page }) => {
   await stubChat(page);
 });
 
-test("category click updates the sidebar highlight AND the preset chips", async ({
+test("sidebar does not list natal categories; empty state still navigates by cat", async ({
   page,
 }) => {
-  // Regression: soft-nav passed window.history.state (carrying Next's __NA
-  // marker) to pushState, so Next skipped the router sync. The URL changed but
-  // every useSearchParams consumer stayed frozen on the old category.
+  // Product: hide ตัวตน/การงาน/… from the sidebar, but keep history and let
+  // users pick a category from the empty chat (Free/Pro still enforced there).
   await page.goto("/dashboard");
 
-  await categoryLink(page, "career", "การงาน").click();
+  await expect(
+    page.locator('a[href="/dashboard?cat=career"]').filter({ hasText: "การงาน" }),
+  ).toHaveCount(1); // empty-state card only — not duplicated in the sidebar
+  await expect(
+    page.locator('aside a[href="/dashboard?cat=self"], .w-16 a[href="/dashboard?cat=self"]'),
+  ).toHaveCount(0);
+
+  // Soft-nav / useSearchParams sync: picking a category in empty state must
+  // update URL and preset chips.
+  await emptyStateCategoryLink(page, "การงาน").click();
   await expect(page).toHaveURL(/cat=career/);
-  // Chips come from the category the CLIENT resolved, so they only change if
-  // useSearchParams actually synced.
   await expect(
     page.getByRole("button", { name: /ช่วงนี้ควรเปลี่ยนงานได้ไหม/ }),
   ).toBeVisible();
 
-  await categoryLink(page, "self", "ตัวตน").click();
+  await page.goto("/dashboard?cat=self");
   await expect(page).toHaveURL(/cat=self/);
   await expect(
     page.getByRole("button", { name: /จุดแข็งของฉันคืออะไร/ }),
@@ -149,7 +151,7 @@ test("leaving for /account and coming back actually renders the chat", async ({
   await page.goto("/account");
   await expect(page).toHaveURL(/\/account/);
 
-  await categoryLink(page, "self", "ตัวตน").click();
+  await page.goto("/dashboard?cat=self");
 
   await expect(page).toHaveURL(/\/dashboard\?cat=self/);
   // The composer only exists on the chat route — proof the page really changed.

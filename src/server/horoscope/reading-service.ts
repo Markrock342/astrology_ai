@@ -38,6 +38,7 @@ import {
 } from "@/server/horoscope/chart-context";
 import { getOrRefreshChartMemory } from "@/server/horoscope/chart-memory-service";
 import {
+  bangkokTimeHm,
   getOrComputeDailyTransit,
   questionWantsTodayTransit,
 } from "@/server/horoscope/daily-transit-service";
@@ -288,6 +289,9 @@ async function runReading(
 
   async function loadTransitChart(): Promise<ChartJson | null> {
     if (mode === "TRANSIT") {
+      // Thread must have been created with a confirmed transit context, but
+      // date/time for the chart always use Asia/Bangkok "now" so predictions
+      // stay current. Location stays the place confirmed when the thread opened.
       if (!input.transit?.date) {
         throw new AppError(
           "VALIDATION",
@@ -295,9 +299,16 @@ async function runReading(
         );
       }
       try {
+        const now = new Date();
         return await getOrComputeDailyTransit(userId, natalChart, {
-          date: input.transit.date,
-          time: input.transit.time,
+          date: now,
+          time: bangkokTimeHm(now),
+          place: {
+            country: input.transit.country,
+            province: input.transit.province,
+            district: input.transit.district,
+          },
+          skipCache: true,
           scrapeTimeoutMs: 500,
         });
       } catch (err) {
