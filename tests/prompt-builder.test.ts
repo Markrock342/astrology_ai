@@ -70,8 +70,7 @@ describe("buildSystemPrompt plain-language contract", () => {
       outputFormat: "markdown",
     });
     expect(prompt).toContain("ถ้ามีบล็อก [transit]");
-    expect(prompt).toContain("ห้ามแนะนำให้เปิด เริ่ม หรือไปดูดวงจรซ้ำ");
-    expect(prompt).toContain("ให้ตอบจากดวงจรที่แนบมาทันที");
+    expect(prompt).toContain("ห้ามบอกให้ไปเริ่ม เปิด หรือดูดวงจรซ้ำ");
   });
 
   it("uses shared user context carefully and lets the current turn override it", () => {

@@ -18,11 +18,6 @@ import {
 } from "./app-data-provider";
 import { BrandMark } from "@/components/brand-logo";
 import { softNavigate, useChatRouteSearchParams, isPlainLeftClick } from "./chat-nav";
-import {
-  dispatchOpenTransit,
-  natalCategoryHref,
-  transitCategoryHref,
-} from "@/lib/chat-navigation-links";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { HoroscopeChartPanel } from "./horoscope-chart-panel";
 import { ChartEvidenceTable } from "./chart-evidence-table";
@@ -30,15 +25,14 @@ import { CopyMessageButton } from "./copy-message-button";
 import { MessageActions } from "./message-actions";
 import { NatalChartBanner } from "./natal-chart-banner";
 import { NatalChartReferenceView } from "./natal-chart-reference-view";
-import { CategoryIcon } from "./category-icon";
 import { SmoothStreamMarkdown } from "./smooth-stream-markdown";
 import { useMyUsage } from "@/hooks/use-my-usage";
 import type { ChartJson } from "@/types/chart";
+import { isCategoryIntroQuestion } from "@/lib/intake-survey";
 import {
-  buildCategoryIntroQuestion,
-  isCategoryIntroQuestion,
-} from "@/lib/intake-survey";
-import { detectQuestionScopeMismatch } from "@/lib/question-scope";
+  UNIFIED_CHAT_CATEGORY_SLUG,
+  detectMentionedCategories,
+} from "@/lib/question-scope";
 import {
   getCachedThread,
   prefetchThread,
@@ -215,7 +209,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   USER_DISABLED: "บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อแอดมิน",
   FEATURE_DISABLED: "ระบบดูดวงด้วย AI กำลังอยู่ระหว่างพัฒนา",
   NATAL_QA_DISABLED:
-    "หมวดพื้นดวงเป็นบทสรุปอัตโนมัติ — หากต้องการถามต่อ ให้เปิดดวงจร",
+    "ถามต่อในแชทนี้ได้เลย",
 };
 
 function modelLabel(modelId: string): string {
@@ -350,7 +344,6 @@ export function ChatView() {
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
   const activeView = searchParams.get("view");
-  const openingTransit = searchParams.get("action") === "transit";
   const showingNatalChart = activeView === "natal-chart";
   const {
     user,
@@ -930,7 +923,7 @@ export function ChatView() {
     };
   }, [threadId, pendingAssistantIds, inFlight, refreshLight]);
 
-  // Reset the thread when the selected category changes (new chat).
+  // New chat is a blank composer — no auto natal briefing, no category pick.
   useEffect(() => {
     if (threadId) return;
     if (streamTimer.current) window.clearInterval(streamTimer.current);
@@ -951,49 +944,7 @@ export function ChatView() {
     setThreadLoadError(null);
   }, [catSlug, locked, threadId]);
 
-  // Natal categories brief themselves — no question required.
-  useEffect(() => {
-    if (loading || loadingThread || locked) return;
-    if (!FEATURES.aiChat) return;
-    if (threadMode === "TRANSIT") return;
-    if (openingTransit) return;
-    if (messages.length > 0) return;
-    if (state !== "idle") return;
-
-    const slug = catSlug ?? threadCategorySlug;
-    if (!slug) return;
-
-    if (!threadId) {
-      const existing = natalThreads.find((t) => t.categorySlug === slug);
-      if (existing) {
-        softNavigate(`/dashboard?thread=${existing.id}&cat=${slug}`, {
-          replace: true,
-        });
-        return;
-      }
-    }
-
-    if (natalChartStatus?.status !== "READY") return;
-
-    const question = buildCategoryIntroQuestion(category?.label ?? slug);
-    void send(question, { purpose: "category_intro" });
-    // send is an event handler recreated each render — listing it would loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    loading,
-    loadingThread,
-    locked,
-    threadMode,
-    openingTransit,
-    messages.length,
-    state,
-    catSlug,
-    threadCategorySlug,
-    threadId,
-    natalThreads,
-    natalChartStatus?.status,
-    category?.label,
-  ]);
+  // Natal auto-intro removed: home is ready to type, one chat covers every topic.
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const el = scrollRef.current;
@@ -1069,7 +1020,10 @@ export function ChatView() {
     const res = await fetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categorySlug, mode: "NATAL" }),
+      body: JSON.stringify({
+        categorySlug: categorySlug || UNIFIED_CHAT_CATEGORY_SLUG,
+        mode: "TRANSIT",
+      }),
     });
     const json = await parseApiJson(res);
     if (!res.ok || !json?.ok) {
@@ -1098,7 +1052,8 @@ export function ChatView() {
 
     const isIntro =
       options.purpose === "category_intro" || isCategoryIntroQuestion(content);
-    const categorySlug = catSlug ?? threadCategorySlug;
+    const categorySlug =
+      catSlug ?? threadCategorySlug ?? UNIFIED_CHAT_CATEGORY_SLUG;
     const introStamp =
       isIntro && (catSlug ?? threadCategorySlug)
         ? `${user?.email ?? "anon"}:${catSlug ?? threadCategorySlug}`
@@ -1120,80 +1075,21 @@ export function ChatView() {
       return;
     }
 
-    if (!isIntro && categorySlug) {
-      const targetSlug = detectQuestionScopeMismatch(content, categorySlug);
-      if (targetSlug) {
-        const targetCategory = categories.find((item) => item.slug === targetSlug);
-        const target: ScopeTarget = {
-          slug: targetSlug,
-          label: targetCategory?.label ?? targetSlug,
-          requiresPro:
-            (threadMode === "TRANSIT" && user?.plan !== "PRO") ||
-            isCategoryLocked(targetCategory, user?.plan ?? "FREE"),
-        };
-        if (
-          user?.plan === "PRO" &&
-          threadMode === "TRANSIT" &&
-          threadTransitContext
-        ) {
-          setScopeTarget(null);
-          setErrorCode(null);
-          setErrorText(null);
-          setPendingRetry(null);
-          setScopeForwardingLabel(target.label);
-          setInput("");
-          window.localStorage.removeItem(DRAFT_KEY);
-          try {
-            const response = await fetch("/api/conversations", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                categorySlug: target.slug,
-                mode: "TRANSIT",
-                transitDate: threadTransitContext.date,
-                transitTime: threadTransitContext.time ?? undefined,
-                transitCountry: threadTransitContext.country ?? undefined,
-                transitProvince: threadTransitContext.province ?? undefined,
-                transitDistrict: threadTransitContext.district ?? undefined,
-              }),
-            });
-            const json = await parseApiJson(response);
-            const nextThreadId = json?.data?.id as string | undefined;
-            if (!response.ok || !json?.ok || !nextThreadId) {
-              throw new Error(
-                json?.error?.message ?? "ย้ายคำถามไปหมวดที่ตรงไม่สำเร็จ",
-              );
-            }
-            window.sessionStorage.setItem(
-              `${FORWARDED_QUESTION_PREFIX}${nextThreadId}`,
-              content,
-            );
-            conversationIdRef.current = nextThreadId;
-            setScopeForwardingLabel(null);
-            softNavigate(
-              `/dashboard?thread=${nextThreadId}&cat=${target.slug}`,
-            );
-            void refreshLight();
-            return;
-          } catch (caught) {
-            setScopeForwardingLabel(null);
-            setInput(content);
-            window.localStorage.setItem(DRAFT_KEY, content);
-            setScopeTarget(target);
-            setErrorCode("CATEGORY_SCOPE_MISMATCH");
-            setErrorText(
-              caught instanceof Error
-                ? `${caught.message} — กดเปิดหมวด${target.label}ได้ด้านล่าง`
-                : `ย้ายคำถามไม่สำเร็จ — กดเปิดหมวด${target.label}ได้ด้านล่าง`,
-            );
-            setState("error");
-            return;
-          }
-        }
-        setScopeTarget(target);
-        setErrorCode("CATEGORY_SCOPE_MISMATCH");
+    if (!isIntro && user?.plan !== "PRO") {
+      const mentioned = detectMentionedCategories(content);
+      const lockedCat = categories.find(
+        (item) =>
+          mentioned.includes(item.slug as (typeof mentioned)[number]) && isCategoryLocked(item, "FREE"),
+      );
+      if (lockedCat) {
+        setScopeTarget({
+          slug: lockedCat.slug,
+          label: lockedCat.label,
+          requiresPro: true,
+        });
+        setErrorCode("CATEGORY_LOCKED");
         setErrorText(
-          `คำถามนี้อยู่ในหมวด「${target.label}」 กรุณาเปิดหมวดนั้นเพื่อใช้สิทธิ์ที่ถูกต้อง`,
+          `หมวด「${lockedCat.label}」ใช้ได้ใน Pro — อัปเกรดเพื่อถามเรื่องนี้`,
         );
         setState("error");
         setPendingRetry(null);
@@ -1263,13 +1159,6 @@ export function ChatView() {
     if (locked) {
       setState("locked");
       setErrorCode("CATEGORY_LOCKED");
-      setPendingRetry(null);
-      return;
-    }
-    if (!categorySlug && !threadId && !conversationIdRef.current) {
-      setErrorCode("VALIDATION");
-      setErrorText("เลือกหมวดด้านบนก่อน แล้วเริ่มดวงจร");
-      setState("error");
       setPendingRetry(null);
       return;
     }
@@ -2032,17 +1921,8 @@ export function ChatView() {
             className="page-enter mx-auto flex w-full max-w-2xl flex-col items-center"
           >
             <EmptyState
-              category={openingTransit ? undefined : category?.label}
               categories={availableCategories}
               plan={user?.plan ?? "FREE"}
-              natalBriefing={Boolean(catSlug) && !openingTransit}
-              selectMode={openingTransit ? "transit" : "natal"}
-              chartReady={natalChartStatus?.status === "READY"}
-              suggestions={
-                openingTransit || !category
-                  ? []
-                  : category.suggestedQuestions
-              }
               onPick={send}
               emailGate={emailGate}
             />
@@ -2248,8 +2128,7 @@ export function ChatView() {
                             Asking someone to type what a button should do is a
                             button that doesn't exist yet — here it is. The
                             notice text the server appends IS the signal. */}
-                        {m.content.includes("เพดานของโหมดคำตอบ") &&
-                        threadMode === "TRANSIT" ? (
+                        {m.content.includes("เพดานของโหมดคำตอบ") ? (
                           <button
                             type="button"
                             disabled={emailGate}
@@ -2259,33 +2138,17 @@ export function ChatView() {
                             เล่าต่อ ▸
                           </button>
                         ) : null}
-                        {threadMode === "TRANSIT"
-                          ? (m.followUps ?? []).map((q) => (
-                              <button
-                                key={q}
-                                type="button"
-                                disabled={emailGate}
-                                onClick={() => void send(q)}
-                                className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-left text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                {q}
-                              </button>
-                            ))
-                          : m.status === "SUCCESS"
-                            ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    dispatchOpenTransit(
-                                      catSlug ?? threadCategorySlug,
-                                    )
-                                  }
-                                  className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20"
-                                >
-                                  เปลี่ยนไปถามดวงจร ▸
-                                </button>
-                              )
-                            : null}
+                        {(m.followUps ?? []).map((q) => (
+                          <button
+                            key={q}
+                            type="button"
+                            disabled={emailGate}
+                            onClick={() => void send(q)}
+                            className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-left text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {q}
+                          </button>
+                        ))}
                       </div>
                     ) : null}
                     {!isStreamingTurn && (
@@ -2397,7 +2260,7 @@ export function ChatView() {
               กำลังย้ายคำถามไปหมวด「{scopeForwardingLabel}」และส่งให้ AI…
             </div>
           ) : null}
-          {threadMode === "TRANSIT" || isBusy ? (
+          {showingNatalChart ? null : (
             <Composer
               ref={composerRef}
               value={input}
@@ -2411,9 +2274,6 @@ export function ChatView() {
                 )
               }
               onStop={() => void stopStreaming(stopTarget)}
-              // Stop is offered only while an answer is genuinely in progress AND we
-              // hold a handle to cancel it. Keying off the target alone let a stale
-              // PENDING row keep the button up long after the answer had landed.
               streaming={
                 (state === "processing" || state === "streaming") &&
                 Boolean(stopTarget) &&
@@ -2422,11 +2282,8 @@ export function ChatView() {
               disabled={
                 locked ||
                 state === "locked" ||
-                threadMode !== "TRANSIT" ||
                 Boolean(scopeForwardingLabel)
               }
-              // Keep the field editable while streaming (ChatGPT-style). Send is
-              // blocked in send() until the turn settles; Stop replaces the arrow.
               aiEnabled={FEATURES.aiChat}
               categoryLocked={locked}
               usageRemainingPercent={usageRemainingPercent}
@@ -2435,11 +2292,7 @@ export function ChatView() {
               answerMode={answerMode}
               onAnswerModeChange={updateAnswerMode}
             />
-          ) : messages.length > 0 ? (
-            <p className="px-4 pb-4 text-center text-[11px] text-[var(--muted-2)] md:px-8">
-              พื้นดวงเป็นบทสรุปอัตโนมัติ · หากต้องการถามต่อ ให้เปิดดวงจร
-            </p>
-          ) : null}
+          )}
         </div>
       ) : null}
     </div>
@@ -2530,112 +2383,38 @@ function ErrorBanner({
 }
 
 function EmptyState({
-  category,
   categories,
   plan,
-  natalBriefing = false,
-  selectMode = "natal",
-  chartReady = false,
-  suggestions,
   onPick,
   emailGate = false,
 }: {
-  category?: string;
   categories: Array<{
     slug: string;
     label: string;
-    icon?: string | null;
+    suggestedQuestions?: string[];
   }>;
   plan: "FREE" | "PRO";
-  natalBriefing?: boolean;
-  /** Home without ?cat: natal picks open chat; transit opens the form. */
-  selectMode?: "natal" | "transit";
-  chartReady?: boolean;
-  suggestions: string[];
   onPick: (q: string) => void;
   emailGate?: boolean;
 }) {
-  const pickingNatal = selectMode === "natal";
+  const suggestions = categories
+    .flatMap((item) => item.suggestedQuestions ?? [])
+    .filter((q, i, all) => all.indexOf(q) === i)
+    .slice(0, 6);
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center pt-6 text-center">
       <NatalChartBanner />
-      {natalBriefing ? (
-        <>
-          <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
-            {chartReady
-              ? `กำลังสรุปหมวด${category ? `「${category}」` : "นี้"}`
-              : "กำลังเตรียมพื้นดวงให้พร้อม"}
-          </h1>
-          <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
-            {chartReady
-              ? "สรุปจากพื้นดวงและแบบสำรวจทันที — ไม่หัก usage"
-              : "ปกติใช้เวลาไม่กี่วินาที จากนั้นระบบจะเปิดสรุปหมวดนี้ให้อัตโนมัติ"}
-          </p>
-        </>
-      ) : (
-        <>
-          <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
-            {pickingNatal ? "เลือกหมวดเพื่อเริ่มสนทนา" : "เลือกหมวดเพื่อเริ่มดวงจร"}
-          </h1>
-          <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
-            {pickingNatal
-              ? "เลือกหมวดที่อยากถามจากพื้นดวง — คำทำนายเป็นแนวทางเพื่อความบันเทิง ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์"
-              : "เลือกหมวดที่อยากถาม แล้วระบบจะเปิดดวงจรให้ทันที — คำทำนายเป็นแนวทางเพื่อความบันเทิง ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์"}
-          </p>
-        </>
-      )}
-
-      {!category ? (
-        <div className="mt-6 w-full max-w-lg">
-          <div className="mb-3 flex items-center justify-between gap-3 text-left">
-            <p className="text-xs font-semibold text-[var(--foreground)]">
-              {plan === "PRO" ? "เลือกได้ครบทุกหมวด" : "หมวดที่ใช้ได้ใน Free"}
-            </p>
-            <span className="text-[11px] text-[var(--muted-2)]">
-              {categories.length} หมวด
-            </span>
-          </div>
-          <nav
-            className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--border)] sm:grid-cols-3"
-            aria-label={
-              pickingNatal ? "เลือกหมวดเพื่อเริ่มสนทนา" : "เลือกหมวดเพื่อเริ่มดวงจร"
-            }
-          >
-            {categories.map((item) => (
-              <a
-                key={item.slug}
-                href={
-                  pickingNatal
-                    ? natalCategoryHref(item.slug)
-                    : transitCategoryHref(item.slug)
-                }
-                onClick={(event) => {
-                  if (isPlainLeftClick(event)) {
-                    event.preventDefault();
-                    if (pickingNatal) {
-                      softNavigate(natalCategoryHref(item.slug));
-                    } else {
-                      dispatchOpenTransit(item.slug);
-                    }
-                  }
-                }}
-                className="press-scale flex min-h-12 items-center gap-2.5 bg-[var(--surface-2)] px-3 py-3 text-left text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-[var(--primary)]"
-              >
-                <span className="shrink-0 text-[var(--primary)]" aria-hidden>
-                  <CategoryIcon slug={item.slug} icon={item.icon} />
-                </span>
-                <span className="truncate">{item.label}</span>
-              </a>
-            ))}
-          </nav>
-        </div>
-      ) : (
-        <p className="animate-fade-up stagger-2 mt-6 text-xs text-[var(--muted)]">
-          หัวข้อ: {category}
-        </p>
-      )}
+      <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
+        ถามดวงได้เลย
+      </h1>
+      <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
+        {plan === "PRO"
+          ? "การงาน การเงิน ความรัก สุขภาพ ถามในแชทนี้ได้ทั้งหมด — ระบบดึงดวงจรปัจจุบันให้อัตโนมัติ"
+          : "ถามเรื่องตัวตนและการงานได้เลย หากข้อความเป็นหมวดอื่น ระบบจะชวนอัปเกรด — ดวงจรดึงให้อัตโนมัติ"}
+      </p>
       {suggestions.length > 0 && (
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
           {suggestions.map((q, i) => (
             <button
               key={q}

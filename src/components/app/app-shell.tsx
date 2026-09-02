@@ -16,7 +16,6 @@ import { ConfirmModal, ThreadRenameModal } from "./confirm-modal";
 import {
   CollapseSidebarIcon,
   ExpandSidebarIcon,
-  LockIcon,
   MenuIcon,
   NatalChartIcon,
   NewChatIcon,
@@ -638,8 +637,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           onClick={() => {
-            setTransitCategorySlug(activeCat);
-            setTransitOpen(true);
+            chatNav("/dashboard");
             closeMobile();
           }}
           className="mb-1 flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2.5 text-sm text-[var(--primary)] transition hover:bg-[var(--surface-2)]"
@@ -648,11 +646,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <TransitIcon />
             เริ่มดวงจรใหม่
           </span>
-          {user?.plan !== "PRO" ? (
-            <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
-              <LockIcon /> Pro
-            </span>
-          ) : null}
         </button>
         <nav className="flex flex-col gap-0.5">
           {filteredTransitThreads.length === 0 ? (

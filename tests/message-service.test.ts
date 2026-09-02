@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   findReading: vi.fn(),
   findMessages: vi.fn(),
   findCategory: vi.fn(),
+  findCategories: vi.fn(),
+  findBirthProfile: vi.fn(),
   createConversation: vi.fn(),
   transaction: vi.fn(),
   getEffectivePlan: vi.fn(),
@@ -48,7 +50,11 @@ vi.mock("@/server/db", () => ({
       count: mocks.messageCount,
     },
     horoscopeReading: { findUnique: mocks.findReading },
-    horoscopeCategory: { findFirst: mocks.findCategory },
+    horoscopeCategory: {
+      findFirst: mocks.findCategory,
+      findMany: mocks.findCategories,
+    },
+    birthProfile: { findUnique: mocks.findBirthProfile },
     $transaction: mocks.transaction,
   },
 }));
@@ -107,6 +113,8 @@ describe("sendMessage (M3 B2)", () => {
     mocks.messageUpdateMany.mockResolvedValue({ count: 0 });
     mocks.messageCount.mockResolvedValue(0);
     mocks.assertCanRequestReading.mockResolvedValue("PRO");
+    mocks.findCategories.mockResolvedValue([]);
+    mocks.findBirthProfile.mockResolvedValue(null);
   });
 
   it("refuses the send when the access policy refuses it", async () => {
@@ -249,19 +257,27 @@ describe("natal category intro", () => {
     mocks.messageUpdateMany.mockResolvedValue({ count: 0 });
     mocks.messageCount.mockResolvedValue(0);
     mocks.assertCanRequestReading.mockResolvedValue("PRO");
+    mocks.findCategories.mockResolvedValue([]);
+    mocks.findBirthProfile.mockResolvedValue(null);
   });
 
-  it("rejects a natal follow-up question", async () => {
-    await expect(
-      sendMessage({
-        conversationId: "conv-1",
-        userId: "user-1",
-        content: "แล้วปีหน้าล่ะ",
-        idempotencyKey: "k-natal-q",
-      }),
-    ).rejects.toMatchObject({ code: "NATAL_QA_DISABLED" });
+  it("allows a natal follow-up question in the same chat", async () => {
+    mocks.findMessage
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "pend-1",
+        status: "PENDING",
+        content: "",
+      });
 
-    expect(mocks.createReading).not.toHaveBeenCalled();
+    await sendMessage({
+      conversationId: "conv-1",
+      userId: "user-1",
+      content: "แล้วปีหน้าล่ะ",
+      idempotencyKey: "k-natal-q",
+    });
+
+    expect(mocks.createReading).toHaveBeenCalled();
   });
 
   it("allows the free category intro and tells the reader to skip credits", async () => {
@@ -299,14 +315,26 @@ describe("createConversation (M3 B2)", () => {
     });
   });
 
-  it("throws TRANSIT_REQUIRES_PRO when Free user opens transit thread", async () => {
+  it("lets a Free user open a live-transit thread on a Free category", async () => {
+    mocks.findCategory.mockResolvedValue({
+      id: "cat-career",
+      slug: "career",
+      accessLevel: "FREE",
+      enabled: true,
+    });
+    mocks.createConversation.mockResolvedValue({
+      id: "conv-t",
+      mode: "TRANSIT",
+      category: { slug: "career", accessLevel: "FREE" },
+    });
+
     await expect(
       createConversation({
         userId: "user-1",
         categorySlug: "career",
         mode: "TRANSIT",
       }),
-    ).rejects.toMatchObject({ code: "TRANSIT_REQUIRES_PRO" });
+    ).resolves.toMatchObject({ id: "conv-t" });
   });
 
   it("throws CATEGORY_LOCKED for Pro-only category on Free plan", async () => {

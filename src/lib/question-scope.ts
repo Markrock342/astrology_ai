@@ -80,8 +80,23 @@ const CATEGORY_KEYWORDS: Record<HoroscopeCategorySlug, readonly string[]> = {
   overview: ["ภาพรวม", "ดวงโดยรวม", "ทุกเรื่อง", "ชีวิตปีนี้", "ปีนี้เป็นยังไง"],
 };
 
+/** Threads no longer pick a category; this is the DB row they hang off. */
+export const UNIFIED_CHAT_CATEGORY_SLUG: HoroscopeCategorySlug = "self";
+
 function normalizeQuestion(question: string): string {
   return question.normalize("NFKC").toLocaleLowerCase("th").replace(/\s+/g, " ");
+}
+
+/** Which fortune topics the question clearly names. Empty = generic / allowed. */
+export function detectMentionedCategories(
+  question: string,
+): HoroscopeCategorySlug[] {
+  const normalized = normalizeQuestion(question);
+  return (Object.entries(CATEGORY_KEYWORDS) as Array<
+    [HoroscopeCategorySlug, readonly string[]]
+  >)
+    .filter(([, keywords]) => keywords.some((keyword) => normalized.includes(keyword)))
+    .map(([slug]) => slug);
 }
 
 /**
@@ -117,3 +132,8 @@ export function categoryScopeInstruction(
   const scope = keywords?.slice(0, 7).join(", ") ?? label;
   return `ขอบเขตคำตอบ: หมวด「${label}」เท่านั้น (เช่น ${scope}) ห้ามตอบแทนหมวดอื่น หากคำถามหลุดขอบเขตให้บอกผู้ใช้เลือกหมวดที่ตรงก่อน`;
 }
+
+/** One chat answers every topic — never send the user to another category. */
+export const UNIFIED_CHAT_INSTRUCTION =
+  "แชทนี้ถามได้ทุกเรื่อง (การงาน การเงิน ความรัก สุขภาพ โชคลาภ ตัวตน) จาก [natal] [memory] และ [transit] " +
+  "ตอบคำถามในแชทนี้ให้จบ ห้ามบอกให้ไปเปิดหมวดอื่น ห้ามชวนให้ถามต่อในหมวดนั้น ห้ามลิงก์ /dashboard?cat=";

@@ -18,7 +18,9 @@ import {
 } from "@/server/horoscope/thread-service";
 import type { ConversationMode } from "@prisma/client";
 import { isCategoryIntroQuestion } from "@/lib/intake-survey";
-import { assertQuestionWithinCategory } from "@/server/horoscope/question-scope";
+import { UNIFIED_CHAT_CATEGORY_SLUG } from "@/lib/question-scope";
+import { assertQuestionAllowedForPlan } from "@/server/horoscope/question-scope";
+import { bangkokTimeHm } from "@/server/horoscope/daily-transit-service";
 
 /**
  * Superseded turns (edited question / regenerated answer) are hidden, not
@@ -92,22 +94,7 @@ async function assertCanSend(input: SendMessageInput) {
     input.purpose === "category_intro" ||
     isCategoryIntroQuestion(input.content);
 
-  if (conversation.mode === "NATAL") {
-    if (!isIntro) {
-      throw new AppError(
-        "NATAL_QA_DISABLED",
-        "หมวดพื้นดวงสรุปให้อัตโนมัติ — ถามต่อได้ที่โหมดดวงจร",
-      );
-    }
-    if (priorTurns > 0 && !input.regenerateAssistantMessageId) {
-      throw new AppError(
-        "NATAL_QA_DISABLED",
-        "หมวดนี้สรุปให้แล้ว — ถามต่อได้ที่โหมดดวงจร",
-      );
-    }
-  }
-
-  await assertCanRequestReading({
+  const plan = await assertCanRequestReading({
     userId: input.userId,
     categoryAccessLevel: conversation.category.accessLevel,
     mode: conversation.mode,
@@ -116,8 +103,8 @@ async function assertCanSend(input: SendMessageInput) {
   });
 
   if (!isIntro) {
-    await assertQuestionWithinCategory({
-      currentSlug: conversation.category.slug,
+    await assertQuestionAllowedForPlan({
+      plan,
       question: input.content,
     });
   }
@@ -512,7 +499,7 @@ export async function sendMessage(input: SendMessageInput) {
 
 export type CreateConversationInput = {
   userId: string;
-  categorySlug: string;
+  categorySlug?: string;
   mode?: ConversationMode;
   transitDate?: string;
   transitTime?: string;
@@ -521,17 +508,14 @@ export type CreateConversationInput = {
   transitDistrict?: string;
 };
 
-/** Create a new chat thread (natal or transit). Transit is Pro-only. */
+/** Create a new chat thread. New chats are live transit — no category picker. */
 export async function createConversation(input: CreateConversationInput) {
   const plan = await getEffectivePlan(input.userId);
-  const mode = input.mode ?? "NATAL";
-
-  if (mode === "TRANSIT" && plan !== "PRO") {
-    throw new AppError("TRANSIT_REQUIRES_PRO", "โหมดดวงจรสำหรับสมาชิก Pro");
-  }
+  const mode = input.mode ?? "TRANSIT";
+  const categorySlug = input.categorySlug || UNIFIED_CHAT_CATEGORY_SLUG;
 
   const category = await prisma.horoscopeCategory.findFirst({
-    where: { slug: input.categorySlug, enabled: true },
+    where: { slug: categorySlug, enabled: true },
   });
   if (!category) throw new AppError("NOT_FOUND", "Category not available");
 
@@ -539,14 +523,37 @@ export async function createConversation(input: CreateConversationInput) {
     throw new AppError("CATEGORY_LOCKED", "This category is for Pro members");
   }
 
-  const transitDate = input.transitDate ? new Date(input.transitDate) : null;
+  const profile = await prisma.birthProfile.findUnique({
+    where: { userId: input.userId },
+    select: {
+      birthCountry: true,
+      birthProvince: true,
+      birthDistrict: true,
+    },
+  });
+
+  const now = new Date();
+  const transitDate = input.transitDate
+    ? new Date(input.transitDate)
+    : mode === "TRANSIT"
+      ? now
+      : null;
+  const transitTime =
+    input.transitTime ?? (mode === "TRANSIT" ? bangkokTimeHm(now) : null);
+  const transitCountry =
+    input.transitCountry ?? profile?.birthCountry ?? "ไทย";
+  const transitProvince =
+    input.transitProvince ?? profile?.birthProvince ?? null;
+  const transitDistrict =
+    input.transitDistrict ?? profile?.birthDistrict ?? null;
+
   const title =
     mode === "TRANSIT" && transitDate && !Number.isNaN(transitDate.getTime())
       ? `ดวงจร ${transitDate.toLocaleDateString("th-TH", {
           day: "numeric",
           month: "short",
           year: "numeric",
-          timeZone: "UTC",
+          timeZone: "Asia/Bangkok",
         })}`
       : null;
 
@@ -557,10 +564,10 @@ export async function createConversation(input: CreateConversationInput) {
       mode,
       title,
       transitDate,
-      transitTime: input.transitTime ?? null,
-      transitCountry: input.transitCountry ?? null,
-      transitProvince: input.transitProvince ?? null,
-      transitDistrict: input.transitDistrict ?? null,
+      transitTime,
+      transitCountry: mode === "TRANSIT" ? transitCountry : input.transitCountry ?? null,
+      transitProvince: mode === "TRANSIT" ? transitProvince : input.transitProvince ?? null,
+      transitDistrict: mode === "TRANSIT" ? transitDistrict : input.transitDistrict ?? null,
     },
     include: { category: true },
   });
