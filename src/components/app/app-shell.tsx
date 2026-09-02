@@ -479,11 +479,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SectionLabel>พื้นดวงเดิม</SectionLabel>
           <NatalDossier
             onNavigate={closeMobile}
-            activeSlug={
-              searchParams.get("view") === "natal-chart"
-                ? searchParams.get("cat")
-                : null
-            }
+            activeView={searchParams.get("view")}
+            activeSlug={searchParams.get("cat")}
           />
         </section>
 
@@ -757,7 +754,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             role="dialog"
             aria-modal="true"
             aria-label="เมนู"
-            className={`relative z-50 flex h-full w-[86vw] max-w-80 flex-col border-r border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-transform duration-[240ms] ease-[var(--ease-out-quart)] will-change-transform ${
+            className={`relative z-50 flex h-full w-[86vw] max-w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)] shadow-2xl transition-transform duration-[240ms] ease-[var(--ease-out-quart)] will-change-transform ${
               mobileShown ? "translate-x-0" : "-translate-x-full"
             }`}
             aria-hidden={!mobileShown}
@@ -775,7 +772,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside
         className={`${
-          collapsed ? "w-16" : "w-80"
+          collapsed ? "w-16" : "w-72"
         } relative z-30 hidden shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)] md:flex md:flex-col`}
       >
         <div
@@ -807,7 +804,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           }`}
           aria-hidden={collapsed}
         >
-          <div className="flex h-full w-80 flex-col">
+          <div className="flex h-full w-72 flex-col">
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               {sidebarContent}
             </div>
@@ -996,8 +993,8 @@ function CollapsedRail({
       <nav className="mt-3 flex flex-1 flex-col items-center gap-1 overflow-y-auto px-1">
         <button
           type="button"
-          title="พื้นดวงเดิม"
-          aria-label="เปิดพื้นดวงเดิม"
+          title="ดวงจักรกำเนิด"
+          aria-label="เปิดดวงจักรกำเนิด"
           onClick={() => chatNav(natalAtlasHref())}
           className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--primary)]/75 transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
         >
