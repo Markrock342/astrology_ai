@@ -20,6 +20,7 @@ import { BrandMark } from "@/components/brand-logo";
 import { softNavigate, useChatRouteSearchParams, isPlainLeftClick } from "./chat-nav";
 import {
   dispatchOpenTransit,
+  natalCategoryHref,
   transitCategoryHref,
 } from "@/lib/chat-navigation-links";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
@@ -2035,8 +2036,13 @@ export function ChatView() {
               categories={availableCategories}
               plan={user?.plan ?? "FREE"}
               natalBriefing={Boolean(catSlug) && !openingTransit}
+              selectMode={openingTransit ? "transit" : "natal"}
               chartReady={natalChartStatus?.status === "READY"}
-              suggestions={[]}
+              suggestions={
+                openingTransit || !category
+                  ? []
+                  : category.suggestedQuestions
+              }
               onPick={send}
               emailGate={emailGate}
             />
@@ -2528,6 +2534,7 @@ function EmptyState({
   categories,
   plan,
   natalBriefing = false,
+  selectMode = "natal",
   chartReady = false,
   suggestions,
   onPick,
@@ -2541,11 +2548,14 @@ function EmptyState({
   }>;
   plan: "FREE" | "PRO";
   natalBriefing?: boolean;
+  /** Home without ?cat: natal picks open chat; transit opens the form. */
+  selectMode?: "natal" | "transit";
   chartReady?: boolean;
   suggestions: string[];
   onPick: (q: string) => void;
   emailGate?: boolean;
 }) {
+  const pickingNatal = selectMode === "natal";
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center pt-6 text-center">
       <NatalChartBanner />
@@ -2565,11 +2575,12 @@ function EmptyState({
       ) : (
         <>
           <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
-            เลือกหมวดเพื่อเริ่มดวงจร
+            {pickingNatal ? "เลือกหมวดเพื่อเริ่มสนทนา" : "เลือกหมวดเพื่อเริ่มดวงจร"}
           </h1>
           <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
-            เลือกหมวดที่อยากถาม แล้วระบบจะเปิดดวงจรให้ทันที — คำทำนายเป็นแนวทางเพื่อความบันเทิง
-            ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์
+            {pickingNatal
+              ? "เลือกหมวดที่อยากถามจากพื้นดวง — คำทำนายเป็นแนวทางเพื่อความบันเทิง ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์"
+              : "เลือกหมวดที่อยากถาม แล้วระบบจะเปิดดวงจรให้ทันที — คำทำนายเป็นแนวทางเพื่อความบันเทิง ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์"}
           </p>
         </>
       )}
@@ -2586,16 +2597,26 @@ function EmptyState({
           </div>
           <nav
             className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--border)] sm:grid-cols-3"
-            aria-label="เลือกหมวดเพื่อเริ่มดวงจร"
+            aria-label={
+              pickingNatal ? "เลือกหมวดเพื่อเริ่มสนทนา" : "เลือกหมวดเพื่อเริ่มดวงจร"
+            }
           >
             {categories.map((item) => (
               <a
                 key={item.slug}
-                href={transitCategoryHref(item.slug)}
+                href={
+                  pickingNatal
+                    ? natalCategoryHref(item.slug)
+                    : transitCategoryHref(item.slug)
+                }
                 onClick={(event) => {
                   if (isPlainLeftClick(event)) {
                     event.preventDefault();
-                    dispatchOpenTransit(item.slug);
+                    if (pickingNatal) {
+                      softNavigate(natalCategoryHref(item.slug));
+                    } else {
+                      dispatchOpenTransit(item.slug);
+                    }
                   }
                 }}
                 className="press-scale flex min-h-12 items-center gap-2.5 bg-[var(--surface-2)] px-3 py-3 text-left text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-[var(--primary)]"

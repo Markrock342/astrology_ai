@@ -23,7 +23,7 @@ import {
   SearchIcon,
   TransitIcon,
 } from "./sidebar-icons";
-import { useAppData, isCategoryLocked } from "./app-data-provider";
+import { useAppData } from "./app-data-provider";
 import {
   isPlainLeftClick,
   useChatNav,
@@ -95,7 +95,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     renameThreadLocal,
     clearThreadsLocal,
     refreshLight,
-    filteredCategories,
     filteredNatalThreads,
     filteredTransitThreads,
     categories,
@@ -503,44 +502,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
             <span className="text-[10px] text-[var(--muted-2)]">พื้นดวง</span>
           </Link>
-          {filteredCategories.map((cat) => {
-            const locked = isCategoryLocked(cat, user?.plan ?? "FREE");
-            const active = activeCat === cat.slug;
-            return (
-              <Link
-                key={cat.slug}
-                href={`/dashboard?cat=${cat.slug}`}
-                onClick={(e) => {
-                  if (isPlainLeftClick(e)) {
-                    e.preventDefault();
-                    chatNav(`/dashboard?cat=${cat.slug}`);
-                  }
-                  closeMobile();
-                }}
-                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
-                  active
-                    ? "bg-[var(--background)] text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]"
-                    : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
-                } ${locked ? "opacity-80" : ""}`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <span className="text-[var(--primary)]">
-                    <CategoryIcon slug={cat.slug} icon={cat.icon} />
-                  </span>
-                  {cat.label}
-                </span>
-                {locked ? (
-                  <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--primary)]">
-                    <LockIcon /> Pro
-                  </span>
-                ) : cat.tier === "FREE" ? (
-                  <span className="rounded px-1.5 py-0.5 text-[10px] text-[var(--secondary-active)]">
-                    Free
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
         </nav>
 
         <SidebarDivider />
@@ -847,7 +808,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           aria-hidden={!collapsed}
         >
           <CollapsedRail
-            activeCat={activeCat}
             activeView={activeView}
             settingsOpen={settingsOpen && collapsed}
             onToggleSettings={() => setSettingsOpen((v) => !v)}
@@ -990,7 +950,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function CollapsedRail({
-  activeCat,
   activeView,
   settingsOpen,
   onToggleSettings,
@@ -1002,7 +961,6 @@ function CollapsedRail({
   image,
   usageRemainingPercent,
 }: {
-  activeCat: string | null;
   activeView: string | null;
   settingsOpen: boolean;
   onToggleSettings: () => void;
@@ -1014,7 +972,6 @@ function CollapsedRail({
   image?: string | null;
   usageRemainingPercent?: number;
 }) {
-  const { filteredCategories } = useAppData();
   const chatNav = useChatNav();
   const railBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -1079,30 +1036,6 @@ function CollapsedRail({
         >
           <NatalChartIcon size={20} />
         </Link>
-        {filteredCategories.map((cat) => {
-          const active = activeCat === cat.slug;
-          return (
-            <Link
-              key={cat.slug}
-              href={`/dashboard?cat=${cat.slug}`}
-              title={cat.label}
-              aria-label={cat.label}
-              onClick={(e) => {
-                if (isPlainLeftClick(e)) {
-                  e.preventDefault();
-                  chatNav(`/dashboard?cat=${cat.slug}`);
-                }
-              }}
-              className={`flex h-10 w-10 items-center justify-center rounded-lg transition ${
-                active
-                  ? "bg-[var(--background)] text-[var(--primary)] shadow-[inset_0_0_0_1px_var(--border)]"
-                  : "text-[var(--primary)]/75 hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-              }`}
-            >
-              <CategoryIcon slug={cat.slug} icon={cat.icon} size={20} />
-            </Link>
-          );
-        })}
       </nav>
 
       <div className="relative mt-2 flex flex-col items-center gap-1">

@@ -93,6 +93,8 @@ export async function computeTransitChart(
     year: input.year,
     time: input.time,
     preset: "",
+    province: input.province,
+    district: input.district,
   };
 
   if (isMyhoraScrapeEnabled()) {

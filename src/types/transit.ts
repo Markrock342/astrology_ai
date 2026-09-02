@@ -12,6 +12,9 @@ export interface TransitInput {
    * เช่น newmoon, fullmoon, vernal-equinox
    */
   preset?: string
+  /** จังหวัด/อำเภอของจุดดวงจร (ถ้าไม่ส่ง ใช้ที่เกิดในฟอร์ม myhora) */
+  province?: string
+  district?: string
 }
 
 /** ตัวเลือกดวงจรแบบ myhora */

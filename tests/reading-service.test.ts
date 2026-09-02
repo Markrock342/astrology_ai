@@ -90,6 +90,20 @@ vi.mock("@/server/user/ai-memory-service", () => ({
 vi.mock("@/server/horoscope/daily-transit-service", () => ({
   getOrComputeDailyTransit: mocks.getOrComputeDailyTransit,
   questionWantsTodayTransit: mocks.questionWantsTodayTransit,
+  bangkokTimeHm: (date = new Date()) =>
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Bangkok",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(date),
+  bangkokDateKey: (date = new Date()) =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Bangkok",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date),
 }));
 
 vi.mock("@/server/horoscope/follow-up-suggestions", () => ({
@@ -496,6 +510,59 @@ describe("createReading (M3 B2)", () => {
       maxOutputTokens: number;
     };
     expect(aiCall.maxOutputTokens).toBe(2048);
+  });
+
+  it("uses live Bangkok time and conversation place for TRANSIT (skips day cache)", async () => {
+    const frozen = new Date("2020-01-01T00:00:00.000Z");
+    const transitChart = {
+      meta: { lagna: "พฤษภ", calculationSource: "formula-pipeline" },
+      planets: [],
+      chart: { lagna: "พฤษภ", taksa: [] },
+      input: {
+        day: 2,
+        month: 9,
+        year: 2026,
+        time: "15:30",
+        country: "ไทย",
+        province: "เชียงใหม่",
+        district: "เมืองเชียงใหม่",
+      },
+    };
+    mocks.getOrComputeDailyTransit.mockResolvedValue(transitChart);
+
+    const before = Date.now();
+    await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "ดวงจรช่วงนี้เป็นไง",
+      mode: "TRANSIT",
+      transit: {
+        date: frozen,
+        time: "09:00",
+        country: "ไทย",
+        province: "เชียงใหม่",
+        district: "เมืองเชียงใหม่",
+      },
+    });
+    const after = Date.now();
+
+    expect(mocks.getOrComputeDailyTransit).toHaveBeenCalledTimes(1);
+    const opts = mocks.getOrComputeDailyTransit.mock.calls[0]?.[2] as {
+      date: Date;
+      time: string;
+      place: { province?: string | null; district?: string | null };
+      skipCache: boolean;
+    };
+    expect(opts.skipCache).toBe(true);
+    expect(opts.place).toMatchObject({
+      province: "เชียงใหม่",
+      district: "เมืองเชียงใหม่",
+    });
+    expect(opts.time).toMatch(/^\d{2}:\d{2}$/);
+    // Must not reuse the frozen conversation stamp as the chart moment.
+    expect(opts.date.getTime()).not.toBe(frozen.getTime());
+    expect(opts.date.getTime()).toBeGreaterThanOrEqual(before - 1_000);
+    expect(opts.date.getTime()).toBeLessThanOrEqual(after + 1_000);
   });
 });
 
