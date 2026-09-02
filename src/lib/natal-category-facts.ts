@@ -1,5 +1,10 @@
 import type { ChartJson } from "@/types/chart";
-import { HOUSE_NAMES, houseFromLagna, SIGNS } from "@/lib/chart-theme";
+import {
+  HOUSE_MEANING,
+  HOUSE_NAMES,
+  houseFromLagna,
+  SIGNS,
+} from "@/lib/chart-theme";
 
 const SIGN_LORDS: Record<string, string> = {
   เมษ: "อังคาร",
@@ -31,6 +36,39 @@ export type NatalCategoryFact = {
   slug: string;
   houses: number[];
   lines: string[];
+};
+
+export type NatalHouseNote = {
+  house: number;
+  name: string;
+  meaning: string;
+  sign: string | null;
+  lord: string | null;
+  lordHouse: number | null;
+};
+
+export type NatalCategoryBrief = {
+  slug: string;
+  meaning: string;
+  lagna: string;
+  houses: NatalHouseNote[];
+  occupants: Array<{ planet: string; sign: string; house: number }>;
+};
+
+/** What each natal sidebar category is for — facts, not a prediction. */
+export const NATAL_CATEGORY_MEANING: Record<string, string> = {
+  self: "หมวดตัวตนดูบุคลิก ทิศทางชีวิต และภาพรวมของเจ้าชะตา จากเรือน 1 ตนุ ซึ่งคือลัคนา",
+  career:
+    "หมวดการงานดูอาชีพ หน้าที่ ความรับผิดชอบในงาน และฐานะที่เกี่ยวข้องกับงาน จากเรือน 10 กัมมะ เรือน 6 อริ และเรือน 2 กดุมภะ",
+  finance:
+    "หมวดการเงินดูทรัพย์สิน รายได้ และช่องทางที่เงินเข้า จากเรือน 2 กดุมภะ และเรือน 11 ลาภะ",
+  love: "หมวดความรักดูคู่ครอง หุ้นส่วน และความสัมพันธ์แบบตัวต่อตัว รวมถึงความรักที่สร้างสรรค์ จากเรือน 7 ปัตนิ และเรือน 5 ปุตตะ",
+  health:
+    "หมวดสุขภาพดูร่างกายโดยรวม งานประจำที่กินแรง และจุดที่ต้องดูแลเป็นพิเศษ จากเรือน 1 ตนุ เรือน 6 อริ และเรือน 8 มรณะ",
+  fortune:
+    "หมวดโชคลาภดูโชค ผู้ใหญ่อุปถัมภ์ การศึกษา และการสนับสนุนจากเครือข่าย จากเรือน 9 ศุภะ และเรือน 11 ลาภะ",
+  overview:
+    "ดวงจักรกำเนิดคือผังตำแหน่งลัคนาและดาว ณ เวลาเกิด เป็นข้อมูลชุดเดียวกับที่ระบบใช้เวลาตอบทุกหมวด",
 };
 
 function signForHouse(lagna: string, house: number): string | null {
@@ -94,6 +132,52 @@ export function natalFactsForCategory(
   );
 
   return { slug, houses, lines };
+}
+
+function houseNote(
+  lagna: string,
+  house: number,
+  chart: ChartJson,
+): NatalHouseNote {
+  const name = HOUSE_NAMES[house - 1] ?? `เรือน ${house}`;
+  const meaning = HOUSE_MEANING[name as (typeof HOUSE_NAMES)[number]] ?? "";
+  const sign = signForHouse(lagna, house);
+  const lord = sign ? (SIGN_LORDS[sign] ?? null) : null;
+  const lordRow = lord
+    ? chart.planets.find((planet) => planet.planet === lord)
+    : undefined;
+  const lordHouse = lordRow
+    ? houseFromLagna(lagna, lordRow.siderealSign)
+    : null;
+  return { house, name, meaning, sign, lord, lordHouse };
+}
+
+/**
+ * Category meaning + this chart's houses/lords/occupants in that topic.
+ * Positions only — not a reading of good or bad luck.
+ */
+export function natalBriefForCategory(
+  chart: ChartJson,
+  slug: string,
+): NatalCategoryBrief {
+  const houses = [...(NATAL_FACT_HOUSES[slug] ?? NATAL_FACT_HOUSES.self)];
+  const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ";
+  const notes = houses.map((house) => houseNote(lagna, house, chart));
+  const occupants = chart.planets
+    .map((planet) => ({
+      planet: planet.planet,
+      sign: planet.siderealSign,
+      house: houseFromLagna(lagna, planet.siderealSign),
+    }))
+    .filter((row) => houses.includes(row.house));
+
+  return {
+    slug,
+    meaning: NATAL_CATEGORY_MEANING[slug] ?? NATAL_CATEGORY_MEANING.overview,
+    lagna,
+    houses: notes,
+    occupants,
+  };
 }
 
 export function natalSourceLabel(chart: ChartJson): string {

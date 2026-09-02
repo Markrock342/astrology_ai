@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   askPromptForNatalCategory,
+  natalBriefForCategory,
   natalFactsForCategory,
   NATAL_FACT_HOUSES,
 } from "@/lib/natal-category-facts";
@@ -66,5 +67,15 @@ describe("natalFactsForCategory", () => {
 
   it("builds a short ask prompt from the category label", () => {
     expect(askPromptForNatalCategory("การงาน")).toBe("ขอสรุปพื้นดวงหมวดการงาน");
+  });
+
+  it("explains finance houses and this chart's lords", () => {
+    const brief = natalBriefForCategory(chart, "finance");
+    expect(brief.meaning).toContain("ทรัพย์สิน");
+    expect(brief.houses.map((house) => house.house)).toEqual([2, 11]);
+    expect(brief.houses[0]?.name).toBe("กดุมภะ");
+    expect(brief.houses[0]?.sign).toBe("พฤษภ");
+    expect(brief.houses[0]?.lord).toBe("ศุกร์");
+    expect(brief.lagna).toBe("เมษ");
   });
 });

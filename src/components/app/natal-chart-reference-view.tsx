@@ -11,8 +11,9 @@ import { useNatalChart } from "./use-natal-chart";
 import { softNavigate, useChatRouteSearchParams } from "./chat-nav";
 import {
   askPromptForNatalCategory,
-  natalFactsForCategory,
+  natalBriefForCategory,
   natalSourceLabel,
+  type NatalCategoryBrief,
 } from "@/lib/natal-category-facts";
 import {
   dispatchAskFromChart,
@@ -74,9 +75,7 @@ export function NatalChartReferenceView() {
 
   const chart = load.chart;
   const title = category?.label ?? "ดวงจักรกำเนิด";
-  const facts = category
-    ? natalFactsForCategory(chart, category.slug)
-    : null;
+  const brief = natalBriefForCategory(chart, category?.slug ?? "overview");
   const prompt = category
     ? (category.suggestedQuestions[0] ??
       askPromptForNatalCategory(category.label))
@@ -99,7 +98,7 @@ export function NatalChartReferenceView() {
             {title}
           </h1>
           <p className="mt-3 max-w-[68ch] text-sm leading-6 text-[var(--muted)]">
-            ผังนี้สร้างจากข้อมูลเกิดที่บันทึกไว้ และเป็นข้อมูลชุดเดียวกับที่ระบบส่งให้ AI
+            {brief.meaning}
           </p>
         </div>
         <div className="shrink-0 text-left text-xs leading-5 text-[var(--muted-2)] sm:text-right">
@@ -109,13 +108,10 @@ export function NatalChartReferenceView() {
         </div>
       </header>
 
-      {facts ? (
-        <ul className="mb-6 space-y-1 text-sm leading-6 text-[var(--muted)]">
-          {facts.lines.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      ) : null}
+      <NatalCategoryBriefing
+        label={category?.label}
+        brief={brief}
+      />
 
       <HoroscopeChartPanel
         natal={chart}
@@ -184,6 +180,74 @@ function NatalReveal({
 
   if (!ready) return <NatalRevealSpinner category={category} />;
   return children;
+}
+
+function NatalCategoryBriefing({
+  label,
+  brief,
+}: {
+  label?: string;
+  brief: NatalCategoryBrief;
+}) {
+  const topic = label ? `หมวด${label}` : "ดวงจักรกำเนิด";
+  return (
+    <div className="mb-8 grid gap-4 lg:grid-cols-2">
+      <article className="rounded-2xl border border-[var(--primary)]/25 bg-[var(--surface)] px-4 py-4 sm:px-5 sm:py-5">
+        <h2 className="text-sm font-semibold text-[var(--foreground)]">
+          {topic}ดูเรื่องอะไร
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{brief.meaning}</p>
+        <ul className="mt-4 space-y-3">
+          {brief.houses.map((house) => (
+            <li key={house.house}>
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                เรือน {house.house} {house.name}
+              </p>
+              {house.meaning ? (
+                <p className="mt-0.5 text-xs leading-5 text-[var(--muted-2)]">
+                  {house.meaning}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </article>
+
+      <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-4 sm:px-5 sm:py-5">
+        <h2 className="text-sm font-semibold text-[var(--foreground)]">
+          พื้นดวง{topic}ของคุณ
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+          ลัคนา{brief.lagna} — ตำแหน่งด้านล่างอ่านจากดวงเกิดชุดเดียวกับที่ระบบส่งให้ AI
+        </p>
+        <ul className="mt-4 space-y-3">
+          {brief.houses.map((house) => (
+            <li key={house.house} className="text-sm leading-6 text-[var(--muted)]">
+              <span className="font-medium text-[var(--foreground)]">
+                เรือน {house.house} {house.name}
+              </span>
+              {house.sign ? ` ราศี${house.sign}` : ""}
+              {house.lord
+                ? house.lordHouse
+                  ? ` เจ้าเรือน${house.lord} อยู่เรือน ${house.lordHouse}`
+                  : ` เจ้าเรือน${house.lord}`
+                : ""}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
+          {brief.occupants.length
+            ? `ดาวในเรือนโฟกัส: ${brief.occupants
+                .map((row) => `${row.planet} ราศี${row.sign} (เรือน ${row.house})`)
+                .join(" · ")}`
+            : "ไม่มีดาวสถิตในเรือนโฟกัสของหมวดนี้"}
+        </p>
+        <p className="mt-3 text-[11px] leading-5 text-[var(--muted-2)]">
+          นี่คือตำแหน่งในดวงเกิด ไม่ใช่คำทำนายว่าดีหรือร้าย — อยากให้อ่านต่อ กดถามหมวดนี้ได้
+        </p>
+      </article>
+    </div>
+  );
 }
 
 function NatalRevealSpinner({ category }: { category: Category | undefined }) {
