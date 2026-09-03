@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatTransitDateLabel,
+  formatTransitNowLabel,
   formatTransitThreadLabel,
 } from "@/lib/transit-label";
 
@@ -12,5 +13,10 @@ describe("formatTransitThreadLabel", () => {
     expect(formatTransitThreadLabel(lateEveningUtc, "00:30")).toBe(
       "3 ก.ย. 2569 · 00:30",
     );
+  });
+
+  it("stamps the send instant with seconds so each prompt visibly changes", () => {
+    const lateEveningUtc = new Date("2026-09-02T17:30:45.000Z");
+    expect(formatTransitNowLabel(lateEveningUtc)).toBe("3 ก.ย. 2569 · 00:30:45");
   });
 });
