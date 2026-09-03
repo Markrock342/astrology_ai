@@ -44,10 +44,14 @@ export function getCachedThread(threadId: string): CachedThreadPayload | null {
  */
 export function setCachedThread(
   threadId: string,
-  payload: Omit<CachedThreadPayload, "fetchedAt"> & { fetchedAt?: number },
+  payload: Partial<Omit<CachedThreadPayload, "fetchedAt">> & {
+    fetchedAt?: number;
+  },
 ) {
   const prev = cache.get(threadId);
+  if (!prev && !payload.messages) return;
   cache.set(threadId, {
+    messages: payload.messages ?? prev?.messages ?? [],
     ...prev,
     ...payload,
     fetchedAt: payload.fetchedAt ?? Date.now(),
