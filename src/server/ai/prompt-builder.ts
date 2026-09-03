@@ -160,7 +160,8 @@ export function buildUserPrompt(
     const transit = assertUsableEngineChart(opts.transitChartJson);
     lines.push(
       formatChartForPrompt(transit, {
-        title: "[transit] ดวงจรที่คำนวณแล้ว (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)",
+        title:
+          "[transit] ดวงจร ณ ขณะนี้ตามเวลาไทย (ใช้ตารางนี้แทนคำตอบเก่าในเธรด ห้ามแต่งดาว)",
         preferTransitSamrap: true,
       }),
       "",

@@ -214,6 +214,7 @@ export async function POST(
               user: accepted.userMessageId ?? null,
               assistant: accepted.assistantMessageId ?? null,
             },
+            transitAsOf: accepted.transitAsOf ?? null,
           });
 
           const generation = completePendingMessage(

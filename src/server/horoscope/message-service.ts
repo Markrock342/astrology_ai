@@ -21,6 +21,7 @@ import { isCategoryIntroQuestion } from "@/lib/intake-survey";
 import { UNIFIED_CHAT_CATEGORY_SLUG } from "@/lib/question-scope";
 import { assertQuestionAllowedForPlan } from "@/server/horoscope/question-scope";
 import { bangkokTimeHm } from "@/server/horoscope/daily-transit-service";
+import { formatTransitDateLabel, formatTransitThreadLabel } from "@/lib/transit-label";
 
 /**
  * Superseded turns (edited question / regenerated answer) are hidden, not
@@ -28,6 +29,32 @@ import { bangkokTimeHm } from "@/server/horoscope/daily-transit-service";
  * discarded branch walks back into the thread, the quota count, or the prompt.
  */
 const LIVE = { deletedAt: null } as const;
+
+export async function stampConversationTransitNow(
+  conversationId: string,
+  currentTitle?: string | null,
+): Promise<TransitAsOf> {
+  const now = new Date();
+  const transitTime = bangkokTimeHm(now);
+  const dateLabel = formatTransitDateLabel(now);
+  const nextTitle =
+    dateLabel && (!currentTitle || /^ดวงจร\b/.test(currentTitle.trim()))
+      ? `ดวงจร ${dateLabel}`
+      : undefined;
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: {
+      transitDate: now,
+      transitTime,
+      ...(nextTitle ? { title: nextTitle } : {}),
+    },
+  });
+  return {
+    transitDate: now.toISOString(),
+    transitTime,
+    transitLabel: formatTransitThreadLabel(now, transitTime),
+  };
+}
 
 export type SendMessageInput = {
   conversationId: string;
@@ -60,6 +87,7 @@ export type AcceptMessageResult =
        *  editable/regenerable, which needs the real row ids. */
       userMessageId?: string;
       assistantMessageId?: string;
+      transitAsOf?: TransitAsOf;
     }
   | {
       status: "pending";
@@ -69,7 +97,14 @@ export type AcceptMessageResult =
        *  edit/regenerate can address the rows that actually exist. */
       userMessageId?: string;
       assistantMessageId?: string;
+      transitAsOf?: TransitAsOf;
     };
+
+export type TransitAsOf = {
+  transitDate: string;
+  transitTime: string;
+  transitLabel: string | null;
+};
 
 async function assertCanSend(input: SendMessageInput) {
   const conversation = await prisma.conversation.findFirst({
@@ -196,12 +231,20 @@ export async function acceptMessage(
   });
 
   if (existingAssistant) {
+    const retryTransitAsOf =
+      conversation.mode === "TRANSIT" &&
+      (existingAssistant.status === "PENDING" ||
+        existingAssistant.status === "FAILED" ||
+        existingAssistant.status === "TIMEOUT")
+        ? await stampConversationTransitNow(conversation.id, conversation.title)
+        : undefined;
     if (existingAssistant.status === "PENDING") {
       return {
         status: "pending",
         conversationId: conversation.id,
         idempotencyKey: input.idempotencyKey,
         assistantMessageId: existingAssistant.id,
+        transitAsOf: retryTransitAsOf,
       };
     }
     if (
@@ -217,6 +260,7 @@ export async function acceptMessage(
         conversationId: conversation.id,
         idempotencyKey: input.idempotencyKey,
         assistantMessageId: existingAssistant.id,
+        transitAsOf: retryTransitAsOf,
       };
     }
 
@@ -291,12 +335,18 @@ export async function acceptMessage(
     idempotencyKey: input.idempotencyKey,
   });
 
+  const transitAsOf =
+    conversation.mode === "TRANSIT"
+      ? await stampConversationTransitNow(conversation.id, conversation.title)
+      : undefined;
+
   return {
     status: "pending",
     conversationId: conversation.id,
     idempotencyKey: input.idempotencyKey,
     userMessageId,
     assistantMessageId: assistant.id,
+    transitAsOf,
   };
 }
 
@@ -547,15 +597,9 @@ export async function createConversation(input: CreateConversationInput) {
   const transitDistrict =
     input.transitDistrict ?? profile?.birthDistrict ?? null;
 
+  const titleDate = transitDate ? formatTransitDateLabel(transitDate) : null;
   const title =
-    mode === "TRANSIT" && transitDate && !Number.isNaN(transitDate.getTime())
-      ? `ดวงจร ${transitDate.toLocaleDateString("th-TH", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-          timeZone: "Asia/Bangkok",
-        })}`
-      : null;
+    mode === "TRANSIT" && titleDate ? `ดวงจร ${titleDate}` : null;
 
   const conversation = await prisma.conversation.create({
     data: {
