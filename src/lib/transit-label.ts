@@ -1,0 +1,23 @@
+import { DISPLAY_TIMEZONE } from "@/config/constants";
+
+/** Banner / thread title date in Thailand, never UTC (midnight would slip a day). */
+export function formatTransitDateLabel(date: Date | string): string | null {
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: DISPLAY_TIMEZONE,
+  });
+}
+
+export function formatTransitThreadLabel(
+  date: Date | string,
+  time?: string | null,
+): string | null {
+  const dateLabel = formatTransitDateLabel(date);
+  if (!dateLabel) return time?.trim() || null;
+  const hm = time?.trim();
+  return hm ? `${dateLabel} · ${hm}` : dateLabel;
+}

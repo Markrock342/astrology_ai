@@ -41,6 +41,7 @@ import {
   ASK_FROM_CHART_EVENT,
   readAskFromChartDetail,
 } from "@/lib/chat-navigation-links";
+import { formatTransitThreadLabel } from "@/lib/transit-label";
 import { NatalChartReferenceView } from "./natal-chart-reference-view";
 
 type ThinkingPhase = "chart" | "memory" | "writing";
@@ -668,17 +669,9 @@ export function ChatView() {
       setThreadCategorySlug(payload.categorySlug ?? null);
       setThreadMode(payload.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
       if (payload.mode === "TRANSIT" && payload.transitDate) {
-        const d = new Date(payload.transitDate);
-        const dateLabel = Number.isNaN(d.getTime())
-          ? null
-          : d.toLocaleDateString("th-TH", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-              timeZone: "UTC",
-            });
-        const time = payload.transitTime ? ` · ${payload.transitTime}` : "";
-        setThreadTransitLabel(dateLabel ? `${dateLabel}${time}` : null);
+        setThreadTransitLabel(
+          formatTransitThreadLabel(payload.transitDate, payload.transitTime),
+        );
       } else {
         setThreadTransitLabel(null);
       }
@@ -1476,6 +1469,25 @@ export function ChatView() {
             // Real row ids, before a single token is generated — so a turn that
             // gets stopped or fails still keeps its actions.
             if (!ownsView()) continue;
+            if (
+              event.transitAsOf &&
+              typeof event.transitAsOf === "object" &&
+              typeof event.transitAsOf.transitLabel === "string"
+            ) {
+              setThreadTransitLabel(event.transitAsOf.transitLabel);
+              if (threadId) {
+                setCachedThread(threadId, {
+                  transitDate:
+                    typeof event.transitAsOf.transitDate === "string"
+                      ? event.transitAsOf.transitDate
+                      : undefined,
+                  transitTime:
+                    typeof event.transitAsOf.transitTime === "string"
+                      ? event.transitAsOf.transitTime
+                      : undefined,
+                });
+              }
+            }
             const uid = event.messageIds?.user ?? undefined;
             const aid = event.messageIds?.assistant ?? undefined;
             if (!uid && !aid) continue;
@@ -1499,7 +1511,10 @@ export function ChatView() {
             ) {
               setThinkingPhase(event.phase);
             }
-          } else if (event.type === "charts" && event.chartSnapshot) {
+          } else if (
+            event.type === "charts" &&
+            (event.chartSnapshot || event.transitSnapshot)
+          ) {
             // Charts are deterministic engine output, not model prose. Paint
             // them as soon as chart preparation finishes instead of waiting
             // for the final `done` frame after a potentially long generation.
@@ -1509,8 +1524,10 @@ export function ChatView() {
                 message.id === assistantId
                   ? {
                       ...message,
-                      chartSnapshot: event.chartSnapshot,
-                      transitSnapshot: event.transitSnapshot ?? null,
+                      chartSnapshot:
+                        event.chartSnapshot ?? message.chartSnapshot,
+                      transitSnapshot:
+                        event.transitSnapshot ?? message.transitSnapshot ?? null,
                     }
                   : message,
               ),
@@ -1906,15 +1923,18 @@ export function ChatView() {
             className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-2"
           >
             {messages.map((m, idx) => {
-              // The natal chart never changes within a thread, so the wheel +
-              // evidence table ride only the FIRST answer that carries one.
-              // Repeating the same 10-row table above every reply buried the
-              // actual answers under identical boilerplate.
-              const isFirstChartMessage =
-                (m.chartSnapshot || m.transitSnapshot) &&
-                messages.findIndex(
-                  (x) => x.chartSnapshot || x.transitSnapshot,
+              // Natal never changes, so its wheel stays on the first answer.
+              // Transit is live per turn — yesterday's wheel must not hide today's.
+              const isFirstNatal =
+                Boolean(m.chartSnapshot) &&
+                messages.findIndex((x) => x.chartSnapshot) === idx;
+              const isLatestTransit =
+                Boolean(m.transitSnapshot) &&
+                messages.reduce(
+                  (last, x, i) => (x.transitSnapshot ? i : last),
+                  -1,
                 ) === idx;
+              const showCharts = isFirstNatal || isLatestTransit;
               const isStreamingTurn =
                 (state === "streaming" || state === "processing") &&
                 m.role === "assistant" &&
@@ -1970,14 +1990,14 @@ export function ChatView() {
                     <p className="mb-2 hidden text-xs font-semibold tracking-wide text-[var(--primary)] sm:block">
                       {APP_NAME}
                     </p>
-                    {isFirstChartMessage && (
+                    {showCharts && (
                       <div className="mb-4 flex flex-col gap-2">
-                        {m.chartSnapshot ? (
+                        {isFirstNatal && m.chartSnapshot ? (
                           <HoroscopeChartPanel
                             natal={m.chartSnapshot}
-                            transit={m.transitSnapshot}
+                            transit={isLatestTransit ? m.transitSnapshot : undefined}
                           />
-                        ) : m.transitSnapshot ? (
+                        ) : isLatestTransit && m.transitSnapshot ? (
                           <div className="flex flex-wrap items-start gap-3">
                             <ExpandableRasiWheel
                               chart={m.transitSnapshot}
@@ -1986,7 +2006,7 @@ export function ChatView() {
                             />
                           </div>
                         ) : null}
-                        {m.chartSnapshot && (
+                        {isFirstNatal && m.chartSnapshot && (
                           <ChartEvidenceTable
                             chart={m.chartSnapshot}
                             mode="natal"
@@ -1995,7 +2015,7 @@ export function ChatView() {
                             }
                           />
                         )}
-                        {m.transitSnapshot && (
+                        {isLatestTransit && m.transitSnapshot && (
                           <ChartEvidenceTable
                             chart={m.transitSnapshot}
                             mode="transit"

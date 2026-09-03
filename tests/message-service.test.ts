@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   findCategories: vi.fn(),
   findBirthProfile: vi.fn(),
   createConversation: vi.fn(),
+  conversationUpdate: vi.fn(),
   transaction: vi.fn(),
   getEffectivePlan: vi.fn(),
   createReading: vi.fn(),
@@ -29,7 +30,7 @@ vi.mock("@/server/db", () => ({
     conversation: {
       findFirst: mocks.findConversation,
       create: mocks.createConversation,
-      update: vi.fn(),
+      update: mocks.conversationUpdate,
     },
     message: {
       findUnique: mocks.findMessage,
@@ -115,6 +116,7 @@ describe("sendMessage (M3 B2)", () => {
     mocks.assertCanRequestReading.mockResolvedValue("PRO");
     mocks.findCategories.mockResolvedValue([]);
     mocks.findBirthProfile.mockResolvedValue(null);
+    mocks.conversationUpdate.mockResolvedValue({});
   });
 
   it("refuses the send when the access policy refuses it", async () => {
@@ -132,6 +134,34 @@ describe("sendMessage (M3 B2)", () => {
     ).rejects.toMatchObject({ code: "CATEGORY_LOCKED" });
 
     expect(mocks.createReading).not.toHaveBeenCalled();
+  });
+
+  it("stamps today's transit moment onto a follow-up in an old thread", async () => {
+    mocks.messageCount.mockResolvedValue(1);
+    mocks.findMessage
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "pend-1",
+        status: "PENDING",
+        content: "",
+      });
+
+    await sendMessage({
+      conversationId: "conv-1",
+      userId: "user-1",
+      content: "วันนี้การงานเป็นยังไง",
+      idempotencyKey: "k-today",
+    });
+
+    expect(mocks.conversationUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "conv-1" },
+        data: expect.objectContaining({
+          transitDate: expect.any(Date),
+          transitTime: expect.stringMatching(/^\d{2}:\d{2}$/),
+        }),
+      }),
+    );
   });
 
   it("tells the policy this is a follow-up once the thread already has an answer", async () => {
