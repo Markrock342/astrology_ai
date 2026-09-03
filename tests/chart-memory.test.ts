@@ -105,18 +105,50 @@ describe("deriveChartMemory", () => {
     expect(keys).toEqual(["career", "money"]);
   });
 
-  it("sends all focuses for self/overview threads", () => {
+  it("sends all focuses only for overview threads", () => {
     expect(
-      resolveMemoryFocusKeys({ categorySlug: "self", question: "จุดแข็งของฉัน" }),
+      resolveMemoryFocusKeys({ categorySlug: "overview", question: "สรุปทั้งดวง" }),
     ).toBeNull();
     const text = formatMemoryForPrompt(deriveChartMemory(chart), {
-      categorySlug: "self",
-      question: "จุดแข็งของฉัน",
+      categorySlug: "overview",
+      question: "สรุปทั้งดวง",
     });
     expect(text).toContain("งาน/อาชีพ");
     expect(text).toContain("ความรัก:");
     expect(text).toContain("การเงิน:");
     expect(text).toContain("สุขภาพ:");
+  });
+
+  it("unified self chat focuses memory on the current question only", () => {
+    expect(
+      resolveMemoryFocusKeys({
+        categorySlug: "self",
+        question: "จะได้ไปทำงานต่างประเทศไหม เพราะอยากไปมาก",
+      }),
+    ).toEqual(["career"]);
+
+    const text = formatMemoryForPrompt(deriveChartMemory(chart), {
+      categorySlug: "self",
+      question: "จะได้ไปทำงานต่างประเทศไหม เพราะอยากไปมาก",
+    });
+    expect(text).toContain("งาน/อาชีพ");
+    expect(text).not.toContain("ความรัก:");
+    expect(text).not.toContain("การเงิน:");
+    expect(text).not.toContain("สุขภาพ:");
+  });
+
+  it("does not dump every life area when a self-chat question names none", () => {
+    expect(
+      resolveMemoryFocusKeys({ categorySlug: "self", question: "สวัสดีแม่หมอ" }),
+    ).toEqual([]);
+    const text = formatMemoryForPrompt(deriveChartMemory(chart), {
+      categorySlug: "self",
+      question: "สวัสดีแม่หมอ",
+    });
+    expect(text).toContain("[memory]");
+    expect(text).toContain("ลัคนา:");
+    expect(text).not.toContain("งาน/อาชีพ");
+    expect(text).not.toContain("ความรัก:");
   });
 });
 
