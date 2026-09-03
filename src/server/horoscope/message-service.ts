@@ -21,7 +21,7 @@ import { isCategoryIntroQuestion } from "@/lib/intake-survey";
 import { UNIFIED_CHAT_CATEGORY_SLUG } from "@/lib/question-scope";
 import { assertQuestionAllowedForPlan } from "@/server/horoscope/question-scope";
 import { bangkokTimeHm } from "@/server/horoscope/daily-transit-service";
-import { formatTransitDateLabel, formatTransitThreadLabel } from "@/lib/transit-label";
+import { formatTransitDateLabel, formatTransitNowLabel } from "@/lib/transit-label";
 
 /**
  * Superseded turns (edited question / regenerated answer) are hidden, not
@@ -52,7 +52,7 @@ export async function stampConversationTransitNow(
   return {
     transitDate: now.toISOString(),
     transitTime,
-    transitLabel: formatTransitThreadLabel(now, transitTime),
+    transitLabel: formatTransitNowLabel(now),
   };
 }
 

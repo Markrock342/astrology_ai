@@ -41,7 +41,7 @@ import {
   ASK_FROM_CHART_EVENT,
   readAskFromChartDetail,
 } from "@/lib/chat-navigation-links";
-import { formatTransitThreadLabel } from "@/lib/transit-label";
+import { formatTransitNowLabel } from "@/lib/transit-label";
 import { NatalChartReferenceView } from "./natal-chart-reference-view";
 
 type ThinkingPhase = "chart" | "memory" | "writing";
@@ -636,6 +636,13 @@ export function ChatView() {
       setMessages(cached.messages as Message[]);
       setThreadCategorySlug(cached.categorySlug ?? null);
       setThreadMode(cached.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
+      if (cached.mode === "TRANSIT" && cached.transitDate) {
+        setThreadTransitLabel(
+          formatTransitNowLabel(cached.transitDate) ??
+            cached.transitTime ??
+            null,
+        );
+      }
       setLoadingThread(false);
       setThreadLoadError(null);
       const pending = cached.messages.some(
@@ -670,7 +677,9 @@ export function ChatView() {
       setThreadMode(payload.mode === "TRANSIT" ? "TRANSIT" : "NATAL");
       if (payload.mode === "TRANSIT" && payload.transitDate) {
         setThreadTransitLabel(
-          formatTransitThreadLabel(payload.transitDate, payload.transitTime),
+          formatTransitNowLabel(payload.transitDate) ??
+            payload.transitTime ??
+            null,
         );
       } else {
         setThreadTransitLabel(null);
@@ -1156,6 +1165,10 @@ export function ChatView() {
     setErrorCode(null);
     setScopeTarget(null);
     setThinkingPhase(null);
+    if (threadMode !== "NATAL") {
+      const stamp = formatTransitNowLabel();
+      if (stamp) setThreadTransitLabel(stamp);
+    }
     setState("processing");
     // Event-handler timing (not render) — stamp wall-clock for stale-turn recovery.
     processingStartedAtRef.current = nowMs();
@@ -1241,7 +1254,7 @@ export function ChatView() {
       if (!threadId && syncCat) {
         // The loader stands down for this thread, so seed what it would have set.
         setThreadCategorySlug(syncCat);
-        setThreadMode("NATAL");
+        setThreadMode("TRANSIT");
         setThreadLoadError(null);
         setLoadingThread(false);
         // Native history over router.replace: this only needs the URL to carry
