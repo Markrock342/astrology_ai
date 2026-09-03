@@ -54,7 +54,7 @@ const MEMORY_CATEGORY_ORDER: MemoryCategoryKey[] = [
 /** Topic hints in user text → memory focus (Thai + English). */
 const TOPIC_HINTS: Record<MemoryCategoryKey, RegExp> = {
   career:
-    /งาน|อาชีพ|เลื่อนตำแหน่ง|เปลี่ยนงาน|หัวหน้า|ลูกน้อง|ธุรกิจ|สมัครงาน|career|job|promotion/i,
+    /งาน|อาชีพ|เลื่อนตำแหน่ง|เปลี่ยนงาน|หัวหน้า|ลูกน้อง|ธุรกิจ|สมัครงาน|ต่างประเทศ|career|job|promotion/i,
   love: /รัก|คู่|แฟน|คนรัก|ความสัมพันธ์|แต่งงาน|คู่ครอง|เนื้อคู่|เลิก|love|relationship|marriage/i,
   money:
     /เงิน|การเงิน|รายได้|ลงทุน|หนี้|ออม|มรดก|โชคลาภ|fortune|finance|wealth|หุ้น|ค่าใช้จ่าย/i,
@@ -62,8 +62,8 @@ const TOPIC_HINTS: Record<MemoryCategoryKey, RegExp> = {
     /สุขภาพ|ป่วย|เจ็บ|ร่างกาย|จิตใจ|เครียด|stress|health|นอน|โรค|ออกกำลัง/i,
 };
 
-/** Thread slugs that always receive all category memory blocks. */
-const ALL_MEMORY_SLUGS = /^(self|overview)$/i;
+/** Only a true overview dump gets every category block. Unified chat hangs off `self`. */
+const ALL_MEMORY_SLUGS = /^overview$/i;
 
 function dignityLabel(planet: string, sign: string): string {
   const d = DIGNITY[planet];
@@ -217,31 +217,35 @@ export type ResolveMemoryFocusInput = {
 
 /**
  * Pick which chart-memory focuses to inject.
- * Returns null → all categories (self / overview threads).
+ * Returns null → all categories (overview only).
+ * Returns [] → lagna/taksa only, no life-area dump.
  */
 export function resolveMemoryFocusKeys(
   input: ResolveMemoryFocusInput,
 ): MemoryCategoryKey[] | null {
-  const slug = input.categorySlug?.trim();
-  if (slug && ALL_MEMORY_SLUGS.test(slug)) return null;
+  const slug = input.categorySlug?.trim() ?? "";
+  if (ALL_MEMORY_SLUGS.test(slug)) return null;
 
-  const threadKey = slug ? memoryKeyForCategory(slug) : null;
+  const questionHits = detectMemoryKeysFromText(input.question ?? "");
+
+  // Unified chat is stored as `self`. Only the current question picks focuses —
+  // sending every life area made Gemini answer as ตัวตน/การงาน/การเงิน/…
+  if (!slug || /^self$/i.test(slug)) {
+    return questionHits.length > 0 ? questionHits : [];
+  }
+
+  const threadKey = memoryKeyForCategory(slug);
   const detected = new Set<MemoryCategoryKey>();
   if (threadKey) detected.add(threadKey);
-
-  const texts = [
-    input.question ?? "",
-    ...(input.priorUserTexts ?? []),
-  ].filter((t) => t.trim().length > 0);
-
-  for (const text of texts) {
+  for (const key of questionHits) detected.add(key);
+  for (const text of input.priorUserTexts ?? []) {
     for (const key of detectMemoryKeysFromText(text)) {
       detected.add(key);
     }
   }
 
   if (detected.size === 0) {
-    return threadKey ? [threadKey] : null;
+    return threadKey ? [threadKey] : [];
   }
 
   return MEMORY_CATEGORY_ORDER.filter((key) => detected.has(key));
