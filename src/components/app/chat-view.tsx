@@ -1446,6 +1446,11 @@ export function ChatView() {
             truncated?: boolean;
             chartSnapshot?: ChartJson | null;
             transitSnapshot?: ChartJson | null;
+            transitAsOf?: {
+              transitDate?: string;
+              transitTime?: string;
+              transitLabel?: string;
+            } | null;
             details?: unknown;
             reading?: {
               responseText?: string | null;
