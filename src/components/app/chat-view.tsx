@@ -43,6 +43,7 @@ import {
 } from "@/lib/chat-navigation-links";
 import { formatTransitNowLabel } from "@/lib/transit-label";
 import { NatalChartReferenceView } from "./natal-chart-reference-view";
+import { TransitDatePicker } from "./transit-date-picker";
 
 type ThinkingPhase = "chart" | "memory" | "writing";
 type AnswerMode = "brief" | "detailed";
@@ -2696,17 +2697,11 @@ const Composer = forwardRef<
             ละเอียด
           </button>
         </div>
-        <label className="flex min-h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 text-[11px] text-[var(--muted)]">
-          <span className="shrink-0">วันจร</span>
-          <input
-            type="date"
-            value={transitDate}
-            onChange={(e) => onTransitDateChange?.(e.target.value)}
-            disabled={!aiEnabled || emailGate}
-            aria-label="เลือกวันจร ว่างไว้ให้ระบบถอดจากคำถาม"
-            className="min-h-8 bg-transparent text-[12px] text-[var(--foreground)] outline-none disabled:opacity-50"
-          />
-        </label>
+        <TransitDatePicker
+          value={transitDate}
+          onChange={(next) => onTransitDateChange?.(next)}
+          disabled={!aiEnabled || emailGate}
+        />
         {aiEnabled ? (
           <p className="text-[11px] text-[var(--muted)]">
             เหลือ <span className="font-semibold tabular-nums text-[var(--foreground)]">{remaining}%</span>
