@@ -64,6 +64,11 @@ import {
 } from "@/lib/intake-survey";
 import { parseIntakeAnswers } from "@/server/user/intake-service";
 import { UNIFIED_CHAT_INSTRUCTION } from "@/lib/question-scope";
+import {
+  collectAstrologyStandards,
+  DEFAULT_STANDARD_GLOSSARY,
+  type StandardGlossaryItem,
+} from "@/lib/astrology-standard-glossary";
 import { assertQuestionAllowedForPlan } from "@/server/horoscope/question-scope";
 import {
   formatUserAiMemoryForPrompt,
@@ -118,6 +123,30 @@ export function buildKnowledgePrompt(
   }
 
   return parts.length > 0 ? header + parts.join("\n\n") : undefined;
+}
+
+/** Include only admin-authored meanings for standards that occur in this chart. */
+export function buildAstrologyStandardsPrompt(
+  chart: ChartJson,
+  glossary: StandardGlossaryItem[],
+  options: { kind?: "natal" | "transit"; label?: string } = {},
+): string | undefined {
+  const kind = options.kind ?? "natal";
+  const standards = collectAstrologyStandards(
+    kind === "transit"
+      ? chart.myhora?.transitPlanets
+      : chart.myhora?.natalPlanets,
+    glossary.length > 0 ? glossary : DEFAULT_STANDARD_GLOSSARY,
+  );
+  if (standards.length === 0) return undefined;
+  const chartLabel = options.label ?? (kind === "transit" ? "ดวงจร" : "พื้นดวง");
+  return [
+    `[astrology_standards:${kind}] ความหมายมาตรฐาน/เกณฑ์ฉบับปัจจุบันจากแอดมินสำหรับ${chartLabel} (ใช้เฉพาะรายการที่พบในตารางนี้)`,
+    ...standards.map(
+      (item) =>
+        `- ${item.term} — ดาวที่พบ: ${item.planets.join(", ")} — ${item.meaning}`,
+    ),
+  ].join("\n");
 }
 
 /** Cap output tokens by plan while respecting Admin config ceiling. */
@@ -354,7 +383,7 @@ async function runReading(
   onPhase?.("memory");
   // Brief mode prefers 3.5 Flash (lite only if nothing smarter is enabled).
   const answerMode = input.answerMode ?? "detailed";
-  const [chartMemory, userAiMemory, config, knowledgeDocs] = await Promise.all([
+  const [chartMemory, userAiMemory, config, knowledgeDocs, standardRows] = await Promise.all([
     getOrRefreshChartMemory(userId, natalChart),
     getUserAiMemory(userId, {
       excludeQuestion: question,
@@ -363,8 +392,21 @@ async function runReading(
     }),
     resolveConfig(category.id, plan, { preferFast: answerMode === "brief" }),
     prisma.knowledgeDoc.findMany({
-      where: { enabled: true },
+      where: {
+        enabled: true,
+        OR: [{ categoryId: null }, { categoryId: category.id }],
+      },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    }),
+    prisma.astrologyStandardTerm.findMany({
+      where: { enabled: true },
+      orderBy: [{ sortOrder: "asc" }, { term: "asc" }],
+      select: {
+        matchKey: true,
+        term: true,
+        group: true,
+        meaning: true,
+      },
     }),
   ]);
 
@@ -376,7 +418,38 @@ async function runReading(
     categoryDescription: category.description,
     personaTemplateId: templateId,
   });
-  const knowledge = buildKnowledgePrompt(knowledgeDocs);
+  // Put the current category guide first so an oversized global corpus cannot
+  // consume the entire prompt budget before the relevant doctrine is reached.
+  const scopedKnowledge = [...knowledgeDocs].sort(
+    (a, b) =>
+      Number(b.categoryId === category.id) - Number(a.categoryId === category.id) ||
+      a.sortOrder - b.sortOrder,
+  );
+  const doctrine = buildKnowledgePrompt(scopedKnowledge);
+  const glossary: StandardGlossaryItem[] = standardRows.map((row) => ({
+    matchKey: row.matchKey,
+    term: row.term,
+    group: row.group === "เกณฑ์ประกอบ" ? "เกณฑ์ประกอบ" : "มาตรฐานดาว",
+    meaning: row.meaning,
+  }));
+  const natalStandards = buildAstrologyStandardsPrompt(natalChart, glossary);
+  const transitStandards = transitChart
+    ? buildAstrologyStandardsPrompt(transitChart, glossary, { kind: "transit" })
+    : undefined;
+  const horizonStandards = transitHorizonChart
+    ? buildAstrologyStandardsPrompt(transitHorizonChart, glossary, {
+        kind: "transit",
+        label: "ดวงจรปลายช่วง",
+      })
+    : undefined;
+  const knowledge = [
+    doctrine,
+    natalStandards,
+    transitStandards,
+    horizonStandards,
+  ]
+    .filter(Boolean)
+    .join("\n\n") || undefined;
 
   let systemPrompt = buildSystemPrompt({
     ...promptParts,
