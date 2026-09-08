@@ -49,8 +49,9 @@ function when(iso: string): string {
 
 export function FeedbackPanel() {
   const [data, setData] = useState<FeedbackList | null>(null);
-  // Default to the thumbs-down: praise is nice, complaints are work.
-  const [value, setValue] = useState<"" | "UP" | "DOWN">("DOWN");
+  // Show every saved verdict first so an admin can immediately verify that a
+  // newly pressed thumb reached the database.
+  const [value, setValue] = useState<"" | "UP" | "DOWN">("");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   // Tracked separately from `data`. Keying the skeleton off `!data` meant a
@@ -123,9 +124,9 @@ export function FeedbackPanel() {
           }}
           className="max-w-48"
         >
+          <option value="">ทั้งหมด</option>
           <option value="DOWN">👎 เฉพาะที่ไม่ดี</option>
           <option value="UP">👍 เฉพาะที่ดี</option>
-          <option value="">ทั้งหมด</option>
         </Select>
       </div>
 
