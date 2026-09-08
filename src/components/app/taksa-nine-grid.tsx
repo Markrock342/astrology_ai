@@ -126,14 +126,23 @@ export function TaksaNineGrid({
                     }`}
                     style={isBorivan ? { borderColor: GOLD } : undefined}
                   >
-                    <span
-                      className="flex items-center gap-0.5 text-[10px] leading-none"
+                    <svg
+                      className="pointer-events-none absolute inset-0 h-full w-full"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                       style={{ color: `${GOLD}99` }}
                       aria-hidden
+                      focusable="false"
                     >
-                      <span>↙</span>
-                      <span>↑</span>
-                    </span>
+                      {/* Enter from the corner shared with ๑, then leave ๙ toward ๒. */}
+                      <path d="M 3 3 L 40 35 M 33 34 L 40 35 L 38 28" />
+                      <path d="M 54 35 L 54 4 M 49 10 L 54 4 L 59 10" />
+                    </svg>
                     <span
                       className="mt-0.5 text-lg font-semibold leading-none"
                       style={{ color: `${GOLD}aa` }}
