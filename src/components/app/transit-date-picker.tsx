@@ -74,12 +74,10 @@ export function TransitDatePicker({
     dirtyRef.current = false;
   }
 
-  useEffect(() => {
-    if (!open) return;
+  function openPanel() {
     hydrateFrom(value, era);
-    // Only when the panel opens — don't reset while the user is editing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    setOpen(true);
+  }
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -370,7 +368,7 @@ export function TransitDatePicker({
         }
         onClick={() => {
           if (open) closePanel(true);
-          else setOpen(true);
+          else openPanel();
         }}
         className="flex min-h-9 max-w-[12.5rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-left text-[11px] text-[var(--muted)] transition hover:border-[var(--primary)]/50 disabled:opacity-50"
       >
