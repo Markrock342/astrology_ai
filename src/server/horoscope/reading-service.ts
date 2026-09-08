@@ -74,6 +74,9 @@ import {
   formatUserAiMemoryForPrompt,
   getUserAiMemory,
 } from "@/server/user/ai-memory-service";
+import { buildKnowledgePrompt } from "@/server/horoscope/knowledge-retrieval";
+
+export { buildKnowledgePrompt } from "@/server/horoscope/knowledge-retrieval";
 
 /**
  * Orchestrates the reading flow (spec 5.6). Enforces the four hard rules:
@@ -94,36 +97,6 @@ export type TransitSnapshotInput = {
   /** Composer-picked วันจร. Conversation stamps must not override a phrase like เดือนหน้า. */
   explicitDate?: Date | string | null;
 };
-
-/** Join knowledge docs in sortOrder until the character budget is reached. */
-export function buildKnowledgePrompt(
-  docs: Array<{ title: string; content: string }>,
-  maxChars = KNOWLEDGE_MAX_CHARS,
-): string | undefined {
-  if (docs.length === 0) return undefined;
-
-  const header = "ความรู้อ้างอิง (ใช้ประกอบการตอบ):\n\n";
-  const parts: string[] = [];
-  let used = header.length;
-
-  for (const doc of docs) {
-    // Provider/source names are internal implementation details and must never
-    // be echoed by the model into the customer-facing reading.
-    const publicText = (text: string) =>
-      text
-        .replace(/myhora(?:\.com)?/gi, "หลักโหราศาสตร์ไทย")
-        .replace(/\bweb[\s-]*scrap(?:e|ed|ing)?\b/gi, "การรวบรวมข้อมูล")
-        .replace(/\bscrap(?:e|ed|ing)?\b/gi, "การรวบรวมข้อมูล")
-        .replace(/\bfallback\b/gi, "แนวทางสำรอง");
-    const block = `## ${publicText(doc.title)}\n${publicText(doc.content)}`;
-    const separator = parts.length > 0 ? 2 : 0;
-    if (used + separator + block.length > maxChars) break;
-    parts.push(block);
-    used += separator + block.length;
-  }
-
-  return parts.length > 0 ? header + parts.join("\n\n") : undefined;
-}
 
 /** Include only admin-authored meanings for standards that occur in this chart. */
 export function buildAstrologyStandardsPrompt(
@@ -425,7 +398,41 @@ async function runReading(
       Number(b.categoryId === category.id) - Number(a.categoryId === category.id) ||
       a.sortOrder - b.sortOrder,
   );
-  const doctrine = buildKnowledgePrompt(scopedKnowledge);
+  const categoryFocus =
+    categorySlug in chartMemory.categories
+      ? chartMemory.categories[
+          categorySlug as keyof typeof chartMemory.categories
+        ]
+      : undefined;
+  const standardsInCharts = [
+    ...(natalChart.myhora?.natalPlanets ?? []),
+    ...(transitChart?.myhora?.transitPlanets ?? []),
+    ...(transitHorizonChart?.myhora?.transitPlanets ?? []),
+  ]
+    .filter((row) => row.rerkStandard)
+    .map((row) => `${row.planet} ${row.rerkStandard}`)
+    .join("\n");
+  const recentUserQuestions = (priorMessages ?? [])
+    .filter((message) => message.role === "USER")
+    .slice(-3)
+    .map((message) => message.content.slice(0, 600))
+    .join("\n");
+  const retrievalContext = [
+    category.nameTh,
+    category.description,
+    `ลัคนา ${chartMemory.lagna}`,
+    ...(categoryFocus?.summaryLines ?? []),
+    standardsInCharts,
+    recentUserQuestions,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const doctrine = buildKnowledgePrompt(scopedKnowledge, {
+    query: question,
+    context: retrievalContext,
+    categoryId: category.id,
+    maxChars: KNOWLEDGE_MAX_CHARS,
+  });
   const glossary: StandardGlossaryItem[] = standardRows.map((row) => ({
     matchKey: row.matchKey,
     term: row.term,

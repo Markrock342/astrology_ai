@@ -484,28 +484,33 @@ describe("createReading (M3 B2)", () => {
     );
   });
 
-  it("caps knowledge docs to the character budget in sortOrder", async () => {
-    // Two docs whose combined length exceeds KNOWLEDGE_MAX_CHARS: the first
-    // fits, the second is dropped in sortOrder rather than half-included.
-    // Sizes derive from the constant so retuning the budget can't silently
-    // turn this into a test where both docs fit.
-    const half = Math.floor(KNOWLEDGE_MAX_CHARS * 0.6);
+  it("retrieves a relevant later source instead of truncating by sort order", async () => {
     mocks.findKnowledge.mockResolvedValue([
-      { title: "A", content: "a".repeat(half), sortOrder: 1 },
-      { title: "B", content: "b".repeat(half), sortOrder: 2 },
+      {
+        title: "การงาน",
+        content: "อาชีพและความก้าวหน้า ".repeat(600),
+        sortOrder: 1,
+      },
+      {
+        title: "ความรักและคู่ครอง",
+        content: "ลักษณะคู่ครองและความสัมพันธ์ ".repeat(600),
+        sortOrder: 99,
+      },
     ]);
 
     await createReading({
       userId: "user-1",
       categorySlug: "career",
-      question: "q",
+      question: "ลักษณะคู่ครองเป็นอย่างไร",
     });
 
     const aiCall = mocks.generateWithFallback.mock.calls[0]?.[1] as {
       systemPrompt: string;
     };
-    expect(aiCall.systemPrompt).toContain("## A");
-    expect(aiCall.systemPrompt).not.toContain("## B");
+    expect(aiCall.systemPrompt).toContain("## ความรักและคู่ครอง");
+    expect(aiCall.systemPrompt.indexOf("## ความรักและคู่ครอง")).toBeLessThan(
+      aiCall.systemPrompt.indexOf("## การงาน"),
+    );
   });
 
   it("prioritizes category knowledge and only queries global plus current category", async () => {
@@ -543,7 +548,9 @@ describe("createReading (M3 B2)", () => {
       systemPrompt: string;
     };
     expect(aiCall.systemPrompt).toContain("## Career");
-    expect(aiCall.systemPrompt).not.toContain("## Global");
+    expect(aiCall.systemPrompt.indexOf("## Career")).toBeLessThan(
+      aiCall.systemPrompt.indexOf("## Global"),
+    );
   });
 
   it("passes plan-specific maxOutputTokens to the AI router", async () => {
@@ -617,12 +624,15 @@ describe("createReading (M3 B2)", () => {
 
 describe("buildKnowledgePrompt public wording", () => {
   it("removes internal provider and retrieval terms before prompting AI", () => {
-    const prompt = buildKnowledgePrompt([
-      {
-        title: "แนว MyHora.com",
-        content: "ข้อมูลจาก myhora scrape และ fallback ภายใน",
-      },
-    ]);
+    const prompt = buildKnowledgePrompt(
+      [
+        {
+          title: "แนว MyHora.com",
+          content: "ข้อมูลจาก myhora scrape และ fallback ภายใน",
+        },
+      ],
+      { query: "หลักโหราศาสตร์" },
+    );
 
     expect(prompt).not.toMatch(/myhora|scrape|fallback/i);
     expect(prompt).toContain("หลักโหราศาสตร์ไทย");
