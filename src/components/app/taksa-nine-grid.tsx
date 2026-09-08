@@ -140,7 +140,7 @@ export function TaksaNineGrid({
                       focusable="false"
                     >
                       {/* Enter from the corner shared with ๑, then leave ๙ toward ๒. */}
-                      <path d="M 9 8 L 37 31 M 29 30 L 37 31 L 34 24" />
+                      <path d="M 23 19.5 L 37 31 M 29 30 L 37 31 L 34 24" />
                       <path d="M 53 31 L 53 9 M 47 16 L 53 9 L 59 16" />
                     </svg>
                     <span
