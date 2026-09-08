@@ -88,6 +88,8 @@ describe("buildSystemPrompt plain-language contract", () => {
     });
     expect(prompt).toContain("กฎช่วงเวลา");
     expect(prompt).toContain("ห้ามทำตารางภาพรวมระยะยาวจากเจ้าเรือนพื้นดวง");
+    expect(prompt).toContain("กฎผสมดวง");
+    expect(prompt).toContain("ต้องเอาพื้นดวง");
   });
 
   it("never sends a transit user back to the transit form", () => {
@@ -159,6 +161,34 @@ describe("buildConversationHistory (M3 B1)", () => {
     expect(userPrompt).toContain("[natal]");
     expect(userPrompt).toContain("[memory]");
     expect(userPrompt).toContain("คำถาม:");
+  });
+
+  it("attaches a transit window and horizon chart for a 3-month question", () => {
+    const horizon = {
+      ...chart,
+      input: { ...chart.input, day: 8, month: 12, year: 2026, time: "12:17" },
+    } as ChartJson;
+    const start = {
+      ...chart,
+      input: { ...chart.input, day: 8, month: 9, year: 2026, time: "12:17" },
+    } as ChartJson;
+    const { userPrompt } = buildConversationHistory(
+      [],
+      profile,
+      chart,
+      "ช่วง 3 เดือนนี้การเงิน",
+      {
+        chartMemory: memory,
+        transitChartJson: start,
+        transitHorizonChartJson: horizon,
+        transitWindowLabel: "ช่วง 3 เดือนนี้ (8 ก.ย. 2569 – 8 ธ.ค. 2569)",
+        readingIntent: "transit",
+      },
+    );
+    expect(userPrompt).toContain("ต้องผสมพื้นดวงกับดวงจร");
+    expect(userPrompt).toContain("[transit]");
+    expect(userPrompt).toContain("[transit_horizon]");
+    expect(userPrompt).toContain("8 ก.ย. 2569");
   });
 
   it("attaches the signup survey as an [intake] block", () => {
