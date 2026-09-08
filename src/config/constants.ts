@@ -36,14 +36,17 @@ export const DEFAULTS = {
 /** Timezone for display. Storage is always UTC (business rule 13). */
 export const DISPLAY_TIMEZONE = "Asia/Bangkok";
 
-/** Max prior user+assistant pairs sent to the model (older turns are trimmed). */
-export const MAX_CONVERSATION_TURNS = 4;
+/** Max prior user+assistant pairs available to the model. */
+export const MAX_CONVERSATION_TURNS = 10;
 
 /** Max thread rows loaded from DB for prompt context (slightly above trimmed history). */
 export const MAX_PRIOR_MESSAGES_LOAD = MAX_CONVERSATION_TURNS * 3;
 
 /** Assistant replies in history are truncated to this many chars to save input tokens. */
-export const HISTORY_ASSISTANT_MAX_CHARS = 600;
+export const HISTORY_ASSISTANT_MAX_CHARS = 1_200;
+
+/** Character ceiling across prior chat turns so longer memory stays affordable. */
+export const CONVERSATION_HISTORY_MAX_CHARS = 16_000;
 
 /**
  * Total character budget for knowledge docs in the system prompt.

@@ -356,7 +356,11 @@ async function runReading(
   const answerMode = input.answerMode ?? "detailed";
   const [chartMemory, userAiMemory, config, knowledgeDocs] = await Promise.all([
     getOrRefreshChartMemory(userId, natalChart),
-    getUserAiMemory(userId, { excludeQuestion: question }),
+    getUserAiMemory(userId, {
+      excludeQuestion: question,
+      currentQuestion: question,
+      categorySlug,
+    }),
     resolveConfig(category.id, plan, { preferFast: answerMode === "brief" }),
     prisma.knowledgeDoc.findMany({
       where: { enabled: true },

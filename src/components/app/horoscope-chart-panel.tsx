@@ -189,7 +189,15 @@ export function HoroscopeChartPanel({
       )}
 
       <div className={compact ? "py-1" : "px-3 py-5"}>
-        <div className={`flex flex-col ${compact ? "gap-4" : "gap-6"}`}>
+        <div
+          className={
+            compact
+              ? "flex flex-col gap-4"
+              : transitChart
+                ? "grid items-start gap-6 md:grid-cols-2"
+                : "flex flex-col gap-6"
+          }
+        >
           <ThaiChakraChart
             chart={d1}
             title="ราศีจักร · พื้นดวงเดิม"

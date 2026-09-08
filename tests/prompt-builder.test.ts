@@ -5,7 +5,10 @@ import {
   trimConversationHistory,
   transitBlockTitle,
 } from "@/server/ai/prompt-builder";
-import { MAX_CONVERSATION_TURNS } from "@/config/constants";
+import {
+  HISTORY_ASSISTANT_MAX_CHARS,
+  MAX_CONVERSATION_TURNS,
+} from "@/config/constants";
 import type { BirthProfileSnapshot } from "@/types";
 import type { ChartJson } from "@/types/chart";
 import { deriveChartMemory } from "@/server/horoscope/engine/derive-chart-memory";
@@ -280,7 +283,7 @@ describe("buildConversationHistory (M3 B1)", () => {
   });
 
   it("truncates long assistant history to save tokens", () => {
-    const longReply = "ค".repeat(900);
+    const longReply = "ค".repeat(HISTORY_ASSISTANT_MAX_CHARS + 300);
     const { conversationHistory } = buildConversationHistory(
       [
         { role: "USER", content: "คำถามแรก" },
@@ -291,7 +294,9 @@ describe("buildConversationHistory (M3 B1)", () => {
       "คำถามถัดไป",
       { chartMemory: memory },
     );
-    expect(conversationHistory[1]?.content).toHaveLength(601);
+    expect(conversationHistory[1]?.content).toHaveLength(
+      HISTORY_ASSISTANT_MAX_CHARS + 1,
+    );
     expect(conversationHistory[1]?.content.endsWith("…")).toBe(true);
   });
 
