@@ -37,10 +37,8 @@ import {
   requireReadyNatalChart,
 } from "@/server/horoscope/chart-context";
 import { getOrRefreshChartMemory } from "@/server/horoscope/chart-memory-service";
-import {
-  bangkokTimeHm,
-  getOrComputeDailyTransit,
-} from "@/server/horoscope/daily-transit-service";
+import { bangkokTimeHm, resolveTransitWindow } from "@/lib/reading-intent";
+import { getOrComputeDailyTransit } from "@/server/horoscope/daily-transit-service";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
 import {
   generateFollowUpMeta,
@@ -88,6 +86,8 @@ export type TransitSnapshotInput = {
   country?: string | null;
   province?: string | null;
   district?: string | null;
+  /** Composer-picked วันจร. Conversation stamps must not override a phrase like เดือนหน้า. */
+  explicitDate?: Date | string | null;
 };
 
 /** Join knowledge docs in sortOrder until the character budget is reached. */
@@ -286,19 +286,27 @@ async function runReading(
     additionalInfo: profile.additionalInfo,
   };
 
-  async function loadTransitChart(): Promise<ChartJson | null> {
-    const now = new Date();
-    const place = {
-      country: input.transit?.country ?? natalChart.input.country,
-      province: input.transit?.province ?? natalChart.input.province,
-      district: input.transit?.district ?? natalChart.input.district,
-    };
+  const transitWindow = resolveTransitWindow(
+    question,
+    new Date(),
+    input.transit?.explicitDate ?? null,
+  );
+  const transitPlace = {
+    country: input.transit?.country ?? natalChart.input.country,
+    province: input.transit?.province ?? natalChart.input.province,
+    district: input.transit?.district ?? natalChart.input.district,
+  };
+
+  async function loadTransitAt(
+    when: Date,
+    required: boolean,
+  ): Promise<ChartJson | null> {
     try {
       return (
         (await getOrComputeDailyTransit(userId, natalChart, {
-          date: now,
-          time: bangkokTimeHm(now),
-          place,
+          date: when,
+          time: bangkokTimeHm(when),
+          place: transitPlace,
           skipCache: true,
           scrapeTimeoutMs: 500,
         })) ?? null
@@ -307,6 +315,9 @@ async function runReading(
       try {
         return (
           (await getOrComputeDailyTransit(userId, natalChart, {
+            date: when,
+            time: bangkokTimeHm(when),
+            place: transitPlace,
             scrapeTimeoutMs: 500,
           })) ?? null
         );
@@ -316,7 +327,7 @@ async function runReading(
           err instanceof Error ? err.message : err,
           fallbackErr instanceof Error ? fallbackErr.message : fallbackErr,
         );
-        if (mode === "TRANSIT") {
+        if (required && mode === "TRANSIT") {
           if (err instanceof AppError) throw err;
           throw new AppError(
             "CHART_NOT_READY",
@@ -328,7 +339,12 @@ async function runReading(
     }
   }
 
-  const transitChart = await loadTransitChart();
+  const [transitChart, transitHorizonChart] = await Promise.all([
+    loadTransitAt(transitWindow.sampleAt, true),
+    transitWindow.horizonAt
+      ? loadTransitAt(transitWindow.horizonAt, false)
+      : Promise.resolve(null),
+  ]);
   onCharts?.({
     chartSnapshot: natalChart,
     transitSnapshot: transitChart,
@@ -383,6 +399,9 @@ async function runReading(
       chartMemory,
       categorySlug,
       transitChartJson: transitChart,
+      transitHorizonChartJson: transitHorizonChart,
+      transitWindowLabel: transitWindow.label,
+      readingIntent: transitWindow.intent,
       intakeText: intakeAnswers ? formatIntakeForPrompt(intakeAnswers) : null,
       userContextText: formatUserAiMemoryForPrompt(userAiMemory),
     },

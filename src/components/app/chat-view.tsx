@@ -354,6 +354,7 @@ export function ChatView() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [answerMode, setAnswerMode] = useState<AnswerMode>("brief");
+  const [transitDateInput, setTransitDateInput] = useState("");
   const [feedbackById, setFeedbackById] = useState<
     Record<string, FeedbackValue>
   >({});
@@ -1311,6 +1312,7 @@ export function ChatView() {
             regenerateAssistantMessageId: options.regenerateAssistantMessageId,
             answerMode: isIntro ? "detailed" : effectiveAnswerMode,
             purpose: isIntro ? "category_intro" : undefined,
+            transitDate: transitDateInput || undefined,
           }),
           signal: abort.signal,
         },
@@ -2278,6 +2280,8 @@ export function ChatView() {
               needsEmailVerification={Boolean(user?.needsEmailVerification)}
               answerMode={answerMode}
               onAnswerModeChange={updateAnswerMode}
+              transitDate={transitDateInput}
+              onTransitDateChange={setTransitDateInput}
             />
         </div>
       )}
@@ -2573,6 +2577,8 @@ const Composer = forwardRef<
     needsEmailVerification?: boolean;
     answerMode: AnswerMode;
     onAnswerModeChange: (mode: AnswerMode) => void;
+    transitDate?: string;
+    onTransitDateChange?: (value: string) => void;
   }
 >(function Composer(
   {
@@ -2589,6 +2595,8 @@ const Composer = forwardRef<
     needsEmailVerification = false,
     answerMode,
     onAnswerModeChange,
+    transitDate = "",
+    onTransitDateChange,
   },
   ref,
 ) {
@@ -2688,6 +2696,17 @@ const Composer = forwardRef<
             ละเอียด
           </button>
         </div>
+        <label className="flex min-h-9 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 text-[11px] text-[var(--muted)]">
+          <span className="shrink-0">วันจร</span>
+          <input
+            type="date"
+            value={transitDate}
+            onChange={(e) => onTransitDateChange?.(e.target.value)}
+            disabled={!aiEnabled || emailGate}
+            aria-label="เลือกวันจร ว่างไว้ให้ระบบถอดจากคำถาม"
+            className="min-h-8 bg-transparent text-[12px] text-[var(--foreground)] outline-none disabled:opacity-50"
+          />
+        </label>
         {aiEnabled ? (
           <p className="text-[11px] text-[var(--muted)]">
             เหลือ <span className="font-semibold tabular-nums text-[var(--foreground)]">{remaining}%</span>

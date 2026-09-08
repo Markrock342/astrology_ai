@@ -123,7 +123,7 @@ export async function getOrComputeDailyTransit(
 
 /** True when the user question likely needs today's transit context. */
 export function questionWantsTodayTransit(question: string): boolean {
-  return /วันนี้|ตอนนี้|ดวงจร|ประจำวัน|เช้านี้|เย็นนี้|พรุ่งนี้|สัปดาห์นี้/.test(
+  return /วันนี้|ตอนนี้|ดวงจร|ประจำวัน|เช้านี้|เย็นนี้|พรุ่งนี้|สัปดาห์นี้|เดือนนี้|ช่วงนี้|3 เดือน/.test(
     question,
   );
 }

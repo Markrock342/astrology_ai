@@ -21,6 +21,7 @@ import { isCategoryIntroQuestion } from "@/lib/intake-survey";
 import { UNIFIED_CHAT_CATEGORY_SLUG } from "@/lib/question-scope";
 import { assertQuestionAllowedForPlan } from "@/server/horoscope/question-scope";
 import { bangkokTimeHm } from "@/server/horoscope/daily-transit-service";
+import { resolveTransitWindow } from "@/lib/reading-intent";
 import { formatTransitDateLabel, formatTransitNowLabel } from "@/lib/transit-label";
 
 /**
@@ -30,11 +31,17 @@ import { formatTransitDateLabel, formatTransitNowLabel } from "@/lib/transit-lab
  */
 const LIVE = { deletedAt: null } as const;
 
+function transitStampWhen(input: SendMessageInput): Date {
+  return resolveTransitWindow(input.content, new Date(), input.transitDate)
+    .sampleAt;
+}
+
 export async function stampConversationTransitNow(
   conversationId: string,
   currentTitle?: string | null,
+  when: Date = new Date(),
 ): Promise<TransitAsOf> {
-  const now = new Date();
+  const now = when;
   const transitTime = bangkokTimeHm(now);
   const dateLabel = formatTransitDateLabel(now);
   const nextTitle =
@@ -68,6 +75,8 @@ export type SendMessageInput = {
   answerMode?: "brief" | "detailed";
   /** Natal category briefing — free, and the only allowed natal send. */
   purpose?: "category_intro";
+  /** Explicit วันจร from the composer (YYYY-MM-DD or ISO). */
+  transitDate?: string;
 };
 
 export type AcceptMessageResult =
@@ -236,7 +245,11 @@ export async function acceptMessage(
       (existingAssistant.status === "PENDING" ||
         existingAssistant.status === "FAILED" ||
         existingAssistant.status === "TIMEOUT")
-        ? await stampConversationTransitNow(conversation.id, conversation.title)
+        ? await stampConversationTransitNow(
+            conversation.id,
+            conversation.title,
+            transitStampWhen(input),
+          )
         : undefined;
     if (existingAssistant.status === "PENDING") {
       return {
@@ -337,7 +350,11 @@ export async function acceptMessage(
 
   const transitAsOf =
     conversation.mode === "TRANSIT"
-      ? await stampConversationTransitNow(conversation.id, conversation.title)
+      ? await stampConversationTransitNow(
+          conversation.id,
+          conversation.title,
+          transitStampWhen(input),
+        )
       : undefined;
 
   return {
@@ -450,6 +467,11 @@ export async function completePendingMessage(
   }
 
   const priorMessages = await loadPriorMessages(conversation.id, input.userId);
+  const transitWindow = resolveTransitWindow(
+    input.content,
+    new Date(),
+    input.transitDate,
+  );
 
   try {
     const reading = onDelta
@@ -462,13 +484,14 @@ export async function completePendingMessage(
             priorMessages,
             mode: conversation.mode,
             transit:
-              conversation.mode === "TRANSIT" && conversation.transitDate
+              conversation.mode === "TRANSIT"
                 ? {
-                    date: conversation.transitDate,
+                    date: transitWindow.sampleAt,
                     time: conversation.transitTime,
                     country: conversation.transitCountry,
                     province: conversation.transitProvince,
                     district: conversation.transitDistrict,
+                    explicitDate: input.transitDate ?? null,
                   }
                 : null,
             answerMode: input.answerMode,
@@ -499,13 +522,14 @@ export async function completePendingMessage(
           onPhase,
           onCharts,
           transit:
-            conversation.mode === "TRANSIT" && conversation.transitDate
+            conversation.mode === "TRANSIT"
               ? {
-                  date: conversation.transitDate,
+                  date: transitWindow.sampleAt,
                   time: conversation.transitTime,
                   country: conversation.transitCountry,
                   province: conversation.transitProvince,
                   district: conversation.transitDistrict,
+                  explicitDate: input.transitDate ?? null,
                 }
               : null,
         });

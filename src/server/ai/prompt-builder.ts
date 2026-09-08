@@ -87,6 +87,13 @@ export const TIME_BOUNDED_READING_RULE =
   "ห้ามทำตารางภาพรวมระยะยาวจากเจ้าเรือนพื้นดวงแล้วบอกว่าเป็นดวงช่วงนี้ " +
   "คำตอบเก่าในเธรดและบล็อกความรู้เป็นตำรา ไม่ใช่ดวงวันนี้";
 
+export const NATAL_TRANSIT_BLEND_RULE =
+  "กฎผสมดวง (บังคับ): คำถามมี 2 แบบ " +
+  "1) พื้นดวงเดิม — ตอบจาก [natal]/[memory] อย่างเดียว " +
+  "2) อนาคต/ช่วงเวลา/ดวงจร — ต้องเอาพื้นดวง [natal]/[memory] ไปผสมกับดวงจร [transit] " +
+  "(และ [transit_horizon] ถ้ามี) ตามตำราในบล็อกความรู้ " +
+  "ห้ามตอบแบบที่ 2 จากพื้นดวงอย่างเดียว ห้ามทิ้งตารางจร";
+
 export const USER_CONTEXT_MEMORY_RULE =
   "กฎความจำผู้ใช้: ถ้ามีบล็อก [user_context] ให้ใช้เพื่อเชื่อมโยงคำตอบกับสิ่งที่ผู้ใช้เคยถามอย่างเป็นธรรมชาติ " +
   "แต่ห้ามทวนรายการความจำ ห้ามบอกว่ากำลังอ่านประวัติ และห้ามถือว่าคำถามเก่าคือข้อเท็จจริงที่ยืนยันแล้ว " +
@@ -105,6 +112,7 @@ export function buildSystemPrompt(parts: PromptParts): string {
     ASTROLOGY_PLAIN_LANGUAGE_RULE,
     ANSWER_THE_QUESTION_RULE,
     TIME_BOUNDED_READING_RULE,
+    NATAL_TRANSIT_BLEND_RULE,
     USER_CONTEXT_MEMORY_RULE,
     // Layout last so it overrides outdated Admin format templates that banned headings.
     RESPONSE_LAYOUT_RULE,
@@ -117,6 +125,11 @@ export type BuildUserPromptOptions = {
   chartMemory?: UserChartMemoryJson | null;
   categorySlug?: string | null;
   transitChartJson?: ChartJson | null;
+  /** End-of-range transit when the question spans weeks/months. */
+  transitHorizonChartJson?: ChartJson | null;
+  /** Thai label of the resolved วันจร window. */
+  transitWindowLabel?: string | null;
+  readingIntent?: "natal" | "transit";
   /** Signup survey snapshot — natal briefings and transit Q&A. */
   intakeText?: string | null;
   /** User-controlled context shared across conversation/category boundaries. */
@@ -181,11 +194,35 @@ export function buildUserPrompt(
     );
   }
 
+  if (opts.transitWindowLabel) {
+    lines.push(
+      `ช่วงที่ถาม: ${opts.transitWindowLabel}` +
+        (opts.readingIntent === "natal"
+          ? " — คำถามนี้เป็นพื้นดวงเดิม ใช้ [natal]/[memory]"
+          : " — คำถามนี้ต้องผสมพื้นดวงกับดวงจร"),
+      "",
+    );
+  }
+
   if (opts.transitChartJson) {
     const transit = assertUsableEngineChart(opts.transitChartJson);
     lines.push(
       formatChartForPrompt(transit, {
         title: transitBlockTitle(transit),
+        preferTransitSamrap: true,
+      }),
+      "",
+    );
+  }
+
+  if (opts.transitHorizonChartJson) {
+    const horizon = assertUsableEngineChart(opts.transitHorizonChartJson);
+    lines.push(
+      formatChartForPrompt(horizon, {
+        title: transitBlockTitle(horizon).replace(
+          "[transit]",
+          "[transit_horizon]",
+        ),
         preferTransitSamrap: true,
       }),
       "",

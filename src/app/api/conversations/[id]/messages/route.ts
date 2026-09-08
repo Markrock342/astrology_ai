@@ -21,6 +21,7 @@ const bodySchema = z.object({
   regenerateAssistantMessageId: z.string().optional(),
   answerMode: z.enum(["brief", "detailed"]).optional().default("detailed"),
   purpose: z.enum(["category_intro"]).optional(),
+  transitDate: z.string().optional(),
 });
 
 function sseEncode(event: Record<string, unknown>): string {
@@ -74,6 +75,7 @@ export async function POST(
         regenerateAssistantMessageId,
         answerMode,
         purpose,
+        transitDate,
       } = bodySchema.parse(await req.json());
 
       const accepted = await acceptMessage({
@@ -85,6 +87,7 @@ export async function POST(
         regenerateAssistantMessageId,
         answerMode,
         purpose,
+        transitDate,
       });
 
       if (accepted.status === "ready") {
@@ -99,6 +102,7 @@ export async function POST(
           idempotencyKey,
           answerMode,
           purpose,
+          transitDate,
         }).catch((err) => {
           console.error("[chat-after]", err);
         });
@@ -131,6 +135,7 @@ export async function POST(
       regenerateAssistantMessageId,
       answerMode,
       purpose,
+      transitDate,
     } = bodySchema.parse(await req.json());
 
     const encoder = new TextEncoder();
@@ -173,6 +178,7 @@ export async function POST(
             regenerateAssistantMessageId,
             answerMode,
             purpose,
+            transitDate,
           });
 
           if (accepted.status === "ready") {
@@ -225,6 +231,7 @@ export async function POST(
               idempotencyKey,
               answerMode,
               purpose,
+              transitDate,
             },
             (chunk) => {
               emitDeltaChunks(send, chunk);
