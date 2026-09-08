@@ -1,15 +1,25 @@
 import type { MyhoraNatalPlanet } from "@/types/myhora";
 
+export type AstrologyStandardGroup = "มาตรฐานดาว" | "เกณฑ์ประกอบ";
+
 export type AstrologyStandardEntry = {
+  matchKey: string;
   term: string;
-  group: "มาตรฐานดาว" | "เกณฑ์ประกอบ";
+  group: AstrologyStandardGroup;
   meaning: string;
   planets: string[];
 };
 
+export type StandardGlossaryItem = {
+  matchKey: string;
+  term: string;
+  group: AstrologyStandardGroup;
+  meaning: string;
+};
+
 const STANDARD_MEANINGS: Record<
   string,
-  Omit<AstrologyStandardEntry, "term" | "planets">
+  Omit<StandardGlossaryItem, "matchKey" | "term">
 > = {
   เกษตร: {
     group: "มาตรฐานดาว",
@@ -81,27 +91,50 @@ const STANDARD_MEANINGS: Record<
   },
 };
 
+export const DEFAULT_STANDARD_GLOSSARY: StandardGlossaryItem[] = Object.entries(
+  STANDARD_MEANINGS,
+).map(([key, value]) => ({
+  matchKey: key,
+  term: key,
+  ...value,
+}));
+
 function plainPlanetName(raw: string): string {
   if (raw.includes("ลัคนา")) return "ลัคนา";
   return raw.replace(/^[๐-๙0-9.\s]+/, "").trim();
 }
 
+function lookupGlossary(
+  token: string,
+  glossary: StandardGlossaryItem[],
+): StandardGlossaryItem | undefined {
+  return (
+    glossary.find((item) => item.matchKey === token) ??
+    glossary.find((item) => item.term === token)
+  );
+}
+
 export function collectAstrologyStandards(
   rows: MyhoraNatalPlanet[] | null | undefined,
+  glossary: StandardGlossaryItem[] = DEFAULT_STANDARD_GLOSSARY,
 ): AstrologyStandardEntry[] {
-  const found = new Map<string, Set<string>>();
+  const found = new Map<string, { item: StandardGlossaryItem; planets: Set<string> }>();
   for (const row of rows ?? []) {
-    for (const term of row.rerkStandard?.trim().split(/\s+/) ?? []) {
-      if (!STANDARD_MEANINGS[term]) continue;
-      const planets = found.get(term) ?? new Set<string>();
-      planets.add(plainPlanetName(row.planet));
-      found.set(term, planets);
+    for (const token of row.rerkStandard?.trim().split(/\s+/) ?? []) {
+      const item = lookupGlossary(token, glossary);
+      if (!item) continue;
+      const key = item.matchKey;
+      const current = found.get(key) ?? { item, planets: new Set<string>() };
+      current.planets.add(plainPlanetName(row.planet));
+      found.set(key, current);
     }
   }
 
-  return [...found].map(([term, planets]) => ({
-    term,
-    ...STANDARD_MEANINGS[term]!,
+  return [...found.values()].map(({ item, planets }) => ({
+    matchKey: item.matchKey,
+    term: item.term,
+    group: item.group,
+    meaning: item.meaning,
     planets: [...planets],
   }));
 }

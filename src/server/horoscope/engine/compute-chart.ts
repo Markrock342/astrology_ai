@@ -33,6 +33,7 @@ function toChartJsonFromFormula(input: BirthInputSnapshot): ChartJson {
     planets: chart.planets,
     chart: {
       lagna: chart.lagna,
+      lagnaDegreeInSign: chart.lagnaDegreeInSign,
       taksa: chart.taksa,
     },
   };

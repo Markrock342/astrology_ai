@@ -41,6 +41,8 @@ export type TaksaSlot = {
 
 export type ChartSnapshot = {
   lagna: string;
+  /** Degrees inside the lagna rasi, when known. */
+  lagnaDegreeInSign?: number;
   taksa: TaksaSlot[];
 };
 

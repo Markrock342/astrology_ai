@@ -5,6 +5,7 @@ import { normalizeSignName, SIGNS } from "@/lib/chart-theme";
 export type DerivedChart = {
   lagna: string;
   planets: PlanetSignRow[];
+  lagnaDegreeInSign?: number;
 };
 
 export type DivisionalChartKind = "navamsa" | "drekkana";
@@ -124,6 +125,9 @@ export function chartFromMyhoraRows(
 
   return {
     lagna,
+    lagnaDegreeInSign: lagnaRow
+      ? degreeFromRow(lagnaRow)
+      : fallback?.lagnaDegreeInSign,
     planets: merged.length > 0 ? merged : (fallback?.planets ?? []),
   };
 }
@@ -233,4 +237,13 @@ export function deriveDivisionalChart(
       };
     }),
   };
+}
+
+export function resolveLagnaDegreeInSign(chart: ChartJson): number | undefined {
+  const stored = chart.chart?.lagnaDegreeInSign;
+  if (typeof stored === "number" && Number.isFinite(stored)) return stored;
+  const row = chart.myhora?.natalPlanets?.find((item) =>
+    item.planet.includes("ลัคนา"),
+  );
+  return row ? degreeFromRow(row) : undefined;
 }

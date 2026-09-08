@@ -16,6 +16,7 @@ function baseChart(chart: ChartJson): DerivedChart {
   const fallback = {
     lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
     planets: chart.planets,
+    lagnaDegreeInSign: chart.chart?.lagnaDegreeInSign,
   };
   return chartFromMyhoraRows(chart.myhora?.natalPlanets, fallback) ?? fallback;
 }

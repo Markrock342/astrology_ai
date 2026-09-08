@@ -398,7 +398,7 @@ export function ChartCalculator() {
             natal={chart}
             description="ลัคนา ราศีจักร ทักษา และตำแหน่งดาวจากสูตรสุริยยาตร์"
           />
-          <ChartEvidenceTable chart={chart} mode="natal" />
+          <ChartEvidenceTable chart={chart} mode="natal" defaultOpen />
           <p className="text-[11px] leading-relaxed text-[var(--muted-2)]">
             ผลนี้เป็นตำแหน่งดาวจากการคำนวณ ไม่ใช่คำทำนาย และไม่ใช่คำแนะนำทางการเงิน
             กฎหมาย หรือการแพทย์

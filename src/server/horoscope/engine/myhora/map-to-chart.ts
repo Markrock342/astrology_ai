@@ -77,11 +77,11 @@ export function mapScrapeToChartJson(
     scrape.planets,
     scrape.tables.natalPlanets,
   );
-  const planets =
-    chartFromMyhoraRows(scrape.tables.natalPlanets, {
-      lagna,
-      planets: enriched,
-    })?.planets ?? enriched;
+  const derived = chartFromMyhoraRows(scrape.tables.natalPlanets, {
+    lagna,
+    planets: enriched,
+  });
+  const planets = derived?.planets ?? enriched;
   const taksa =
     taksaSlotsFromMyhoraGrid(scrape.tables.taksa) ?? computeTaksaFromBirth(input);
 
@@ -99,6 +99,7 @@ export function mapScrapeToChartJson(
     planets,
     chart: {
       lagna,
+      lagnaDegreeInSign: derived?.lagnaDegreeInSign,
       taksa,
     },
     myhora: slimMyhoraTables(scrape.tables),

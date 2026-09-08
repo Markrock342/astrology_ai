@@ -628,6 +628,23 @@ model KnowledgeDoc {
   @@map("knowledge_docs")
 }
 
+// Admin-editable copy for natal "มาตรฐานและเกณฑ์" cards.
+// matchKey aligns with MyHora rerkStandard tokens; term/group/meaning are display.
+model AstrologyStandardTerm {
+  id        String   @id @default(cuid())
+  matchKey  String   @unique
+  term      String
+  group     String
+  meaning   String
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
+  @@map("astrology_standard_terms")
+}
+
 // ---------------------------------------------------------------------------
 // Readings + usage logs
 // ---------------------------------------------------------------------------

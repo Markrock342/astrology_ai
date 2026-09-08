@@ -8,6 +8,12 @@ import {
   formatTaksaDayHeading,
   resolveTaksaBirthDay,
 } from "@/lib/taksa";
+import {
+  computeChartAspects,
+  formatAspectsCompactForPrompt,
+  formatAspectsForPrompt,
+} from "@/lib/chart-aspects";
+import { resolveLagnaDegreeInSign } from "@/lib/chart-derivations";
 
 export type FormatChartOptions = {
   /** Heading for this chart block (natal vs transit). */
@@ -182,6 +188,16 @@ export function formatChartForPrompt(
     );
   }
 
+  lines.push(
+    ...formatAspectsForPrompt(
+      computeChartAspects(
+        chart.planets,
+        lagna === "—" ? null : lagna,
+        resolveLagnaDegreeInSign(chart),
+      ),
+    ),
+  );
+
   const natalTaksa = chart.chart?.taksa ?? [];
   if (!options.preferTransitSamrap && natalTaksa.length) {
     lines.push(
@@ -263,6 +279,16 @@ export function formatChartCompactForPrompt(
       );
     }
   }
+
+  lines.push(
+    ...formatAspectsCompactForPrompt(
+      computeChartAspects(
+        chart.planets,
+        lagna === "—" ? null : lagna,
+        resolveLagnaDegreeInSign(chart),
+      ),
+    ),
+  );
 
   return lines.join("\n");
 }
