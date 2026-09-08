@@ -268,7 +268,7 @@ export function formatMemoryForPrompt(
       : options;
 
   const lines: string[] = [
-    "[memory] ข้อมูลพื้นดวงผู้ใช้ (ใช้ประกอบการตอบ ห้ามแต่งดาว)",
+    "[memory] พื้นดวงถาวรของเจ้าชะตา (โครงสร้างทั้งชีวิต ไม่ใช่ดวงจรช่วงนี้ — ใช้ประกอบ ห้ามแต่งดาว)",
     `ลัคนา: ${memory.lagna}`,
   ];
 

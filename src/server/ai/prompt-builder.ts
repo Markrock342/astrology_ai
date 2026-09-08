@@ -6,6 +6,7 @@ import {
   MAX_CONVERSATION_TURNS,
 } from "@/config/constants";
 import { AppError } from "@/lib/errors";
+import { formatTransitNowLabel } from "@/lib/transit-label";
 import { assertUsableEngineChart } from "@/server/horoscope/chart-context";
 import {
   formatChartCompactForPrompt,
@@ -78,6 +79,14 @@ export const ANSWER_THE_QUESTION_RULE =
   "ห้ามจัดคำตอบเป็นสารบัญหมวดชีวิต ตัวตน / การงาน / การเงิน / ความรัก / สุขภาพ / โชคลาภ " +
   "บล็อก [memory] เป็นหลักฐานของเรื่องที่ถาม ไม่ใช่หัวข้อที่ต้องไล่ครบทุกก้อน";
 
+/** Stops natal house-lord tables being sold as "these 3 months". */
+export const TIME_BOUNDED_READING_RULE =
+  "กฎช่วงเวลา (บังคับ): ถ้าคำถามพูดถึง ช่วงนี้ เดือนนี้ สัปดาห์นี้ ปีนี้ 3 เดือน " +
+  "หรือช่วงปฏิทินใด ๆ ให้ตอบจากบล็อก [transit] เป็นหลัก " +
+  "[natal] และ [memory] คือโครงสร้างพื้นดวงทั้งชีวิต ใช้ประกอบเท่านั้น " +
+  "ห้ามทำตารางภาพรวมระยะยาวจากเจ้าเรือนพื้นดวงแล้วบอกว่าเป็นดวงช่วงนี้ " +
+  "คำตอบเก่าในเธรดและบล็อกความรู้เป็นตำรา ไม่ใช่ดวงวันนี้";
+
 export const USER_CONTEXT_MEMORY_RULE =
   "กฎความจำผู้ใช้: ถ้ามีบล็อก [user_context] ให้ใช้เพื่อเชื่อมโยงคำตอบกับสิ่งที่ผู้ใช้เคยถามอย่างเป็นธรรมชาติ " +
   "แต่ห้ามทวนรายการความจำ ห้ามบอกว่ากำลังอ่านประวัติ และห้ามถือว่าคำถามเก่าคือข้อเท็จจริงที่ยืนยันแล้ว " +
@@ -95,6 +104,7 @@ export function buildSystemPrompt(parts: PromptParts): string {
     parts.outputFormat,
     ASTROLOGY_PLAIN_LANGUAGE_RULE,
     ANSWER_THE_QUESTION_RULE,
+    TIME_BOUNDED_READING_RULE,
     USER_CONTEXT_MEMORY_RULE,
     // Layout last so it overrides outdated Admin format templates that banned headings.
     RESPONSE_LAYOUT_RULE,
@@ -120,6 +130,21 @@ export type BuildUserPromptOptions = {
 function truncateAssistantHistory(content: string): string {
   if (content.length <= HISTORY_ASSISTANT_MAX_CHARS) return content;
   return `${content.slice(0, HISTORY_ASSISTANT_MAX_CHARS)}…`;
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Stamp the live transit block with the chart's Bangkok civil instant. */
+export function transitBlockTitle(chart: ChartJson): string {
+  const { day, month, year, time } = chart.input;
+  const hhmm = (time?.trim() || "12:00").padStart(5, "0");
+  const asOf = formatTransitNowLabel(
+    `${year}-${pad2(month)}-${pad2(day)}T${hhmm}:00+07:00`,
+  );
+  const when = asOf ?? "ขณะนี้ตามเวลาไทย";
+  return `[transit] ดวงจร ณ ${when} (จังหวะช่วงนี้ — ใช้แทนคำตอบเก่าและพื้นดวงถาวรเมื่อถามเรื่องเวลา ห้ามแต่งดาว)`;
 }
 
 /**
@@ -160,8 +185,7 @@ export function buildUserPrompt(
     const transit = assertUsableEngineChart(opts.transitChartJson);
     lines.push(
       formatChartForPrompt(transit, {
-        title:
-          "[transit] ดวงจร ณ ขณะนี้ตามเวลาไทย (ใช้ตารางนี้แทนคำตอบเก่าในเธรด ห้ามแต่งดาว)",
+        title: transitBlockTitle(transit),
         preferTransitSamrap: true,
       }),
       "",

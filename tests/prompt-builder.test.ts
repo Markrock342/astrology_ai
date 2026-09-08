@@ -3,6 +3,7 @@ import {
   buildSystemPrompt,
   buildConversationHistory,
   trimConversationHistory,
+  transitBlockTitle,
 } from "@/server/ai/prompt-builder";
 import { MAX_CONVERSATION_TURNS } from "@/config/constants";
 import type { BirthProfileSnapshot } from "@/types";
@@ -59,6 +60,34 @@ describe("buildSystemPrompt plain-language contract", () => {
     expect(prompt).toContain("กฎภาษาโหราศาสตร์");
     expect(prompt).toContain("กดุมภะ (เรือนการเงินและทรัพย์สิน)");
     expect(prompt).toContain("ห้ามเรียงศัพท์ตำราโดยไม่อธิบาย");
+  });
+
+  it("stamps the transit block with the Bangkok civil instant", () => {
+    expect(
+      transitBlockTitle({
+        input: {
+          day: 8,
+          month: 9,
+          year: 2026,
+          time: "12:11",
+          country: "ไทย",
+          province: "กรุงเทพมหานคร",
+          district: "พระนคร",
+        },
+      } as ChartJson),
+    ).toContain("8 ก.ย. 2569 · 12:11:00");
+  });
+
+  it("tells the model natal memory is not this month's fortune", () => {
+    const prompt = buildSystemPrompt({
+      safety: "safe",
+      persona: "persona",
+      plan: "pro",
+      category: "finance",
+      outputFormat: "markdown",
+    });
+    expect(prompt).toContain("กฎช่วงเวลา");
+    expect(prompt).toContain("ห้ามทำตารางภาพรวมระยะยาวจากเจ้าเรือนพื้นดวง");
   });
 
   it("never sends a transit user back to the transit form", () => {

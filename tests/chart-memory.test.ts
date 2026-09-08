@@ -67,6 +67,8 @@ describe("deriveChartMemory", () => {
     const memory = deriveChartMemory(chart);
     const text = formatMemoryForPrompt(memory, "career");
     expect(text).toContain("[memory]");
+    expect(text).toContain("พื้นดวงถาวร");
+    expect(text).toContain("ไม่ใช่ดวงจรช่วงนี้");
     expect(text).toContain("งาน/อาชีพ");
     expect(text).not.toContain("ความรัก:");
   });
