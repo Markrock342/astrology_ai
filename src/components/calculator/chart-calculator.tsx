@@ -261,7 +261,7 @@ export function ChartCalculator() {
               ) : null}
             </span>
             <div className={timeUnknown ? "pointer-events-none opacity-40" : ""}>
-              <WheelGroup headers={["ชั่วโมง", "นาที"]}>
+              <WheelGroup headers={["ชั่วโมง", "นาที"]} hint={null}>
                 <WheelColumn
                   options={hourOptions}
                   value={hour}
