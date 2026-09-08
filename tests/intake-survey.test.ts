@@ -83,5 +83,15 @@ describe("intake survey", () => {
     expect(isCategoryIntroQuestion("ช่วงนี้การงานเป็นอย่างไร")).toBe(false);
     expect(q).toContain("ตัวตน");
     expect(q).toContain("ดวงจร");
+    expect(q).toContain("อุปนิสัยแก่นแท้");
+    expect(q).toContain("ดาวที่กุมลัคนา");
+  });
+
+  it("gives every main natal category its approved analysis focus", () => {
+    expect(buildCategoryIntroQuestion("การงาน")).toContain("รูปแบบอาชีพที่เหมาะสม");
+    expect(buildCategoryIntroQuestion("การเงิน")).toContain("จุดรั่วไหลทางการเงิน");
+    expect(buildCategoryIntroQuestion("ความรัก")).toContain("จุดเปราะบาง");
+    expect(buildCategoryIntroQuestion("สุขภาพ")).toContain("ไม่วินิจฉัยโรค");
+    expect(buildCategoryIntroQuestion("โชคลาภ")).toContain("เพิ่มโอกาส");
   });
 });

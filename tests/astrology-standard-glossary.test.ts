@@ -35,6 +35,8 @@ describe("astrology standard glossary", () => {
         {
           planet: "๓.อังคาร",
           zodiac: "09 : มก",
+          degree: "20",
+          minute: "55",
           rerkStandard: "มหาอุจจ์",
         },
       ],

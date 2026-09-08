@@ -1,9 +1,9 @@
 import { prisma } from "@/server/db";
 import { isCategoryIntroQuestion } from "@/lib/intake-survey";
 
-const MEMORY_QUERY_LIMIT = 80;
-const MEMORY_RECENT_LIMIT = 6;
-const MEMORY_QUESTION_MAX_CHARS = 220;
+const MEMORY_QUERY_LIMIT = 160;
+const MEMORY_RECENT_LIMIT = 10;
+const MEMORY_QUESTION_MAX_CHARS = 360;
 
 export type UserAiMemory = {
   enabled: boolean;
@@ -30,7 +30,11 @@ function compactQuestion(value: string): string {
  */
 export async function getUserAiMemory(
   userId: string,
-  options?: { excludeQuestion?: string },
+  options?: {
+    excludeQuestion?: string;
+    currentQuestion?: string;
+    categorySlug?: string;
+  },
 ): Promise<UserAiMemory> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -100,8 +104,21 @@ export async function getUserAiMemory(
   const commonTopics = [...counts.values()]
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "th"))
     .slice(0, 4);
+  const queryTerms = new Set(
+    (options?.currentQuestion?.toLocaleLowerCase("th-TH").match(/[\p{L}\p{N}]{2,}/gu) ?? [])
+      .filter((term) => term.length >= 3),
+  );
+  const ranked = useful
+    .map((row, recentIndex) => {
+      const normalized = row.content.toLocaleLowerCase("th-TH");
+      const termMatches = [...queryTerms].filter((term) => normalized.includes(term)).length;
+      const sameCategory = row.conversation.category.slug === options?.categorySlug ? 1 : 0;
+      return { row, recentIndex, relevance: termMatches * 10 + sameCategory * 3 };
+    })
+    .sort((a, b) => b.relevance - a.relevance || a.recentIndex - b.recentIndex);
+
   const seen = new Set<string>();
-  const recentQuestions = useful.flatMap((row) => {
+  const recentQuestions = ranked.flatMap(({ row }) => {
     const question = compactQuestion(row.content);
     const key = question.toLocaleLowerCase("th-TH");
     if (!question || seen.has(key) || seen.size >= MEMORY_RECENT_LIMIT) return [];
@@ -129,7 +146,7 @@ export function formatUserAiMemoryForPrompt(memory: UserAiMemory): string | null
       ? `- หมวดที่ผู้ใช้ถามบ่อย: ${memory.commonTopics.map((item) => `${item.label} (${item.count})`).join(" · ")}`
       : null,
     ...memory.recentQuestions.map(
-      (item) => `- เคยถามในหมวด${item.category}: ${item.question}`,
+      (item) => `- ข้อความเดิมของผู้ใช้ในหมวด${item.category}: ${item.question}`,
     ),
   ];
   return lines.filter((line): line is string => Boolean(line)).join("\n");

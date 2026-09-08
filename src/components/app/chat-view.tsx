@@ -2027,23 +2027,33 @@ export function ChatView() {
                             />
                           </div>
                         ) : null}
-                        {isFirstNatal && m.chartSnapshot && (
-                          <ChartEvidenceTable
-                            chart={m.chartSnapshot}
-                            mode="natal"
-                            onRowAsk={
-                              threadMode === "TRANSIT" ? prefillFromChart : undefined
+                        {(isFirstNatal || isLatestTransit) && (
+                          <div
+                            className={
+                              isFirstNatal && isLatestTransit
+                                ? "grid items-start gap-3 md:grid-cols-2"
+                                : undefined
                             }
-                          />
-                        )}
-                        {isLatestTransit && m.transitSnapshot && (
-                          <ChartEvidenceTable
-                            chart={m.transitSnapshot}
-                            mode="transit"
-                            onRowAsk={
-                              threadMode === "TRANSIT" ? prefillFromChart : undefined
-                            }
-                          />
+                          >
+                            {isFirstNatal && m.chartSnapshot && (
+                              <ChartEvidenceTable
+                                chart={m.chartSnapshot}
+                                mode="natal"
+                                onRowAsk={
+                                  threadMode === "TRANSIT" ? prefillFromChart : undefined
+                                }
+                              />
+                            )}
+                            {isLatestTransit && m.transitSnapshot && (
+                              <ChartEvidenceTable
+                                chart={m.transitSnapshot}
+                                mode="transit"
+                                onRowAsk={
+                                  threadMode === "TRANSIT" ? prefillFromChart : undefined
+                                }
+                              />
+                            )}
+                          </div>
                         )}
                       </div>
                     )}

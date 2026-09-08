@@ -54,10 +54,23 @@ export function AstrologyStandardsManager() {
   }, []);
 
   useEffect(() => {
-    void load().catch((caught) =>
-      setError(caught instanceof Error ? caught.message : "โหลดไม่สำเร็จ"),
-    );
-  }, [load]);
+    let cancelled = false;
+    void adminFetch<StandardRow[]>("/api/admin/astrology-standards")
+      .then((rows) => {
+        if (!cancelled) setItems(rows);
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : "โหลดไม่สำเร็จ");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function startNew() {
     setEditingId(null);
