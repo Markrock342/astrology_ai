@@ -49,10 +49,9 @@ export const HISTORY_ASSISTANT_MAX_CHARS = 1_200;
 export const CONVERSATION_HISTORY_MAX_CHARS = 16_000;
 
 /**
- * Total character budget for knowledge docs in the system prompt.
- * Sized for the myhora-style doctrine set (foundation + planets + houses +
- * taksa/transits + signs) plus one category guide (~20–24k Thai chars).
- * Docs past the budget are dropped by sortOrder — put critical doctrine first.
+ * Total character budget for knowledge chunks selected by the RAG retriever.
+ * The whole enabled corpus remains searchable; only the best matching chunks
+ * for the question, recent turns, category and chart facts enter the prompt.
  */
 export const KNOWLEDGE_MAX_CHARS = 28_000;
 

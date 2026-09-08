@@ -19,6 +19,7 @@ import {
   TextInput,
   Toggle,
 } from "./ui";
+import { KNOWLEDGE_MAX_CHARS } from "@/config/constants";
 
 type KnowledgeSummary = {
   id: string;
@@ -254,7 +255,7 @@ export function KnowledgeManager() {
     <AdminPage>
       <PageHeader
         title="คลังความรู้ (Knowledge)"
-        description="วางเนื้อหา FAQ/ตำรา ให้ AI ใช้อ้างอิงตอบ — เนื้อหาที่เปิดใช้จะถูกส่งเข้า prompt ทุกครั้ง ยิ่งยาวยิ่งใช้ token มาก"
+        description="วางเนื้อหา FAQ/ตำรา ให้ AI ใช้อ้างอิงตอบ — ระบบจะแบ่งเอกสารและค้นเฉพาะส่วนที่ตรงกับคำถาม หมวด และข้อมูลดวง"
         action={
           <Button
             onClick={() => {
@@ -269,13 +270,8 @@ export function KnowledgeManager() {
       />
 
       <p className="mb-4 text-xs text-[var(--muted-2)]">
-        เนื้อหาที่เปิดใช้รวม {totalChars.toLocaleString()} ตัวอักษร
-        {totalChars > 30000 && (
-          <span className="text-[var(--danger)]">
-            {" "}
-            — เริ่มเยอะแล้ว ควรพิจารณาปิดบางส่วนหรืออัปเกรดเป็น RAG
-          </span>
-        )}
+        คลังที่ค้นได้ {totalChars.toLocaleString()} ตัวอักษร · ส่งเข้า AI สูงสุด{" "}
+        {KNOWLEDGE_MAX_CHARS.toLocaleString()} ตัวอักษรที่เกี่ยวข้องต่อคำตอบ
       </p>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
