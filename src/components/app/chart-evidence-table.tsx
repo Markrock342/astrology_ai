@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
 import { houseFromLagna, normalizeSignName, SIGNS } from "@/lib/chart-theme";
-import { formatMyhoraDegreeText } from "@/lib/chart-derivations";
-import { collectAstrologyStandards } from "@/lib/astrology-standard-glossary";
+import { formatMyhoraDegreeText, resolveLagnaDegreeInSign } from "@/lib/chart-derivations";
+import {
+  collectAstrologyStandards,
+  DEFAULT_STANDARD_GLOSSARY,
+  type StandardGlossaryItem,
+} from "@/lib/astrology-standard-glossary";
+import { ChartAspectList } from "./chart-aspect-list";
 
 type Props = {
   chart: ChartJson;
@@ -84,9 +89,36 @@ export function ChartEvidenceTable({
   const samrap = pickRows(chart, mode);
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "—";
   const clickable = Boolean(onRowAsk);
-  const standards = mode === "natal" ? collectAstrologyStandards(samrap) : [];
+  const [glossary, setGlossary] = useState<StandardGlossaryItem[]>(
+    DEFAULT_STANDARD_GLOSSARY,
+  );
   const [open, setOpen] = useState(defaultOpen);
   const stack = layout === "stack";
+  const standards =
+    mode === "natal" ? collectAstrologyStandards(samrap, glossary) : [];
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/astrology-standards")
+      .then((response) => response.json())
+      .then((json: { ok?: boolean; data?: StandardGlossaryItem[] }) => {
+        if (cancelled || !json?.ok || !json.data?.length) return;
+        setGlossary(
+          json.data.map((item) => ({
+            matchKey: item.matchKey,
+            term: item.term,
+            group: item.group,
+            meaning: item.meaning,
+          })),
+        );
+      })
+      .catch(() => {
+        /* keep built-in copy */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <details
@@ -206,6 +238,11 @@ export function ChartEvidenceTable({
                 </tbody>
               </table>
             </div>
+            <ChartAspectList
+              planets={chart.planets}
+              lagna={lagna === "—" ? null : lagna}
+              lagnaDegreeInSign={resolveLagnaDegreeInSign(chart)}
+            />
             {standards.length ? (
               <section className="border-t border-[var(--border)] p-3" aria-labelledby="chart-standard-title">
                 <div className="max-w-3xl">
@@ -219,7 +256,7 @@ export function ChartEvidenceTable({
                 </div>
                 <dl className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   {standards.map((entry) => (
-                    <div key={entry.term} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
+                    <div key={entry.matchKey} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
                       <dt className="flex flex-wrap items-baseline gap-x-2">
                         <span className="font-semibold text-[var(--primary)]">{entry.term}</span>
                         <span className="text-[10px] text-[var(--muted-2)]">{entry.group} · {entry.planets.join(", ")}</span>
@@ -293,6 +330,11 @@ export function ChartEvidenceTable({
                 </tbody>
               </table>
             </div>
+            <ChartAspectList
+              planets={chart.planets}
+              lagna={lagna === "—" ? null : lagna}
+              lagnaDegreeInSign={resolveLagnaDegreeInSign(chart)}
+            />
           </>
         )}
       </div>

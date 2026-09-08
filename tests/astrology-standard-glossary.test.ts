@@ -28,4 +28,33 @@ describe("astrology standard glossary", () => {
     ]);
     expect(entries[0]?.planets).toEqual(["อังคาร"]);
   });
+
+  it("uses admin display names while still matching the original MyHora token", () => {
+    const entries = collectAstrologyStandards(
+      [
+        {
+          planet: "๓.อังคาร",
+          zodiac: "09 : มก",
+          rerkStandard: "มหาอุจจ์",
+        },
+      ],
+      [
+        {
+          matchKey: "มหาอุจจ์",
+          term: "มหาอุจจ์ (แก้ไขแล้ว)",
+          group: "มาตรฐานดาว",
+          meaning: "คำอธิบายที่แอดมินแก้เอง",
+        },
+      ],
+    );
+    expect(entries).toEqual([
+      {
+        matchKey: "มหาอุจจ์",
+        term: "มหาอุจจ์ (แก้ไขแล้ว)",
+        group: "มาตรฐานดาว",
+        meaning: "คำอธิบายที่แอดมินแก้เอง",
+        planets: ["อังคาร"],
+      },
+    ]);
+  });
 });

@@ -1,4 +1,5 @@
 import type { PlanetSignRow } from "@/types/chart";
+import { clampDegreeInSign, signWheelAngle } from "@/lib/chart-aspects";
 import {
   bhavaNameFromLagna,
   getHouseMeaning,
@@ -6,6 +7,7 @@ import {
   LAGNA_MARK,
   normalizeSignName,
   PLANET_ORDER,
+  signIndex,
   signLabel,
   SIGNS,
 } from "@/lib/chart-theme";
@@ -13,6 +15,7 @@ import {
 export type RasiTemplateChartData = {
   lagna: string;
   planets: PlanetSignRow[];
+  lagnaDegreeInSign?: number;
 };
 
 const VIEWBOX = 420;
@@ -89,24 +92,34 @@ function coreTarget(boundaryIndex: number) {
   return { x: CENTER - CORE_HALF, y: CENTER + CORE_HALF };
 }
 
-function planetOffsets(count: number): Array<{ x: number; y: number }> {
-  if (count <= 1) return [{ x: 0, y: 0 }];
-  if (count === 2) return [{ x: -12, y: 0 }, { x: 12, y: 0 }];
-  if (count === 3) {
-    return [{ x: -17, y: 0 }, { x: 0, y: 0 }, { x: 17, y: 0 }];
+const PLANET_RADIUS = 116;
+const LAGNA_RADIUS = 100;
+const STACK_RADIUS_STEP = 9;
+const STACK_WITHIN_DEGREES = 6;
+
+/** Polar point on the rasi wheel for a body at `degreeInSign` of `sign`. */
+export function rasiOccupantPoint(
+  sign: string,
+  degreeInSign: number | undefined,
+  stackIndex: number,
+  kind: "planet" | "lagna",
+) {
+  const angle = signWheelAngle(signIndex(sign), degreeInSign ?? 15);
+  const radius =
+    (kind === "lagna" ? LAGNA_RADIUS : PLANET_RADIUS) - stackIndex * STACK_RADIUS_STEP;
+  return polar(radius, angle);
+}
+
+function occupancyStackIndex(degrees: number[], index: number): number {
+  let stack = 0;
+  for (let i = 1; i <= index; i++) {
+    if (Math.abs(degrees[i]! - degrees[i - 1]!) < STACK_WITHIN_DEGREES) {
+      stack += 1;
+    } else {
+      stack = 0;
+    }
   }
-  if (count === 4) {
-    return [
-      { x: -12, y: -10 },
-      { x: 12, y: -10 },
-      { x: -12, y: 12 },
-      { x: 12, y: 12 },
-    ];
-  }
-  return Array.from({ length: count }, (_, index) => ({
-    x: ((index % 3) - 1) * 17,
-    y: (Math.floor(index / 3) - 0.5) * 18,
-  }));
+  return stack;
 }
 
 export function templateHouseLabels(lagna: string) {
@@ -246,27 +259,44 @@ export function RasiTemplateChart({
         );
       })}
 
-      {SIGNS.map((sign, signIndex) => {
-        const center = TEMPLATE_SIGN_CENTERS[signIndex];
-        const planets = planetsBySign.get(sign) ?? [];
+      {SIGNS.map((sign) => {
+        const planets = [...(planetsBySign.get(sign) ?? [])].sort(
+          (a, b) => clampDegreeInSign(a.degreeInSign) - clampDegreeInSign(b.degreeInSign),
+        );
         const entries = [
           ...(sign === lagna
-            ? [{ planet: "ลัคนา", symbol: LAGNA_MARK, color: GOLD, degreeText: undefined }]
+            ? [
+                {
+                  planet: "ลัคนา",
+                  symbol: LAGNA_MARK,
+                  color: GOLD,
+                  degreeText: undefined as string | undefined,
+                  degreeInSign: clampDegreeInSign(chart.lagnaDegreeInSign ?? 15),
+                  kind: "lagna" as const,
+                },
+              ]
             : []),
           ...planets.map((row) => ({
             planet: row.planet,
             symbol: getPlanetTheme(row.planet).numeral,
             color: getPlanetTheme(row.planet).color,
             degreeText: row.degreeText,
+            degreeInSign: clampDegreeInSign(row.degreeInSign),
+            kind: "planet" as const,
           })),
         ];
-        const offsets = planetOffsets(entries.length);
         return (
           <g key={`${sign}-occupants`}>
             {entries.map((entry, entryIndex) => {
-              const offset = offsets[entryIndex] ?? { x: 0, y: 0 };
-              const x = center.x + offset.x;
-              const y = center.y + offset.y;
+              const { x, y } = rasiOccupantPoint(
+                sign,
+                entry.degreeInSign,
+                occupancyStackIndex(
+                  entries.map((item) => item.degreeInSign),
+                  entryIndex,
+                ),
+                entry.kind,
+              );
               const interactive = entry.planet !== "ลัคนา" && Boolean(onSelectPlanet);
               const selected = selectedPlanet === entry.planet;
               const select = () => {

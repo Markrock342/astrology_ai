@@ -23,6 +23,7 @@ export type PipelineSource =
 export interface PipelineResult {
   planets: PlanetSignRow[]
   lagna: string
+  lagnaDegreeInSign?: number
   taksa: TaksaSlot[]
   source: PipelineSource
 }
@@ -45,6 +46,7 @@ function signsToRows(signs: Record<string, { sign: string; degreeInSign?: number
 function fromFormulaPipeline(input: BirthInput, place: PlaceCoords): {
   planets: PlanetSignRow[]
   lagna: string
+  lagnaDegreeInSign: number
 } {
   const time = birthAstroTime(input, place)
   const placements = computeSiderealPlanets(time)
@@ -75,7 +77,7 @@ function fromFormulaPipeline(input: BirthInput, place: PlaceCoords): {
     }
   })
 
-  return { planets, lagna: lagnaResult.sign }
+  return { planets, lagna: lagnaResult.sign, lagnaDegreeInSign: lagnaResult.degreeInSign }
 }
 
 /**
@@ -111,18 +113,21 @@ export function computeFullChartSync(
     return {
       planets: mergeVerifiedFormulaDegrees(suryayatRows, verifiedFormulaRows),
       lagna,
+      lagnaDegreeInSign:
+        formula.lagna === lagna ? formula.lagnaDegreeInSign : undefined,
       taksa: computeTaksaFromBirth(input),
       source:
         lookup.source === 'reference' ? 'suryayat-100-reference' : 'suryayat-100-year',
     }
   }
 
-  const { planets: rawPlanets, lagna: rawLagna } = fromFormulaPipeline(input, place)
+  const { planets: rawPlanets, lagna: rawLagna, lagnaDegreeInSign } = fromFormulaPipeline(input, place)
   const planets = applyRahuEightSignsAquarius(rawPlanets, rawLagna)
 
   return {
     planets,
     lagna: rawLagna,
+    lagnaDegreeInSign,
     taksa: computeTaksaFromBirth(input),
     source: 'formula-pipeline',
   }

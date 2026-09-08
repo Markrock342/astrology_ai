@@ -1,4 +1,5 @@
 import type { ChartJson } from "@/types/chart";
+import { chartFromMyhoraRows } from "@/lib/chart-derivations";
 import { RasiTemplateChart } from "./rasi-template-chart";
 
 /**
@@ -19,12 +20,19 @@ export function CompactRasiWheel({
   onSelectPlanet?: (planet: string) => void;
   selectedPlanet?: string | null;
 }) {
+  const derived =
+    chartFromMyhoraRows(chart.myhora?.natalPlanets, {
+      lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
+      planets: chart.planets,
+      lagnaDegreeInSign: chart.chart?.lagnaDegreeInSign,
+    }) ?? {
+      lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
+      planets: chart.planets,
+      lagnaDegreeInSign: chart.chart?.lagnaDegreeInSign,
+    };
   return (
     <RasiTemplateChart
-      chart={{
-        lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
-        planets: chart.planets,
-      }}
+      chart={derived}
       size={size}
       className={className}
       onSelectPlanet={onSelectPlanet}

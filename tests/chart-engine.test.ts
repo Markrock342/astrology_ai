@@ -50,7 +50,8 @@ describe("natal chart engine (formula path)", () => {
     expect(text).toContain("อาทิตย์");
     expect(text).toContain("เรือน");
     expect(text).toContain("ทักษา");
-    expect(text).toContain("สัมพันธ์ดาว");
+    expect(text).toContain("[aspects]");
+    expect(text).toContain("ห้ามเดามุม");
     expect(text).not.toMatch(
       /myhora|scrape|fallback|formula-pipeline|แหล่งคำนวณ/i,
     );
@@ -71,6 +72,8 @@ describe("natal chart engine (formula path)", () => {
     expect(text).toContain("[natal]");
     expect(text).toContain("ลัคนา");
     expect(text).toContain("อาทิตย์:");
+    expect(text).toContain("มุมจากองศา (ห้ามเดา)");
+    expect(text).toContain("[aspects]");
     expect(text).not.toContain("ตารางสมผุส");
     expect(text).not.toContain("ทักษา");
   });
@@ -124,6 +127,8 @@ describe("engine-first prompts", () => {
     );
     expect(user.indexOf("[natal]")).toBeLessThan(user.indexOf("คำถาม:"));
     expect(user).toContain("ลัคนา");
+    expect(user).toContain("[aspects]");
+    expect(user).toContain("ห้ามเดามุม");
     expect(user).toContain("งานช่วงนี้เป็นอย่างไร");
   });
 

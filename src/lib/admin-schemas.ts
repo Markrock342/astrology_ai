@@ -307,6 +307,15 @@ export const faqItemSchema = z.object({
   sortOrder: z.number().int().default(0),
 });
 
+export const astrologyStandardTermSchema = z.object({
+  matchKey: z.string().min(1).max(80),
+  term: z.string().min(1).max(80),
+  group: z.enum(["มาตรฐานดาว", "เกณฑ์ประกอบ"]),
+  meaning: z.string().min(1).max(2000),
+  enabled: z.boolean().default(true),
+  sortOrder: z.number().int().default(0),
+});
+
 export const submitPaymentSchema = z.object({
   amount: z.number().int().positive(),
   /** Target package code (PRO, CREDIT_TOPUP, …). */
