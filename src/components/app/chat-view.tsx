@@ -75,6 +75,7 @@ const THINKING_PHASE_LABEL: Record<ThinkingPhase, string> = {
 const ANSWER_MODE_KEY = "horasard:answerMode";
 const DRAFT_KEY = "horasard:chatDraft";
 const FEEDBACK_KEY = "horasard:messageFeedback";
+const FEEDBACK_MIGRATED_KEY = "horasard:messageFeedbackMigrated:v1";
 
 /** Survives React Strict Mode remounts so a category intro is not double-sent. */
 const natalIntroStarted = new Set<string>();
@@ -111,6 +112,24 @@ function readFeedbackMap(): Record<string, FeedbackValue> {
   } catch {
     return {};
   }
+}
+
+function readMigratedFeedbackIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(FEEDBACK_MIGRATED_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markFeedbackIdsMigrated(ids: string[]) {
+  if (typeof window === "undefined" || ids.length === 0) return;
+  const migrated = readMigratedFeedbackIds();
+  for (const id of ids) migrated.add(id);
+  window.localStorage.setItem(FEEDBACK_MIGRATED_KEY, JSON.stringify([...migrated]));
 }
 
 type Message = {
@@ -369,6 +388,7 @@ export function ChatView() {
   const [liveAnnounce, setLiveAnnounce] = useState("");
   /** Newest tap per message wins — see setMessageFeedback. */
   const feedbackSeqRef = useRef<Map<string, number>>(new Map());
+  const feedbackMigrationInFlightRef = useRef<Set<string>>(new Set());
   const [state, setState] = useState<ChatState>("idle");
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase | null>(
     null,
@@ -540,6 +560,24 @@ export function ChatView() {
    * cache now; the database is the record, and the record wins.
    */
   function hydrateFeedback(loaded: Message[]) {
+    const cached = readFeedbackMap();
+    const migrated = readMigratedFeedbackIds();
+    const legacyVotes: Array<{ messageId: string; value: FeedbackValue }> = [];
+    for (const message of loaded) {
+      const sid = serverIdOf(message);
+      if (!sid) continue;
+      if (message.feedback) {
+        migrated.add(sid);
+      } else if (
+        cached[sid] &&
+        !migrated.has(sid) &&
+        !feedbackMigrationInFlightRef.current.has(sid)
+      ) {
+        feedbackMigrationInFlightRef.current.add(sid);
+        legacyVotes.push({ messageId: sid, value: cached[sid] });
+      }
+    }
+
     // Authoritative for the messages in this thread: adopt the server's verdict
     // AND drop any local verdict the server no longer has (withdrawn on another
     // device). Verdicts for messages NOT in this payload are left untouched.
@@ -554,6 +592,8 @@ export function ChatView() {
             map[sid] = m.feedback;
             changed = true;
           }
+        } else if (cached[sid] && !migrated.has(sid)) {
+          map[sid] = cached[sid];
         } else if (sid in map) {
           delete map[sid];
           changed = true;
@@ -563,6 +603,27 @@ export function ChatView() {
       window.localStorage.setItem(FEEDBACK_KEY, JSON.stringify(map));
       return map;
     });
+    markFeedbackIdsMigrated([...migrated]);
+
+    // Older releases stored thumbs only in localStorage. Move any surviving
+    // verdicts into the database once so the admin dashboard can see them.
+    for (const vote of legacyVotes) {
+      void fetch(`/api/messages/${vote.messageId}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: vote.value === "up" ? "UP" : "DOWN" }),
+      })
+        .then((response) => {
+          if (!response.ok) throw new Error(String(response.status));
+          markFeedbackIdsMigrated([vote.messageId]);
+        })
+        .catch(() => {
+          setFeedbackError("ย้ายฟีดแบ็กเก่าไม่สำเร็จ — เปิดแชทนี้ใหม่เพื่อลองอีกครั้ง");
+        })
+        .finally(() => {
+          feedbackMigrationInFlightRef.current.delete(vote.messageId);
+        });
+    }
   }
 
   function setMessageFeedback(messageId: string, value: FeedbackValue) {
@@ -596,7 +657,10 @@ export function ChatView() {
             ? { body: JSON.stringify({ value: next === "up" ? "UP" : "DOWN" }) }
             : {}),
         });
-        if (res.ok) return;
+        if (res.ok) {
+          markFeedbackIdsMigrated([messageId]);
+          return;
+        }
         throw new Error(String(res.status));
       } catch {
         if (isStale()) return;

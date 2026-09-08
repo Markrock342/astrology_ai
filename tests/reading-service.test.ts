@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/errors";
 import { KNOWLEDGE_MAX_CHARS } from "@/config/constants";
 import {
+  buildAstrologyStandardsPrompt,
   buildKnowledgePrompt,
   createReading,
 } from "@/server/horoscope/reading-service";
+import type { ChartJson } from "@/types/chart";
 
 const mocks = vi.hoisted(() => ({
   findReading: vi.fn(),
@@ -13,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   findLockedCategories: vi.fn(),
   findProfile: vi.fn(),
   findKnowledge: vi.fn(),
+  findStandards: vi.fn(),
   findIntake: vi.fn(),
   transaction: vi.fn(),
   getEffectivePlan: vi.fn(),
@@ -45,6 +48,7 @@ vi.mock("@/server/db", () => ({
     },
     birthProfile: { findUnique: mocks.findProfile },
     knowledgeDoc: { findMany: mocks.findKnowledge },
+    astrologyStandardTerm: { findMany: mocks.findStandards },
     userIntake: { findUnique: mocks.findIntake },
     $transaction: mocks.transaction,
   },
@@ -253,6 +257,7 @@ function setupHappyPath() {
     commonTopics: [],
     recentQuestions: [],
   });
+  mocks.findStandards.mockResolvedValue([]);
   mocks.questionWantsTodayTransit.mockReturnValue(false);
   mocks.generateWithFallback.mockResolvedValue({
     ok: true,
@@ -503,6 +508,44 @@ describe("createReading (M3 B2)", () => {
     expect(aiCall.systemPrompt).not.toContain("## B");
   });
 
+  it("prioritizes category knowledge and only queries global plus current category", async () => {
+    const half = Math.floor(KNOWLEDGE_MAX_CHARS * 0.6);
+    mocks.findKnowledge.mockResolvedValue([
+      {
+        title: "Global",
+        content: "g".repeat(half),
+        categoryId: null,
+        sortOrder: 1,
+      },
+      {
+        title: "Career",
+        content: "c".repeat(half),
+        categoryId: "cat-1",
+        sortOrder: 2,
+      },
+    ]);
+
+    await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "q",
+    });
+
+    expect(mocks.findKnowledge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          enabled: true,
+          OR: [{ categoryId: null }, { categoryId: "cat-1" }],
+        },
+      }),
+    );
+    const aiCall = mocks.generateWithFallback.mock.calls[0]?.[1] as {
+      systemPrompt: string;
+    };
+    expect(aiCall.systemPrompt).toContain("## Career");
+    expect(aiCall.systemPrompt).not.toContain("## Global");
+  });
+
   it("passes plan-specific maxOutputTokens to the AI router", async () => {
     mocks.assertCanRequestReading.mockResolvedValue("FREE");
 
@@ -583,5 +626,100 @@ describe("buildKnowledgePrompt public wording", () => {
 
     expect(prompt).not.toMatch(/myhora|scrape|fallback/i);
     expect(prompt).toContain("หลักโหราศาสตร์ไทย");
+  });
+});
+
+describe("buildAstrologyStandardsPrompt", () => {
+  const chart = {
+    input: {
+      day: 15,
+      month: 1,
+      year: 1990,
+      time: "08:30",
+      country: "ไทย",
+      province: "กรุงเทพมหานคร",
+      district: "พระนคร",
+    },
+    calculatedAt: new Date("2026-09-08T00:00:00.000Z").toISOString(),
+    settings: {
+      calendar: "suryayat",
+      ayanamsa: "lahiri",
+      timeMethod: "antonathi_samrap_sunrise_local",
+      rahuRule: "eight_signs_aquarius",
+      taksaRahuLord: "mercury_night",
+      taksaCountFrom: "birth-weekday",
+    },
+    meta: {
+      birthDisplay: "15/1/1990 08:30",
+      locationDisplay: "พระนคร, กรุงเทพมหานคร",
+    },
+    planets: [],
+    myhora: {
+      natalPlanets: [
+        {
+          planet: "๓ อังคาร",
+          zodiac: "มกร",
+          degree: "12",
+          minute: "00",
+          rerkStandard: "มหาอุจจ์",
+        },
+      ],
+      transitPlanets: [
+        {
+          planet: "๕ พฤหัสบดี",
+          zodiac: "กรกฎ",
+          degree: "8",
+          minute: "00",
+          rerkStandard: "ราชาโชค",
+        },
+      ],
+      lagnaSign: "เมษ",
+      summaryNatal: null,
+      summaryTransit: null,
+      taksa: [],
+      triwaiNatal: [],
+      triwaiTransit: [],
+    },
+  } as ChartJson;
+
+  it("injects the current admin meaning only for a standard found in the natal chart", () => {
+    const prompt = buildAstrologyStandardsPrompt(chart, [
+      {
+        matchKey: "มหาอุจจ์",
+        term: "มหาอุจจ์",
+        group: "มาตรฐานดาว",
+        meaning: "ความหมายที่แอดมินแก้ล่าสุด",
+      },
+      {
+        matchKey: "เกษตร",
+        term: "เกษตร",
+        group: "มาตรฐานดาว",
+        meaning: "ไม่ควรถูกส่งเพราะไม่พบในดวง",
+      },
+    ]);
+
+    expect(prompt).toContain("มหาอุจจ์");
+    expect(prompt).toContain("อังคาร");
+    expect(prompt).toContain("ความหมายที่แอดมินแก้ล่าสุด");
+    expect(prompt).not.toContain("ไม่ควรถูกส่งเพราะไม่พบในดวง");
+  });
+
+  it("reads standards from the transit table when building transit guidance", () => {
+    const prompt = buildAstrologyStandardsPrompt(
+      chart,
+      [
+        {
+          matchKey: "ราชาโชค",
+          term: "ราชาโชค",
+          group: "มาตรฐานดาว",
+          meaning: "คำอธิบายดวงจรจากแอดมิน",
+        },
+      ],
+      { kind: "transit" },
+    );
+
+    expect(prompt).toContain("ดวงจร");
+    expect(prompt).toContain("พฤหัสบดี");
+    expect(prompt).toContain("คำอธิบายดวงจรจากแอดมิน");
   });
 });
