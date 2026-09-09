@@ -20,6 +20,13 @@ CREATE TYPE "UsageBucket" AS ENUM ('INCLUDED', 'PURCHASED', 'MIXED');
 ALTER TABLE "packages"
   ADD COLUMN "usageBudgetUnits" INTEGER NOT NULL DEFAULT 0;
 
+-- features / upgradeSteps lived in schema + seed but never had a migration; a
+-- fresh migrate deploy would fail on array_replace without these columns.
+ALTER TABLE "packages"
+  ADD COLUMN IF NOT EXISTS "features" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "packages"
+  ADD COLUMN IF NOT EXISTS "upgradeSteps" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+
 -- 1 unit = USD 0.000001. Initial budgets target roughly 20% AI COGS:
 -- Free = ฿1, Pro = ฿40, top-up = ฿20 at the current ฿36/USD baseline.
 UPDATE "packages" SET "usageBudgetUnits" = 27778 WHERE "code" = 'FREE';
