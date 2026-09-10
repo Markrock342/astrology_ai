@@ -22,6 +22,11 @@ type DashboardStats = {
 };
 
 type OpsHealth = {
+  database: {
+    connected: boolean;
+    latencyMs: number | null;
+    checkedAt: string;
+  };
   nodeEnv: string;
   rateLimitBackend: "upstash" | "memory";
   upstashConfigured: boolean;
@@ -83,6 +88,24 @@ export function DashboardOverview({
             Ops health
           </h2>
           <ul className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+            <OpsFlag
+              label={
+                ops.database.connected && ops.database.latencyMs !== null
+                  ? `ฐานข้อมูล PostgreSQL · ${ops.database.latencyMs} ms`
+                  : "ฐานข้อมูล PostgreSQL"
+              }
+              ok={ops.database.connected}
+              badLabel="เชื่อมต่อไม่ได้"
+              detail={`ตรวจล่าสุด ${new Date(ops.database.checkedAt).toLocaleTimeString(
+                "th-TH",
+                {
+                  timeZone: "Asia/Bangkok",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                },
+              )}`}
+            />
             <OpsFlag
               label={`Rate-limit: ${ops.rateLimitBackend}`}
               ok={ops.rateLimitBackend === "upstash"}
@@ -253,17 +276,22 @@ function OpsFlag({
   label,
   ok,
   warn,
+  detail,
+  badLabel = "ยังไม่ตั้ง",
 }: {
   label: string;
   ok: boolean;
   warn?: string;
+  detail?: string;
+  badLabel?: string;
 }) {
   return (
     <li className="flex flex-col gap-0.5 rounded-lg border border-[var(--border)] px-3 py-2">
       <span className="flex items-center justify-between gap-2">
         <span className="text-[var(--muted)]">{label}</span>
-        <Badge tone={ok ? "green" : "red"}>{ok ? "พร้อม" : "ยังไม่ตั้ง"}</Badge>
+        <Badge tone={ok ? "green" : "red"}>{ok ? "พร้อม" : badLabel}</Badge>
       </span>
+      {detail ? <span className="text-[var(--muted-2)]">{detail}</span> : null}
       {warn ? <span className="text-[var(--danger)]">{warn}</span> : null}
     </li>
   );
