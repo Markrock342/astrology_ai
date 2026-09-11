@@ -144,7 +144,7 @@ export function IntakeSurveyForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="animate-fade-up w-full max-w-xl rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-8"
+      className="animate-fade-up w-full max-w-xl overflow-x-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-8"
     >
       <p className="text-xs text-[var(--muted)]">{progressLabel}</p>
       <div
@@ -230,37 +230,41 @@ export function IntakeSurveyForm() {
         </p>
       ) : null}
 
-      <div className="sticky bottom-0 -mx-5 mt-8 flex gap-2 border-t border-[var(--border)] bg-[var(--surface)] px-5 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-4 sm:static sm:mx-0 sm:px-0 sm:pb-0">
-        {step > 0 ? (
-          <button
-            type="button"
-            onClick={() => {
-              setError(null);
-              setStep((current) => Math.max(0, current - 1));
-            }}
-            className="min-h-11 flex-1 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-2)]"
-          >
-            ย้อนกลับ
-          </button>
-        ) : null}
-        {step < SURVEY_STEPS.length - 1 ? (
-          <button
-            type="button"
-            onClick={goNext}
-            disabled={!currentComplete}
-            className="min-h-11 flex-[1.5] rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            ไปขั้นถัดไป
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={submitting || !complete}
-            className="min-h-11 flex-[1.5] rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {submitting ? "กำลังบันทึก…" : "ดูสรุปพื้นดวง"}
-          </button>
-        )}
+      <div
+        className="sticky bottom-0 z-10 -mx-5 mt-8 border-t border-[var(--border)] bg-[var(--surface)] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:static sm:mx-0 sm:px-0 sm:pb-0"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+          {step > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setStep((current) => Math.max(0, current - 1));
+              }}
+              className="min-h-11 w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--surface-2)] sm:min-w-0 sm:flex-1"
+            >
+              ย้อนกลับ
+            </button>
+          ) : null}
+          {step < SURVEY_STEPS.length - 1 ? (
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!currentComplete}
+              className="min-h-11 w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-0 sm:flex-[1.5]"
+            >
+              ไปขั้นถัดไป
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={submitting || !complete}
+              className="min-h-11 w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-0 sm:flex-[1.5]"
+            >
+              {submitting ? "กำลังบันทึก…" : "ดูสรุปพื้นดวง"}
+            </button>
+          )}
+        </div>
       </div>
     </form>
   );
