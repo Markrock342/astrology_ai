@@ -1,96 +1,60 @@
-import { after } from "next/server";
 import { prisma } from "@/server/db";
+import { AppError } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";
-import { birthProfileToChartInput } from "@/server/horoscope/engine/birth-input-mapper";
+import { isCurrentTaksaSlots } from "@/lib/taksa";
+import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
 import {
-  computeNatalChart,
-  computeNatalChartFormula,
-} from "@/server/horoscope/engine/compute-chart";
+  birthProfileToChartInput,
+  chartInputMatches,
+} from "@/server/horoscope/engine/birth-input-mapper";
+import { computeNatalChart } from "@/server/horoscope/engine/compute-chart";
 import { upsertChartMemory } from "@/server/horoscope/chart-memory-service";
 import { withPrismaRetry } from "@/server/prisma-utils";
 import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 
-/**
- * Keep the instance alive until the task settles. A bare `void promise` is
- * killed once the serverless response is sent, which is how background scrape
- * upgrades silently stopped landing in production.
- */
-function runAfterResponse(task: () => Promise<void>) {
-  try {
-    after(task);
-  } catch {
-    // No request scope (scripts, tests) — nothing to outlive, so just run it.
-    void task();
-  }
+const DEFAULT_SCRAPE_TIMEOUT_MS = 20_000;
+
+function scrapeTimeoutMs(): number {
+  const configured = Number(process.env.MYHORA_SCRAPE_TIMEOUT_MS);
+  return configured > 0 ? configured : DEFAULT_SCRAPE_TIMEOUT_MS;
 }
 
-/**
- * Save a fast local formula chart immediately, then optionally upgrade via myhora.
- * Chat must never wait on scrape. Also refreshes UserChartMemory.
- */
-export async function queueNatalChart(userId: string, birthProfileId: string) {
-  const profile = await withPrismaRetry(() =>
-    prisma.birthProfile.findUnique({ where: { id: birthProfileId } }),
+function isUsableChart(chart: ChartJson | null | undefined): chart is ChartJson {
+  if (!chart) return false;
+  const lagna = chart.chart?.lagna ?? chart.meta?.lagna;
+  return Boolean(lagna && Array.isArray(chart.planets) && chart.planets.length >= 7);
+}
+
+function isAcceptableCachedChart(
+  chart: ChartJson,
+  input: BirthInputSnapshot,
+): boolean {
+  return (
+    chartInputMatches(chart.input, input) &&
+    chart.meta?.evidenceVersion === 2 &&
+    chart.settings?.taksaCountFrom === "birth-weekday" &&
+    isCurrentTaksaSlots(chart.chart?.taksa) &&
+    isUsableChart(chart)
   );
-  if (!profile) return;
+}
 
-  const input = birthProfileToChartInput(profile);
-  const formula = computeNatalChartFormula(input);
-
-  await withPrismaRetry(() =>
-    prisma.natalChart.upsert({
+async function loadReadyChart(userId: string): Promise<ChartJson | null> {
+  const row = await withPrismaRetry(() =>
+    prisma.natalChart.findUnique({
       where: { userId },
-      create: {
-        userId,
-        birthProfileId,
-        status: "READY",
-        chartJson: formula as object,
-        note: formula.meta.calculationSource ?? "formula-pipeline",
-        computedAt: new Date(),
-      },
-      update: {
-        birthProfileId,
-        status: "READY",
-        chartJson: formula as object,
-        note: formula.meta.calculationSource ?? "formula-pipeline",
-        computedAt: new Date(),
-      },
+      select: { status: true, chartJson: true },
     }),
   );
-
-  await upsertChartMemory(userId, formula).catch((err) => {
-    console.warn(
-      "[natal] chart memory upsert failed:",
-      err instanceof Error ? err.message : err,
-    );
-  });
-  invalidateUserBootstrap(userId);
-
-  runAfterResponse(() =>
-    upgradeNatalChartFromScrape(userId, birthProfileId).catch((err) => {
-      console.warn(
-        "[natal] scrape upgrade failed:",
-        err instanceof Error ? err.message : err,
-      );
-    }),
-  );
+  if (!row || row.status !== "READY" || !row.chartJson) return null;
+  const chart = row.chartJson as unknown as ChartJson;
+  return isUsableChart(chart) ? chart : null;
 }
 
-/** Replace READY formula chart with myhora scrape when available (non-blocking caller). */
-export async function upgradeNatalChartFromScrape(
+async function persistReadyChart(
   userId: string,
   birthProfileId: string,
+  chartJson: ChartJson,
 ) {
-  const profile = await withPrismaRetry(() =>
-    prisma.birthProfile.findUnique({ where: { id: birthProfileId } }),
-  );
-  if (!profile) return;
-
-  const input = birthProfileToChartInput(profile);
-  // Hard cap so background work cannot run forever on serverless. The scrape
-  // itself holds no DB connection, so a slow myhora cannot starve the pool.
-  const chartJson = await computeNatalChart(input, { scrapeTimeoutMs: 12_000 });
-
   await withPrismaRetry(() =>
     prisma.natalChart.update({
       where: { userId },
@@ -107,8 +71,109 @@ export async function upgradeNatalChartFromScrape(
     }),
   );
 
-  await upsertChartMemory(userId, chartJson);
+  await upsertChartMemory(userId, chartJson).catch((err) => {
+    console.warn(
+      "[natal] chart memory upsert failed:",
+      err instanceof Error ? err.message : err,
+    );
+  });
   invalidateUserBootstrap(userId);
+}
+
+/**
+ * Scrape myhora first on every build. Falls back to local formula only when the
+ * scrape fails or times out. Reuses a fresh myhora chart when birth input matches.
+ */
+export async function buildNatalChartScrapeFirst(
+  userId: string,
+  birthProfileId: string,
+  input: BirthInputSnapshot,
+  options?: { scrapeTimeoutMs?: number },
+): Promise<ChartJson> {
+  const timeout = options?.scrapeTimeoutMs ?? scrapeTimeoutMs();
+
+  await withPrismaRetry(() =>
+    prisma.natalChart.upsert({
+      where: { userId },
+      create: { userId, birthProfileId, status: "PENDING" },
+      update: { birthProfileId, status: "PENDING" },
+    }),
+  );
+  invalidateUserBootstrap(userId);
+
+  try {
+    const chartJson = await computeNatalChart(input, { scrapeTimeoutMs: timeout });
+    if (!isUsableChart(chartJson)) {
+      throw new AppError(
+        "CHART_NOT_READY",
+        "ยังไม่มีพื้นดวงจาก engine — กรุณาบันทึกวันเกิดใหม่แล้วลองอีกครั้ง",
+      );
+    }
+
+    await persistReadyChart(userId, birthProfileId, chartJson);
+    return chartJson;
+  } catch (err) {
+    await withPrismaRetry(() =>
+      prisma.natalChart
+        .update({
+          where: { userId },
+          data: { status: "FAILED" },
+        })
+        .catch(() => null),
+    );
+    invalidateUserBootstrap(userId);
+    throw err;
+  }
+}
+
+/** Return a cached myhora chart or build one with scrape-first semantics. */
+export async function ensureNatalChartScrapeFirst(
+  userId: string,
+  options?: { scrapeTimeoutMs?: number; force?: boolean },
+): Promise<ChartJson> {
+  const profile = await withPrismaRetry(() =>
+    prisma.birthProfile.findUnique({ where: { userId } }),
+  );
+  if (!profile) {
+    throw new AppError("VALIDATION", "Birth profile is required");
+  }
+
+  const input = birthProfileToChartInput(profile);
+  const existing = await loadReadyChart(userId);
+  if (!options?.force && existing && isAcceptableCachedChart(existing, input)) {
+    return existing;
+  }
+
+  return buildNatalChartScrapeFirst(userId, profile.id, input, options);
+}
+
+/**
+ * Onboarding / birth-profile edits: always scrape first, then save READY chart.
+ */
+export async function queueNatalChart(userId: string, birthProfileId: string) {
+  const profile = await withPrismaRetry(() =>
+    prisma.birthProfile.findUnique({ where: { id: birthProfileId } }),
+  );
+  if (!profile) return;
+
+  const input = birthProfileToChartInput(profile);
+  await buildNatalChartScrapeFirst(userId, birthProfileId, input);
+}
+
+/** @deprecated Use ensureNatalChartScrapeFirst — kept for older imports. */
+export async function upgradeNatalChartFromScrape(
+  userId: string,
+  birthProfileId: string,
+) {
+  const profile = await withPrismaRetry(() =>
+    prisma.birthProfile.findUnique({ where: { id: birthProfileId } }),
+  );
+  if (!profile) return;
+  await buildNatalChartScrapeFirst(
+    userId,
+    birthProfileId,
+    birthProfileToChartInput(profile),
+  );
 }
 
 export async function getNatalChart(userId: string) {
@@ -119,10 +184,6 @@ export async function getNatalChart(userId: string) {
 
 export async function recomputeNatalChart(userId: string) {
   rateLimit(`natal-recompute:${userId}`, 5, 60_000);
-  const profile = await withPrismaRetry(() =>
-    prisma.birthProfile.findUnique({ where: { userId } }),
-  );
-  if (!profile) return null;
-  await queueNatalChart(userId, profile.id);
+  await ensureNatalChartScrapeFirst(userId, { force: true });
   return getNatalChart(userId);
 }

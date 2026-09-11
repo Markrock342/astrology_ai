@@ -299,20 +299,18 @@ export function AppDataProvider({
 
   const repairNatalChart = useCallback(async () => {
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 15_000);
+    const timeout = window.setTimeout(() => controller.abort(), 45_000);
     try {
-      const response = await fetch("/api/me/natal-chart", {
+      const response = await fetch("/api/me/natal-chart/status", {
         cache: "no-store",
         signal: controller.signal,
       });
       const json = await response.json().catch(() => null);
-      const status = json?.data?.chart?.status as
-        | NatalChartStatus["status"]
-        | undefined;
+      const status = json?.data?.status as NatalChartStatus["status"] | undefined;
       if (!response.ok || !json?.ok || !status) return;
       setNatalChartStatus({
         status,
-        note: json.data.chart.note ?? null,
+        note: json.data.note ?? null,
       });
     } catch {
       // Polling continues after transient network/compute failures. The loading
@@ -335,10 +333,12 @@ export function AppDataProvider({
     let attempts = 0;
 
     const poll = async () => {
+      if (!active) return;
       attempts += 1;
       await repairNatalChart();
-      if (!active || attempts >= 24) return;
-      timer = window.setTimeout(poll, attempts < 8 ? 2_500 : 5_000);
+      if (!active) return;
+      const delay = attempts < 6 ? 3_000 : 5_000;
+      timer = window.setTimeout(poll, delay);
     };
 
     void poll();
