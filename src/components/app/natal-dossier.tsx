@@ -44,7 +44,7 @@ export function NatalDossier({ onNavigate, activeView, activeSlug }: Props) {
         }`}
       >
         <span className="flex items-center gap-2.5">
-          <span className="text-[var(--primary)]">
+          <span className="text-[var(--foreground)]">
             <NatalChartIcon />
           </span>
           ดวงจักรกำเนิด
@@ -64,7 +64,7 @@ export function NatalDossier({ onNavigate, activeView, activeSlug }: Props) {
               title={`${category.label} · ปลดล็อกด้วย Pro`}
               className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--muted-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
             >
-              <span className="relative text-[var(--primary)]/55">
+              <span className="relative text-[var(--foreground)]/45">
                 <CategoryIcon slug={category.slug} icon={category.icon} />
                 <span className="absolute -right-1.5 -top-1 text-[var(--muted-2)]">
                   <LockIcon size={10} />
@@ -119,7 +119,7 @@ function NatalCategoryLink({
           : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
       }`}
     >
-      <span className="text-[var(--primary)]">
+      <span className="text-[var(--foreground)]">
         <CategoryIcon slug={category.slug} icon={category.icon} />
       </span>
       {category.label}
