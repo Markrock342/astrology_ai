@@ -124,6 +124,7 @@ export function NatalChartReferenceView() {
           chart={chart}
           mode="natal"
           defaultOpen
+          showAspects={false}
           onRowAsk={(next) => {
             dispatchAskFromChart(next);
             softNavigate(catSlug ? natalCategoryHref(catSlug) : "/dashboard");
