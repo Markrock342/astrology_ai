@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SIGNS } from "@/lib/chart-theme";
 import {
-  rasiOccupantPoint,
+  rasiSignOccupantPoint,
   SIGN_RULER_NUMERALS,
   TEMPLATE_SIGN_CENTERS,
   templateHouseLabels,
@@ -45,14 +45,12 @@ describe("Horasard Illustrator rasi template contract", () => {
     expect(TEMPLATE_SIGN_CENTERS[0]).toEqual({ x: 210, y: 105 });
   });
 
-  it("places 0° and 30° of the same sign at different wheel points", () => {
-    const start = rasiOccupantPoint("เมษ", 0, 0, "planet");
-    const mid = rasiOccupantPoint("เมษ", 15, 0, "planet");
-    const end = rasiOccupantPoint("เมษ", 30, 0, "planet");
-    expect(Math.abs(start.x - end.x)).toBeGreaterThan(40);
-    expect(start.x).toBeGreaterThan(mid.x);
-    expect(end.x).toBeLessThan(mid.x);
-    expect(mid.y).toBeLessThan(start.y);
-    expect(mid.y).toBeLessThan(end.y);
+  it("stacks occupants at the sign wedge centre regardless of degree", () => {
+    const single = rasiSignOccupantPoint(0, 0, 1, "planet");
+    const stackedLeft = rasiSignOccupantPoint(0, 0, 3, "planet");
+    const stackedRight = rasiSignOccupantPoint(0, 2, 3, "planet");
+    expect(Math.abs(single.x - stackedLeft.x)).toBeGreaterThan(5);
+    expect(stackedLeft.x).toBeLessThan(stackedRight.x);
+    expect(Math.abs(single.y - stackedLeft.y)).toBeLessThan(3);
   });
 });

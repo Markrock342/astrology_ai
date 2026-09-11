@@ -94,32 +94,32 @@ function coreTarget(boundaryIndex: number) {
 
 const PLANET_RADIUS = 116;
 const LAGNA_RADIUS = 100;
-const STACK_RADIUS_STEP = 9;
-const STACK_WITHIN_DEGREES = 6;
+/** Tangential spacing between occupants sharing one sign wedge. */
+const OCCUPANT_STACK_STEP = 14;
 
-/** Polar point on the rasi wheel for a body at `degreeInSign` of `sign`. */
-export function rasiOccupantPoint(
-  sign: string,
-  degreeInSign: number | undefined,
+/**
+ * Print-style placement: stack Thai numerals at the centre of each sign wedge.
+ * Degree labels still show the real longitude; only the glyph position is fixed.
+ */
+export function rasiSignOccupantPoint(
+  signIdx: number,
   stackIndex: number,
+  totalCount: number,
   kind: "planet" | "lagna",
 ) {
-  const angle = signWheelAngle(signIndex(sign), degreeInSign ?? 15);
-  const radius =
-    (kind === "lagna" ? LAGNA_RADIUS : PLANET_RADIUS) - stackIndex * STACK_RADIUS_STEP;
-  return polar(radius, angle);
-}
+  const angle = signWheelAngle(signIdx, 15);
+  const radius = kind === "lagna" ? LAGNA_RADIUS : PLANET_RADIUS;
+  const base = polar(radius, angle);
+  if (totalCount <= 1) return base;
 
-function occupancyStackIndex(degrees: number[], index: number): number {
-  let stack = 0;
-  for (let i = 1; i <= index; i++) {
-    if (Math.abs(degrees[i]! - degrees[i - 1]!) < STACK_WITHIN_DEGREES) {
-      stack += 1;
-    } else {
-      stack = 0;
-    }
-  }
-  return stack;
+  const tangentRad = ((angle - 90) * Math.PI) / 180;
+  const tx = -Math.sin(tangentRad);
+  const ty = Math.cos(tangentRad);
+  const offset = (stackIndex - (totalCount - 1) / 2) * OCCUPANT_STACK_STEP;
+  return {
+    x: base.x + tx * offset,
+    y: base.y + ty * offset,
+  };
 }
 
 export function templateHouseLabels(lagna: string) {
@@ -263,38 +263,39 @@ export function RasiTemplateChart({
         const planets = [...(planetsBySign.get(sign) ?? [])].sort(
           (a, b) => clampDegreeInSign(a.degreeInSign) - clampDegreeInSign(b.degreeInSign),
         );
-        const entries = [
-          ...(sign === lagna
-            ? [
-                {
-                  planet: "ลัคนา",
-                  symbol: LAGNA_MARK,
-                  color: GOLD,
-                  degreeText: undefined as string | undefined,
-                  degreeInSign: clampDegreeInSign(chart.lagnaDegreeInSign ?? 15),
-                  kind: "lagna" as const,
-                },
-              ]
-            : []),
-          ...planets.map((row) => ({
-            planet: row.planet,
-            symbol: getPlanetTheme(row.planet).numeral,
-            color: getPlanetTheme(row.planet).color,
-            degreeText: row.degreeText,
-            degreeInSign: clampDegreeInSign(row.degreeInSign),
-            kind: "planet" as const,
-          })),
-        ];
+        const lagnaEntry =
+          sign === lagna
+            ? {
+                planet: "ลัคนา",
+                symbol: LAGNA_MARK,
+                color: GOLD,
+                degreeText: undefined as string | undefined,
+                degreeInSign: clampDegreeInSign(chart.lagnaDegreeInSign ?? 15),
+                kind: "lagna" as const,
+              }
+            : null;
+        const planetEntries = planets.map((row) => ({
+          planet: row.planet,
+          symbol: getPlanetTheme(row.planet).numeral,
+          color: getPlanetTheme(row.planet).color,
+          degreeText: row.degreeText,
+          degreeInSign: clampDegreeInSign(row.degreeInSign),
+          kind: "planet" as const,
+        }));
+        const entries = lagnaEntry
+          ? [
+              ...planetEntries.slice(0, Math.floor(planetEntries.length / 2)),
+              lagnaEntry,
+              ...planetEntries.slice(Math.floor(planetEntries.length / 2)),
+            ]
+          : planetEntries;
         return (
           <g key={`${sign}-occupants`}>
             {entries.map((entry, entryIndex) => {
-              const { x, y } = rasiOccupantPoint(
-                sign,
-                entry.degreeInSign,
-                occupancyStackIndex(
-                  entries.map((item) => item.degreeInSign),
-                  entryIndex,
-                ),
+              const { x, y } = rasiSignOccupantPoint(
+                signIndex(sign),
+                entryIndex,
+                entries.length,
                 entry.kind,
               );
               const interactive = entry.planet !== "ลัคนา" && Boolean(onSelectPlanet);
