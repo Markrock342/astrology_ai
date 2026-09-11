@@ -28,9 +28,7 @@ export function NatalChartBanner() {
     };
   }, [natalChartStatus?.status]);
 
-  if (!natalChartStatus) return null;
-
-  if (natalChartStatus.status === "READY" && chartJson) {
+  if (natalChartStatus?.status === "READY" && chartJson) {
     return (
       <div className="animate-fade-in mb-6 flex justify-center">
         <ExpandableRasiWheel
@@ -42,7 +40,7 @@ export function NatalChartBanner() {
     );
   }
 
-  if (natalChartStatus.status === "PENDING") {
+  if (!natalChartStatus || natalChartStatus.status === "PENDING") {
     return (
       <ChartPreparingIndicator onRetry={repairNatalChart} />
     );
@@ -111,13 +109,13 @@ export function ChartPreparingIndicator({
       <div>
         <p className="text-sm font-semibold text-[var(--primary)]">
           {elapsed < 8
-            ? "กำลังวางลัคนาและตำแหน่งดาว"
-            : elapsed < 20
-              ? "กำลังตรวจเรือนและองศา"
+            ? "กำลังดึงพื้นดวงจาก myhora"
+            : elapsed < 25
+              ? "กำลังวางลัคนาและตำแหน่งดาว"
               : "ใช้เวลานานกว่าปกติ — กำลังลองใหม่ให้อัตโนมัติ"}
         </p>
         <p className="mt-1 text-xs tabular-nums text-[var(--muted-2)]">
-          {elapsed} วินาที · เสร็จแล้วหน้านี้จะเปิดสรุปให้เอง
+          {elapsed} วินาที · เสร็จแล้วหน้านี้จะเปิดดวงให้เอง
         </p>
       </div>
       {elapsed >= 20 && onRetry ? (

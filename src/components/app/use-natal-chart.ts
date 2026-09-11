@@ -34,6 +34,7 @@ export function useNatalChart(opts?: { enabled?: boolean }): NatalChartLoad {
     if (!enabled) return;
     if (natalChartStatus?.status !== "READY") return;
     const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 45_000);
     const key = reloadKey;
 
     void fetch("/api/me/natal-chart", {
@@ -60,7 +61,10 @@ export function useNatalChart(opts?: { enabled?: boolean }): NatalChartLoad {
         setFetchedKey(key);
       });
 
-    return () => controller.abort();
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [enabled, natalChartStatus?.status, reloadKey]);
 
   if (!enabled) return { status: "idle" };

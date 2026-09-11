@@ -5,12 +5,15 @@ import {
   getNatalChart,
 } from "@/server/horoscope/natal-chart-service";
 
-/** Return a scrape-first saved chart; repairs missing/stale charts synchronously. */
+/** Repair + return natal chart status after scrape-first build. */
 export async function GET() {
   return handle(async () => {
     const user = await requireUser();
     await ensureNatalChartScrapeFirst(user.id);
     const chart = await getNatalChart(user.id);
-    return ok({ chart });
+    return ok({
+      status: chart?.status ?? "PENDING",
+      note: chart?.note ?? null,
+    });
   });
 }
