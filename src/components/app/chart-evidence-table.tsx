@@ -22,6 +22,8 @@ type Props = {
   onRowAsk?: (prompt: string) => void;
   /** Sidebar / narrow column: always stack cards, never the wide table. */
   layout?: "auto" | "stack";
+  /** Hide aspect grid (e.g. in chat bubbles — AI still gets aspects in the prompt). */
+  showAspects?: boolean;
 };
 
 type EvidenceRow = MyhoraNatalPlanet & {
@@ -85,6 +87,7 @@ export function ChartEvidenceTable({
   defaultOpen = false,
   onRowAsk,
   layout = "auto",
+  showAspects = true,
 }: Props) {
   const samrap = pickRows(chart, mode);
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "—";
@@ -238,11 +241,13 @@ export function ChartEvidenceTable({
                 </tbody>
               </table>
             </div>
-            <ChartAspectList
-              planets={chart.planets}
-              lagna={lagna === "—" ? null : lagna}
-              lagnaDegreeInSign={resolveLagnaDegreeInSign(chart)}
-            />
+            {showAspects ? (
+              <ChartAspectList
+                planets={chart.planets}
+                lagna={lagna === "—" ? null : lagna}
+                lagnaDegreeInSign={resolveLagnaDegreeInSign(chart)}
+              />
+            ) : null}
             {standards.length ? (
               <section className="border-t border-[var(--border)] p-3" aria-labelledby="chart-standard-title">
                 <div className="max-w-3xl">
@@ -330,11 +335,13 @@ export function ChartEvidenceTable({
                 </tbody>
               </table>
             </div>
-            <ChartAspectList
-              planets={chart.planets}
-              lagna={lagna === "—" ? null : lagna}
-              lagnaDegreeInSign={resolveLagnaDegreeInSign(chart)}
-            />
+            {showAspects ? (
+              <ChartAspectList
+                planets={chart.planets}
+                lagna={lagna === "—" ? null : lagna}
+                lagnaDegreeInSign={resolveLagnaDegreeInSign(chart)}
+              />
+            ) : null}
           </>
         )}
       </div>

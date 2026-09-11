@@ -2103,6 +2103,7 @@ export function ChatView() {
                               <ChartEvidenceTable
                                 chart={m.chartSnapshot}
                                 mode="natal"
+                                showAspects={false}
                                 onRowAsk={
                                   threadMode === "TRANSIT" ? prefillFromChart : undefined
                                 }
@@ -2112,6 +2113,7 @@ export function ChatView() {
                               <ChartEvidenceTable
                                 chart={m.transitSnapshot}
                                 mode="transit"
+                                showAspects={false}
                                 onRowAsk={
                                   threadMode === "TRANSIT" ? prefillFromChart : undefined
                                 }
