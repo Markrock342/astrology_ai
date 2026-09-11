@@ -160,17 +160,20 @@ export function TransitIcon({ size = 14, className = "" }: IconProps) {
 
 /** Natal chart / rasi wheel — a permanent reference, not a chat category. */
 export function NatalChartIcon({ size = 18, className = "" }: IconProps) {
+  const stroke = {
+    stroke: "currentColor",
+    strokeWidth: 1.75,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
   return (
     <svg {...base(size)} className={className} aria-hidden>
-      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="12" cy="12" r="5.3" stroke="currentColor" strokeWidth="1.2" opacity="0.72" />
-      <path
-        d="M12 3.5v17M3.5 12h17M6 6l12 12M18 6 6 18"
-        stroke="currentColor"
-        strokeWidth="1"
-        opacity="0.72"
-      />
-      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="12" cy="12" r="9" fill="none" {...stroke} />
+      <circle cx="12" cy="12" r="5.75" fill="none" {...stroke} opacity="0.72" />
+      <path d="M12 3v18M3 12h18" {...stroke} opacity="0.72" />
+      <path d="M5.05 5.05 18.95 18.95M18.95 5.05 5.05 18.95" {...stroke} opacity="0.55" />
+      <circle cx="12" cy="12" r="1.25" fill="currentColor" stroke="none" />
     </svg>
   );
 }
