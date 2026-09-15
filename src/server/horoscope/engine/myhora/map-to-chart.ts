@@ -1,4 +1,4 @@
-import type { BirthInputSnapshot, ChartJson, PlanetSignRow } from "@/types/chart";
+import { CHART_EVIDENCE_VERSION, type BirthInputSnapshot, type ChartJson, type PlanetSignRow } from "@/types/chart";
 import type { MyhoraNatalPlanet, MyhoraTables } from "@/types/myhora";
 import { CALCULATION_SETTINGS } from "@/server/horoscope/engine/newhora/data/calculationSettings";
 import {
@@ -92,7 +92,7 @@ export function mapScrapeToChartJson(
     meta: {
       birthDisplay: formatBirthDisplay(input),
       locationDisplay: formatLocationDisplay(input),
-      evidenceVersion: 2,
+      evidenceVersion: CHART_EVIDENCE_VERSION,
       calculationSource: "myhora-scrape",
       lagna,
     },

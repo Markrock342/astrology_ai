@@ -62,6 +62,7 @@ export type ChartJson = {
     birthDisplay: string;
     locationDisplay: string;
     /** Rebuild cached charts when evidence/derivation rules change. */
+    /** Bump CHART_EVIDENCE_VERSION when stored charts must be recomputed. */
     evidenceVersion?: number;
     calculationSource?: CalculationSource;
     lagna?: string;
@@ -71,3 +72,10 @@ export type ChartJson = {
   /** Structured myhora scrape tables (evidence for UI + AI). */
   myhora?: import("@/types/myhora").MyhoraTables;
 };
+
+/**
+ * Stored natal charts are recomputed when their evidenceVersion is older.
+ * 3: every district now resolves to its own coordinates (v2 used the
+ *    province centre, which could shift the lagna by a sign).
+ */
+export const CHART_EVIDENCE_VERSION = 3;
