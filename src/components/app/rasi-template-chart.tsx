@@ -3,6 +3,7 @@ import { clampDegreeInSign, signWheelAngle } from "@/lib/chart-aspects";
 import {
   bhavaNameFromLagna,
   getHouseMeaning,
+  getPlanetMeaning,
   getPlanetTheme,
   LAGNA_MARK,
   normalizeSignName,
@@ -126,18 +127,24 @@ export function templateHouseLabels(lagna: string) {
   return SIGNS.map((sign) => bhavaNameFromLagna(lagna, sign));
 }
 
+const CALLOUT_W = 182;
+const CALLOUT_H = 70;
+
 export function RasiTemplateChart({
   chart,
   size = 420,
   className = "",
   onSelectPlanet,
   selectedPlanet,
+  showDegrees = false,
 }: {
   chart: RasiTemplateChartData;
   size?: number;
   className?: string;
   onSelectPlanet?: (planet: string) => void;
   selectedPlanet?: string | null;
+  /** Degree labels under each numeral — off by default (client request). */
+  showDegrees?: boolean;
 }) {
   const lagna = normalizeSignName(chart.lagna);
   const planetsBySign = new Map<string, PlanetSignRow[]>();
@@ -150,6 +157,52 @@ export function RasiTemplateChart({
     const sign = normalizeSignName(row.siderealSign);
     planetsBySign.set(sign, [...(planetsBySign.get(sign) ?? []), row]);
   }
+
+  // Occupant positions are laid out once so the tapped planet's explanation
+  // can be drawn at its exact spot (and nothing mutates during render).
+  const occupantLayout = SIGNS.map((sign) => {
+    const planets = [...(planetsBySign.get(sign) ?? [])].sort(
+      (a, b) => clampDegreeInSign(a.degreeInSign) - clampDegreeInSign(b.degreeInSign),
+    );
+    const lagnaEntry =
+      sign === lagna
+        ? {
+            planet: "ลัคนา",
+            symbol: LAGNA_MARK,
+            color: GOLD,
+            degreeText: undefined as string | undefined,
+            degreeInSign: clampDegreeInSign(chart.lagnaDegreeInSign ?? 15),
+            kind: "lagna" as const,
+          }
+        : null;
+    const planetEntries = planets.map((row) => ({
+      planet: row.planet,
+      symbol: getPlanetTheme(row.planet).numeral,
+      color: getPlanetTheme(row.planet).color,
+      degreeText: row.degreeText,
+      degreeInSign: clampDegreeInSign(row.degreeInSign),
+      kind: "planet" as const,
+    }));
+    const entries = lagnaEntry
+      ? [
+          ...planetEntries.slice(0, Math.floor(planetEntries.length / 2)),
+          lagnaEntry,
+          ...planetEntries.slice(Math.floor(planetEntries.length / 2)),
+        ]
+      : planetEntries;
+    return {
+      sign,
+      entries: entries.map((entry, entryIndex) => ({
+        ...entry,
+        ...rasiSignOccupantPoint(signIndex(sign), entryIndex, entries.length, entry.kind),
+      })),
+    };
+  });
+  const selectedEntry = selectedPlanet
+    ? (occupantLayout
+        .flatMap((group) => group.entries.map((entry) => ({ ...entry, sign: group.sign })))
+        .find((entry) => entry.planet === selectedPlanet && entry.kind === "planet") ?? null)
+    : null;
 
   return (
     <svg
@@ -264,47 +317,14 @@ export function RasiTemplateChart({
         );
       })}
 
-      {SIGNS.map((sign) => {
-        const planets = [...(planetsBySign.get(sign) ?? [])].sort(
-          (a, b) => clampDegreeInSign(a.degreeInSign) - clampDegreeInSign(b.degreeInSign),
-        );
-        const lagnaEntry =
-          sign === lagna
-            ? {
-                planet: "ลัคนา",
-                symbol: LAGNA_MARK,
-                color: GOLD,
-                degreeText: undefined as string | undefined,
-                degreeInSign: clampDegreeInSign(chart.lagnaDegreeInSign ?? 15),
-                kind: "lagna" as const,
-              }
-            : null;
-        const planetEntries = planets.map((row) => ({
-          planet: row.planet,
-          symbol: getPlanetTheme(row.planet).numeral,
-          color: getPlanetTheme(row.planet).color,
-          degreeText: row.degreeText,
-          degreeInSign: clampDegreeInSign(row.degreeInSign),
-          kind: "planet" as const,
-        }));
-        const entries = lagnaEntry
-          ? [
-              ...planetEntries.slice(0, Math.floor(planetEntries.length / 2)),
-              lagnaEntry,
-              ...planetEntries.slice(Math.floor(planetEntries.length / 2)),
-            ]
-          : planetEntries;
+      {occupantLayout.map(({ sign, entries }) => {
         return (
           <g key={`${sign}-occupants`}>
-            {entries.map((entry, entryIndex) => {
-              const { x, y } = rasiSignOccupantPoint(
-                signIndex(sign),
-                entryIndex,
-                entries.length,
-                entry.kind,
-              );
+            {entries.map((entry) => {
+              const { x, y } = entry;
               const interactive = entry.planet !== "ลัคนา" && Boolean(onSelectPlanet);
               const selected = selectedPlanet === entry.planet;
+              const degreeLabel = showDegrees ? entry.degreeText : undefined;
               const select = () => {
                 if (interactive) onSelectPlanet?.(entry.planet);
               };
@@ -348,7 +368,7 @@ export function RasiTemplateChart({
                   ) : null}
                   <text
                     x={x}
-                    y={entry.degreeText ? y - 2 : y + 1}
+                    y={degreeLabel ? y - 2 : y + 1}
                     textAnchor="middle"
                     dominantBaseline="middle"
                     fill={entry.color}
@@ -357,7 +377,7 @@ export function RasiTemplateChart({
                   >
                     {entry.symbol}
                   </text>
-                  {entry.degreeText ? (
+                  {degreeLabel ? (
                     <text
                       x={x}
                       y={y + 9}
@@ -368,7 +388,7 @@ export function RasiTemplateChart({
                       fontWeight="500"
                       opacity="0.88"
                     >
-                      {entry.degreeText.replace(/\s+/g, "")}
+                      {degreeLabel.replace(/\s+/g, "")}
                     </text>
                   ) : null}
                 </g>
@@ -377,6 +397,80 @@ export function RasiTemplateChart({
           </g>
         );
       })}
+      {selectedEntry ? (
+        <PlanetCallout
+          lagna={lagna}
+          x={selectedEntry.x}
+          y={selectedEntry.y}
+          planet={selectedEntry.planet}
+          sign={selectedEntry.sign}
+          color={selectedEntry.color}
+        />
+      ) : null}
     </svg>
+  );
+}
+
+/**
+ * Explanation drawn next to the tapped numeral: which planet, which sign and
+ * house it sits in, and what the planet stands for. Flips to whichever side
+ * of the wheel has room; HTML inside foreignObject so the Thai text wraps.
+ */
+function PlanetCallout({
+  x,
+  y,
+  planet,
+  sign,
+  color,
+  lagna,
+}: {
+  x: number;
+  y: number;
+  planet: string;
+  sign: string;
+  color: string;
+  lagna: string;
+}) {
+  const right = x < CENTER;
+  const left = right ? x + 18 : x - 18 - CALLOUT_W;
+  const top = Math.min(Math.max(y - CALLOUT_H / 2, 6), VIEWBOX - CALLOUT_H - 6);
+  const theme = getPlanetTheme(planet);
+  return (
+    <g pointerEvents="none" aria-live="polite">
+      <line
+        x1={x}
+        y1={y}
+        x2={right ? left : left + CALLOUT_W}
+        y2={top + CALLOUT_H / 2}
+        stroke={color}
+        strokeWidth="1"
+        opacity="0.8"
+      />
+      <foreignObject x={left} y={top} width={CALLOUT_W} height={CALLOUT_H}>
+        <div
+          style={{
+            boxSizing: "border-box",
+            height: "100%",
+            padding: "6px 9px",
+            borderRadius: 12,
+            border: `1px solid ${color}`,
+            background: "rgba(13, 13, 15, 0.96)",
+            color: CREAM,
+            fontSize: 10.5,
+            lineHeight: 1.35,
+          }}
+        >
+          <div style={{ fontWeight: 700, color }}>
+            {theme.numeral} {planet}
+            <span style={{ fontWeight: 500, color: CREAM, opacity: 0.85 }}>
+              {" "}· ราศี{signLabel(sign)} · ภพ{bhavaNameFromLagna(lagna, sign)}
+            </span>
+          </div>
+          <div style={{ marginTop: 2, opacity: 0.9 }}>
+            {planet}แทน{getPlanetMeaning(planet)}
+          </div>
+        </div>
+      </foreignObject>
+    </g>
   );
 }
