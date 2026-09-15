@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { requireAdmin } from "@/server/auth/rbac";
 import { bangkokBoundaries } from "@/server/credit/quota-service";
 import { estimateCostUsd, USD_TO_THB } from "@/config/ai-pricing";
+import { summarizeFutureDatePromptEvents } from "@/server/analytics/future-date-prompt-service";
 
 const querySchema = z.object({
   days: z.coerce.number().int().min(7).max(31).optional().default(14),
@@ -28,8 +29,8 @@ export type AnalyticsDay = {
 /**
  * GET /api/admin/analytics — daily token/cost/traffic series for the dashboard.
  *
- * The client polls this every 30s, so it must stay one cheap indexed scan:
- * everything is bucketed here in one pass, no per-day queries.
+ * The client polls this every 30s, so both indexed aggregate queries run in
+ * parallel and all bucketing stays in memory (no per-day queries).
  */
 export async function GET(req: Request) {
   return handle(async () => {
@@ -41,19 +42,26 @@ export async function GET(req: Request) {
     const { dayStart } = bangkokBoundaries(now);
     const since = new Date(dayStart.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
 
-    const logs = await prisma.aIUsageLog.findMany({
-      where: { createdAt: { gte: since } },
-      select: {
-        createdAt: true,
-        status: true,
-        errorCode: true,
-        modelId: true,
-        inputUsage: true,
-        outputUsage: true,
-        estimatedCost: true,
-        userId: true,
-      },
-    });
+    const [logs, promptEventGroups] = await Promise.all([
+      prisma.aIUsageLog.findMany({
+        where: { createdAt: { gte: since } },
+        select: {
+          createdAt: true,
+          status: true,
+          errorCode: true,
+          modelId: true,
+          inputUsage: true,
+          outputUsage: true,
+          estimatedCost: true,
+          userId: true,
+        },
+      }),
+      prisma.futureDatePromptEvent.groupBy({
+        by: ["trigger", "action"],
+        where: { createdAt: { gte: since } },
+        _count: { _all: true },
+      }),
+    ]);
 
     // Pre-seed every day so quiet days plot as zero instead of vanishing —
     // a missing day reads as "no data", a zero day reads as "no traffic".
@@ -91,12 +99,14 @@ export async function GET(req: Request) {
 
     const series = [...byDay.values()];
     const today = byDay.get(todayKey) ?? null;
+    const futureDatePrompts = summarizeFutureDatePromptEvents(promptEventGroups);
 
     return ok({
       generatedAt: now.toISOString(),
       usdToThb: USD_TO_THB,
       days,
       series,
+      futureDatePrompts,
       today: {
         ...(today ?? {
           day: todayKey,

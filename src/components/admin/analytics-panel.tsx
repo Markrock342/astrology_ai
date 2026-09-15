@@ -15,6 +15,10 @@ import {
   adminFetch,
 } from "./ui";
 import { formatThb } from "@/config/ai-pricing";
+import {
+  FUTURE_DATE_PROMPT_TRIGGER_LABELS,
+  type FutureDatePromptTrigger,
+} from "@/lib/reading-intent";
 
 /**
  * Live usage dashboard.
@@ -49,6 +53,13 @@ type Analytics = {
   days: number;
   series: Day[];
   today: Day & { activeUsers: number };
+  futureDatePrompts: Array<{
+    trigger: string;
+    confirmed: number;
+    cancelled: number;
+    total: number;
+    confirmationRate: number;
+  }>;
 };
 
 const REFRESH_MS = 30_000;
@@ -64,6 +75,13 @@ function compact(n: number): string {
 function dayLabel(iso: string): string {
   const d = new Date(`${iso}T00:00:00+07:00`);
   return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+}
+
+function promptTriggerLabel(trigger: string): string {
+  return (
+    FUTURE_DATE_PROMPT_TRIGGER_LABELS[trigger as FutureDatePromptTrigger] ??
+    trigger
+  );
 }
 
 /** Clean axis max: round up to 1/2/5 × 10^n so ticks are readable numbers. */
@@ -543,6 +561,63 @@ export function AnalyticsPanel() {
               </Card>
             </div>
           )}
+
+          <Card className="mt-4">
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold">
+                Keyword ที่เรียก modal เลือกวันจร
+              </h2>
+              <p className="mt-1 text-[11px] text-[var(--muted-2)]">
+                เก็บเฉพาะกลุ่ม keyword และผลยืนยัน/ยกเลิก ไม่เก็บคำถาม ผู้ใช้
+                IP หรือวันที่ที่เลือก · เรียงจากจำนวนยกเลิกมากที่สุด
+              </p>
+            </div>
+            {data.futureDatePrompts.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">
+                ยังไม่มีการตอบสนองต่อ modal ในช่วง {days} วันนี้
+              </p>
+            ) : (
+              <TableShell>
+                <thead>
+                  <tr>
+                    <Th>กลุ่ม keyword</Th>
+                    <Th className="text-right">ยืนยัน</Th>
+                    <Th className="text-right">ยกเลิก</Th>
+                    <Th className="text-right">อัตรายืนยัน</Th>
+                    <Th className="text-right">รวม</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.futureDatePrompts.map((row) => (
+                    <tr key={row.trigger}>
+                      <Td>{promptTriggerLabel(row.trigger)}</Td>
+                      <Td className="text-right tabular-nums text-[var(--secondary-active)]">
+                        {nf.format(row.confirmed)}
+                      </Td>
+                      <Td
+                        className={`text-right tabular-nums ${
+                          row.cancelled > row.confirmed
+                            ? "text-[var(--danger)]"
+                            : ""
+                        }`}
+                      >
+                        {nf.format(row.cancelled)}
+                      </Td>
+                      <Td className="text-right tabular-nums">
+                        {row.confirmationRate.toLocaleString("th-TH", {
+                          maximumFractionDigits: 1,
+                        })}
+                        %
+                      </Td>
+                      <Td className="text-right tabular-nums">
+                        {nf.format(row.total)}
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </TableShell>
+            )}
+          </Card>
         </>
       )}
     </AdminPage>

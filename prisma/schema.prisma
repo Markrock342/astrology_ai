@@ -830,6 +830,19 @@ model MessageFeedback {
   @@map("message_feedback")
 }
 
+/// Privacy-safe product signal for tuning the future-date keyword detector.
+/// Deliberately stores neither the question nor a user/session identifier.
+model FutureDatePromptEvent {
+  id        String   @id @default(cuid())
+  trigger   String
+  action    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([trigger, action, createdAt])
+  @@map("future_date_prompt_events")
+}
+
 // ---------------------------------------------------------------------------
 // Payments (manual, Phase 1) + audit + settings
 // ---------------------------------------------------------------------------

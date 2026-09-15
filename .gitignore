@@ -20,6 +20,9 @@
 # production
 /build
 
+# local database dumps contain sensitive user data
+/backups/
+
 # misc
 .DS_Store
 # macOS AppleDouble sidecar files (created on exFAT/FAT volumes)
