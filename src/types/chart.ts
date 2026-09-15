@@ -77,5 +77,7 @@ export type ChartJson = {
  * Stored natal charts are recomputed when their evidenceVersion is older.
  * 3: every district now resolves to its own coordinates (v2 used the
  *    province centre, which could shift the lagna by a sign).
+ * 4: myhora is sent its numeric province/district ids — names left its
+ *    dropdowns on Bangkok, so v3 charts were still computed for กรุงเทพฯ.
  */
-export const CHART_EVIDENCE_VERSION = 3;
+export const CHART_EVIDENCE_VERSION = 4;
