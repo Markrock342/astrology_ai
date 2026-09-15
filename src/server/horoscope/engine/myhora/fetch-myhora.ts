@@ -14,6 +14,15 @@ import {
   parseViewState,
   planetsFromMyhoraTable,
 } from "./parse-html";
+import {
+  bangkokDistrictId,
+  findDistrictId,
+  MYHORA_BANGKOK_PROVINCE_ID,
+  MYHORA_PROVINCE_IDS,
+  parseAmphurOptions,
+  parseDeltaViewState,
+  type MyhoraPlaceIds,
+} from "./place-ids";
 
 const DEFAULT_TIMEOUT_MS = 8_000;
 const USER_AGENT = "HoraSard/1.0 (+server-scrape)";
@@ -45,6 +54,7 @@ export function buildMyhoraFormBody(
   generator: string,
   ascValue: string,
   transit: TransitInput = defaultTransitInput(),
+  placeIds: MyhoraPlaceIds = {},
 ): URLSearchParams {
   const [hh, mm] = input.time.split(":");
   const [tHh, tMm] = transit.time.split(":");
@@ -66,8 +76,9 @@ export function buildMyhoraFormBody(
     dd_year: String(be),
     dd_hh: String(Number(hh) || 0),
     dd_mm: String(Number(mm) || 0),
-    dd_province: input.province,
-    dd_amphur: input.district,
+    // myhora expects its own numeric ids here; names are a last resort.
+    dd_province: placeIds.province ?? input.province,
+    dd_amphur: placeIds.amphur ?? input.district,
     dd_country: countryValue(input.country),
     txt_lat_th: String(place.lat),
     txt_lon_th: String(place.lon),
@@ -78,8 +89,8 @@ export function buildMyhoraFormBody(
     dd_year2: String(tBe),
     dd_hh2: String(Number(tHh) || 0),
     dd_mm2: String(Number(tMm) || 0),
-    dd_province2: transit.province?.trim() || input.province,
-    dd_amphur2: transit.district?.trim() || input.district,
+    dd_province2: placeIds.province2 ?? (transit.province?.trim() || input.province),
+    dd_amphur2: placeIds.amphur2 ?? (transit.district?.trim() || input.district),
     setcal: "rb_suriyayas",
     dd_suriyayas_asc: ascValue,
     cb_setday8: "on",
@@ -122,6 +133,98 @@ export interface MyhoraScrapeResult {
   planets: PlanetSignRow[];
   lagna: string | null;
   tables: MyhoraTables;
+  /** Which dropdown ids the form was submitted with (diagnostics). */
+  placeIds?: MyhoraPlaceIds;
+}
+
+/**
+ * Resolve myhora's numeric province/district ids for the birth and transit
+ * places. Non-Bangkok districts need a province-change postback, which also
+ * yields the view state the final submit must carry. Any failure keeps the
+ * previous behaviour (names) for that field rather than aborting the scrape.
+ */
+async function resolvePlaceIds(
+  input: BirthInputSnapshot,
+  transit: TransitInput,
+  vs: { viewState: string; generator: string },
+  ascValue: string,
+): Promise<{ ids: MyhoraPlaceIds; viewState: string; generator: string }> {
+  const ids: MyhoraPlaceIds = {};
+  let viewState = vs.viewState;
+  let generator = vs.generator;
+
+  async function postback(
+    target: "dd_province" | "dd_province2",
+    provinceId: string,
+  ): Promise<Record<string, string> | null> {
+    const body = buildMyhoraFormBody(input, viewState, generator, ascValue, transit, ids);
+    body.set(target, provinceId);
+    body.set("scriptManager", `${target === "dd_province" ? "tup_natal" : "tup_transit"}|${target}`);
+    body.set("__EVENTTARGET", target);
+    body.set("__EVENTARGUMENT", "");
+    body.set("__LASTFOCUS", "");
+    body.set("__ASYNCPOST", "true");
+    body.delete("btn_submit");
+    const text = await fetchText("/astrology/thai.aspx", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-MicrosoftAjax": "Delta=true",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      body: body.toString(),
+    });
+    const delta = parseDeltaViewState(text);
+    if (delta.viewState) viewState = delta.viewState;
+    if (delta.generator) generator = delta.generator;
+    return parseAmphurOptions(text, target === "dd_province" ? "dd_amphur" : "dd_amphur2");
+  }
+
+  const places: Array<{
+    target: "dd_province" | "dd_province2";
+    province: string;
+    district: string;
+    set: (province: string, amphur?: string) => void;
+  }> = [
+    {
+      target: "dd_province",
+      province: input.province,
+      district: input.district,
+      set: (province, amphur) => {
+        ids.province = province;
+        if (amphur) ids.amphur = amphur;
+      },
+    },
+    {
+      target: "dd_province2",
+      province: transit.province?.trim() || input.province,
+      district: transit.district?.trim() || input.district,
+      set: (province, amphur) => {
+        ids.province2 = province;
+        if (amphur) ids.amphur2 = amphur;
+      },
+    },
+  ];
+
+  for (const place of places) {
+    const provinceId = MYHORA_PROVINCE_IDS[place.province.trim()];
+    if (!provinceId) continue;
+    if (provinceId === MYHORA_BANGKOK_PROVINCE_ID) {
+      place.set(provinceId, bangkokDistrictId(place.district));
+      continue;
+    }
+    try {
+      const options = await postback(place.target, provinceId);
+      place.set(provinceId, options ? findDistrictId(options, place.district) : undefined);
+    } catch (err) {
+      console.warn(
+        `[myhora] ${place.target} postback failed — submitting names for ${place.province}/${place.district}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  return { ids, viewState, generator };
 }
 
 export interface FetchMyhoraOptions {
@@ -149,7 +252,15 @@ export async function fetchMyhoraThaiChart(
   if (!vs) throw new Error("ไม่พบ __VIEWSTATE จาก myhora");
 
   const ascValue = parseAscendantOption(landing);
-  const body = buildMyhoraFormBody(input, vs.viewState, vs.generator, ascValue, transit);
+  const resolved = await resolvePlaceIds(input, transit, vs, ascValue);
+  const body = buildMyhoraFormBody(
+    input,
+    resolved.viewState,
+    resolved.generator,
+    ascValue,
+    transit,
+    resolved.ids,
+  );
 
   const resultHtml = await fetchText("/astrology/thai.aspx", {
     method: "POST",
@@ -184,6 +295,7 @@ export async function fetchMyhoraThaiChart(
       planets: planets.length ? planets : planetsFromMyhoraTable(resultHtml),
       lagna: lagnaSign ?? tables.lagnaSign,
       tables: { ...tables, lagnaSign: lagnaSign ?? tables.lagnaSign },
+      placeIds: resolved.ids,
     };
     if (!isValidMyhoraScrape(result)) {
       throw new Error("myhora scrape incomplete (missing lagna/planets)");
@@ -239,6 +351,7 @@ export async function fetchMyhoraThaiChart(
     planets: planets.length ? planets : planetsFromMyhoraTable(resultHtml),
     lagna: lagnaSign ?? tables.lagnaSign,
     tables: { ...tables, lagnaSign: lagnaSign ?? tables.lagnaSign },
+    placeIds: resolved.ids,
   };
 
   if (!isValidMyhoraScrape(result)) {
