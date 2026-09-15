@@ -51,6 +51,36 @@ const chart = {
 
 const memory = deriveChartMemory(chart);
 
+describe("buildSystemPrompt closed-book knowledge contract", () => {
+  const base = {
+    safety: "safe",
+    persona: "persona",
+    plan: "pro",
+    category: "finance",
+    outputFormat: "markdown",
+  };
+
+  it("forbids the model's own astrology knowledge and other sources", () => {
+    const prompt = buildSystemPrompt({ ...base, knowledge: "[knowledge] ตำรา A" });
+    expect(prompt).toContain("กฎแหล่งความรู้");
+    expect(prompt).toContain("ห้ามใช้ความรู้โหราศาสตร์ที่โมเดลเรียนรู้มาเอง");
+    expect(prompt).toContain("โหราศาสตร์สากล/ตะวันตก");
+    expect(prompt).toContain("บุคลิก น้ำเสียง และวิธีพูดจากบล็อก persona");
+    // Rule sits right after the doctrine block it governs.
+    expect(prompt.indexOf("[knowledge] ตำรา A")).toBeLessThan(
+      prompt.indexOf("กฎแหล่งความรู้"),
+    );
+    expect(prompt).not.toContain("ไม่มีตำราจากคลังความรู้แนบมา");
+  });
+
+  it("tells the model not to fill the gap itself when no doctrine was retrieved", () => {
+    const prompt = buildSystemPrompt(base);
+    expect(prompt).toContain("ไม่มีตำราจากคลังความรู้แนบมา");
+    expect(prompt).toContain("ห้ามใช้ความรู้ของโมเดลเองแทน");
+    expect(prompt).toContain("กฎแหล่งความรู้");
+  });
+});
+
 describe("buildSystemPrompt plain-language contract", () => {
   it("requires a short translation when the answer uses astrology jargon", () => {
     const prompt = buildSystemPrompt({

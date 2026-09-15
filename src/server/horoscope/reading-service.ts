@@ -50,6 +50,7 @@ import {
   BRIEF_MAX_OUTPUT_TOKENS_PRO,
   DETAILED_ANSWER_HINT_FREE,
   DETAILED_ANSWER_HINT_PRO,
+  FREE_KNOWLEDGE_MAX_CHARS,
   FREE_MAX_OUTPUT_TOKENS,
   GEMINI_DETAILED_FIRST_TOKEN_MS,
   KNOWLEDGE_MAX_CHARS,
@@ -431,7 +432,8 @@ async function runReading(
     query: question,
     context: retrievalContext,
     categoryId: category.id,
-    maxChars: KNOWLEDGE_MAX_CHARS,
+    // Trial depth: Free gets the best-ranked doctrine only (see FREE_TRIAL_DEPTH_PERCENT).
+    maxChars: plan === "FREE" ? FREE_KNOWLEDGE_MAX_CHARS : KNOWLEDGE_MAX_CHARS,
   });
   const glossary: StandardGlossaryItem[] = standardRows.map((row) => ({
     matchKey: row.matchKey,

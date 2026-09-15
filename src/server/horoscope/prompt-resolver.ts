@@ -1,4 +1,5 @@
 import type { PromptTemplate } from "@prisma/client";
+import { PLAN_HINT_FREE, PLAN_HINT_PRO } from "@/config/constants";
 import { prisma } from "@/server/db";
 
 const PROMPT_CODES = {
@@ -76,10 +77,7 @@ export async function resolvePromptParts(input: {
   return {
     safety: systemTpl?.content ?? DEFAULTS.system,
     persona: personaContent,
-    plan:
-      input.plan === "PRO"
-        ? "ผู้ใช้ระดับ Pro: ตอบครบถ้วนตรงคำถาม ใช้หัวข้อ/ตารางเมื่อมีหลายจุด — ไม่เกริ่นยาว ไม่ซ้ำประเด็น"
-        : "ผู้ใช้ระดับ Free: ตอบกระชับแต่ครบประเด็นหลัก",
+    plan: input.plan === "PRO" ? PLAN_HINT_PRO : PLAN_HINT_FREE,
     category: input.categoryDescription ?? input.categoryName,
     outputFormat: formatTpl?.content ?? DEFAULTS.format,
   };

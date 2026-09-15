@@ -27,6 +27,14 @@ export type RetrievedKnowledgeChunk = {
   sortOrder: number;
 };
 
+/**
+ * Header of the doctrine block. Wording is a hard instruction, not a hint:
+ * the admin knowledge base (plus the astrology standards block) is the ONLY
+ * interpretation source the model may use — never Gemini's own training.
+ */
+export const KNOWLEDGE_BLOCK_HEADER =
+  "[knowledge] ตำราจากคลังความรู้ของระบบ (แหล่งตีความเพียงแหล่งเดียวที่อนุญาต ยึดข้อมูลดวงปัจจุบันเป็นหลัก):\n\n";
+
 const CHUNK_CHARS = 2_400;
 const CHUNK_OVERLAP_CHARS = 180;
 const MAX_CHUNKS_PER_DOCUMENT = 3;
@@ -216,9 +224,7 @@ export function retrieveKnowledgeChunks(
     );
 
   const maxChars = input.maxChars ?? KNOWLEDGE_MAX_CHARS;
-  const header =
-    "ความรู้อ้างอิงที่ค้นพบจากคลังความรู้ (ใช้ประกอบการตอบและยึดข้อมูลดวงปัจจุบันเป็นหลัก):\n\n";
-  let used = header.length;
+  let used = KNOWLEDGE_BLOCK_HEADER.length;
   const perDocument = new Map<string, number>();
   const selected: RetrievedKnowledgeChunk[] = [];
 
@@ -247,10 +253,8 @@ export function buildKnowledgePrompt(
   if (docs.length === 0) return undefined;
   const selected = retrieveKnowledgeChunks(docs, input);
   if (selected.length === 0) return undefined;
-  const header =
-    "ความรู้อ้างอิงที่ค้นพบจากคลังความรู้ (ใช้ประกอบการตอบและยึดข้อมูลดวงปัจจุบันเป็นหลัก):\n\n";
   return (
-    header +
+    KNOWLEDGE_BLOCK_HEADER +
     selected
       .map(
         (chunk) =>
