@@ -20,6 +20,143 @@ const NATAL_HINT =
 const TRANSIT_HINT =
   /ดวงจร|วันจร|ช่วงนี้|ตอนนี้|วันนี้|พรุ่งนี้|เดือนนี้|เดือนหน้า|สัปดาห์|ปีนี้|ปีหน้า|อนาคต|อีก\s*\d+\s*เดือน|ช่วง\s*\d+\s*เดือน|[3๓]\s*เดือน|สามเดือน|จะ(?:เป็น|ได้|มี|ไป|เจอ)|เมื่อ(?:ไหร่|ไร)|จังหวะ/;
 
+export const FUTURE_DATE_PROMPT_TRIGGERS = [
+  "explicit_date",
+  "tomorrow",
+  "day_after_tomorrow",
+  "week_current",
+  "week_next",
+  "month_current",
+  "month_next",
+  "year_current",
+  "year_next",
+  "relative_period",
+  "when",
+  "future",
+  "future_outcome",
+] as const;
+
+export type FutureDatePromptTrigger =
+  (typeof FUTURE_DATE_PROMPT_TRIGGERS)[number];
+
+export const FUTURE_DATE_PROMPT_TRIGGER_LABELS: Record<
+  FutureDatePromptTrigger,
+  string
+> = {
+  explicit_date: "ระบุวันที่ตรงๆ",
+  tomorrow: "พรุ่งนี้",
+  day_after_tomorrow: "มะรืน",
+  week_current: "สัปดาห์นี้",
+  week_next: "สัปดาห์หน้า",
+  month_current: "เดือนนี้",
+  month_next: "เดือนหน้า",
+  year_current: "ปีนี้",
+  year_next: "ปีหน้า",
+  relative_period: "ช่วงเวลา / อีก N วันเดือนปี",
+  when: "เมื่อไหร่ / เมื่อไร",
+  future: "อนาคต",
+  future_outcome: "จะได้ / จะมี / มีโอกาส",
+};
+
+const THAI_NUMBER_WORDS: Record<string, number> = {
+  หนึ่ง: 1,
+  สอง: 2,
+  สาม: 3,
+  สี่: 4,
+  ห้า: 5,
+  หก: 6,
+  เจ็ด: 7,
+  แปด: 8,
+  เก้า: 9,
+  สิบ: 10,
+};
+const COUNT_SRC = "(\\d+|[๐-๙]+|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า|สิบ)";
+const UNIT_SRC = "(วัน|สัปดาห์|เดือน|ปี)";
+/** "อีก 2 วัน", "ช่วง 3 เดือน", "ภายใน 5 วัน" */
+const RELATIVE_PREFIX = new RegExp(`(อีก|ช่วง|ภายใน)\\s*${COUNT_SRC}\\s*${UNIT_SRC}`);
+/** "สองวันข้างหน้า", "2 วันถัดไป", "3 สัปดาห์ต่อจากนี้" — no "อีก" needed. */
+const RELATIVE_SUFFIX = new RegExp(
+  `${COUNT_SRC}\\s*${UNIT_SRC}\\s*(ข้างหน้า|ถัดไป|ต่อจากนี้|ต่อไป|นับจากนี้)`,
+);
+
+function parseCount(raw: string): number {
+  const word = THAI_NUMBER_WORDS[raw];
+  if (word) return word;
+  return Number(raw.replace(/[๐-๙]/g, (d) => String("๐๑๒๓๔๕๖๗๘๙".indexOf(d))));
+}
+
+export type RelativeSpan = {
+  count: number;
+  unit: "day" | "week" | "month" | "year";
+  /** "ช่วง/ภายใน N" is a window from today; the rest point at one day. */
+  range: boolean;
+  phrase: string;
+};
+
+const UNIT_BY_WORD: Record<string, RelativeSpan["unit"]> = {
+  วัน: "day",
+  สัปดาห์: "week",
+  เดือน: "month",
+  ปี: "year",
+};
+
+/** "อีก N วัน" / "N วันข้างหน้า" → how far ahead the user is asking about. */
+export function parseRelativeSpan(question: string): RelativeSpan | null {
+  const prefix = question.match(RELATIVE_PREFIX);
+  if (prefix) {
+    const count = parseCount(prefix[2]!);
+    if (!Number.isFinite(count) || count <= 0) return null;
+    return {
+      count,
+      unit: UNIT_BY_WORD[prefix[3]!]!,
+      range: prefix[1] === "ช่วง" || prefix[1] === "ภายใน",
+      phrase: prefix[0],
+    };
+  }
+  const suffix = question.match(RELATIVE_SUFFIX);
+  if (suffix) {
+    const count = parseCount(suffix[1]!);
+    if (!Number.isFinite(count) || count <= 0) return null;
+    return {
+      count,
+      unit: UNIT_BY_WORD[suffix[2]!]!,
+      range: false,
+      phrase: suffix[0],
+    };
+  }
+  return null;
+}
+
+/** Ordered from most specific to broadest so one prompt produces one safe tag. */
+const FUTURE_DATE_PROMPT_RULES: ReadonlyArray<{
+  trigger: FutureDatePromptTrigger;
+  pattern: RegExp;
+}> = [
+  {
+    trigger: "explicit_date",
+    pattern:
+      /วันที่\s*\d{1,2}|\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}|\d{1,2}\s*(?:ม\.?ค\.?|ก\.?พ\.?|มี\.?ค\.?|เม\.?ย\.?|พ\.?ค\.?|มิ\.?ย\.?|ก\.?ค\.?|ส\.?ค\.?|ก\.?ย\.?|ต\.?ค\.?|พ\.?ย\.?|ธ\.?ค\.?)/,
+  },
+  { trigger: "day_after_tomorrow", pattern: /มะรืน/ },
+  { trigger: "tomorrow", pattern: /พรุ่งนี้/ },
+  { trigger: "week_next", pattern: /สัปดาห์หน้า/ },
+  { trigger: "week_current", pattern: /สัปดาห์นี้/ },
+  { trigger: "month_next", pattern: /เดือนหน้า/ },
+  { trigger: "month_current", pattern: /เดือนนี้/ },
+  { trigger: "year_next", pattern: /ปีหน้า/ },
+  { trigger: "year_current", pattern: /ปีนี้/ },
+  {
+    trigger: "relative_period",
+    pattern: new RegExp(`${RELATIVE_PREFIX.source}|${RELATIVE_SUFFIX.source}`),
+  },
+  { trigger: "when", pattern: /เมื่อ(?:ไหร่|ไร)/ },
+  { trigger: "future", pattern: /อนาคต/ },
+  {
+    trigger: "future_outcome",
+    pattern: /(?:จะ|มีโอกาส)(?:ได้|มี|เจอ|พบ|เกิด|เปลี่ยน|ย้าย|แต่ง|ดีขึ้น|สำเร็จ)/,
+  },
+];
+
 const THAI_MONTHS: Array<{ keys: string[]; month: number }> = [
   { keys: ["ม.ค.", "มกราคม", "มกรา"], month: 1 },
   { keys: ["ก.พ.", "กุมภาพันธ์", "กุมภา"], month: 2 },
@@ -136,6 +273,27 @@ export function detectReadingIntent(question: string): ReadingIntent {
   return "transit";
 }
 
+export function detectFutureDatePromptTrigger(
+  question: string,
+): FutureDatePromptTrigger | null {
+  const q = question.trim();
+  if (!q) return null;
+  return FUTURE_DATE_PROMPT_RULES.find(({ pattern }) => pattern.test(q))
+    ?.trigger ?? null;
+}
+
+export function shouldPromptForFutureDate(question: string): boolean {
+  return detectFutureDatePromptTrigger(question) !== null;
+}
+
+/** Suggested date shown in the confirmation modal; the user remains in control. */
+export function suggestedFutureDateKey(
+  question: string,
+  now = new Date(),
+): string {
+  return bangkokDateKey(resolveTransitWindow(question, now).sampleAt);
+}
+
 function windowOf(
   intent: ReadingIntent,
   start: Date,
@@ -222,6 +380,19 @@ export function resolveTransitWindow(
       end,
     );
   }
+  // "อีก 2 วัน", "สองวันข้างหน้า", "อีก 3 สัปดาห์", "ช่วง 5 วัน" — months are
+  // handled by monthCount above, which also covers "อีก N เดือน".
+  const span = parseRelativeSpan(q);
+  if (span && span.unit !== "month") {
+    const at =
+      span.unit === "year"
+        ? addCalendarMonths(now, 12 * span.count)
+        : addCalendarDays(now, span.count * (span.unit === "week" ? 7 : 1));
+    if (span.range) {
+      return windowOf("transit", now, at, rangeLabel(span.phrase, now, at), now, at);
+    }
+    return windowOf("transit", at, at, rangeLabel(span.phrase, at, at), at, null);
+  }
   if (/เดือนหน้า/.test(q)) {
     const at = addCalendarMonths(now, 1);
     return windowOf("transit", at, at, rangeLabel("เดือนหน้า", at, at), at, null);
@@ -229,6 +400,10 @@ export function resolveTransitWindow(
   if (/ปีหน้า/.test(q)) {
     const at = addCalendarMonths(now, 12);
     return windowOf("transit", at, at, rangeLabel("ปีหน้า", at, at), at, null);
+  }
+  if (/มะรืน/.test(q)) {
+    const at = addCalendarDays(now, 2);
+    return windowOf("transit", at, at, rangeLabel("มะรืน", at, at), at, null);
   }
   if (/พรุ่งนี้/.test(q)) {
     const at = addCalendarDays(now, 1);

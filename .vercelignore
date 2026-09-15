@@ -2,3 +2,8 @@
 .env
 .env.*
 !.env.example
+
+# Local-only artifacts — never include sensitive dumps or generated previews.
+backups/
+output/
+tmp/
