@@ -487,6 +487,11 @@ async function runReading(
       transitChartJson: transitChart,
       transitHorizonChartJson: transitHorizonChart,
       transitWindowLabel: transitWindow.label,
+      // The date the user confirmed in the modal outranks relative words in
+      // the question ("เดือนหน้า" + picked 1 Oct means October, not November).
+      transitPickedAt: input.transit?.explicitDate
+        ? transitWindow.sampleAt
+        : null,
       readingIntent: transitWindow.intent,
       intakeText: intakeAnswers ? formatIntakeForPrompt(intakeAnswers) : null,
       userContextText: formatUserAiMemoryForPrompt(userAiMemory),

@@ -161,6 +161,12 @@ export type BuildUserPromptOptions = {
   transitHorizonChartJson?: ChartJson | null;
   /** Thai label of the resolved วันจร window. */
   transitWindowLabel?: string | null;
+  /**
+   * Set when the user picked the transit date themselves (date picker or
+   * the future-date modal). Relative words in the question then refer to
+   * this day, not to "today".
+   */
+  transitPickedAt?: Date | null;
   readingIntent?: "natal" | "transit";
   /** Signup survey snapshot — natal briefings and transit Q&A. */
   intakeText?: string | null;
@@ -179,6 +185,17 @@ function truncateAssistantHistory(content: string): string {
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
+}
+
+/** "ตุลาคม 2569" for the month the picked transit day falls in (Bangkok). */
+function thaiMonthYear(date: Date): string {
+  return new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Bangkok",
+  })
+    .format(date)
+    .replace(/^พ\.ศ\.\s*/, "");
 }
 
 /** Stamp the live transit block with the chart's Bangkok civil instant. */
@@ -232,8 +249,15 @@ export function buildUserPrompt(
         (opts.readingIntent === "natal"
           ? " — คำถามนี้เป็นพื้นดวงเดิม ใช้ [natal]/[memory]"
           : " — คำถามนี้ต้องผสมพื้นดวงกับดวงจร"),
-      "",
     );
+    if (opts.transitPickedAt) {
+      const month = thaiMonthYear(opts.transitPickedAt);
+      lines.push(
+        `วันจรที่ผู้ใช้เลือกเอง: ${opts.transitWindowLabel} — คำบอกเวลาในคำถาม เช่น เดือนหน้า ปีหน้า พรุ่งนี้ อีกกี่วัน ` +
+          `หมายถึงวันนี้แล้ว ให้ตอบอิงเดือน${month} ตามบล็อก [transit] ห้ามเลื่อนไปเดือนถัดจากวันจรอีก`,
+      );
+    }
+    lines.push("");
   }
 
   if (opts.transitChartJson) {
