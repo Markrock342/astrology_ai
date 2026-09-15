@@ -41,9 +41,28 @@ function pickRows(
       : chart.myhora?.natalPlanets?.length
         ? chart.myhora.natalPlanets
         : null;
-  if (!source) return null;
-
   const lagna = chart.chart?.lagna ?? chart.meta.lagna;
+  if (!source) {
+    // Formula-engine charts (e.g. a transit day MyHora could not serve) carry
+    // no scrape tables — build the rows from the engine planets instead of
+    // showing nothing.
+    if (!chart.planets.length) return null;
+    return chart.planets.map((planet) => {
+      const sign = normalizeSignName(planet.siderealSign);
+      return {
+        planet: planet.planet,
+        zodiac: sign,
+        degree: "",
+        minute: "",
+        fallbackDegreeText: planet.degreeText,
+        resolvedHouse:
+          lagna && (SIGNS as readonly string[]).includes(sign)
+            ? String(houseFromLagna(lagna, sign))
+            : undefined,
+      };
+    });
+  }
+
   return source.map((row) => {
     const engineRow = chart.planets.find((planet) =>
       row.planet.includes(planet.planet),
