@@ -3,7 +3,13 @@
 import { memo, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { DerivedChart } from "@/lib/chart-derivations";
-import { getPlanetTheme, normalizeSignName, PLANET_ORDER } from "@/lib/chart-theme";
+import {
+  bhavaNameFromLagna,
+  getPlanetMeaning,
+  getPlanetTheme,
+  normalizeSignName,
+  PLANET_ORDER,
+} from "@/lib/chart-theme";
 import { RasiTemplateChart } from "./rasi-template-chart";
 import { useDialogFocus } from "./use-dialog-focus";
 
@@ -43,25 +49,34 @@ function ThaiChakraFigure({
   );
 }
 
-/** ๑–๐ pills under the big wheel: tap one to highlight and explain that planet. */
-function NumeralLegend({
-  planets,
+/**
+ * Every planet on the chart, spelled out under the big wheel: numeral, name,
+ * sign, bhava and meaning — all visible at once, no tapping required. Tapping
+ * a row still highlights that planet on the wheel (and vice versa).
+ */
+function PlanetLegend({
+  chart,
   selected,
   onSelect,
 }: {
-  planets: DerivedChart["planets"];
+  chart: DerivedChart;
   selected: string | null;
   onSelect: (planet: string) => void;
 }) {
-  const ordered = [...planets].sort(
+  const lagna = normalizeSignName(chart.lagna);
+  const ordered = [...chart.planets].sort(
     (a, b) =>
       PLANET_ORDER.indexOf(a.planet as (typeof PLANET_ORDER)[number]) -
       PLANET_ORDER.indexOf(b.planet as (typeof PLANET_ORDER)[number]),
   );
   return (
-    <ul className="mt-1 flex flex-wrap justify-center gap-1.5" aria-label="ความหมายเลขดาว">
+    <ul
+      className="mt-3 grid gap-1.5 text-left sm:grid-cols-2"
+      aria-label="ความหมายดาวแต่ละดวงในดวงนี้"
+    >
       {ordered.map((row) => {
         const theme = getPlanetTheme(row.planet);
+        const sign = normalizeSignName(row.siderealSign);
         const active = selected === row.planet;
         return (
           <li key={row.planet}>
@@ -69,16 +84,30 @@ function NumeralLegend({
               type="button"
               onClick={() => onSelect(row.planet)}
               aria-pressed={active}
-              className={`press-scale inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs transition ${
+              className={`press-scale flex w-full items-start gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition ${
                 active
-                  ? "border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--foreground)]"
-                  : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--primary)]/50"
+                  ? "border-[var(--primary)] bg-[var(--primary)]/12"
+                  : "border-[var(--border)] hover:border-[var(--primary)]/50"
               }`}
             >
-              <span style={{ color: theme.color }} aria-hidden>
+              <span
+                className="mt-0.5 w-5 shrink-0 text-center text-lg font-semibold leading-none"
+                style={{ color: theme.color }}
+                aria-hidden
+              >
                 {theme.numeral}
               </span>
-              {row.planet}
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[var(--foreground)]">
+                  {row.planet}
+                  <span className="ml-1.5 font-normal text-[var(--muted)]">
+                    ราศี{sign} · ภพ{bhavaNameFromLagna(lagna, sign)}
+                  </span>
+                </span>
+                <span className="block text-xs leading-5 text-[var(--muted)]">
+                  {getPlanetMeaning(row.planet)}
+                </span>
+              </span>
             </button>
           </li>
         );
@@ -168,8 +197,8 @@ export const ThaiChakraChart = memo(function ThaiChakraChart(
                     }
                     selectedPlanet={selected}
                   />
-                  <NumeralLegend
-                    planets={props.chart.planets}
+                  <PlanetLegend
+                    chart={props.chart}
                     selected={selected}
                     onSelect={(planet) =>
                       setSelected((current) => (current === planet ? null : planet))
@@ -177,7 +206,7 @@ export const ThaiChakraChart = memo(function ThaiChakraChart(
                   />
                 </div>
                 <p className="text-center text-[11px] text-[var(--muted-2)]">
-                  แตะเลขไทยบนวงล้อหรือปุ่มด้านล่างเพื่อดูว่าดาวดวงนั้นหมายถึงอะไร · อักษร ล คือลัคนา · กด Esc เพื่อปิด
+                  แตะเลขไทยบนวงล้อหรือรายการด้านล่างเพื่อไฮไลต์ดาวดวงนั้น · อักษร ล คือลัคนา · กด Esc เพื่อปิด
                 </p>
               </div>
             </div>,
