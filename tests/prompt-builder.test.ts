@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSystemPrompt,
+  buildUserPrompt,
   buildConversationHistory,
   trimConversationHistory,
   transitBlockTitle,
@@ -78,6 +79,32 @@ describe("buildSystemPrompt closed-book knowledge contract", () => {
     expect(prompt).toContain("ไม่มีตำราจากคลังความรู้แนบมา");
     expect(prompt).toContain("ห้ามใช้ความรู้ของโมเดลเองแทน");
     expect(prompt).toContain("กฎแหล่งความรู้");
+  });
+});
+
+describe("buildUserPrompt picked transit date", () => {
+  it("tells the model the picked day outranks relative words in the question", () => {
+    const prompt = buildUserPrompt(
+      profile,
+      "เดือนหน้าจะได้ย้ายไหม",
+      chart,
+      {
+        transitWindowLabel: "1 ต.ค. 2569",
+        transitPickedAt: new Date("2026-10-01T05:00:00.000Z"),
+        readingIntent: "transit",
+      },
+    );
+    expect(prompt).toContain("วันจรที่ผู้ใช้เลือกเอง: 1 ต.ค. 2569");
+    expect(prompt).toContain("ให้ตอบอิงเดือนตุลาคม 2569");
+    expect(prompt).toContain("ห้ามเลื่อนไปเดือนถัดจากวันจรอีก");
+  });
+
+  it("says nothing about a picked day when the date came from the question alone", () => {
+    const prompt = buildUserPrompt(profile, "เดือนหน้าจะได้ย้ายไหม", chart, {
+      transitWindowLabel: "เดือนหน้า (15 ต.ค. 2569)",
+      readingIntent: "transit",
+    });
+    expect(prompt).not.toContain("วันจรที่ผู้ใช้เลือกเอง");
   });
 });
 
