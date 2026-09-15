@@ -7,7 +7,7 @@ import { isCategoryLocked, useAppData, useCategory } from "./app-data-provider";
 import { NatalChartIcon } from "./sidebar-icons";
 import { ChartPreparingIndicator } from "./natal-chart-banner";
 import { CategoryIcon } from "./category-icon";
-import { getPlanetTheme } from "@/lib/chart-theme";
+import { getPlanetMeaning, getPlanetTheme } from "@/lib/chart-theme";
 import { useNatalChart } from "./use-natal-chart";
 import { softNavigate, useChatRouteSearchParams } from "./chat-nav";
 import {
@@ -369,25 +369,10 @@ function NatalTopicsDossier({
                 ดาวที่สถิตในเรือนของด้านนี้
               </p>
               {topic.occupants.length ? (
-                <ul className="mt-2 flex flex-wrap gap-2">
-                  {topic.occupants.map((row) => {
-                    const theme = getPlanetTheme(row.planet);
-                    return (
-                      <li
-                        key={`${row.planet}-${row.house}`}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-xs text-[var(--foreground)]"
-                      >
-                        <span style={{ color: theme.color }} aria-hidden>
-                          {theme.numeral}
-                        </span>
-                        {row.planet}
-                        <span className="text-[var(--muted)]">
-                          ราศี{row.sign} · เรือน {row.house}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <OccupantChips
+                  occupants={topic.occupants}
+                  houses={topic.houses}
+                />
               ) : (
                 <p className="mt-2 text-sm text-[var(--muted-2)]">
                   ไม่มีดาวสถิตในเรือนของด้านนี้ — อ่านจากเจ้าเรือนแทน
@@ -406,6 +391,89 @@ function NatalTopicsDossier({
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * Planets sitting in this topic's houses. Tap one to read what it means and
+ * what the house it occupies stands for — the same explanation the wheel
+ * shows on tap, so the dossier never leaves a bare numeral unexplained.
+ */
+function OccupantChips({
+  occupants,
+  houses,
+}: {
+  occupants: NatalCategoryBrief["occupants"];
+  houses: NatalCategoryBrief["houses"];
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const active = occupants.find((row) => `${row.planet}-${row.house}` === selected) ?? null;
+  const activeHouse = active ? houses.find((h) => h.house === active.house) : null;
+  const theme = active ? getPlanetTheme(active.planet) : null;
+
+  return (
+    <div>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {occupants.map((row) => {
+          const key = `${row.planet}-${row.house}`;
+          const chipTheme = getPlanetTheme(row.planet);
+          const isActive = key === selected;
+          return (
+            <li key={key}>
+              <button
+                type="button"
+                onClick={() => setSelected((current) => (current === key ? null : key))}
+                aria-pressed={isActive}
+                aria-controls={`occupant-detail-${key}`}
+                className={`press-scale inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs transition ${
+                  isActive
+                    ? "border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--foreground)]"
+                    : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--foreground)] hover:border-[var(--primary)]/50"
+                }`}
+              >
+                <span style={{ color: chipTheme.color }} aria-hidden>
+                  {chipTheme.numeral}
+                </span>
+                {row.planet}
+                <span className="text-[var(--muted)]">
+                  ราศี{row.sign} · เรือน {row.house}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {active && theme ? (
+        <div
+          id={`occupant-detail-${active.planet}-${active.house}`}
+          className="mt-3 rounded-2xl border border-[var(--primary)]/30 bg-[var(--primary)]/8 px-4 py-3 text-sm leading-6 text-[var(--foreground)]"
+          role="region"
+          aria-live="polite"
+        >
+          <p className="font-semibold">
+            <span style={{ color: theme.color }} aria-hidden>
+              {theme.numeral}
+            </span>{" "}
+            {active.planet}
+            <span className="font-normal text-[var(--muted)]">
+              {" "}· ราศี{active.sign} · เรือน {active.house}
+              {activeHouse ? ` ${activeHouse.name}` : ""}
+            </span>
+          </p>
+          <p className="mt-1">
+            {active.planet}แทน{getPlanetMeaning(active.planet)}
+          </p>
+          {activeHouse?.meaning ? (
+            <p className="mt-1 text-[var(--muted)]">
+              เรือน {activeHouse.house} {activeHouse.name} ว่าด้วย{activeHouse.meaning}
+              {" "}— {active.planet}จึงส่งอิทธิพลกับเรื่องนี้ในดวงของคุณ
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-[var(--muted-2)]">แตะดาวเพื่อดูว่าหมายถึงอะไร</p>
+      )}
+    </div>
   );
 }
 
