@@ -103,7 +103,7 @@ export async function computeTransitChart(
     try {
       const birth = natalInput ?? input;
       const scrape = await Promise.race([
-        fetchMyhoraThaiChart(birth, { transit, lite: true }),
+        fetchMyhoraThaiChart(birth, { transit, lite: true, includeTransit: true }),
         new Promise<never>((_, reject) => {
           setTimeout(
             () => reject(new Error(`myhora transit scrape timeout after ${scrapeTimeoutMs}ms`)),
@@ -111,9 +111,18 @@ export async function computeTransitChart(
           );
         }),
       ]);
+      // The scrape is keyed on the BIRTH data, so its planet table is the natal
+      // chart. Only the transit table describes the day being asked about — if
+      // it is missing, returning `chart` would hand the natal positions to the
+      // wheel and to the AI as "ดาวจร" (every future date read the same).
+      if (!scrape.tables.transitPlanets?.length) {
+        console.warn(
+          "[myhora] transit scrape returned no transit table — using formula-pipeline for the transit day",
+        );
+        return toChartJsonFromFormula(input);
+      }
       const chart = mapScrapeToChartJson(input, scrape);
-      // Prefer transit planet table when present.
-      if (scrape.tables.transitPlanets?.length) {
+      {
         const transitRows = chartFromMyhoraRows(
           scrape.tables.transitPlanets,
           {
@@ -139,7 +148,6 @@ export async function computeTransitChart(
           },
         };
       }
-      return chart;
     } catch (err) {
       console.warn(
         "[myhora] transit scrape failed, falling back to formula-pipeline:",

@@ -130,6 +130,12 @@ export interface FetchMyhoraOptions {
   lite?: boolean;
   /** In lite mode, still fetch the two compact evidence grids for cached natal UI. */
   includeGrids?: boolean;
+  /**
+   * In lite mode, also fetch the transit content page. The main results page
+   * has no transit table, so without this a "transit" scrape only carries the
+   * natal positions.
+   */
+  includeTransit?: boolean;
 }
 
 export async function fetchMyhoraThaiChart(
@@ -156,12 +162,13 @@ export async function fetchMyhoraThaiChart(
   const contentPaths = parseMyhoraContentPaths(resultHtml);
 
   if (options.lite) {
-    const [taksaHtml, triwaiHtml] = options.includeGrids
-      ? await Promise.all([
-          embeds.taksa ? fetchText(embeds.taksa) : Promise.resolve(""),
-          embeds.triwai ? fetchText(embeds.triwai) : Promise.resolve(""),
-        ])
-      : ["", ""];
+    const [taksaHtml, triwaiHtml, transitHtml] = await Promise.all([
+      options.includeGrids && embeds.taksa ? fetchText(embeds.taksa) : Promise.resolve(""),
+      options.includeGrids && embeds.triwai ? fetchText(embeds.triwai) : Promise.resolve(""),
+      options.includeTransit && contentPaths.astrologyTransit
+        ? fetchText(contentPaths.astrologyTransit)
+        : Promise.resolve(""),
+    ]);
     const tables = mergeMyhoraTables(resultHtml, taksaHtml, triwaiHtml, {
       chartEmbeds: {
         natalAnalysis: null,
@@ -171,7 +178,7 @@ export async function fetchMyhoraThaiChart(
         drekkana: null,
       },
       transit,
-      astrologyTransitHtml: null,
+      astrologyTransitHtml: transitHtml || null,
     });
     const result: MyhoraScrapeResult = {
       planets: planets.length ? planets : planetsFromMyhoraTable(resultHtml),
