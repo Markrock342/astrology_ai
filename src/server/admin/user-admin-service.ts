@@ -56,6 +56,7 @@ export async function listUsers(args: ListUsersArgs) {
         id: true,
         name: true,
         email: true,
+        image: true,
         role: true,
         status: true,
         createdAt: true,
