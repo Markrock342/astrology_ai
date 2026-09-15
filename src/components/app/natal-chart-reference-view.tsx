@@ -12,6 +12,7 @@ import { softNavigate, useChatRouteSearchParams } from "./chat-nav";
 import {
   askPromptForNatalCategory,
   natalBriefForCategory,
+  natalBriefsForAllTopics,
   natalSourceLabel,
   type NatalCategoryBrief,
 } from "@/lib/natal-category-facts";
@@ -76,6 +77,7 @@ export function NatalChartReferenceView() {
   const chart = load.chart;
   const title = category?.label ?? "ดวงจักรกำเนิด";
   const brief = natalBriefForCategory(chart, category?.slug ?? "overview");
+  const otherTopics = natalBriefsForAllTopics(chart, category?.slug ?? null);
   const prompt = category
     ? (category.suggestedQuestions[0] ??
       askPromptForNatalCategory(category.label))
@@ -112,6 +114,8 @@ export function NatalChartReferenceView() {
         label={category?.label}
         brief={brief}
       />
+
+      <NatalTopicsDossier topics={otherTopics} />
 
       <HoroscopeChartPanel
         natal={chart}
@@ -248,6 +252,73 @@ function NatalCategoryBriefing({
         </p>
       </article>
     </div>
+  );
+}
+
+/**
+ * The rest of the natal dossier: houses, lords and occupants for every life
+ * topic that is not the page's own category. Same facts the chat memory uses.
+ */
+function NatalTopicsDossier({
+  topics,
+}: {
+  topics: Array<NatalCategoryBrief & { label: string }>;
+}) {
+  if (topics.length === 0) return null;
+  return (
+    <section aria-labelledby="natal-topics-heading" className="mb-8">
+      <h2
+        id="natal-topics-heading"
+        className="text-sm font-semibold text-[var(--foreground)]"
+      >
+        พื้นดวงด้านอื่นของคุณ
+      </h2>
+      <p className="mt-1 text-xs leading-5 text-[var(--muted-2)]">
+        เรือนที่แต่ละด้านใช้อ่าน กับเจ้าเรือนและดาวที่สถิตอยู่ในดวงเกิดของคุณ
+      </p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {topics.map((topic) => (
+          <article
+            key={topic.slug}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-4"
+          >
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+              <span className="text-[var(--primary)]">
+                <CategoryIcon slug={topic.slug} size={16} />
+              </span>
+              {topic.label}
+            </h3>
+            <ul className="mt-3 space-y-2">
+              {topic.houses.map((house) => (
+                <li key={house.house} className="text-sm leading-6 text-[var(--muted)]">
+                  <span className="font-medium text-[var(--foreground)]">
+                    เรือน {house.house} {house.name}
+                  </span>
+                  {house.sign ? ` ราศี${house.sign}` : ""}
+                  {house.lord
+                    ? house.lordHouse
+                      ? ` เจ้าเรือน${house.lord} อยู่เรือน ${house.lordHouse}`
+                      : ` เจ้าเรือน${house.lord}`
+                    : ""}
+                  {house.meaning ? (
+                    <span className="block text-xs leading-5 text-[var(--muted-2)]">
+                      {house.meaning}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+              {topic.occupants.length
+                ? `ดาวในเรือน: ${topic.occupants
+                    .map((row) => `${row.planet} ราศี${row.sign} (เรือน ${row.house})`)
+                    .join(" · ")}`
+                : "ไม่มีดาวสถิตในเรือนของด้านนี้"}
+            </p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 

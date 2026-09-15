@@ -47,6 +47,16 @@ export type NatalHouseNote = {
   lordHouse: number | null;
 };
 
+/** Thai topic names for the natal dossier, in reading order. */
+export const NATAL_TOPIC_LABELS: ReadonlyArray<{ slug: string; label: string }> = [
+  { slug: "self", label: "ตัวตน" },
+  { slug: "career", label: "การงาน" },
+  { slug: "finance", label: "การเงิน" },
+  { slug: "love", label: "ความรัก" },
+  { slug: "health", label: "สุขภาพ" },
+  { slug: "fortune", label: "โชคลาภ" },
+];
+
 export type NatalCategoryBrief = {
   slug: string;
   meaning: string;
@@ -178,6 +188,20 @@ export function natalBriefForCategory(
     houses: notes,
     occupants,
   };
+}
+
+/**
+ * Every life topic's houses from the same chart. The natal page shows these
+ * whether or not the topics still exist as separate chat categories — when an
+ * admin folds the categories into one, the house facts must not disappear.
+ */
+export function natalBriefsForAllTopics(
+  chart: ChartJson,
+  exceptSlug?: string | null,
+): Array<NatalCategoryBrief & { label: string }> {
+  return NATAL_TOPIC_LABELS.filter((topic) => topic.slug !== exceptSlug).map(
+    (topic) => ({ ...natalBriefForCategory(chart, topic.slug), label: topic.label }),
+  );
 }
 
 export function natalSourceLabel(chart: ChartJson): string {

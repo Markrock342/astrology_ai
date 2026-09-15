@@ -2947,7 +2947,7 @@ const Composer = forwardRef<
       <p className="mx-auto mb-2 max-w-3xl text-[11px] text-[var(--muted)]">
         กระชับ ≈ สั้น เร็ว · ละเอียด ≈ ยาวขึ้น ใช้โควตามากกว่า
       </p>
-      <div className="mx-auto flex max-w-3xl items-end gap-2.5 rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2 transition-colors duration-200 focus-within:border-[var(--primary)]/70 focus-within:ring-1 focus-within:ring-[var(--primary)]/30">
+      <div className="mx-auto flex max-w-3xl items-end gap-2.5 rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 transition-colors md:py-2 duration-200 focus-within:border-[var(--primary)]/70 focus-within:ring-1 focus-within:ring-[var(--primary)]/30">
         <textarea
           ref={textareaRef}
           value={value}
@@ -2971,7 +2971,7 @@ const Composer = forwardRef<
           <button
             type="button"
             onClick={onStop}
-            className="press-scale flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--foreground)] text-[var(--background)] transition hover:opacity-80 md:size-8"
+            className="press-scale -my-1 flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--foreground)] text-[var(--background)] transition hover:opacity-80 md:my-0 md:size-8"
             aria-label="หยุดคำตอบ"
             title="หยุดคำตอบ"
           >
@@ -2991,7 +2991,7 @@ const Composer = forwardRef<
               usageExhausted ||
               !value.trim()
             }
-            className="press-scale flex size-11 shrink-0 items-center justify-center rounded-full text-[var(--primary)] transition hover:bg-[var(--background)] hover:text-[var(--primary-hover)] disabled:opacity-40 md:size-8"
+            className="press-scale -my-1 flex size-11 shrink-0 items-center justify-center rounded-full text-[var(--primary)] transition hover:bg-[var(--background)] hover:text-[var(--primary-hover)] disabled:opacity-40 md:my-0 md:size-8"
             aria-label="ส่ง"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
