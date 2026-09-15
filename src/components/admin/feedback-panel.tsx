@@ -186,8 +186,8 @@ export function FeedbackPanel() {
               </p>
 
               {item.reason ? (
-                <p className="mt-2 border-l-2 border-[var(--danger)]/50 pl-2 text-xs text-[var(--danger)]">
-                  {item.reason}
+                <p className="mt-2 text-xs text-[var(--danger)]">
+                  <span className="font-semibold">เหตุผล:</span> {item.reason}
                 </p>
               ) : null}
             </Card>

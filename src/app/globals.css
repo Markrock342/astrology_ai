@@ -14,9 +14,11 @@
     --surface-2: #1c1c24;
     --surface-3: #23232d;
     --border: #2a2a33;
+    --border-strong: #3b3b48;
+    --shadow-color: rgba(4, 4, 7, 0.46);
     --foreground: #ececf2;
     --muted: #9a9ab0;
-    --muted-2: #6f6f82;
+    --muted-2: #8a8aa4; /* ≥4.5:1 on surface-2/3 — used as running text */
     --primary: #c9a24b; /* gold */
     --primary-hover: #d8b25c;
     --primary-foreground: #1a1508;
@@ -25,6 +27,7 @@
     --secondary-active: #12b886; /* active turquoise */
     --secondary-foreground: #04120e;
     --danger: #f87171;
+    --danger-foreground: #2a0a0a; /* ink on --danger fills (6.6:1) */
     --ring: rgba(201, 162, 75, 0.45);
     --category-icon-filter: none;
 
@@ -33,16 +36,18 @@
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  /* Light — cool stone + gold (not cream/terracotta AI cliché). */
+  /* Light — cool stone with deliberate surface and border contrast. */
   [data-theme="light"] {
-    --background: #f3f4f6;
-    --surface: #ffffff;
-    --surface-2: #eef0f3;
-    --surface-3: #e4e7ec;
-    --border: #d5d9e0;
-    --foreground: #16181d;
-    --muted: #5c6370;
-    --muted-2: #5c6370;
+    --background: oklch(0.965 0.006 255);
+    --surface: oklch(0.995 0.002 255);
+    --surface-2: oklch(0.94 0.008 255);
+    --surface-3: oklch(0.9 0.012 255);
+    --border: oklch(0.76 0.018 255);
+    --border-strong: oklch(0.63 0.025 255);
+    --shadow-color: rgba(35, 45, 58, 0.18);
+    --foreground: oklch(0.23 0.018 255);
+    --muted: oklch(0.42 0.02 255);
+    --muted-2: oklch(0.5 0.018 255);
     --primary: #8a6a22;
     --primary-hover: #6b5320;
     --primary-foreground: #faf6eb;
@@ -50,7 +55,8 @@
     --secondary: #0f7668;
     --secondary-active: #0d9488;
     --secondary-foreground: #f0fdfa;
-    --danger: #dc2626;
+    --danger: #c81e1e; /* 5.2:1 on --background (was #dc2626 at 4.4) */
+    --danger-foreground: #fff5f5; /* ink on --danger fills (5.4:1) */
     --ring: rgba(138, 106, 34, 0.4);
     /* Uploaded category artwork is authored white for the dark theme. */
     --category-icon-filter: brightness(0) saturate(100%) opacity(0.72);
@@ -64,6 +70,7 @@
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-muted-2: var(--muted-2);
@@ -75,8 +82,26 @@
   --color-secondary-active: var(--secondary-active);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
   --font-sans: var(--font-thai), "Noto Sans Thai", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
+}
+
+/*
+ * Capsule shape system (client request, ก.ย. 2569): every control-sized
+ * radius becomes a pill, larger containers get a softer-but-not-pill round.
+ * Tailwind's rounded-* utilities read these variables, so one scope class on
+ * the public and app shells retheme the whole surface. Content boxes that
+ * must not clip (code, tables, multi-line notices) opt into rounded-2xl.
+ * Admin keeps Tailwind defaults.
+ */
+.shape-capsule {
+  --radius-sm: 9999px;
+  --radius-md: 9999px;
+  --radius-lg: 9999px;
+  --radius-xl: 9999px;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2rem;
 }
 
 body {
@@ -225,20 +250,6 @@ select option {
 
 .wave-dot {
   animation: wave-dot 1.2s ease-in-out infinite;
-}
-
-.shimmer-text {
-  background: linear-gradient(
-    90deg,
-    var(--muted-2) 0%,
-    var(--primary) 50%,
-    var(--muted-2) 100%
-  );
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shimmer 2.2s linear infinite;
 }
 
 /*

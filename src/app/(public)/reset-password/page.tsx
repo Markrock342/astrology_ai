@@ -54,14 +54,14 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className="animate-fade-up w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 shadow-2xl backdrop-blur">
+    <div className="animate-fade-up w-full max-w-md rounded-3xl border border-[var(--primary)]/25 bg-[var(--surface)] p-8 shadow-[0_20px_55px_var(--shadow-color)]">
       <h1 className="mb-2 text-center text-lg font-semibold text-[var(--foreground)]">
         ตั้งรหัสผ่านใหม่
       </h1>
 
       {done ? (
         <div className="flex flex-col gap-4">
-          <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--muted)]">
+          <p className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--muted)]">
             ตั้งรหัสผ่านใหม่เรียบร้อยแล้ว
           </p>
           <Link

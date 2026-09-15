@@ -14,7 +14,8 @@ import { getPublishedSetting } from "@/server/settings/settings-service";
 const notoThai = Noto_Sans_Thai({
   variable: "--font-thai",
   subsets: ["thai", "latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  // font-bold is unused; 300 (display) → 600 (labels) covers the whole UI.
+  weight: ["300", "400", "500", "600"],
   display: "swap",
 });
 

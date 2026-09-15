@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { ChartJson } from "@/types/chart";
 import {
   chartFromMyhoraRows,
@@ -52,7 +52,7 @@ export function EvidenceGrid({
     <div className="min-w-0">
       <p className="mb-2 text-xs font-semibold text-[var(--foreground)]">{title}</p>
       <div
-        className="grid overflow-hidden rounded-lg border border-[var(--border)]"
+        className="grid overflow-hidden rounded-2xl border border-[var(--border)]"
         style={{
           gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
         }}
@@ -76,7 +76,7 @@ export function EvidenceGrid({
               >
                 {cell ? (
                   <>
-                    <span className="text-[10px] text-[var(--muted)]">
+                    <span className="text-[11px] text-[var(--muted)]">
                       {cell.label || cell.house || "—"}
                     </span>
                     {cell.isCenter ? (
@@ -122,7 +122,7 @@ export function EvidenceGrid({
               <span key={stage}>{stage}</span>
             ))}
           </div>
-          <p className="mt-3 text-center text-[10px] text-[var(--muted)]">
+          <p className="mt-3 text-center text-[11px] text-[var(--muted)]">
             นับตรีวัยจาก <span className="font-medium text-[var(--primary)]">ตนุเศษ</span>
           </p>
         </>
@@ -132,7 +132,7 @@ export function EvidenceGrid({
 }
 
 /** Deterministic chart atlas attached to the first answer in a thread. */
-export function HoroscopeChartPanel({
+export const HoroscopeChartPanel = memo(function HoroscopeChartPanel({
   natal,
   transit,
   description = "ตำแหน่งดาวชุดเดียวกับที่ใช้วิเคราะห์คำตอบ",
@@ -243,7 +243,7 @@ export function HoroscopeChartPanel({
 
       {compact ? null : <AstrologyGlossary compact={!reference} />}
 
-      <details className={compact ? "mt-2 rounded-xl border border-[var(--border)]" : "border-t border-[var(--border)]"}>
+      <details className={compact ? "mt-2 rounded-2xl border border-[var(--border)]" : "border-t border-[var(--border)]"}>
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-xs font-medium text-[var(--primary)] marker:content-none [&::-webkit-details-marker]:hidden">
           <span>ผังวิเคราะห์เพิ่ม</span>
           <span className="text-[11px] font-normal text-[var(--muted)]">
@@ -265,7 +265,7 @@ export function HoroscopeChartPanel({
               />
             </div>
           ) : (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)]/55 px-4 py-5 text-center">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)]/55 px-4 py-5 text-center">
               <p className="text-sm font-medium text-[var(--foreground)]">
                 ยังไม่แสดงนวางศ์และตรียางศ์
               </p>
@@ -285,4 +285,4 @@ export function HoroscopeChartPanel({
       </details>
     </section>
   );
-}
+});

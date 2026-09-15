@@ -35,10 +35,10 @@ export function ChartAspectList({
       </div>
       <dl className="mt-3 grid gap-2 sm:grid-cols-2">
         {grouped.map(({ kind, rows }) => (
-          <div key={kind} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
+          <div key={kind} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
             <dt className="flex flex-wrap items-baseline gap-x-2">
               <span className="font-semibold text-[var(--primary)]">{kind}</span>
-              <span className="text-[10px] text-[var(--muted-2)]">{KIND_HINT[kind]}</span>
+              <span className="text-[11px] text-[var(--muted-2)]">{KIND_HINT[kind]}</span>
             </dt>
             <dd className="mt-1 text-[11px] leading-5 text-[var(--muted)]">
               {rows.length ? (

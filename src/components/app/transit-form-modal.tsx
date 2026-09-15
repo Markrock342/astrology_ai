@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useChatNav } from "./chat-nav";
+import { useDialogFocus } from "./use-dialog-focus";
 import { COUNTRIES, DISTRICTS, PROVINCES } from "@/lib/th-geo";
 import { useAppData } from "./app-data-provider";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -102,6 +103,8 @@ export function TransitFormModal({
       ? categoryOverride
       : pickUnlockedSlug(unlockedCategories, initialCategorySlug);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus({ open: true, dialogRef, onClose });
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationFeedback, setLocationFeedback] =
@@ -269,10 +272,12 @@ export function TransitFormModal({
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="transit-form-title"
-        className="animate-fade-up relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl"
+        className="animate-fade-up relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl outline-none"
       >
         <div className="border-b border-[var(--border)] px-5 py-4">
           <h2

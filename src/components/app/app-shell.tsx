@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { BrandLockup, BrandMark } from "@/components/brand-logo";
@@ -101,6 +101,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     loading,
     loadError,
   } = useAppData();
+
+  // One list for the sidebar (client request): natal and transit chats
+  // together, newest first — the separate "ประวัติแชท" section is gone.
+  const conversationThreads = useMemo(
+    () =>
+      [
+        ...filteredTransitThreads.map((t) => ({ ...t, kind: "transit" as const })),
+        ...filteredNatalThreads.map((t) => ({ ...t, kind: "natal" as const })),
+      ].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "")),
+    [filteredTransitThreads, filteredNatalThreads],
+  );
 
   useEffect(() => {
     const openTransit = (event: Event) => {
@@ -370,7 +381,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ref={anchorRef}
             type="button"
             onClick={() => setSettingsOpen((v) => !v)}
-            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-[var(--surface-2)]"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-[var(--background)]"
             aria-label="เปิดการตั้งค่า"
             aria-expanded={settingsOpen}
             title="การตั้งค่า"
@@ -387,7 +398,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/account"
               onClick={closeMobile}
-              className="shrink-0 rounded-lg px-2 py-1.5 text-[11px] text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+              className="shrink-0 rounded-lg px-2 py-1.5 text-[11px] text-[var(--muted)] transition hover:bg-[var(--background)] hover:text-[var(--primary)]"
               title="ดู usage / แพ็กเกจ"
             >
               เหลือ{" "}
@@ -456,7 +467,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           onClick={() => setSearchOpen((v) => !v)}
-          className="flex items-center gap-2.5 rounded-lg px-3.5 py-2 text-sm text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+          className="flex items-center gap-2.5 rounded-lg px-3.5 py-2 text-sm text-[var(--muted)] transition hover:bg-[var(--background)] hover:text-[var(--foreground)]"
         >
           <span className="text-[var(--primary)]">
             <SearchIcon />
@@ -487,19 +498,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarDivider />
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div className="flex items-center justify-between pr-2">
-          <SectionLabel>ประวัติแชท</SectionLabel>
-          {filteredNatalThreads.length > 0 || filteredTransitThreads.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setConfirmAction({ kind: "clear-all" })}
-              className="shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)]"
-              title="ลบประวัติแชททั้งหมด"
-            >
-              ล้างทั้งหมด
-            </button>
-          ) : null}
-        </div>
         {loadError ? (
           <div className="px-3 py-2 text-xs text-[var(--danger)]">
             <p>{loadError}</p>
@@ -512,16 +510,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         ) : null}
-        <nav className="flex flex-col gap-0.5">
-          {filteredNatalThreads.length === 0 ? (
+        <SectionLabel>การสนทนา</SectionLabel>
+        <button
+          type="button"
+          onClick={() => {
+            chatNav("/dashboard");
+            closeMobile();
+          }}
+          className="mb-1 flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2.5 text-sm text-[var(--primary)] transition hover:bg-[var(--background)]"
+        >
+          <span className="flex items-center gap-2.5">
+            <TransitIcon />
+            เริ่มดวงจรใหม่
+          </span>
+        </button>
+        <nav aria-label="การสนทนา" className="flex flex-col gap-0.5">
+          {conversationThreads.length === 0 ? (
             <p className="px-3 py-2 text-xs text-[var(--muted-2)]">
-              {loading ? "กำลังโหลด…" : "ยังไม่มีประวัติแชท"}
+              {loading ? "กำลังโหลด…" : "ยังไม่มีการสนทนา"}
             </p>
           ) : (
-            filteredNatalThreads.map((t) => (
-              <div
+            <ul className="flex flex-col gap-0.5">
+            {conversationThreads.map((t) => (
+              <li
                 key={t.id}
-                className={`group flex items-center gap-0.5 rounded-lg pr-1 transition hover:bg-[var(--surface-2)] ${
+                className={`group flex items-center gap-0.5 rounded-lg pr-1 transition hover:bg-[var(--background)] ${
                   activeThread === t.id
                     ? "bg-[var(--background)] shadow-[inset_0_0_0_1px_var(--border)]"
                     : ""
@@ -539,16 +552,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       : "text-[var(--muted)]"
                   }`}
                 >
-                  {t.categorySlug ? (
-                    <span className="shrink-0 text-[var(--primary)]">
+                  <span className="shrink-0 text-[var(--primary)]">
+                    {t.kind === "natal" && t.categorySlug ? (
                       <CategoryIcon
                         slug={t.categorySlug}
-                        icon={
-                          categories.find((c) => c.slug === t.categorySlug)?.icon
-                        }
+                        icon={categories.find((c) => c.slug === t.categorySlug)?.icon}
                       />
-                    </span>
-                  ) : null}
+                    ) : (
+                      <TransitIcon />
+                    )}
+                  </span>
                   <span
                     className="truncate"
                     title="ดับเบิลคลิกเพื่อเปลี่ยนชื่อ"
@@ -608,118 +621,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 >
                   ลบ
                 </button>
-              </div>
-            ))
-          )}
-        </nav>
-
-        <SidebarDivider />
-
-        <SectionLabel>ดวงจร</SectionLabel>
-        <button
-          type="button"
-          onClick={() => {
-            chatNav("/dashboard");
-            closeMobile();
-          }}
-          className="mb-1 flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2.5 text-sm text-[var(--primary)] transition hover:bg-[var(--surface-2)]"
-        >
-          <span className="flex items-center gap-2.5">
-            <TransitIcon />
-            เริ่มดวงจรใหม่
-          </span>
-        </button>
-        <nav className="flex flex-col gap-0.5">
-          {filteredTransitThreads.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-[var(--muted-2)]">
-              {loading ? "กำลังโหลด…" : "ยังไม่มีดวงจร"}
-            </p>
-          ) : (
-            filteredTransitThreads.map((t) => (
-              <div
-                key={t.id}
-                className={`group flex items-center gap-0.5 rounded-lg pr-1 transition hover:bg-[var(--surface-2)] ${
-                  activeThread === t.id
-                    ? "bg-[var(--background)] shadow-[inset_0_0_0_1px_var(--border)]"
-                    : ""
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => openThread(t.id, t.categorySlug)}
-                  onMouseEnter={() => {
-                    void prefetchThread(t.id);
-                  }}
-                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-left text-xs transition hover:text-[var(--foreground)] ${
-                    activeThread === t.id
-                      ? "text-[var(--foreground)]"
-                      : "text-[var(--muted)]"
-                  }`}
-                >
-                  <span className="shrink-0 text-[var(--primary)]">
-                    <TransitIcon />
-                  </span>
-                  <span
-                    className="truncate"
-                    title="ดับเบิลคลิกเพื่อเปลี่ยนชื่อ"
-                    onDoubleClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      openRenameThread(t.id, t.title);
-                    }}
-                  >
-                    {t.title}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  aria-label="เปิดเมนูดวงจร"
-                  aria-expanded={threadActionsOpen === t.id}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setThreadActionsOpen((current) =>
-                      current === t.id ? null : t.id,
-                    );
-                  }}
-                  className={`min-h-11 shrink-0 rounded-md px-3 py-2 text-base leading-none text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] md:hidden ${
-                    threadActionsOpen === t.id ? "hidden" : "inline-flex items-center"
-                  }`}
-                >
-                  ⋯
-                </button>
-                <button
-                  type="button"
-                  title="เปลี่ยนชื่อ"
-                  aria-label="เปลี่ยนชื่อแชท"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    openRenameThread(t.id, t.title);
-                  }}
-                  className={`min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
-                    threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
-                  }`}
-                >
-                  ชื่อ
-                </button>
-                <button
-                  type="button"
-                  title="ลบแชท"
-                  aria-label="ลบแชท"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    void deleteThread(t.id);
-                  }}
-                  className={`min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
-                    threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
-                  }`}
-                >
-                  ลบ
-                </button>
-              </div>
-            ))
+              </li>
+            ))}
+            </ul>
           )}
         </nav>
         </div>
@@ -729,7 +633,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className="flex h-[100dvh] overflow-hidden"
+      className="shape-capsule flex h-[100dvh] overflow-hidden"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
     >
@@ -771,6 +675,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Desktop sidebar */}
       <aside
+        aria-label="แถบข้าง"
         className={`${
           collapsed ? "w-16" : "w-72"
         } relative z-30 hidden shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)] md:flex md:flex-col`}
@@ -843,14 +748,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <BrandLockup markSize={26} showTagline={false} />
           </Link>
         </header>
-        <div className="flex min-h-0 flex-1 flex-col">
+        <main className="flex min-h-0 flex-1 flex-col">
           <VerifyEmailBanner />
           <PendingPaymentBanner />
           <ProExpiryBanner />
           <ProPromotionBanner />
           <SiteAnnouncementBanner />
           {children}
-        </div>
+        </main>
       </div>
 
       <ConfirmModal
@@ -952,7 +857,7 @@ function CollapsedRail({
     <div className="flex h-full w-16 flex-col items-center py-3">
       <Link
         href="/dashboard"
-        className="press-scale mb-1 rounded-lg p-1 transition hover:bg-[var(--surface-2)]"
+        className="press-scale mb-1 rounded-lg p-1 transition hover:bg-[var(--background)]"
         aria-label="horasard"
         title="horasard"
         onClick={(e) => {
@@ -968,7 +873,7 @@ function CollapsedRail({
       <button
         type="button"
         onClick={onExpand}
-        className="press-scale rounded-md p-2 text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+        className="press-scale rounded-md p-2 text-[var(--muted)] transition hover:bg-[var(--background)] hover:text-[var(--foreground)]"
         aria-label="เปิดแถบข้าง"
         title="เปิดแถบข้าง"
       >
@@ -990,13 +895,13 @@ function CollapsedRail({
         <NewChatIcon size={22} />
       </Link>
 
-      <nav className="mt-3 flex flex-1 flex-col items-center gap-1 overflow-y-auto px-1">
+      <nav aria-label="เมนูย่อ" className="mt-3 flex flex-1 flex-col items-center gap-1 overflow-y-auto px-1">
         <button
           type="button"
-          title="ดวงจักรกำเนิด"
-          aria-label="เปิดดวงจักรกำเนิด"
+          title="ราศีจักร"
+          aria-label="เปิดราศีจักร"
           onClick={() => chatNav(natalAtlasHref())}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--primary)]/75 transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-[var(--primary)]/75 transition hover:bg-[var(--background)] hover:text-[var(--primary)]"
         >
           <NatalChartIcon size={20} />
         </button>
@@ -1014,7 +919,7 @@ function CollapsedRail({
         {usageRemainingPercent != null && (
           <Link
             href="/account"
-            className="rounded-md px-1 py-0.5 text-[10px] font-semibold tabular-nums text-[var(--foreground)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
+            className="rounded-md px-1 py-0.5 text-[11px] font-semibold tabular-nums text-[var(--foreground)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
             title={`usage เหลือ ${usageRemainingPercent}%`}
             aria-label={`usage เหลือ ${usageRemainingPercent} เปอร์เซ็นต์`}
           >
@@ -1053,7 +958,7 @@ function ActionErrorToast({
   return createPortal(
     <div
       role="alert"
-      className="fixed bottom-6 left-1/2 z-[120] max-w-sm -translate-x-1/2 rounded-xl border border-[var(--danger)]/40 bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--danger)] shadow-xl"
+      className="fixed bottom-6 left-1/2 z-[120] max-w-sm -translate-x-1/2 rounded-2xl border border-[var(--danger)]/40 bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--danger)] shadow-xl"
     >
       <div className="flex items-start gap-3">
         <p className="flex-1 leading-snug">{message}</p>

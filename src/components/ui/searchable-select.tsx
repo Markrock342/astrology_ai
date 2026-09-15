@@ -165,7 +165,7 @@ export function SearchableSelect({
           id={listboxId}
           role="listbox"
           aria-label={`ผลการค้นหา${ariaLabel}`}
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto overscroll-contain rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-2xl"
+          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto overscroll-contain rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-2xl"
         >
           {emptyLabel ? (
             <li

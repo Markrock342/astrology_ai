@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CmsLandingPricingSection } from "@/lib/cms-keys";
+import { SectionHeader } from "@/components/marketing/section-header";
 
 export type MarketingPackage = {
   code: string;
@@ -61,24 +62,17 @@ export function PricingSection({
   return (
     <section
       className={`border-t border-[var(--border)] bg-[var(--surface)]/40 px-6 ${
-        compact ? "py-16" : "py-20"
+        compact ? "py-20" : "py-24"
       }`}
     >
       <div className="mx-auto max-w-5xl">
-        {(section.title || section.subtitle) && (
-          <div className="mx-auto max-w-2xl text-center">
-            {section.title ? (
-              <h2 className="text-2xl font-semibold text-[var(--foreground)] sm:text-3xl">
-                {section.title}
-              </h2>
-            ) : null}
-            {section.subtitle ? (
-              <p className="mt-3 text-sm leading-relaxed text-[var(--muted)] sm:text-base">
-                {section.subtitle}
-              </p>
-            ) : null}
-          </div>
-        )}
+        {section.title ? (
+          <SectionHeader
+            title={section.title}
+            subtitle={section.subtitle}
+            align="center"
+          />
+        ) : null}
 
         <div
           className={`mx-auto mt-12 grid gap-5 ${
@@ -95,18 +89,20 @@ export function PricingSection({
             return (
               <article
                 key={pkg.code}
-                className={`flex flex-col rounded-2xl border p-6 ${
-                  highlight
-                    ? "border-[var(--primary)]/55 bg-[var(--surface)] shadow-[0_0_0_1px_rgba(201,162,75,0.12)]"
-                    : "border-[var(--border)] bg-[var(--surface)]"
+                className={`flex flex-col rounded-2xl border bg-[var(--surface)] ${
+                  highlight ? "border-[var(--primary)]/55" : "border-[var(--border)]"
                 } ${compact ? "p-5" : "p-6"}`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-lg font-semibold text-[var(--foreground)]">
+                  <h3 className="text-base font-semibold text-[var(--foreground)]">
                     {pkg.name}
                   </h3>
                   {highlight ? (
-                    <span className="rounded-full bg-[var(--primary)]/15 px-2.5 py-0.5 text-[11px] font-medium text-[var(--primary)]">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--primary)]">
+                      <span
+                        aria-hidden
+                        className="h-1.5 w-1.5 rounded-full bg-[var(--primary)]"
+                      />
                       แนะนำ
                     </span>
                   ) : null}
@@ -115,7 +111,7 @@ export function PricingSection({
                   <p className="mt-2 text-sm text-[var(--muted)]">{pkg.description}</p>
                 ) : null}
                 <p className="mt-4">
-                  <span className="text-3xl font-semibold text-[var(--primary)]">
+                  <span className="text-3xl font-light tracking-tight text-[var(--primary)]">
                     ฿{pkg.price.toLocaleString("th-TH")}
                   </span>
                   <span className="ml-1 text-xs text-[var(--muted-2)]">
@@ -133,7 +129,7 @@ export function PricingSection({
                 <div className="mt-auto pt-6">
                   <Link
                     href="/login?tab=register"
-                    className={`block rounded-full px-5 py-2.5 text-center text-sm font-semibold transition ${
+                    className={`press-scale block rounded-full px-5 py-2.5 text-center text-sm font-semibold transition ${
                       highlight
                         ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]"
                         : "border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)]/40 hover:bg-[var(--surface-2)]"
@@ -151,9 +147,9 @@ export function PricingSection({
           <p className="mt-8 text-center">
             <Link
               href="/pricing"
-              className="text-sm font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+              className="text-sm font-medium text-[var(--primary)] underline-offset-4 hover:underline"
             >
-              ดูรายละเอียดแพ็กเกจทั้งหมด →
+              ดูรายละเอียดแพ็กเกจ →
             </Link>
           </p>
         ) : null}

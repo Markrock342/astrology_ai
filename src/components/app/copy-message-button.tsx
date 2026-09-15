@@ -22,7 +22,7 @@ export function CopyMessageButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={onCopy}
-      className="press-scale inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+      className="press-scale inline-flex min-h-11 items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] md:min-h-0 md:px-2"
       aria-label={copied ? "คัดลอกแล้ว" : "คัดลอกข้อความ"}
     >
       {copied ? (

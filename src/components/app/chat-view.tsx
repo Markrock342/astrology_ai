@@ -3,11 +3,13 @@
 import {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
   useSyncExternalStore,
   forwardRef,
 } from "react";
+import dynamic from "next/dynamic";
 import { APP_NAME, DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
 import { ChatThreadSkeleton } from "@/components/app/content-skeleton";
@@ -42,8 +44,25 @@ import {
   readAskFromChartDetail,
 } from "@/lib/chat-navigation-links";
 import { formatTransitNowLabel } from "@/lib/transit-label";
-import { NatalChartReferenceView } from "./natal-chart-reference-view";
 import { TransitDatePicker } from "./transit-date-picker";
+import {
+  detectFutureDatePromptTrigger,
+  type FutureDatePromptTrigger,
+  suggestedFutureDateKey,
+} from "@/lib/reading-intent";
+
+// Behind a click / a route flag — keep them out of the first dashboard chunk.
+const NatalChartReferenceView = dynamic(
+  () =>
+    import("./natal-chart-reference-view").then(
+      (mod) => mod.NatalChartReferenceView,
+    ),
+  { ssr: false, loading: () => <ChatThreadSkeleton /> },
+);
+const FutureDateModal = dynamic(
+  () => import("./future-date-modal").then((mod) => mod.FutureDateModal),
+  { ssr: false },
+);
 
 type ThinkingPhase = "chart" | "memory" | "writing";
 type AnswerMode = "brief" | "detailed";
@@ -91,11 +110,6 @@ function readAnswerMode(plan: "FREE" | "PRO" = "FREE"): AnswerMode {
   if (saved === "brief" || saved === "detailed") return saved;
   // Free defaults to brief — burns fewer tokens on the 3-credit trial.
   return plan === "PRO" ? "detailed" : "brief";
-}
-
-function readDraft(): string {
-  if (typeof window === "undefined") return "";
-  return window.localStorage.getItem(DRAFT_KEY) ?? "";
 }
 
 function readFeedbackMap(): Record<string, FeedbackValue> {
@@ -257,7 +271,30 @@ type SendOpts = {
   editUserMessageId?: string;
   regenerateAssistantMessageId?: string;
   purpose?: "category_intro";
+  skipFutureDatePrompt?: boolean;
+  transitDateOverride?: string;
 };
+
+type PendingFutureDate = {
+  question: string;
+  options: SendOpts;
+  initialDate: string;
+  trigger: FutureDatePromptTrigger;
+};
+
+function recordFutureDatePromptOutcome(
+  trigger: FutureDatePromptTrigger,
+  action: "CONFIRMED" | "CANCELLED",
+) {
+  void fetch("/api/telemetry/future-date-prompt", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trigger, action }),
+    keepalive: true,
+  }).catch(() => {
+    // Product telemetry must never block or disturb the reading flow.
+  });
+}
 
 const SCROLL_NEAR_BOTTOM_PX = 120;
 /** No stream delta for this long → treat the turn as stuck and recover. */
@@ -372,9 +409,11 @@ export function ChatView() {
   const { usage, refresh: refreshUsage } = useMyUsage();
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
   const [answerMode, setAnswerMode] = useState<AnswerMode>("brief");
   const [transitDateInput, setTransitDateInput] = useState("");
+  const [pendingFutureDate, setPendingFutureDate] =
+    useState<PendingFutureDate | null>(null);
+  const futureDateOutcomeHandledRef = useRef(false);
   const [feedbackById, setFeedbackById] = useState<
     Record<string, FeedbackValue>
   >({});
@@ -399,7 +438,6 @@ export function ChatView() {
    * ref read there is neither reactive nor pure.
    */
   const [turnStartedAt, setTurnStartedAt] = useState<number | null>(null);
-  const draftHydratedRef = useRef(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [scopeTarget, setScopeTarget] = useState<ScopeTarget | null>(null);
@@ -421,7 +459,9 @@ export function ChatView() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [showScrollFab, setShowScrollFab] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
+  // The composer owns its text so typing never re-renders the thread; the
+  // parent reaches in through this handle to prefill, clear, read and focus.
+  const composerRef = useRef<ComposerHandle>(null);
   const isNearBottomRef = useRef(true);
   const streamTimer = useRef<number | null>(null);
   const conversationIdRef = useRef<string | null>(threadId);
@@ -499,7 +539,7 @@ export function ChatView() {
       const prompt = readAskFromChartDetail(event);
       if (!prompt) return;
       setEditingMessageId(null);
-      setInput(prompt);
+      composerRef.current?.setValue(prompt);
       window.localStorage.setItem(DRAFT_KEY, prompt);
       composerRef.current?.focus();
     }
@@ -514,27 +554,14 @@ export function ChatView() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage hydrate
     setAnswerMode(readAnswerMode(plan));
     setFeedbackById(readFeedbackMap());
-    if (!draftHydratedRef.current) {
-      draftHydratedRef.current = true;
-      const draft = readDraft();
-      if (draft) setInput(draft);
-    }
+    // The draft itself is restored by Composer on its own mount, so it also
+    // survives opening the natal reference view (which unmounts the composer).
   }, [user?.plan]);
 
   // Free + ≤1 credit: detailed is disabled in Composer, but localStorage can
   // still leave answerMode on "detailed" — force brief so send() matches the UI.
   const usageRemainingPercent =
     usage?.remainingPercent ?? user?.usageRemainingPercent ?? 0;
-
-  useEffect(() => {
-    if (!draftHydratedRef.current) return;
-    if (editingMessageId) return;
-    if (input.trim()) {
-      window.localStorage.setItem(DRAFT_KEY, input);
-    } else {
-      window.localStorage.removeItem(DRAFT_KEY);
-    }
-  }, [input, editingMessageId]);
 
   function updateAnswerMode(mode: AnswerMode) {
     setAnswerMode(mode);
@@ -984,7 +1011,7 @@ export function ChatView() {
     setThreadTransitLabel(null);
     setScopeForwardingLabel(null);
     setState(locked ? "locked" : "idle");
-    setInput("");
+    composerRef.current?.setValue("");
     setErrorText(null);
     setErrorCode(null);
     setPendingRetry(null);
@@ -1163,6 +1190,24 @@ export function ChatView() {
       );
     }
 
+    const futureDateTrigger = detectFutureDatePromptTrigger(content);
+    if (
+      !isIntro &&
+      !options.retryKey &&
+      !options.regenerateAssistantMessageId &&
+      !options.skipFutureDatePrompt &&
+      futureDateTrigger
+    ) {
+      futureDateOutcomeHandledRef.current = false;
+      setPendingFutureDate({
+        question: content,
+        options,
+        initialDate: suggestedFutureDateKey(content),
+        trigger: futureDateTrigger,
+      });
+      return;
+    }
+
     // The edit target is addressed locally (React key) but must be sent to the
     // server by its DB row id.
     const editLocalId = options.editUserMessageId ?? editingMessageId ?? undefined;
@@ -1189,7 +1234,7 @@ export function ChatView() {
       // The edit IS the send. Leaving the text in the composer made it look
       // unsent, so users pressed Enter again — a duplicate question and a
       // second credit charged.
-      setInput("");
+      composerRef.current?.setValue("");
       window.localStorage.removeItem(DRAFT_KEY);
     }
 
@@ -1223,7 +1268,7 @@ export function ChatView() {
       optimisticUserId = `local-${crypto.randomUUID()}`;
       const userMsg: Message = { id: optimisticUserId, role: "user", content };
       setMessages((m) => [...m, userMsg]);
-      setInput("");
+      composerRef.current?.setValue("");
       window.localStorage.removeItem(DRAFT_KEY);
     }
 
@@ -1377,7 +1422,8 @@ export function ChatView() {
             regenerateAssistantMessageId: options.regenerateAssistantMessageId,
             answerMode: isIntro ? "detailed" : effectiveAnswerMode,
             purpose: isIntro ? "category_intro" : undefined,
-            transitDate: transitDateInput || undefined,
+            transitDate:
+              options.transitDateOverride || transitDateInput || undefined,
           }),
           signal: abort.signal,
         },
@@ -1874,7 +1920,7 @@ export function ChatView() {
 
   function startEditMessage(messageId: string, content: string) {
     setEditingMessageId(messageId);
-    setInput(content);
+    composerRef.current?.setValue(content);
     composerRef.current?.focus();
   }
 
@@ -1919,11 +1965,36 @@ export function ChatView() {
     });
   }
 
-  function prefillFromChart(prompt: string) {
+  // Stable identity: it is a prop of the memoized evidence tables, and a fresh
+  // closure per render would re-render every chart on every streaming frame.
+  // The latest body lives in a ref (synced in an effect, never during render).
+  const prefillFromChartRef = useRef((prompt: string) => {
     setEditingMessageId(null);
-    setInput(prompt);
+    composerRef.current?.setValue(prompt);
     window.localStorage.setItem(DRAFT_KEY, prompt);
     composerRef.current?.focus();
+  });
+  useEffect(() => {
+    prefillFromChartRef.current = (prompt: string) => {
+      setEditingMessageId(null);
+      composerRef.current?.setValue(prompt);
+      window.localStorage.setItem(DRAFT_KEY, prompt);
+      composerRef.current?.focus();
+    };
+  });
+  const prefillFromChart = useCallback(
+    (prompt: string) => prefillFromChartRef.current(prompt),
+    [],
+  );
+
+  // Which rows carry the charts — computed once per render, not per message.
+  const firstNatalIdx = messages.findIndex((x) => x.chartSnapshot);
+  let latestTransitIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.transitSnapshot) {
+      latestTransitIdx = i;
+      break;
+    }
   }
 
   return (
@@ -1932,6 +2003,12 @@ export function ChatView() {
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {liveAnnounce}
       </div>
+      {messages.length > 0 && !showingNatalChart ? (
+        <h1 className="sr-only">
+          {threadMode === "TRANSIT" ? "แชทดวงจร" : "แชทพื้นดวง"}
+          {category?.label ? ` · ${category.label}` : ""}
+        </h1>
+      ) : null}
       {showingNatalChart ? (
         <ReadingContextBar mode="reference" category={category?.label} />
       ) : threadMode === "TRANSIT" ? (
@@ -1949,7 +2026,7 @@ export function ChatView() {
         className="relative min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8"
       >
         {!FEATURES.aiChat && (
-          <div className="animate-fade-in mx-auto mb-6 max-w-3xl rounded-xl border border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 text-center text-xs text-[var(--muted)]">
+          <div className="animate-fade-in mx-auto mb-6 max-w-3xl rounded-2xl border border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 text-center text-xs text-[var(--muted)]">
             ตัวอย่างระบบ (เฟสนี้) — ระบบดูดวงด้วย AI จะเปิดให้ใช้งานจริงในเฟสถัดไป
           </div>
         )}
@@ -2010,15 +2087,9 @@ export function ChatView() {
             {messages.map((m, idx) => {
               // Natal never changes, so its wheel stays on the first answer.
               // Transit is live per turn — yesterday's wheel must not hide today's.
-              const isFirstNatal =
-                Boolean(m.chartSnapshot) &&
-                messages.findIndex((x) => x.chartSnapshot) === idx;
+              const isFirstNatal = Boolean(m.chartSnapshot) && firstNatalIdx === idx;
               const isLatestTransit =
-                Boolean(m.transitSnapshot) &&
-                messages.reduce(
-                  (last, x, i) => (x.transitSnapshot ? i : last),
-                  -1,
-                ) === idx;
+                Boolean(m.transitSnapshot) && latestTransitIdx === idx;
               const showCharts = isFirstNatal || isLatestTransit;
               const isStreamingTurn =
                 (state === "streaming" || state === "processing") &&
@@ -2035,7 +2106,7 @@ export function ChatView() {
               return m.role === "user" ? (
                 <div key={m.id} className="animate-msg-in group flex flex-col items-end">
                   <div
-                    className={`max-w-[min(85%,42rem)] overflow-hidden whitespace-pre-wrap break-words rounded-2xl rounded-br-md px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)] ${
+                    className={`max-w-[min(85%,42rem)] overflow-hidden whitespace-pre-wrap break-words rounded-2xl rounded-br-[6px] px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)] ${
                       editingMessageId === m.id
                         ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/40"
                         : "bg-[var(--surface-3)]"
@@ -2137,7 +2208,7 @@ export function ChatView() {
                     ) : (
                       <>
                         {m.summaryLine ? (
-                          <div className="mb-3 rounded-xl border border-[var(--primary)]/25 bg-[var(--primary)]/8 px-3.5 py-2.5 text-[14px] leading-6 text-[var(--foreground)]">
+                          <div className="mb-3 rounded-2xl border border-[var(--primary)]/25 bg-[var(--primary)]/8 px-3.5 py-2.5 text-[14px] leading-6 text-[var(--foreground)]">
                             {m.summaryLine}
                           </div>
                         ) : null}
@@ -2175,12 +2246,12 @@ export function ChatView() {
                           <CopyMessageButton text={m.content} />
                         )}
                         {m.modelId && (
-                          <span className="ml-1 inline-flex items-center gap-1 text-[10px] text-[var(--muted-2)]">
+                          <span className="ml-1 inline-flex items-center gap-1 text-[11px] text-[var(--muted-2)]">
                             ตอบโดย {modelLabel(m.modelId)}
                           </span>
                         )}
                         {m.elapsedMs != null && (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-[var(--muted-2)]">
+                          <span className="inline-flex items-center gap-1 text-[11px] text-[var(--muted-2)]">
                             · ใช้เวลา {formatElapsed(Math.round(m.elapsedMs / 1000))}
                             {m.firstTokenMs != null
                               ? ` (เริ่มตอบใน ${Math.max(1, Math.round(m.firstTokenMs / 1000))} วิ)`
@@ -2200,7 +2271,7 @@ export function ChatView() {
                             type="button"
                             disabled={emailGate}
                             onClick={() => void send("เล่าต่อ")}
-                            className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-2.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-40 md:py-1.5"
                           >
                             เล่าต่อ ▸
                           </button>
@@ -2211,7 +2282,7 @@ export function ChatView() {
                             type="button"
                             disabled={emailGate}
                             onClick={() => void send(q)}
-                            className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-left text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                            className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2.5 text-left text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 md:py-1.5"
                           >
                             {q}
                           </button>
@@ -2219,7 +2290,7 @@ export function ChatView() {
                       </div>
                     ) : null}
                     {!isStreamingTurn && (
-                      <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted-2)]">
+                      <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted-2)]">
                         คำทำนายนี้มีไว้เพื่อความบันเทิงและเป็นแนวทางเท่านั้น
                         ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์
                       </p>
@@ -2306,7 +2377,7 @@ export function ChatView() {
                 type="button"
                 onClick={() => {
                   setEditingMessageId(null);
-                  setInput("");
+                  composerRef.current?.setValue("");
                 }}
                 className="text-xs text-[var(--muted-2)] underline hover:text-[var(--foreground)]"
               >
@@ -2329,11 +2400,10 @@ export function ChatView() {
           ) : null}
           <Composer
               ref={composerRef}
-              value={input}
-              onChange={setInput}
-              onSend={() =>
+              draftKey={editingMessageId ? null : DRAFT_KEY}
+              onSend={(text) =>
                 send(
-                  input,
+                  text,
                   editingMessageId
                     ? { editUserMessageId: editingMessageId }
                     : undefined,
@@ -2362,6 +2432,34 @@ export function ChatView() {
             />
         </div>
       )}
+      {pendingFutureDate ? (
+        <FutureDateModal
+          question={pendingFutureDate.question}
+          initialDate={pendingFutureDate.initialDate}
+          onCancel={() => {
+            if (futureDateOutcomeHandledRef.current) return;
+            futureDateOutcomeHandledRef.current = true;
+            recordFutureDatePromptOutcome(
+              pendingFutureDate.trigger,
+              "CANCELLED",
+            );
+            setPendingFutureDate(null);
+          }}
+          onConfirm={(date) => {
+            if (futureDateOutcomeHandledRef.current) return;
+            futureDateOutcomeHandledRef.current = true;
+            const pending = pendingFutureDate;
+            recordFutureDatePromptOutcome(pending.trigger, "CONFIRMED");
+            setPendingFutureDate(null);
+            setTransitDateInput(date);
+            void send(pending.question, {
+              ...pending.options,
+              skipFutureDatePrompt: true,
+              transitDateOverride: date,
+            });
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -2490,7 +2588,7 @@ function EmptyState({
                 if (emailGate) return;
                 onPick(q);
               }}
-              className={`animate-fade-up stagger-${Math.min(i + 2, 6)} press-scale rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 text-xs text-[var(--muted)] transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0`}
+              className={`animate-fade-up stagger-${Math.min(i + 2, 6)} press-scale rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2.5 text-xs text-[var(--muted)] transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 md:py-1.5`}
             >
               {q}
             </button>
@@ -2638,12 +2736,18 @@ function ThinkingIndicator({
 }
 
 
+export type ComposerHandle = {
+  focus: () => void;
+  setValue: (value: string) => void;
+  getValue: () => string;
+};
+
 const Composer = forwardRef<
-  HTMLTextAreaElement,
+  ComposerHandle,
   {
-    value: string;
-    onChange: (v: string) => void;
-    onSend: () => void;
+    /** localStorage key to persist the draft under; null while editing a message. */
+    draftKey: string | null;
+    onSend: (text: string) => void;
     onStop: () => void;
     streaming: boolean;
     disabled: boolean;
@@ -2659,8 +2763,7 @@ const Composer = forwardRef<
   }
 >(function Composer(
   {
-    value,
-    onChange,
+    draftKey,
     onSend,
     onStop,
     streaming,
@@ -2677,6 +2780,56 @@ const Composer = forwardRef<
   },
   ref,
 ) {
+  // Text lives here, not in ChatView: a keystroke used to re-render the whole
+  // thread (every chart, every markdown tree) — see ComposerHandle.
+  const [value, setValue] = useState("");
+  const dirtyRef = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // The textarea is controlled, so its DOM value IS the state — reading it
+  // from the handle avoids mirroring state into a ref during render.
+  const readValue = () => textareaRef.current?.value ?? "";
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => textareaRef.current?.focus(),
+      setValue: (next) => {
+        dirtyRef.current = true;
+        setValue(next);
+      },
+      getValue: readValue,
+    }),
+    [],
+  );
+
+  // Restore a saved draft on mount (effect, not initial state — the server
+  // renders an empty textarea and a differing initial value would mismatch).
+  useEffect(() => {
+    if (!draftKey || dirtyRef.current) return;
+    let draft = "";
+    try {
+      draft = window.localStorage.getItem(draftKey) ?? "";
+    } catch {
+      return;
+    }
+    if (!draft) return;
+    dirtyRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage hydrate
+    setValue(draft);
+  }, [draftKey]);
+
+  // Persist the draft once the user (or a prefill) has touched it. Skipping the
+  // pristine mount matters: writing "" there would wipe a stored draft before
+  // it was restored.
+  useEffect(() => {
+    if (!dirtyRef.current || !draftKey) return;
+    if (value.trim()) {
+      window.localStorage.setItem(draftKey, value);
+    } else {
+      window.localStorage.removeItem(draftKey);
+    }
+  }, [value, draftKey]);
+
   // Touch devices have no Shift+Enter — that desktop hint only confused phone
   // users, who send with the keyboard's own return/newline keys.
   const coarsePointer = useSyncExternalStore(
@@ -2700,24 +2853,31 @@ const Composer = forwardRef<
           : "สอบถามเราได้เลย — Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่";
 
   useEffect(() => {
-    const el = ref && "current" in ref ? ref.current : null;
+    const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    const next = Math.min(el.scrollHeight, 200);
-    el.style.height = `${Math.max(next, 24)}px`;
-  }, [value, ref]);
+    // One measure per keystroke, batched into the next frame so it never
+    // forces layout in the middle of React's commit.
+    const raf = requestAnimationFrame(() => {
+      el.style.height = "auto";
+      const next = Math.min(el.scrollHeight, 200);
+      el.style.height = `${Math.max(next, 24)}px`;
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+
+  const submit = () => onSend(readValue());
 
   return (
     <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8">
       {emailGate ? (
-        <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
+        <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
           <span>
             ยืนยันอีเมลก่อนใช้ usage ทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน
           </span>
         </div>
       ) : null}
       {lowUsage && !categoryLocked && !emailGate ? (
-        <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
+        <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
           <span>
             {usageExhausted
               ? "usage หมดแล้ว — เติม usage หรือเริ่มรอบแพ็กเกจใหม่เพื่อถามต่อ"
@@ -2784,20 +2944,23 @@ const Composer = forwardRef<
           </p>
         ) : null}
       </div>
-      <p className="mx-auto mb-2 max-w-3xl text-[10px] text-[var(--muted)]">
+      <p className="mx-auto mb-2 max-w-3xl text-[11px] text-[var(--muted)]">
         กระชับ ≈ สั้น เร็ว · ละเอียด ≈ ยาวขึ้น ใช้โควตามากกว่า
       </p>
-      <div className="mx-auto flex max-w-3xl items-end gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2 transition-colors duration-200 focus-within:border-[var(--primary)]/70 focus-within:ring-1 focus-within:ring-[var(--primary)]/30">
+      <div className="mx-auto flex max-w-3xl items-end gap-2.5 rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2 transition-colors duration-200 focus-within:border-[var(--primary)]/70 focus-within:ring-1 focus-within:ring-[var(--primary)]/30">
         <textarea
-          ref={ref}
+          ref={textareaRef}
           value={value}
           rows={1}
           aria-label="ข้อความคำถาม"
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            dirtyRef.current = true;
+            setValue(e.target.value);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              if (!emailGate && !disabled) onSend();
+              if (!emailGate && !disabled) submit();
             }
           }}
           disabled={!aiEnabled || emailGate || disabled || usageExhausted}
@@ -2808,7 +2971,7 @@ const Composer = forwardRef<
           <button
             type="button"
             onClick={onStop}
-            className="press-scale flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--foreground)] text-[var(--background)] transition hover:opacity-80"
+            className="press-scale flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--foreground)] text-[var(--background)] transition hover:opacity-80 md:size-8"
             aria-label="หยุดคำตอบ"
             title="หยุดคำตอบ"
           >
@@ -2819,7 +2982,7 @@ const Composer = forwardRef<
         ) : (
           <button
             type="button"
-            onClick={onSend}
+            onClick={submit}
             disabled={
               disabled ||
               !aiEnabled ||
@@ -2828,7 +2991,7 @@ const Composer = forwardRef<
               usageExhausted ||
               !value.trim()
             }
-            className="press-scale flex size-7 shrink-0 items-center justify-center rounded-full text-[var(--primary)] transition hover:bg-[var(--background)] hover:text-[var(--primary-hover)] disabled:opacity-40"
+            className="press-scale flex size-11 shrink-0 items-center justify-center rounded-full text-[var(--primary)] transition hover:bg-[var(--background)] hover:text-[var(--primary-hover)] disabled:opacity-40 md:size-8"
             aria-label="ส่ง"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
@@ -2837,7 +3000,7 @@ const Composer = forwardRef<
           </button>
         )}
       </div>
-      <p className="mt-1.5 text-center text-[10px] text-[var(--muted-2)]">
+      <p className="mt-1.5 text-center text-[11px] text-[var(--muted-2)]">
         Horasard อาจให้ข้อมูลที่ไม่ถูกต้องเสมอไป โปรดใช้วิจารณญาณ ·{" "}
         <a href="/disclaimer" className="underline hover:text-[var(--muted)]">
           ข้อจำกัดความรับผิด
@@ -2870,7 +3033,7 @@ function ChatDisclaimerNotice() {
   if (!storedVisible || dismissed) return null;
 
   return (
-    <div className="mx-auto mt-2 flex max-w-3xl items-start justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)]">
+    <div className="mx-auto mt-2 flex max-w-3xl items-start justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)]">
       <p>
         คำทำนายเพื่อความบันเทิงและเป็นแนวทางเท่านั้น ไม่ใช่คำแนะนำทางการเงิน กฎหมาย
         หรือการแพทย์ —{" "}

@@ -158,10 +158,15 @@ export function RasiTemplateChart({
       width={size}
       height={size}
       className={`h-auto max-w-full shrink-0 ${className}`}
-      role="img"
+      // role="img" would hide the tappable planets from assistive tech; a
+      // group keeps them reachable while the title still names the chart.
+      role={onSelectPlanet ? "group" : "img"}
       aria-label={`ราศีจักร ลัคนาราศี${signLabel(lagna)}`}
     >
       <title>{`ราศีจักร ลัคนาราศี${signLabel(lagna)}`}</title>
+      {onSelectPlanet ? (
+        <style>{`.rasi-planet:focus-visible > .rasi-hit{stroke:${GOLD};stroke-width:2}`}</style>
+      ) : null}
       <circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 2} fill={BACKGROUND} />
 
       <g fill="none" stroke={GOLD} strokeLinecap="round">
@@ -320,6 +325,7 @@ export function RasiTemplateChart({
                         }
                       : undefined
                   }
+                  className={interactive ? "rasi-planet" : undefined}
                   style={interactive ? { cursor: "pointer", outline: "none" } : undefined}
                 >
                   <title>
@@ -327,7 +333,9 @@ export function RasiTemplateChart({
                       ? `ลัคนา ราศี${signLabel(sign)}`
                       : `${entry.planet} ราศี${signLabel(sign)}${entry.degreeText ? ` ${entry.degreeText}` : ""}`}
                   </title>
-                  {interactive ? <circle cx={x} cy={y} r="20" fill="transparent" /> : null}
+                  {interactive ? (
+                    <circle className="rasi-hit" cx={x} cy={y} r="20" fill="transparent" />
+                  ) : null}
                   {selected ? (
                     <circle
                       cx={x}

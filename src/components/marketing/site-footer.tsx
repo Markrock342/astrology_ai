@@ -21,7 +21,7 @@ export function SiteFooter({ footer }: { footer: CmsSiteFooter }) {
         <div className="grid gap-8 sm:grid-cols-2">
           {footer.links.length > 0 && (
             <nav aria-label="ลิงก์ส่วนท้าย">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-2)]">
+              <p className="text-xs font-semibold text-[var(--muted-2)]">
                 เมนู
               </p>
               <ul className="mt-3 space-y-2">
@@ -41,7 +41,7 @@ export function SiteFooter({ footer }: { footer: CmsSiteFooter }) {
 
           {footer.socialLinks.length > 0 && (
             <nav aria-label="โซเชียล">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-2)]">
+              <p className="text-xs font-semibold text-[var(--muted-2)]">
                 ติดตาม
               </p>
               <ul className="mt-3 space-y-2">
@@ -63,7 +63,7 @@ export function SiteFooter({ footer }: { footer: CmsSiteFooter }) {
         </div>
       </div>
 
-      <div className="flex flex-col items-center justify-center gap-1 border-t border-[var(--border)] px-6 py-4 text-center text-[11px] leading-5 text-[var(--muted-2)] sm:flex-row sm:gap-2.5">
+      <div className="flex flex-col items-center justify-center gap-1 border-t border-[var(--border)] px-6 py-4 text-center text-xs leading-5 text-[var(--muted-2)] sm:flex-row sm:gap-2.5">
         <p>{footer.copyright}</p>
         <span className="hidden text-[var(--border)] sm:inline" aria-hidden>
           ·
@@ -72,7 +72,7 @@ export function SiteFooter({ footer }: { footer: CmsSiteFooter }) {
           href={DESIGN_CREDIT_HREF}
           target="_blank"
           rel="noopener noreferrer"
-          className="tracking-wide text-[var(--muted-2)] transition hover:text-[var(--primary)]"
+          className="text-[var(--muted-2)] transition hover:text-[var(--primary)]"
         >
           Design by Limitcode
         </a>

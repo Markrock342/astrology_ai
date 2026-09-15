@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useDialogFocus } from "./use-dialog-focus";
 
 type ModalProps = {
   title: string;
@@ -10,6 +11,10 @@ type ModalProps = {
 };
 
 function Modal({ title, onClose, children }: ModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useDialogFocus({ open: true, dialogRef, onClose });
+
   // Modals only render from client-side popover interactions, but guard SSR.
   if (typeof document === "undefined") return null;
 
@@ -22,16 +27,21 @@ function Modal({ title, onClose, children }: ModalProps) {
       }}
     >
       <div
-        className="animate-fade-up w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-5 shadow-2xl"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="animate-fade-up w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-5 shadow-2xl outline-none"
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[var(--foreground)]">{title}</h3>
+          <h3 id={titleId} className="text-sm font-semibold text-[var(--foreground)]">
+            {title}
+          </h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-[var(--muted)] hover:bg-[var(--surface-3)]"
+            className="flex size-11 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--surface-3)] sm:size-8"
             aria-label="ปิด"
           >
             ✕
@@ -84,15 +94,25 @@ export function RenameModal({
   return (
     <Modal title="เปลี่ยนชื่อผู้ใช้" onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-3">
+        <label htmlFor="settings-display-name" className="text-xs text-[var(--muted)]">
+          ชื่อที่แสดง
+        </label>
         <input
+          id="settings-display-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={80}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "settings-display-name-error" : undefined}
           className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
           placeholder="ชื่อที่แสดง"
           autoFocus
         />
-        {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+        {error && (
+          <p id="settings-display-name-error" className="text-xs text-[var(--danger)]" role="alert">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           disabled={saving || !name.trim()}
@@ -146,24 +166,41 @@ export function ChangePasswordModal({
         <p className="text-sm text-[var(--secondary-active)]">เปลี่ยนรหัสผ่านเรียบร้อยแล้ว</p>
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-3">
+          <label htmlFor="settings-current-password" className="text-xs text-[var(--muted)]">
+            รหัสผ่านปัจจุบัน
+          </label>
           <input
+            id="settings-current-password"
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "settings-password-error" : undefined}
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
             placeholder="รหัสผ่านปัจจุบัน"
             autoComplete="current-password"
+            autoFocus
           />
+          <label htmlFor="settings-new-password" className="text-xs text-[var(--muted)]">
+            รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)
+          </label>
           <input
+            id="settings-new-password"
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             minLength={8}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm outline-none focus:border-[var(--primary)]"
-            placeholder="รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "settings-password-error" : undefined}
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+            placeholder="รหัสผ่านใหม่"
             autoComplete="new-password"
           />
-          {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+          {error && (
+            <p id="settings-password-error" className="text-xs text-[var(--danger)]" role="alert">
+              {error}
+            </p>
+          )}
           <button
             type="submit"
             disabled={saving || currentPassword.length < 8 || newPassword.length < 8}

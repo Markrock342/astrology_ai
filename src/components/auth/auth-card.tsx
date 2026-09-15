@@ -156,7 +156,7 @@ export function AuthCard({
   const busy = loading !== null;
 
   return (
-    <div className="animate-fade-up w-full max-w-[420px] rounded-2xl border border-[var(--border)] bg-[var(--surface)]/90 p-6 shadow-2xl shadow-black/40 backdrop-blur sm:p-8">
+    <div className="animate-fade-up w-full max-w-[420px] rounded-2xl border border-[var(--primary)]/25 bg-[var(--surface)] p-6 shadow-[0_20px_55px_var(--shadow-color)] sm:p-8">
       {/* Segmented tabs — login-first, single surface (Notion/Linear pattern) */}
       <div
         role="tablist"
@@ -171,10 +171,21 @@ export function AuthCard({
         ).map(([id, label]) => (
           <button
             key={id}
+            id={`auth-tab-${id}`}
             type="button"
             role="tab"
             aria-selected={tab === id}
+            aria-controls={`auth-panel-${id}`}
+            tabIndex={tab === id ? 0 : -1}
             onClick={() => switchTab(id)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                e.preventDefault();
+                const next = id === "login" ? "register" : "login";
+                switchTab(next);
+                document.getElementById(`auth-tab-${next}`)?.focus();
+              }
+            }}
             className={`press-scale flex-1 rounded-lg py-2.5 text-sm font-medium transition ${
               tab === id
                 ? "bg-[var(--surface)] text-[var(--foreground)] shadow-sm"
@@ -208,8 +219,19 @@ export function AuthCard({
       </div>
 
       {tab === "login" ? (
-        <form onSubmit={handleLogin} className="flex flex-col gap-3" role="tabpanel">
-          <EmailInput value={email} onChange={setEmail} />
+        <form
+          onSubmit={handleLogin}
+          className="flex flex-col gap-3"
+          role="tabpanel"
+          id="auth-panel-login"
+          aria-labelledby="auth-tab-login"
+        >
+          <EmailInput
+            value={email}
+            onChange={setEmail}
+            invalid={Boolean(error)}
+            describedBy={error ? "auth-login-error" : undefined}
+          />
           <PasswordField
             value={password}
             onChange={setPassword}
@@ -217,6 +239,8 @@ export function AuthCard({
             autoComplete="current-password"
             show={showPassword}
             onToggle={() => setShowPassword((v) => !v)}
+            invalid={Boolean(error)}
+            describedBy={error ? "auth-login-error" : undefined}
           />
           <div className="flex justify-end">
             <Link
@@ -228,7 +252,7 @@ export function AuthCard({
           </div>
 
           {error ? (
-            <p className="text-xs text-[var(--danger)]" role="alert">
+            <p id="auth-login-error" className="text-xs text-[var(--danger)]" role="alert">
               {error}
             </p>
           ) : null}
@@ -258,15 +282,29 @@ export function AuthCard({
           </p>
         </form>
       ) : (
-        <form onSubmit={handleRegister} className="flex flex-col gap-3" role="tabpanel">
-          <EmailInput value={email} onChange={setEmail} />
+        <form
+          onSubmit={handleRegister}
+          className="flex flex-col gap-3"
+          role="tabpanel"
+          id="auth-panel-register"
+          aria-labelledby="auth-tab-register"
+        >
+          <EmailInput
+            value={email}
+            onChange={setEmail}
+            invalid={Boolean(error)}
+            describedBy={error ? "auth-register-error" : undefined}
+          />
           <PasswordField
             value={password}
             onChange={setPassword}
             placeholder="รหัสผ่าน (อย่างน้อย 8 ตัว)"
+            label="รหัสผ่าน"
             autoComplete="new-password"
             show={showPassword}
             onToggle={() => setShowPassword((v) => !v)}
+            invalid={Boolean(error)}
+            describedBy={error ? "auth-register-error" : undefined}
           />
           <PasswordField
             value={confirmPassword}
@@ -275,6 +313,8 @@ export function AuthCard({
             autoComplete="new-password"
             show={showPassword}
             onToggle={() => setShowPassword((v) => !v)}
+            invalid={Boolean(error)}
+            describedBy={error ? "auth-register-error" : undefined}
           />
 
           <label className="flex cursor-pointer items-start gap-2 text-xs text-[var(--muted)]">
@@ -297,7 +337,11 @@ export function AuthCard({
             onExpire={() => setTurnstileToken(null)}
           />
 
-          {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+          {error ? (
+            <p id="auth-register-error" className="text-xs text-[var(--danger)]" role="alert">
+              {error}
+            </p>
+          ) : null}
 
           <button
             type="submit"

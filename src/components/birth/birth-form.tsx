@@ -263,7 +263,7 @@ export function BirthForm({
     <>
       <form
         onSubmit={handleSubmit}
-        className="animate-fade-up stagger-1 w-full max-w-2xl rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 shadow-2xl backdrop-blur"
+        className="animate-fade-up stagger-1 w-full max-w-2xl rounded-3xl border border-[var(--primary)]/25 bg-[var(--surface)] p-8 shadow-[0_20px_55px_var(--shadow-color)]"
       >
         <h2 className="text-lg font-semibold text-[var(--primary)]">
           {editing ? "แก้ไขข้อมูลวันเกิด" : "กรอกข้อมูลวันเกิด"}
@@ -447,7 +447,11 @@ export function BirthForm({
           </Checkbox>
         </div>
 
-        {error && <p className="mt-4 text-xs text-[var(--danger)]">{error}</p>}
+        {error && (
+          <p className="mt-4 text-xs text-[var(--danger)]" role="alert">
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"

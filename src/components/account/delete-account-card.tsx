@@ -65,7 +65,7 @@ export function DeleteAccountCard({ email }: { email: string }) {
               type="button"
               disabled={busy}
               onClick={() => void onDelete()}
-              className="rounded-xl bg-[var(--danger)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              className="rounded-xl bg-[var(--danger)] px-4 py-2.5 text-sm font-semibold text-[var(--danger-foreground)] transition hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "กำลังลบ…" : "ลบบัญชีถาวร"}
             </button>

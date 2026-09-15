@@ -182,7 +182,7 @@ export function AccountView({
         </div>
 
         {expirySoon && expiresAt ? (
-          <div className="mt-4 rounded-xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 text-sm text-[var(--foreground)]">
+          <div className="mt-4 rounded-2xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 text-sm text-[var(--foreground)]">
             Pro ใกล้หมดอายุ ({formatExpiry(expiresAt)}) —{" "}
             <a
               href="#renew"
@@ -240,7 +240,7 @@ export function AccountView({
         {isPro && topUpPkg && (
           <>
             {showTopUpBanner && (
-              <div className="mt-6 rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-4 py-3 text-sm text-[var(--muted)]">
+              <div className="mt-6 rounded-2xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-4 py-3 text-sm text-[var(--muted)]">
                 usage เหลือ{" "}
                 <span className="font-semibold text-[var(--foreground)]">
                   {myPackage.usageRemainingPercent}%

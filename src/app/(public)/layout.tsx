@@ -26,7 +26,7 @@ export default async function PublicLayout({
   ]);
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <div className="shape-capsule flex min-h-full flex-1 flex-col">
       {preview ? <PreviewBanner /> : null}
       <PublicAnnouncementBanner announcements={announcements} />
       <div className="flex flex-1 flex-col">{children}</div>

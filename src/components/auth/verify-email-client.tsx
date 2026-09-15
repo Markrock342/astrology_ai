@@ -50,7 +50,7 @@ export function VerifyEmailClient() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
       <BrandLogo size={44} className="mb-10" />
-      <div className="w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 text-center shadow-2xl backdrop-blur">
+      <div className="w-full max-w-md rounded-3xl border border-[var(--primary)]/25 bg-[var(--surface)] p-8 text-center shadow-[0_20px_55px_var(--shadow-color)]">
         {status === "loading" && (
           <p className="text-sm text-[var(--muted)]">กำลังยืนยันอีเมล…</p>
         )}

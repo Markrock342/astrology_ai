@@ -6,10 +6,10 @@ import { useAppData } from "@/components/app/app-data-provider";
 type AnnouncementTone = "INFO" | "WARNING" | "PROMO" | "DANGER";
 
 const TONE_CLASS: Record<AnnouncementTone, string> = {
-  INFO: "border-[var(--primary)]/30 bg-[var(--primary)]/10 text-[var(--foreground)]",
-  WARNING: "border-amber-500/40 bg-amber-500/10 text-amber-100",
+  INFO: "border-[var(--border-strong)] bg-[var(--surface-2)] text-[var(--foreground)]",
+  WARNING: "border-[var(--primary)]/45 bg-[var(--primary)]/12 text-[var(--foreground)]",
   PROMO: "border-[var(--secondary-active)]/40 bg-[var(--secondary-active)]/10 text-[var(--foreground)]",
-  DANGER: "border-[var(--danger)]/40 bg-[var(--danger)]/10 text-[var(--danger)]",
+  DANGER: "border-[var(--danger)]/45 bg-[var(--danger)]/10 text-[var(--foreground)]",
 };
 
 /** Renders active announcements from app bootstrap (no extra client fetch). */
@@ -26,7 +26,7 @@ export function SiteAnnouncementBanner() {
         return (
           <div
             key={item.id}
-            className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${TONE_CLASS[tone]}`}
+            className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-3 py-2 text-xs ${TONE_CLASS[tone]}`}
           >
             <div>
               <span className="font-medium">{item.title}</span>
