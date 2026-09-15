@@ -1,4 +1,4 @@
-import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
+import { CHART_EVIDENCE_VERSION, type BirthInputSnapshot, type ChartJson } from "@/types/chart";
 import type { TransitInput } from "@/types/transit";
 import { defaultTransitInput } from "@/types/transit";
 import { CALCULATION_SETTINGS } from "./newhora/data/calculationSettings";
@@ -26,7 +26,7 @@ function toChartJsonFromFormula(input: BirthInputSnapshot): ChartJson {
     meta: {
       birthDisplay: formatBirthDisplay(input),
       locationDisplay: formatLocationDisplay(input),
-      evidenceVersion: 2,
+      evidenceVersion: CHART_EVIDENCE_VERSION,
       calculationSource: chart.source,
       lagna: chart.lagna,
     },

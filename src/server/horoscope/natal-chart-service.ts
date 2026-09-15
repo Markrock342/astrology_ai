@@ -2,7 +2,7 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";
 import { isCurrentTaksaSlots } from "@/lib/taksa";
-import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
+import { CHART_EVIDENCE_VERSION, type BirthInputSnapshot, type ChartJson } from "@/types/chart";
 import {
   birthProfileToChartInput,
   chartInputMatches,
@@ -31,7 +31,7 @@ function isAcceptableCachedChart(
 ): boolean {
   return (
     chartInputMatches(chart.input, input) &&
-    chart.meta?.evidenceVersion === 2 &&
+    chart.meta?.evidenceVersion === CHART_EVIDENCE_VERSION &&
     chart.settings?.taksaCountFrom === "birth-weekday" &&
     isCurrentTaksaSlots(chart.chart?.taksa) &&
     isUsableChart(chart)
