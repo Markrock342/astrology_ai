@@ -56,6 +56,44 @@ export const CONVERSATION_HISTORY_MAX_CHARS = 16_000;
 export const KNOWLEDGE_MAX_CHARS = 28_000;
 
 /**
+ * Free trial depth as a percentage of the Pro reading (single knob).
+ *
+ * Free is a trial, not a Pro clone: it must show the product works without
+ * giving away the full reading. This one number drives the Free knowledge
+ * budget (fewer doctrine chunks), the Free visible-length hint and the plan
+ * instruction that limits how many chart signals the model expands on.
+ * Output-token caps stay separate — they exist for Gemini thinking headroom,
+ * not for depth (see FREE_MAX_OUTPUT_TOKENS).
+ */
+export const FREE_TRIAL_DEPTH_PERCENT = 60;
+
+function scaleForTrial(value: number, roundTo = 10): number {
+  return Math.round((value * FREE_TRIAL_DEPTH_PERCENT) / 100 / roundTo) * roundTo;
+}
+
+/** Free gets the best-ranked chunks only, inside this smaller budget. */
+export const FREE_KNOWLEDGE_MAX_CHARS = scaleForTrial(KNOWLEDGE_MAX_CHARS, 100);
+
+/** Pro detailed visible length (words) — Free is derived from this. */
+export const PRO_DETAILED_WORDS_MIN = 350;
+export const PRO_DETAILED_WORDS_MAX = 500;
+export const FREE_DETAILED_WORDS_MIN = scaleForTrial(PRO_DETAILED_WORDS_MIN);
+export const FREE_DETAILED_WORDS_MAX = scaleForTrial(PRO_DETAILED_WORDS_MAX);
+
+/** Plan block of the system prompt (spec 7.2 slot 3). */
+export const PLAN_HINT_PRO =
+  "ผู้ใช้ระดับ Pro: อ่านให้ครบทุกสัญญาณที่เกี่ยวกับคำถาม (ลัคนา เจ้าเรือน มุมจาก [aspects] ทักษา และดวงจร) " +
+  "ตอบครบถ้วนตรงคำถาม ใช้หัวข้อ/ตารางเมื่อมีหลายจุด — ไม่เกริ่นยาว ไม่ซ้ำประเด็น";
+
+export const PLAN_HINT_FREE =
+  `ผู้ใช้ระดับ Free (แพ็กเกจทดลอง): ให้คำอ่านลึกประมาณ ${FREE_TRIAL_DEPTH_PERCENT}% ของระดับ Pro — ` +
+  "หยิบสัญญาณเด่นที่เกี่ยวกับคำถามมากที่สุดเพียง 1–2 อย่างมาอธิบาย ห้ามไล่เจ้าเรือนครบทุกเรือน " +
+  "ห้ามทำตารางดาว/มุม/จังหวะครบชุด ห้ามแจกแจงดวงจรทีละเดือนเกินช่วงที่ถาม " +
+  "สิ่งที่อ่านต้องถูกต้องและตอบคำถามจริง ไม่ใช่ตอบครึ่ง ๆ กลาง ๆ " +
+  "ปิดท้ายได้เพียงหนึ่งประโยคสั้น ๆ ว่ามุมที่ยังไม่ได้ลง (เช่น มุมสัมพันธ์ครบชุดหรือจังหวะรายเดือน) จะอ่านให้เต็มในระดับ Pro " +
+  "โดยไม่หลุดบุคลิกและไม่พูดซ้ำหลายครั้ง";
+
+/**
  * Plan-specific output caps (applied on top of Admin AIProviderConfig).
  *
  * Gemini 3.x draws *thinking* from this same budget and does not count it in
@@ -104,14 +142,14 @@ export const BRIEF_ANSWER_HINT =
 
 /** Free detailed — still capped so trial credits don't burn on 700-word essays. */
 export const DETAILED_ANSWER_HINT_FREE =
-  "โหมดละเอียด (แพ็กเกจทดลอง): ตอบชัด อ่านง่าย รวมประมาณ 250–350 คำ " +
+  `โหมดละเอียด (แพ็กเกจทดลอง): ตอบชัด อ่านง่าย รวมประมาณ ${FREE_DETAILED_WORDS_MIN}–${FREE_DETAILED_WORDS_MAX} คำ ` +
   "หัวข้อย่อยใช้ได้เฉพาะเมื่อคำถามมีหลายส่วน ห้ามตั้งหัวข้อเป็นหมวดชีวิต " +
   "ห้ามยืดยาวซ้ำซ้อน ห้ามตารางยาว " +
   "ปิดท้ายด้วยคำถามชวนคุยต่อหนึ่งประโยคที่เจาะคำถามเดิม";
 
 /** Pro detailed — keep the visible answer complete without filling the token cap. */
 export const DETAILED_ANSWER_HINT_PRO =
-  "โหมดละเอียด: ตอบชัด อ่านง่าย รวมประมาณ 350–500 คำ " +
+  `โหมดละเอียด: ตอบชัด อ่านง่าย รวมประมาณ ${PRO_DETAILED_WORDS_MIN}–${PRO_DETAILED_WORDS_MAX} คำ ` +
   "หัวข้อย่อยใช้ได้เฉพาะเมื่อคำถามมีหลายส่วน ห้ามตั้งหัวข้อเป็นหมวดชีวิต " +
   "ห้ามยืดยาวซ้ำซ้อน ห้ามตารางยาว " +
   "ห้ามตัดท้ายกลางประโยค — ถ้าใกล้จบให้สรุปสั้นแล้วปิดด้วยคำถามชวนคุยต่อหนึ่งประโยคที่เจาะคำถามเดิม";

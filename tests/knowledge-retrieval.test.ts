@@ -70,6 +70,17 @@ describe("knowledge retrieval", () => {
     expect(prompt!.length).toBeLessThanOrEqual(5_000);
   });
 
+  it("labels the doctrine block as the only allowed interpretation source", () => {
+    const prompt = buildKnowledgePrompt(
+      [{ id: "a", title: "ดาวศุกร์", content: "ศุกร์ ความรัก" }],
+      { query: "ความรัก" },
+    );
+
+    expect(prompt).toMatch(/^\[knowledge\] ตำราจากคลังความรู้ของระบบ/);
+    expect(prompt).toContain("แหล่งตีความเพียงแหล่งเดียวที่อนุญาต");
+    expect(prompt).not.toContain("ใช้ประกอบการตอบ");
+  });
+
   it("removes internal provider and retrieval implementation terms", () => {
     const prompt = buildKnowledgePrompt(
       [

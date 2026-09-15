@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/errors";
-import { KNOWLEDGE_MAX_CHARS } from "@/config/constants";
+import {
+  FREE_KNOWLEDGE_MAX_CHARS,
+  KNOWLEDGE_MAX_CHARS,
+} from "@/config/constants";
 import {
   buildAstrologyStandardsPrompt,
   buildKnowledgePrompt,
@@ -551,6 +554,43 @@ describe("createReading (M3 B2)", () => {
     expect(aiCall.systemPrompt.indexOf("## Career")).toBeLessThan(
       aiCall.systemPrompt.indexOf("## Global"),
     );
+  });
+
+  it("gives Free a trial-depth plan hint and a smaller doctrine budget than Pro", async () => {
+    const docs = Array.from({ length: 12 }, (_, i) => ({
+      title: `Doc${i}`,
+      content: "การงาน ".repeat(340), // ≈2,380 chars — one chunk each
+      categoryId: null,
+      sortOrder: i,
+    }));
+    mocks.findKnowledge.mockResolvedValue(docs);
+    expect(FREE_KNOWLEDGE_MAX_CHARS).toBeLessThan(KNOWLEDGE_MAX_CHARS);
+
+    mocks.assertCanRequestReading.mockResolvedValue("PRO");
+    await createReading({ userId: "user-1", categorySlug: "career", question: "q" });
+    const proPrompt = (
+      mocks.generateWithFallback.mock.calls[0]?.[1] as { systemPrompt: string }
+    ).systemPrompt;
+
+    mocks.generateWithFallback.mockClear();
+    mocks.assertCanRequestReading.mockResolvedValue("FREE");
+    await createReading({ userId: "user-1", categorySlug: "career", question: "q" });
+    const freePrompt = (
+      mocks.generateWithFallback.mock.calls[0]?.[1] as { systemPrompt: string }
+    ).systemPrompt;
+
+    const count = (text: string) => (text.match(/^## Doc\d+/gm) ?? []).length;
+    // Pro fills the 28k budget (≈11 chunks); Free fills only 60% of it.
+    expect(count(proPrompt)).toBeGreaterThanOrEqual(10);
+    expect(count(freePrompt)).toBeGreaterThan(0);
+    expect(count(freePrompt)).toBeLessThanOrEqual(
+      Math.ceil(count(proPrompt) * 0.6) + 1,
+    );
+    expect(count(freePrompt)).toBeLessThan(count(proPrompt));
+
+    // resolvePromptParts is mocked here; plan hints are asserted in prompt-resolver tests.
+    expect(freePrompt).toContain("กฎแหล่งความรู้");
+    expect(freePrompt).toContain("[knowledge] ตำราจากคลังความรู้ของระบบ");
   });
 
   it("passes plan-specific maxOutputTokens to the AI router", async () => {

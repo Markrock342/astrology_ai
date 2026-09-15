@@ -107,6 +107,29 @@ export const CONVERSATION_MEMORY_RULE =
   "ถ้าคำตอบเก่าขัดกับ [natal] [memory] [transit] [aspects] หรือบล็อกความรู้ฉบับปัจจุบัน ให้แก้ตามข้อมูลปัจจุบันโดยไม่ยืนยันข้อผิดเดิม " +
   "ข้อเท็จจริงหรือคำแก้ไขล่าสุดที่ผู้ใช้บอกให้ถือเป็นข้อมูลล่าสุด";
 
+/**
+ * Closed-book rule: interpretation comes from the admin knowledge base and
+ * the astrology-standards block only. Gemini's own astrology knowledge (Thai
+ * or otherwise), web lore and other schools are off-limits — this is the fix
+ * for answers that drifted to "ที่อื่น" when the corpus did not cover a topic.
+ */
+export const KNOWLEDGE_SOURCE_RULE =
+  "กฎแหล่งความรู้ (บังคับสูงสุด รองจากกฎความปลอดภัย): ตีความดวงได้จากแหล่งเหล่านี้เท่านั้น " +
+  "(1) ตาราง [natal] [memory] [transit] [aspects] ในข้อความผู้ใช้ " +
+  "(2) บล็อก [knowledge] ตำราจากคลังความรู้ และบล็อกมาตรฐานดาวในคำสั่งนี้ " +
+  "(3) บุคลิก น้ำเสียง และวิธีพูดจากบล็อก persona " +
+  "ห้ามใช้ความรู้โหราศาสตร์ที่โมเดลเรียนรู้มาเอง ห้ามอ้างตำราเล่มอื่น เว็บไซต์ สำนักอื่น โหราศาสตร์สากล/ตะวันตก " +
+  "ราศีสากล เลขศาสตร์ ไพ่ทาโรต์ หรือศาสตร์อื่นที่ไม่อยู่ในคลังความรู้ " +
+  "ความหมายของดาว เรือน ราศี มุม ทักษา และดวงจร ต้องเป็นความหมายตามที่คลังความรู้ให้ไว้ ห้ามเติมความหมายจากที่อื่นแม้จะฟังดูถูกต้อง " +
+  "ถ้าคลังความรู้ไม่ครอบคลุมประเด็นย่อยที่ถาม ให้ตอบเฉพาะส่วนที่ตำราและตารางดวงรองรับ " +
+  "แล้วบอกสั้น ๆ ในบุคลิกเดิมว่ายังไม่มีตำราสำหรับส่วนนั้น ห้ามเดา ห้ามเติมจากความรู้ภายนอก " +
+  "ถ้าไม่มีบล็อก [knowledge] แนบมาเลย ให้ตอบจากตารางดวงและบล็อกมาตรฐานดาวเท่านั้น";
+
+/** Injected when the corpus returned nothing so the model does not fill the gap itself. */
+export const KNOWLEDGE_MISSING_NOTE =
+  "[knowledge] ไม่มีตำราจากคลังความรู้แนบมาในคำถามนี้ — " +
+  "ห้ามใช้ความรู้ของโมเดลเองแทน ให้อ่านจากตารางดวงและบล็อกมาตรฐานดาวเท่านั้น และบอกข้อจำกัดอย่างสุภาพเมื่อจำเป็น";
+
 export function buildSystemPrompt(parts: PromptParts): string {
   return [
     parts.safety,
@@ -114,7 +137,8 @@ export function buildSystemPrompt(parts: PromptParts): string {
     parts.persona,
     parts.plan,
     parts.category,
-    parts.knowledge,
+    parts.knowledge ?? KNOWLEDGE_MISSING_NOTE,
+    KNOWLEDGE_SOURCE_RULE,
     parts.outputFormat,
     ASTROLOGY_PLAIN_LANGUAGE_RULE,
     ANSWER_THE_QUESTION_RULE,
