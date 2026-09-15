@@ -1,5 +1,7 @@
 /** พิกัดสถานที่เกิด — อ้างอิง myhora + จังหวัดหลักของไทย (สำหรับ engine) */
 
+import districtCoords from "./thai-district-coords.json";
+
 export interface PlaceCoords {
   lat: number;
   lon: number;
@@ -158,6 +160,12 @@ const DEFAULT_THAILAND: PlaceCoords = {
   utcOffsetMinutes: THAILAND_UTC,
 };
 
+/** [lat, lon] per province → district, generated from Wikidata (P625). */
+const DISTRICT_COORDS = districtCoords as unknown as Record<
+  string,
+  Record<string, [number, number]>
+>;
+
 export function resolvePlaceCoords(
   country: string,
   province: string,
@@ -167,10 +175,15 @@ export function resolvePlaceCoords(
     const prov = province.trim();
     const dist = district.trim();
     const byDistrict = THAI_DISTRICTS[prov];
-    if (byDistrict) {
-      if (dist && byDistrict[dist]) return byDistrict[dist];
-      if (byDistrict._default) return byDistrict._default;
+    if (byDistrict && dist && byDistrict[dist]) return byDistrict[dist];
+    // Every อำเภอ/เขต (928) — the province centre used to stand in for the
+    // birthplace, which shifted sunrise and the ascendant enough to land the
+    // lagna in the neighbouring sign for births near a sign boundary.
+    const fromDataset = dist ? DISTRICT_COORDS[prov]?.[dist] : undefined;
+    if (fromDataset) {
+      return { lat: fromDataset[0], lon: fromDataset[1], utcOffsetMinutes: THAILAND_UTC };
     }
+    if (byDistrict?._default) return byDistrict._default;
     if (prov && THAI_PROVINCE_DEFAULTS[prov]) return THAI_PROVINCE_DEFAULTS[prov];
     return DEFAULT_THAILAND;
   }
