@@ -3,6 +3,7 @@
 import { memo, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CompactRasiWheel } from "./compact-rasi-wheel";
+import type { WheelChartKind } from "@/lib/chart-derivations";
 import { useDialogFocus } from "./use-dialog-focus";
 import {
   getPlanetMeaning,
@@ -24,10 +25,12 @@ export const ExpandableRasiWheel = memo(function ExpandableRasiWheel({
   chart,
   size = 132,
   label,
+  kind = "natal",
 }: {
   chart: ChartJson;
   size?: number;
   label?: string;
+  kind?: WheelChartKind;
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -77,7 +80,7 @@ export const ExpandableRasiWheel = memo(function ExpandableRasiWheel({
         aria-label={label ? `ขยาย${label}` : "ขยายแผนภูมิราศี"}
         title="แตะเพื่อขยาย"
       >
-        <CompactRasiWheel chart={chart} size={size} />
+        <CompactRasiWheel chart={chart} size={size} kind={kind} />
       </button>
       {open && typeof document !== "undefined"
         ? createPortal(
@@ -111,6 +114,7 @@ export const ExpandableRasiWheel = memo(function ExpandableRasiWheel({
                 <div className="flex w-full items-center justify-center overflow-auto py-1">
                   <CompactRasiWheel
                     chart={chart}
+                    kind={kind}
                     size={Math.min(360, typeof window !== "undefined" ? window.innerWidth - 72 : 320)}
                     onSelectPlanet={(p) =>
                       setSelected((cur) => (cur === p ? null : p))

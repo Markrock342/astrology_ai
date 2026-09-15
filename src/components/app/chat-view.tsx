@@ -2159,6 +2159,7 @@ export function ChatView() {
                               chart={m.transitSnapshot}
                               size={168}
                               label="ดวงจร"
+                              kind="transit"
                             />
                           </div>
                         ) : null}

@@ -6,6 +6,7 @@ import {
   deriveDivisionalChart,
   formatMyhoraDegreeText,
 } from "@/lib/chart-derivations";
+import { wheelChartFor } from "@/lib/chart-derivations";
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
 
@@ -252,5 +253,54 @@ describe("chart derivations for HoraSard SVG charts", () => {
 
     expect(deriveDivisionalChart(chart, "navamsa")).toBeNull();
     expect(deriveDivisionalChart(chart, "drekkana")).toBeNull();
+  });
+
+  it("draws the transit rows on a transit wheel, not the natal table it carries", () => {
+    const transit = {
+      input: {
+        day: 15,
+        month: 10,
+        year: 2026,
+        time: "12:00",
+        country: "ไทย",
+        province: "สกลนคร",
+        district: "สว่างแดนดิน",
+      },
+      calculatedAt: new Date().toISOString(),
+      settings: {
+        calendar: "suryayat",
+        ayanamsa: "lahiri",
+        timeMethod: "antonathi_samrap_sunrise_local",
+        rahuRule: "eight_signs_aquarius",
+        taksaRahuLord: "mercury_night",
+        taksaCountFrom: "center",
+      },
+      meta: {
+        birthDisplay: "15/10/2569",
+        locationDisplay: "สว่างแดนดิน",
+        calculationSource: "myhora-scrape",
+        lagna: "มกร",
+      },
+      // engine rows are already the transit day
+      planets: [{ planet: "อาทิตย์", siderealSign: "กันย์" }],
+      chart: { lagna: "มกร", taksa: [] },
+      myhora: {
+        lagnaSign: "มกร",
+        summaryNatal: null,
+        summaryTransit: null,
+        natalPlanets: [{ planet: "๑.อาทิตย์", zodiac: "มิถุน", degree: "4", minute: "24" }],
+        transitPlanets: [{ planet: "๑.อาทิตย์", zodiac: "กันย์", degree: "28", minute: "10" }],
+        taksa: [],
+        triwaiNatal: [],
+        triwaiTransit: [],
+      },
+    } satisfies ChartJson;
+
+    expect(wheelChartFor(transit, "transit").planets[0]?.siderealSign).toBe("กันย์");
+    expect(wheelChartFor(transit, "natal").planets[0]?.siderealSign).toBe("มิถุน");
+
+    // No transit table at all → engine rows, never the natal table.
+    const noTable = { ...transit, myhora: { ...transit.myhora, transitPlanets: null } };
+    expect(wheelChartFor(noTable, "transit").planets[0]?.siderealSign).toBe("กันย์");
   });
 });

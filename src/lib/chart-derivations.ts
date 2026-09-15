@@ -132,6 +132,29 @@ export function chartFromMyhoraRows(
   };
 }
 
+export type WheelChartKind = "natal" | "transit";
+
+/**
+ * The chart a rasi wheel should draw for a ChartJson.
+ *
+ * A transit ChartJson from the MyHora scrape carries BOTH tables: `natalPlanets`
+ * (the birth positions, kept as evidence) and `transitPlanets` (the day being
+ * asked about); its engine `planets` are already the transit rows. Reading
+ * `natalPlanets` for every wheel drew the birth chart twice — the ดาวจร wheel
+ * was pixel-identical to พื้นดวงเดิม. A transit wheel must never fall back to
+ * the natal table; the engine rows are the correct fallback.
+ */
+export function wheelChartFor(chart: ChartJson, kind: WheelChartKind): DerivedChart {
+  const fallback: DerivedChart = {
+    lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
+    planets: chart.planets,
+    lagnaDegreeInSign: chart.chart?.lagnaDegreeInSign,
+  };
+  const rows =
+    kind === "transit" ? chart.myhora?.transitPlanets : chart.myhora?.natalPlanets;
+  return chartFromMyhoraRows(rows, fallback) ?? fallback;
+}
+
 function signIndex(sign: string): number {
   const index = SIGNS.indexOf(
     normalizeMyhoraSign(sign) as (typeof SIGNS)[number],

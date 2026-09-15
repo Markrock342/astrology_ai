@@ -1,5 +1,5 @@
 import type { ChartJson } from "@/types/chart";
-import { chartFromMyhoraRows } from "@/lib/chart-derivations";
+import { wheelChartFor, type WheelChartKind } from "@/lib/chart-derivations";
 import { RasiTemplateChart } from "./rasi-template-chart";
 
 /**
@@ -12,6 +12,7 @@ export function CompactRasiWheel({
   size = 140,
   onSelectPlanet,
   selectedPlanet,
+  kind = "natal",
 }: {
   chart: ChartJson;
   className?: string;
@@ -19,17 +20,10 @@ export function CompactRasiWheel({
   /** When set, planet glyphs become tappable (used in the expanded lightbox). */
   onSelectPlanet?: (planet: string) => void;
   selectedPlanet?: string | null;
+  /** Transit charts must draw their transit rows, not the natal table they carry. */
+  kind?: WheelChartKind;
 }) {
-  const derived =
-    chartFromMyhoraRows(chart.myhora?.natalPlanets, {
-      lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
-      planets: chart.planets,
-      lagnaDegreeInSign: chart.chart?.lagnaDegreeInSign,
-    }) ?? {
-      lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
-      planets: chart.planets,
-      lagnaDegreeInSign: chart.chart?.lagnaDegreeInSign,
-    };
+  const derived = wheelChartFor(chart, kind);
   return (
     <RasiTemplateChart
       chart={derived}
