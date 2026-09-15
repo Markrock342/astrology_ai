@@ -7,6 +7,7 @@ import { isCategoryLocked, useAppData, useCategory } from "./app-data-provider";
 import { NatalChartIcon } from "./sidebar-icons";
 import { ChartPreparingIndicator } from "./natal-chart-banner";
 import { CategoryIcon } from "./category-icon";
+import { getPlanetTheme } from "@/lib/chart-theme";
 import { useNatalChart } from "./use-natal-chart";
 import { softNavigate, useChatRouteSearchParams } from "./chat-nav";
 import {
@@ -115,7 +116,13 @@ export function NatalChartReferenceView() {
         brief={brief}
       />
 
-      <NatalTopicsDossier topics={otherTopics} />
+      <NatalTopicsDossier
+        topics={otherTopics}
+        onAsk={(next) => {
+          dispatchAskFromChart(next);
+          softNavigate(catSlug ? natalCategoryHref(catSlug) : "/dashboard");
+        }}
+      />
 
       <HoroscopeChartPanel
         natal={chart}
@@ -256,65 +263,145 @@ function NatalCategoryBriefing({
 }
 
 /**
- * The rest of the natal dossier: houses, lords and occupants for every life
- * topic that is not the page's own category. Same facts the chat memory uses.
+ * The rest of the natal dossier — every life topic that is not the page's own
+ * category, each explained the way its old category page was: what the topic
+ * reads (houses + meanings) beside what this chart shows there (sign, lord,
+ * occupants). Same facts the chat memory uses.
  */
 function NatalTopicsDossier({
   topics,
+  onAsk,
 }: {
   topics: Array<NatalCategoryBrief & { label: string }>;
+  onAsk: (prompt: string) => void;
 }) {
   if (topics.length === 0) return null;
   return (
-    <section aria-labelledby="natal-topics-heading" className="mb-8">
-      <h2
-        id="natal-topics-heading"
-        className="text-sm font-semibold text-[var(--foreground)]"
-      >
-        พื้นดวงด้านอื่นของคุณ
-      </h2>
-      <p className="mt-1 text-xs leading-5 text-[var(--muted-2)]">
-        เรือนที่แต่ละด้านใช้อ่าน กับเจ้าเรือนและดาวที่สถิตอยู่ในดวงเกิดของคุณ
-      </p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+    <section aria-labelledby="natal-topics-heading" className="mb-10">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <h2
+          id="natal-topics-heading"
+          className="text-lg font-semibold text-[var(--foreground)]"
+        >
+          พื้นดวงทุกด้านของคุณ
+        </h2>
+        <p className="max-w-md text-xs leading-5 text-[var(--muted)] sm:text-right">
+          แต่ละด้านอ่านจากเรือนชุดหนึ่ง — ด้านซ้ายคือเรือนที่ใช้และความหมาย
+          ด้านขวาคือสิ่งที่อยู่ในเรือนนั้นในดวงเกิดของคุณ
+        </p>
+      </div>
+
+      <div className="mt-5 border-t border-[var(--primary)]/25">
         {topics.map((topic) => (
           <article
             key={topic.slug}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-4"
+            aria-labelledby={`natal-topic-${topic.slug}`}
+            className="grid gap-5 border-b border-[var(--primary)]/25 py-7 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-10"
           >
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-              <span className="text-[var(--primary)]">
-                <CategoryIcon slug={topic.slug} size={16} />
-              </span>
-              {topic.label}
-            </h3>
-            <ul className="mt-3 space-y-2">
-              {topic.houses.map((house) => (
-                <li key={house.house} className="text-sm leading-6 text-[var(--muted)]">
-                  <span className="font-medium text-[var(--foreground)]">
-                    เรือน {house.house} {house.name}
-                  </span>
-                  {house.sign ? ` ราศี${house.sign}` : ""}
-                  {house.lord
-                    ? house.lordHouse
-                      ? ` เจ้าเรือน${house.lord} อยู่เรือน ${house.lordHouse}`
-                      : ` เจ้าเรือน${house.lord}`
-                    : ""}
-                  {house.meaning ? (
-                    <span className="block text-xs leading-5 text-[var(--muted-2)]">
-                      {house.meaning}
+            {/* What this topic reads */}
+            <div>
+              <h3
+                id={`natal-topic-${topic.slug}`}
+                className="flex items-center gap-2.5 text-base font-semibold text-[var(--foreground)]"
+              >
+                <span className="text-[var(--primary)]">
+                  <CategoryIcon slug={topic.slug} size={18} />
+                </span>
+                {topic.label}
+              </h3>
+              <p className="mt-2 max-w-[48ch] text-sm leading-6 text-[var(--muted)]">
+                {topic.meaning}
+              </p>
+              <ul className="mt-4 space-y-2.5">
+                {topic.houses.map((house) => (
+                  <li key={house.house} className="flex gap-3">
+                    <span className="mt-0.5 w-14 shrink-0 text-sm font-semibold tabular-nums text-[var(--primary)]">
+                      เรือน {house.house}
                     </span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
-              {topic.occupants.length
-                ? `ดาวในเรือน: ${topic.occupants
-                    .map((row) => `${row.planet} ราศี${row.sign} (เรือน ${row.house})`)
-                    .join(" · ")}`
-                : "ไม่มีดาวสถิตในเรือนของด้านนี้"}
-            </p>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-[var(--foreground)]">
+                        {house.name}
+                      </span>
+                      {house.meaning ? (
+                        <span className="block text-xs leading-5 text-[var(--muted-2)]">
+                          {house.meaning}
+                        </span>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* What this chart shows there */}
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-[var(--muted)]">
+                ในดวงของคุณ · ลัคนา{topic.lagna}
+              </p>
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full min-w-[22rem] border-collapse text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-[var(--muted-2)]">
+                      <th className="py-1.5 pr-3 font-medium">เรือน</th>
+                      <th className="py-1.5 pr-3 font-medium">ราศี</th>
+                      <th className="py-1.5 pr-3 font-medium">เจ้าเรือน</th>
+                      <th className="py-1.5 font-medium">เจ้าเรือนอยู่</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)]">
+                    {topic.houses.map((house) => (
+                      <tr key={house.house} className="text-[var(--foreground)]">
+                        <td className="py-2 pr-3 font-medium">
+                          {house.house} {house.name}
+                        </td>
+                        <td className="py-2 pr-3">{house.sign ?? "—"}</td>
+                        <td className="py-2 pr-3">{house.lord ?? "—"}</td>
+                        <td className="py-2 tabular-nums">
+                          {house.lordHouse ? `เรือน ${house.lordHouse}` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <p className="mt-4 text-xs font-semibold text-[var(--muted)]">
+                ดาวที่สถิตในเรือนของด้านนี้
+              </p>
+              {topic.occupants.length ? (
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {topic.occupants.map((row) => {
+                    const theme = getPlanetTheme(row.planet);
+                    return (
+                      <li
+                        key={`${row.planet}-${row.house}`}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-xs text-[var(--foreground)]"
+                      >
+                        <span style={{ color: theme.color }} aria-hidden>
+                          {theme.numeral}
+                        </span>
+                        {row.planet}
+                        <span className="text-[var(--muted)]">
+                          ราศี{row.sign} · เรือน {row.house}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-[var(--muted-2)]">
+                  ไม่มีดาวสถิตในเรือนของด้านนี้ — อ่านจากเจ้าเรือนแทน
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => onAsk(askPromptForNatalCategory(topic.label))}
+                className="press-scale mt-5 rounded-xl border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-4 py-2 text-xs font-semibold text-[var(--primary)] transition hover:border-[var(--primary)]"
+              >
+                ถามเรื่อง{topic.label}
+              </button>
+            </div>
           </article>
         ))}
       </div>
