@@ -104,7 +104,7 @@ function ThumbsButtons({
       <button
         type="button"
         onClick={() => onFeedback("up")}
-        className={`press-scale inline-flex items-center rounded-lg px-2 py-1 text-[11px] transition hover:bg-[var(--surface-2)] ${
+        className={`press-scale inline-flex min-h-11 items-center rounded-lg px-2.5 py-1 text-[11px] transition hover:bg-[var(--surface-2)] md:min-h-0 md:px-2 ${
           feedback === "up"
             ? "text-[var(--primary)]"
             : "text-[var(--muted-2)] hover:text-[var(--foreground)]"
@@ -118,7 +118,7 @@ function ThumbsButtons({
       <button
         type="button"
         onClick={() => onFeedback("down")}
-        className={`press-scale inline-flex items-center rounded-lg px-2 py-1 text-[11px] transition hover:bg-[var(--surface-2)] ${
+        className={`press-scale inline-flex min-h-11 items-center rounded-lg px-2.5 py-1 text-[11px] transition hover:bg-[var(--surface-2)] md:min-h-0 md:px-2 ${
           feedback === "down"
             ? "text-[var(--danger)]"
             : "text-[var(--muted-2)] hover:text-[var(--foreground)]"
@@ -196,7 +196,7 @@ function MobileOverflowMenu({
         <div
           id={menuId}
           role="menu"
-          className="absolute left-0 z-30 mt-1 min-w-[9.5rem] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] py-1 shadow-lg"
+          className="absolute left-0 z-30 mt-1 min-w-[9.5rem] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] py-1 shadow-lg"
         >
           {canEdit && onEdit ? (
             <MenuItem
@@ -249,7 +249,7 @@ function ActionButton({ label, onClick }: { label: string; onClick: () => void }
     <button
       type="button"
       onClick={onClick}
-      className="press-scale inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+      className="press-scale inline-flex min-h-11 items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] md:min-h-0 md:px-2"
     >
       {label}
     </button>

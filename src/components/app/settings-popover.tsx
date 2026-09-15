@@ -92,6 +92,15 @@ export function SettingsPopover({
     // Defer so the opening tap doesn't immediately close the popover.
     const timer = window.setTimeout(() => {
       if (!mounted) return;
+      // Tell keyboard/AT users the panel opened by moving focus into it.
+      const popover = ref.current;
+      if (popover && !popover.contains(document.activeElement)) {
+        popover
+          .querySelector<HTMLElement>(
+            'button, [href], input, select, [tabindex]:not([tabindex="-1"])',
+          )
+          ?.focus();
+      }
       function onPointerDown(e: PointerEvent) {
         if (
           isOutsideSettingsPopover(e.target, {
@@ -139,9 +148,11 @@ export function SettingsPopover({
   return (
     <div
       ref={ref}
+      role="dialog"
+      aria-label="การตั้งค่า"
       {...{ [SETTINGS_POPOVER_ATTR]: "" }}
       style={pos ? { left: pos.left, bottom: pos.bottom } : undefined}
-      className={`animate-fade-up fixed z-[60] max-h-[calc(100dvh-7rem)] w-[340px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--surface-2)] p-3 shadow-2xl ${
+      className={`animate-fade-up fixed z-[60] max-h-[calc(100dvh-7rem)] w-[340px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-3xl border border-[var(--border-strong)] bg-[var(--surface)] p-3 shadow-[0_20px_55px_var(--shadow-color)] ${
         pos ? "" : "invisible pointer-events-none"
       }`}
     >
@@ -154,7 +165,7 @@ export function SettingsPopover({
       <div className="px-1 pb-3">
         <div className="mb-2 flex items-baseline justify-between gap-3">
           <p className="text-xs font-medium text-[var(--foreground)]">รูปแบบหน้าจอ</p>
-          <p className="text-[10px] text-[var(--muted-2)]">จำค่าไว้ในอุปกรณ์นี้</p>
+          <p className="text-[11px] text-[var(--muted-2)]">จำค่าไว้ในอุปกรณ์นี้</p>
         </div>
         <ThemeSettingsControl />
       </div>
@@ -241,18 +252,14 @@ function Row({
       type="button"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`press-scale flex w-full items-center gap-3 rounded-full py-2.5 pl-2.5 pr-5 text-left text-[13px] transition ${
+      className={`press-scale flex w-full items-center gap-3 rounded-full border py-2.5 pl-2.5 pr-5 text-left text-[13px] transition ${
         highlight
-          ? "bg-[var(--surface-3)] text-[var(--foreground)] hover:bg-[var(--border)]"
-          : "bg-[var(--background)] text-[var(--foreground)] hover:bg-[var(--surface-3)]"
+          ? "border-[var(--border-strong)] bg-[var(--surface-3)] text-[var(--foreground)] hover:bg-[var(--border)]"
+          : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--foreground)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-3)]"
       } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
     >
       <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-          highlight
-            ? "bg-[var(--background)] text-[var(--primary)]"
-            : "bg-[var(--surface-2)] text-[var(--primary)]"
-        }`}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface)] text-[var(--primary)]"
       >
         {icon}
       </span>

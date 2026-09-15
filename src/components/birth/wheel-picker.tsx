@@ -214,7 +214,7 @@ export function WheelGroup({
           {headers.map((h, i) => (
             <div
               key={`${h}-${i}`}
-              className="flex-1 py-1.5 text-center text-[10px] tracking-wide text-[var(--muted-2)]"
+              className="flex-1 py-1.5 text-center text-[11px] tracking-wide text-[var(--muted-2)]"
             >
               {h}
             </div>
@@ -231,7 +231,7 @@ export function WheelGroup({
         <div className="relative z-10 flex">{children}</div>
       </div>
       {hint ? (
-        <p className="border-t border-[var(--border)]/60 px-3 py-1.5 text-center text-[10px] text-[var(--muted-2)]">
+        <p className="border-t border-[var(--border)]/60 px-3 py-1.5 text-center text-[11px] text-[var(--muted-2)]">
           {hint}
         </p>
       ) : null}

@@ -195,10 +195,16 @@ export function LandingManager({
     void loadRevisions(activeKey).catch(() => setRevisions([]));
   }, [activeKey, rows, loadRevisions]);
 
+  // Serialize once per draft/baseline change, not twice per keystroke in JSX.
+  const dirty = useMemo(
+    () =>
+      JSON.stringify(draft) !==
+      JSON.stringify(activeRow?.draft ?? activeRow?.published),
+    [draft, activeRow],
+  );
+
   function selectTab(key: string) {
     if (key === activeKey) return;
-    const currentBaseline = activeRow?.draft ?? activeRow?.published;
-    const dirty = JSON.stringify(draft) !== JSON.stringify(currentBaseline);
     if (dirty && !confirmLeave()) return;
     setActiveKey(key as CmsKey);
   }
@@ -300,10 +306,7 @@ export function LandingManager({
           <Tabs tabs={TABS} active={activeKey} onChange={selectTab} />
           <ContentEditorToolbar
             hasDraft={Boolean(activeRow?.hasDraft)}
-            dirty={
-              JSON.stringify(draft) !==
-              JSON.stringify(activeRow?.draft ?? activeRow?.published)
-            }
+            dirty={dirty}
             previewHref="/"
             busy={busy}
             onSaveDraft={() => void saveDraft()}

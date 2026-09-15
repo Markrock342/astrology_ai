@@ -51,7 +51,7 @@ function RejectedPaymentCard({
   const [slipBroken, setSlipBroken] = useState(false);
 
   return (
-    <div className="mt-4 rounded-xl border border-[var(--danger)]/40 bg-[var(--danger)]/10 p-4">
+    <div className="mt-4 rounded-2xl border border-[var(--danger)]/40 bg-[var(--danger)]/10 p-4">
       <p className="text-sm font-semibold text-[var(--danger)]">
         การชำระเงินถูกปฏิเสธ
       </p>
@@ -62,7 +62,7 @@ function RejectedPaymentCard({
           : ""}
       </p>
       {reason ? (
-        <p className="mt-3 rounded-lg bg-[var(--surface)]/80 px-3 py-2 text-sm text-[var(--foreground)]">
+        <p className="mt-3 rounded-2xl bg-[var(--surface)]/80 px-3 py-2 text-sm text-[var(--foreground)]">
           <span className="text-[var(--muted)]">เหตุผลจากแอดมิน: </span>
           {reason}
         </p>
@@ -76,12 +76,14 @@ function RejectedPaymentCard({
           href={slip}
           target="_blank"
           rel="noreferrer"
-          className="mt-3 inline-block overflow-hidden rounded-lg border border-[var(--border)]"
+          className="mt-3 inline-block overflow-hidden rounded-2xl border border-[var(--border)]"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={slip}
             alt="สลิปที่ถูกปฏิเสธ"
+            loading="lazy"
+            decoding="async"
             className="max-h-40 max-w-full object-contain"
             onError={() => setSlipBroken(true)}
           />
@@ -349,17 +351,21 @@ export function PaymentSubmitCard({
           ) : null}
         </section>
       ) : (
-        <div role="alert" className="mt-6 rounded-xl border border-[var(--danger)]/40 bg-[var(--danger)]/10 p-4">
-          <p className="text-sm font-semibold text-[var(--foreground)]">ยังไม่เปิดรับโอนเงิน</p>
-          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-            ทีมงานยังไม่ได้ตั้งค่าบัญชีรับเงินจริง จึงยังส่งสลิปไม่ได้ กรุณาติดต่อทีมงานก่อนโอนเงิน
-          </p>
+        <div role="alert" className="mt-6 flex items-start gap-2.5 border-t border-[var(--border)] pt-4">
+          <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--danger)]" aria-hidden />
+          <div>
+            <p className="text-sm font-semibold text-[var(--foreground)]">ยังไม่เปิดรับโอนเงิน</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+              ทีมงานยังไม่ได้ตั้งค่าบัญชีรับเงินจริง จึงยังส่งสลิปไม่ได้ กรุณาติดต่อทีมงานก่อนโอนเงิน
+            </p>
+          </div>
         </div>
       )}
 
       {pending ? (
-        <div className="mt-4 rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 p-4">
-          <p className="text-sm font-semibold text-[var(--primary)]">
+        <div className="mt-4 border-t border-[var(--primary)]/30 pt-4">
+          <p className="flex items-center gap-2.5 text-sm font-semibold text-[var(--primary)]">
+            <span className="size-2 shrink-0 rounded-full bg-[var(--primary)]" aria-hidden />
             {isTopUp
               ? `รอแอดมินตรวจสลิปเพื่อเพิ่ม +${topUpPercent}%`
               : "รอแอดมินตรวจสอบการชำระเงิน"}
@@ -373,12 +379,14 @@ export function PaymentSubmitCard({
               href={slipSrc(pending) ?? "#"}
               target="_blank"
               rel="noreferrer"
-              className="mt-3 inline-block overflow-hidden rounded-lg border border-[var(--border)]"
+              className="mt-3 inline-block overflow-hidden rounded-2xl border border-[var(--border)]"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={slipSrc(pending) ?? undefined}
                 alt="สลิปที่ส่งแล้ว"
+                loading="lazy"
+                decoding="async"
                 className="max-h-40 max-w-full object-contain"
               />
             </a>
@@ -433,7 +441,8 @@ export function PaymentSubmitCard({
               <img
                 src={preview}
                 alt="ตัวอย่างสลิป"
-                className="max-h-48 rounded-lg border border-[var(--border)] object-contain"
+                decoding="async"
+                className="max-h-48 rounded-2xl border border-[var(--border)] object-contain"
               />
             ) : null}
             <div className="mt-1">
@@ -473,7 +482,7 @@ export function PaymentSubmitCard({
                 </span>
               </div>
               {p.status === "REJECTED" && adminReviewMessage(p) ? (
-                <p className="mt-0.5 truncate text-[10px] text-[var(--danger)]">
+                <p className="mt-0.5 truncate text-[11px] text-[var(--danger)]">
                   {adminReviewMessage(p)}
                 </p>
               ) : null}

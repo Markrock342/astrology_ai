@@ -22,7 +22,7 @@ export function CopyCodeButton({ code }: { code: string }) {
     <button
       type="button"
       onClick={onCopy}
-      className="press-scale rounded-md px-2 py-1 text-[10px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)]"
+      className="press-scale min-h-9 rounded-md px-2.5 py-1 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)]"
       aria-label={copied ? "คัดลอกโค้ดแล้ว" : "คัดลอกโค้ด"}
     >
       {copied ? "คัดลอกแล้ว" : "คัดลอก"}

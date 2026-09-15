@@ -154,15 +154,17 @@ export function UsageSummary({
         ) : null}
 
         {exhausted ? (
-          <div className="mt-5 rounded-xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 text-sm text-[var(--foreground)]">
+          <p className="mt-5 flex items-start gap-2.5 border-t border-[var(--border)] pt-3 text-sm text-[var(--foreground)]">
+            <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--danger)]" aria-hidden />
             {isPro
               ? "usage รอบนี้หมดแล้ว — เติม usage เพื่อถามต่อ"
               : "usage ทดลองหมดแล้ว — อัปเกรดเป็น Pro เพื่อถามต่อ"}
-          </div>
+          </p>
         ) : low ? (
-          <div className="mt-5 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-4 py-3 text-sm text-[var(--foreground)]">
+          <p className="mt-5 flex items-start gap-2.5 border-t border-[var(--border)] pt-3 text-sm text-[var(--foreground)]">
+            <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--primary)]" aria-hidden />
             เหลือ usage ไม่มากแล้ว โหมดกระชับจะช่วยให้ใช้งานได้นานขึ้น
-          </div>
+          </p>
         ) : null}
       </div>
 
@@ -184,7 +186,7 @@ export function UsageSummary({
                   {row.note ?? formatHistoryType(row.type)}
                 </span>
                 <span className="flex shrink-0 items-baseline gap-3">
-                  <span className="text-[10px] text-[var(--muted-2)]">
+                  <span className="text-[11px] text-[var(--muted-2)]">
                     {formatDay(row.createdAt)}
                   </span>
                   <span

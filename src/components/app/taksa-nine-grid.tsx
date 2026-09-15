@@ -96,7 +96,7 @@ export function TaksaNineGrid({
         <p className="text-[11px] font-semibold tracking-wide text-[var(--primary)]">
           {heading}
         </p>
-        <p className="mt-0.5 text-[10px] text-[#d4a84b]/85">{dayHeading}</p>
+        <p className="mt-0.5 text-[11px] text-[var(--primary)]">{dayHeading}</p>
       </figcaption>
       <div
         className="grid grid-cols-3 overflow-hidden border"
@@ -189,7 +189,7 @@ export function TaksaNineGrid({
         )}
       </div>
       {mode === "transit" && !transitInput && onCountFromCenterChange ? (
-        <label className="mt-2.5 flex cursor-pointer items-center justify-center gap-2 text-[11px] text-[#d4a84b]/90">
+        <label className="mt-2.5 flex cursor-pointer items-center justify-center gap-2 text-[11px] text-[var(--primary)]">
           <input
             type="checkbox"
             checked={countFromCenter}

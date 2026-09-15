@@ -18,7 +18,7 @@ export function CmsDocumentView({
         ปรับปรุงล่าสุด: {doc.lastUpdated}
       </p>
       {doc.intro.startsWith("⚠️") ? (
-        <div className="mt-4 rounded-xl border border-[var(--primary)]/30 bg-[var(--surface-2)] p-4">
+        <div className="mt-4 rounded-2xl border border-[var(--primary)]/30 bg-[var(--surface-2)] p-4">
           <p className="text-sm font-medium text-[var(--primary)]">
             <SimpleMarkdown text={doc.intro} />
           </p>

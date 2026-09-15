@@ -118,18 +118,18 @@ const components: Components = {
     return (
       <div className="group/code relative mb-3 last:mb-0">
         {codeText ? (
-          <div className="absolute right-2 top-2 z-10 opacity-0 transition group-hover/code:opacity-100">
+          <div className="absolute right-2 top-2 z-10 transition md:opacity-0 md:group-hover/code:opacity-100 md:group-focus-within/code:opacity-100">
             <CopyCodeButton code={codeText} />
           </div>
         ) : null}
-        <pre className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3 pt-8">
+        <pre className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-3 pt-8">
           {children}
         </pre>
       </div>
     );
   },
   table: ({ children }) => (
-    <div className="mb-4 overflow-x-auto rounded-xl border border-[var(--border)] last:mb-0">
+    <div className="mb-4 overflow-x-auto rounded-2xl border border-[var(--border)] last:mb-0">
       <table className="min-w-full border-collapse text-left text-sm">{children}</table>
     </div>
   ),
@@ -180,10 +180,54 @@ function reactNodeText(node: unknown): string {
   return "";
 }
 
+const REMARK_PLUGINS = [remarkGfm];
+
+/** One parsed run of blocks. Memoized so a settled `source` never re-parses. */
+const MarkdownBlocks = memo(function MarkdownBlocks({ source }: { source: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>
+      {source}
+    </ReactMarkdown>
+  );
+});
+
+/** A line that must stay with the block before it if that block is the same kind. */
+const CONTINUATION_LINE = /^(\s{2,}\S|\s*([-*+]|\d+[.)])\s|\s*\||\s*>)/;
+
+function lastLine(text: string): string {
+  return text.slice(text.lastIndexOf("\n") + 1);
+}
+
+/**
+ * Largest cut ≤ text.length at a blank line such that text[0:cut] is a
+ * self-contained run of blocks: no open code fence, and the cut does not fall
+ * between two list items / table rows / quote lines (splitting those would
+ * restart numbering or break the table). Returns 0 when nothing is stable yet.
+ */
+export function stableBlockBoundary(text: string): number {
+  let idx = text.lastIndexOf("\n\n");
+  while (idx > 0) {
+    const head = text.slice(0, idx);
+    const fences = head.match(/^\s*(```|~~~)/gm)?.length ?? 0;
+    const rest = text.slice(idx + 2);
+    const splitsBlock =
+      CONTINUATION_LINE.test(rest) && CONTINUATION_LINE.test(lastLine(head));
+    if (fences % 2 === 0 && !splitsBlock) return idx + 2;
+    idx = text.lastIndexOf("\n\n", idx - 1);
+  }
+  return 0;
+}
+
 /**
  * GPT/Grok-style markdown for assistant chat turns (GFM: tables, lists, headings).
- * Memoized: during streaming the whole message list re-renders per frame, and
- * without memo every settled message re-parsed its markdown on each tick.
+ *
+ * Streaming cost model: the typewriter hands us a growing prefix every frame.
+ * Parsing the whole prefix each time is O(answer length) per frame, so a long
+ * answer got slower the closer it was to finishing. Instead the prefix is split
+ * at the last stable block boundary: everything before it is parsed once
+ * (memoized by string identity) and only the block still being typed is
+ * re-parsed per frame. Both halves render straight into the same wrapper so
+ * `.chat-md.stream-caret > :last-child` still finds the live block.
  */
 export const ChatMarkdown = memo(function ChatMarkdown({
   content,
@@ -194,22 +238,29 @@ export const ChatMarkdown = memo(function ChatMarkdown({
 }) {
   if (!content) return null;
 
+  if (!streaming) {
+    const source = linkChatNavigationCtas(content);
+    if (!source) return null;
+    return (
+      <div className="chat-md max-w-none">
+        <MarkdownBlocks source={source} />
+      </div>
+    );
+  }
+
   // While typing, the parser is handed a PREFIX — syntactically incomplete
   // markdown, which it renders faithfully as pipe salad and stray asterisks that
-  // then rearrange themselves. Complete the document before it gets there.
-  // A settled message is already whole; leave it strictly alone.
-  const completed = streaming ? completeMarkdown(content) : content;
-  const source = linkChatNavigationCtas(completed);
-  if (!source) return null;
+  // then rearrange themselves. Complete the live tail before it gets there; the
+  // head ends at a blank line and is whole by construction.
+  const cut = stableBlockBoundary(content);
+  const head = cut > 0 ? linkChatNavigationCtas(content.slice(0, cut)) : "";
+  const tail = linkChatNavigationCtas(completeMarkdown(content.slice(cut)));
+  if (!head && !tail) return null;
 
   return (
-    <div
-      className={`chat-md max-w-none ${streaming ? "stream-caret" : ""}`}
-      data-streaming={streaming ? "true" : undefined}
-    >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {source}
-      </ReactMarkdown>
+    <div className="chat-md stream-caret max-w-none" data-streaming="true">
+      {head ? <MarkdownBlocks source={head} /> : null}
+      {tail ? <MarkdownBlocks source={tail} /> : null}
     </div>
   );
 });

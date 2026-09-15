@@ -210,7 +210,7 @@ export function ChartCalculator() {
     <div className="flex flex-col gap-8">
       <form
         onSubmit={handleSubmit}
-        className="w-full rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-6 shadow-2xl backdrop-blur sm:p-8"
+        className="w-full rounded-3xl border border-[var(--primary)]/25 bg-[var(--surface)] p-6 shadow-[0_20px_55px_var(--shadow-color)] sm:p-8"
       >
         <h2 className="text-lg font-semibold text-[var(--primary)]">
           กรอกข้อมูลวันเกิด

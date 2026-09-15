@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
 import { houseFromLagna, normalizeSignName, SIGNS } from "@/lib/chart-theme";
@@ -79,8 +79,35 @@ function degreeText(r: EvidenceRow): string {
   return formatMyhoraDegreeText(r) ?? r.fallbackDegreeText ?? "ยังไม่มีข้อมูลองศา";
 }
 
+/**
+ * The glossary is static per deploy; every table on the page used to fetch it
+ * on mount (two per thread open). One module-level promise serves them all.
+ */
+let glossaryPromise: Promise<StandardGlossaryItem[] | null> | null = null;
+function loadGlossary(): Promise<StandardGlossaryItem[] | null> {
+  if (!glossaryPromise) {
+    glossaryPromise = fetch("/api/astrology-standards")
+      .then((response) => response.json())
+      .then((json: { ok?: boolean; data?: StandardGlossaryItem[] }) =>
+        json?.ok && json.data?.length
+          ? json.data.map((item) => ({
+              matchKey: item.matchKey,
+              term: item.term,
+              group: item.group,
+              meaning: item.meaning,
+            }))
+          : null,
+      )
+      .catch(() => {
+        glossaryPromise = null; // let a later mount retry
+        return null;
+      });
+  }
+  return glossaryPromise;
+}
+
 /** Evidence — card stack on phones, wide table from md up. */
-export function ChartEvidenceTable({
+export const ChartEvidenceTable = memo(function ChartEvidenceTable({
   chart,
   mode = "natal",
   className,
@@ -89,7 +116,7 @@ export function ChartEvidenceTable({
   layout = "auto",
   showAspects = true,
 }: Props) {
-  const samrap = pickRows(chart, mode);
+  const samrap = useMemo(() => pickRows(chart, mode), [chart, mode]);
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "—";
   const clickable = Boolean(onRowAsk);
   const [glossary, setGlossary] = useState<StandardGlossaryItem[]>(
@@ -97,27 +124,16 @@ export function ChartEvidenceTable({
   );
   const [open, setOpen] = useState(defaultOpen);
   const stack = layout === "stack";
-  const standards =
-    mode === "natal" ? collectAstrologyStandards(samrap, glossary) : [];
+  const standards = useMemo(
+    () => (mode === "natal" ? collectAstrologyStandards(samrap, glossary) : []),
+    [mode, samrap, glossary],
+  );
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/astrology-standards")
-      .then((response) => response.json())
-      .then((json: { ok?: boolean; data?: StandardGlossaryItem[] }) => {
-        if (cancelled || !json?.ok || !json.data?.length) return;
-        setGlossary(
-          json.data.map((item) => ({
-            matchKey: item.matchKey,
-            term: item.term,
-            group: item.group,
-            meaning: item.meaning,
-          })),
-        );
-      })
-      .catch(() => {
-        /* keep built-in copy */
-      });
+    void loadGlossary().then((items) => {
+      if (!cancelled && items) setGlossary(items);
+    });
     return () => {
       cancelled = true;
     };
@@ -129,7 +145,7 @@ export function ChartEvidenceTable({
       onToggle={(event) => setOpen(event.currentTarget.open)}
       className={
         className ??
-        "mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-sm leading-snug text-[var(--muted)]"
+        "mt-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] text-sm leading-snug text-[var(--muted)]"
       }
     >
       <summary className="cursor-pointer list-none px-3 py-2.5 text-xs tracking-wide text-[var(--primary)] marker:content-none [&::-webkit-details-marker]:hidden">
@@ -155,7 +171,7 @@ export function ChartEvidenceTable({
                     type="button"
                     disabled={!clickable}
                     onClick={() => onRowAsk?.(promptForSamrap(r, mode))}
-                    className={`w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-left ${
+                    className={`w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-left ${
                       clickable
                         ? "min-h-11 active:bg-[var(--primary)]/10"
                         : "opacity-90"
@@ -261,10 +277,10 @@ export function ChartEvidenceTable({
                 </div>
                 <dl className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   {standards.map((entry) => (
-                    <div key={entry.matchKey} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
+                    <div key={entry.matchKey} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
                       <dt className="flex flex-wrap items-baseline gap-x-2">
                         <span className="font-semibold text-[var(--primary)]">{entry.term}</span>
-                        <span className="text-[10px] text-[var(--muted-2)]">{entry.group} · {entry.planets.join(", ")}</span>
+                        <span className="text-[11px] text-[var(--muted-2)]">{entry.group} · {entry.planets.join(", ")}</span>
                       </dt>
                       <dd className="mt-1 text-[11px] leading-5 text-[var(--muted)]">{entry.meaning}</dd>
                     </div>
@@ -282,7 +298,7 @@ export function ChartEvidenceTable({
                     type="button"
                     disabled={!clickable}
                     onClick={() => onRowAsk?.(promptForPlanet(p, mode))}
-                    className={`w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-left ${
+                    className={`w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-left ${
                       clickable
                         ? "min-h-11 active:bg-[var(--primary)]/10"
                         : "opacity-90"
@@ -347,4 +363,4 @@ export function ChartEvidenceTable({
       </div>
     </details>
   );
-}
+});

@@ -1,16 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-
-const FOCUSABLE_SELECTOR =
-  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-
-function getFocusable(container: HTMLElement) {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-  ).filter((el) => !el.hasAttribute("disabled"));
-}
+import { useDialogFocus } from "./use-dialog-focus";
 
 /**
  * Styled confirm dialog — replaces the native window.confirm() so destructive
@@ -41,64 +33,15 @@ export function ConfirmModal({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
-  const busyRef = useRef(busy);
-  const onCancelRef = useRef(onCancel);
 
-  useEffect(() => {
-    busyRef.current = busy;
-  }, [busy]);
-
-  useEffect(() => {
-    onCancelRef.current = onCancel;
-  }, [onCancel]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    previousFocus.current = document.activeElement as HTMLElement | null;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    // Prefer cancel for destructive dialogs; otherwise first focusable / dialog.
-    const focusTarget =
-      (danger ? cancelRef.current : null) ??
-      (dialogRef.current ? getFocusable(dialogRef.current)[0] : null) ??
-      cancelRef.current ??
-      dialogRef.current;
-    focusTarget?.focus();
-
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !busyRef.current) {
-        e.preventDefault();
-        onCancelRef.current();
-        return;
-      }
-      if (e.key !== "Tab" || !dialogRef.current) return;
-      const nodes = getFocusable(dialogRef.current);
-      if (nodes.length === 0) {
-        e.preventDefault();
-        dialogRef.current.focus();
-        return;
-      }
-      const first = nodes[0]!;
-      const last = nodes[nodes.length - 1]!;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-      previousFocus.current?.focus();
-    };
-  }, [open, danger]);
+  // Destructive dialogs land on Cancel; the rest on the first control.
+  useDialogFocus({
+    open,
+    dialogRef,
+    onClose: onCancel,
+    busy,
+    initialFocusRef: danger ? cancelRef : undefined,
+  });
 
   if (!open || typeof document === "undefined") return null;
 
@@ -137,9 +80,9 @@ export function ConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={`press-scale rounded-xl px-4 py-2 text-xs font-semibold text-white transition disabled:opacity-60 ${
+            className={`press-scale rounded-xl px-4 py-2 text-xs font-semibold transition disabled:opacity-60 ${
               danger
-                ? "bg-[var(--danger)] hover:opacity-90"
+                ? "bg-[var(--danger)] text-[var(--danger-foreground)] hover:opacity-90"
                 : "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]"
             }`}
           >
@@ -172,60 +115,15 @@ export function ThreadRenameModal({
   const [title, setTitle] = useState(initialTitle);
   const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
-  const busyRef = useRef(busy);
-  const onCancelRef = useRef(onCancel);
 
-  useEffect(() => {
-    busyRef.current = busy;
-  }, [busy]);
-
-  useEffect(() => {
-    onCancelRef.current = onCancel;
-  }, [onCancel]);
-
-  useEffect(() => {
-    previousFocus.current = document.activeElement as HTMLElement | null;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const t = window.setTimeout(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }, 0);
-
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !busyRef.current) {
-        e.preventDefault();
-        onCancelRef.current();
-        return;
-      }
-      if (e.key !== "Tab" || !dialogRef.current) return;
-      const nodes = getFocusable(dialogRef.current);
-      if (nodes.length === 0) {
-        e.preventDefault();
-        dialogRef.current.focus();
-        return;
-      }
-      const first = nodes[0]!;
-      const last = nodes[nodes.length - 1]!;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.clearTimeout(t);
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-      previousFocus.current?.focus();
-    };
-  }, []);
+  useDialogFocus({
+    open: true,
+    dialogRef,
+    onClose: onCancel,
+    busy,
+    initialFocusRef: inputRef,
+    selectInitial: true,
+  });
 
   if (typeof document === "undefined") return null;
 

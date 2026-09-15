@@ -73,11 +73,19 @@ function contrastRatio(a: string, b: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-/** Pick dark or light ink for text/icons on `hex` fill — prefers ≥4.5:1. */
+/**
+ * Pick dark or light ink for text/icons on `hex` fill. The tinted inks are
+ * preferred; when neither clears 4.5:1 (mid-tone fills such as a gold that was
+ * darkened to read on a light surface) fall back to pure black/white, which
+ * buys the extra tenth or two the tint gives away.
+ */
 function contrastInk(hex: string): string {
   const dark = "#1a1508";
   const light = "#f5f5f7";
-  return contrastRatio(hex, dark) >= contrastRatio(hex, light) ? dark : light;
+  const preferDark = contrastRatio(hex, dark) >= contrastRatio(hex, light);
+  const tinted = preferDark ? dark : light;
+  if (contrastRatio(hex, tinted) >= TEXT_CONTRAST) return tinted;
+  return preferDark ? "#000000" : "#ffffff";
 }
 
 function lighten(hex: string, amount: number): string {
@@ -95,10 +103,67 @@ function rgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** WCAG AA for body text — the bar every text token has to clear. */
+const TEXT_CONTRAST = 4.5;
+const FIT_STEP = 0.06;
+const FIT_MAX_ITERATIONS = 40;
+
+/**
+ * Nudge a brand color toward black (light base) or white (dark base) until it
+ * reads as text on `surface`. Mixing with black/white keeps the hue; the loop
+ * stops as soon as the ratio clears the bar so the color stays as close to the
+ * admin's pick as possible. Colors that already pass are returned untouched.
+ */
+function fitToSurface(hex: string, surface: string, darkBase: boolean): string {
+  let color = hex;
+  for (
+    let i = 0;
+    i < FIT_MAX_ITERATIONS && contrastRatio(color, surface) < TEXT_CONTRAST;
+    i++
+  ) {
+    color = darkBase ? lighten(color, FIT_STEP) : darken(color, FIT_STEP);
+  }
+  return color;
+}
+
+/**
+ * Mix `ink` toward `bg` by `start`, then pull it back toward the ink in small
+ * steps until it clears `minRatio` on `surface`. Lets muted tokens stay as
+ * quiet as possible while still reading as text on any admin background.
+ */
+function fitMutedMix(
+  ink: { r: number; g: number; b: number },
+  bg: { r: number; g: number; b: number },
+  surface: { r: number; g: number; b: number },
+  start: number,
+  minRatio: number,
+) {
+  let t = start;
+  let color = mix(ink, bg, t);
+  for (
+    let i = 0;
+    i < FIT_MAX_ITERATIONS && t > 0 && contrastRatioRgb(color, surface) < minRatio;
+    i++
+  ) {
+    t = Math.max(0, t - 0.02);
+    color = mix(ink, bg, t);
+  }
+  return color;
+}
+
+function contrastRatioRgb(
+  a: { r: number; g: number; b: number },
+  b: { r: number; g: number; b: number },
+): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
 /** Build CSS custom-property map from brand picks. */
 export function buildThemeVars(colors: BrandColors): Record<string, string> {
-  const primary = normalizeHex(colors.primary, DEFAULT_BRAND_COLORS.primary);
-  const secondary = normalizeHex(
+  const rawPrimary = normalizeHex(colors.primary, DEFAULT_BRAND_COLORS.primary);
+  const rawSecondary = normalizeHex(
     colors.secondary,
     DEFAULT_BRAND_COLORS.secondary,
   );
@@ -112,15 +177,26 @@ export function buildThemeVars(colors: BrandColors): Record<string, string> {
   const ink = darkBase
     ? { r: 236, g: 236, b: 242 }
     : { r: 22, g: 24, b: 29 };
+  // Starting mixes; fitMutedMix pulls them back toward the ink only when the
+  // resulting gray would not read on surface-2 (the panel most text sits on).
+  // Muted clears a higher bar than muted-2 so the two stay visibly distinct.
   const muteMix = darkBase ? 0.42 : 0.32;
   const mute2Mix = darkBase ? 0.58 : 0.4;
 
-  const surface = mix(bg, ink, darkBase ? 0.06 : 0.04);
-  const surface2 = mix(bg, ink, darkBase ? 0.12 : 0.08);
-  const surface3 = mix(bg, ink, darkBase ? 0.18 : 0.14);
-  const border = mix(bg, ink, darkBase ? 0.22 : 0.2);
-  const muted = mix(ink, bg, muteMix);
-  const muted2 = mix(ink, bg, mute2Mix);
+  const white = { r: 255, g: 255, b: 255 };
+  const surface = darkBase ? mix(bg, ink, 0.06) : mix(bg, white, 0.72);
+  const surface2 = mix(bg, ink, darkBase ? 0.12 : 0.05);
+  const surface3 = mix(bg, ink, darkBase ? 0.18 : 0.1);
+  const border = mix(bg, ink, darkBase ? 0.22 : 0.18);
+  const borderStrong = mix(bg, ink, darkBase ? 0.32 : 0.32);
+  const muted = fitMutedMix(ink, bg, surface2, muteMix, 5.2);
+  const muted2 = fitMutedMix(ink, bg, surface2, mute2Mix, TEXT_CONTRAST);
+
+  // Brand colors are used as text (headings, links, captions), so they must
+  // read on the raised surface. Gold #c9a24b is 2.3:1 on a light surface raw.
+  const surfaceHex = rgbToHex(surface.r, surface.g, surface.b);
+  const primary = fitToSurface(rawPrimary, surfaceHex, darkBase);
+  const secondary = fitToSurface(rawSecondary, surfaceHex, darkBase);
 
   const primaryHover = darkBase ? lighten(primary, 0.12) : darken(primary, 0.1);
   const secondaryActive = darkBase
@@ -129,10 +205,18 @@ export function buildThemeVars(colors: BrandColors): Record<string, string> {
 
   return {
     "--background": background,
-    "--surface": rgbToHex(surface.r, surface.g, surface.b),
+    "--surface": surfaceHex,
     "--surface-2": rgbToHex(surface2.r, surface2.g, surface2.b),
     "--surface-3": rgbToHex(surface3.r, surface3.g, surface3.b),
     "--border": rgbToHex(border.r, border.g, border.b),
+    "--border-strong": rgbToHex(
+      borderStrong.r,
+      borderStrong.g,
+      borderStrong.b,
+    ),
+    "--shadow-color": darkBase
+      ? "rgba(4, 4, 7, 0.46)"
+      : "rgba(35, 45, 58, 0.18)",
     "--foreground": rgbToHex(ink.r, ink.g, ink.b),
     "--muted": rgbToHex(muted.r, muted.g, muted.b),
     "--muted-2": rgbToHex(muted2.r, muted2.g, muted2.b),
@@ -143,7 +227,9 @@ export function buildThemeVars(colors: BrandColors): Record<string, string> {
     "--secondary": secondary,
     "--secondary-active": secondaryActive,
     "--secondary-foreground": contrastInk(secondary),
-    "--danger": darkBase ? "#f87171" : "#dc2626",
+    // Mirrors globals.css: the ink on danger fills must clear 4.5:1 on danger.
+    "--danger": darkBase ? "#f87171" : "#c81e1e",
+    "--danger-foreground": darkBase ? "#2a0a0a" : "#fff5f5",
     "--ring": rgba(primary, 0.45),
   };
 }

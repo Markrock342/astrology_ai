@@ -25,11 +25,11 @@ export function ChatThreadSkeleton() {
       <div className="flex justify-end">
         <div className="h-10 w-48 animate-pulse rounded-2xl bg-[var(--surface-3)]" />
       </div>
-      <div className="h-24 w-[85%] animate-pulse rounded-xl bg-[var(--surface-2)]" />
+      <div className="h-24 w-[85%] animate-pulse rounded-2xl bg-[var(--surface-2)]" />
       <div className="flex justify-end">
         <div className="h-10 w-56 animate-pulse rounded-2xl bg-[var(--surface-3)]" />
       </div>
-      <div className="h-32 w-[85%] animate-pulse rounded-xl bg-[var(--surface-2)]" />
+      <div className="h-32 w-[85%] animate-pulse rounded-2xl bg-[var(--surface-2)]" />
     </div>
   );
 }

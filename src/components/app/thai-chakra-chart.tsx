@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { memo, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { DerivedChart } from "@/lib/chart-derivations";
 import { normalizeSignName } from "@/lib/chart-theme";
 import { RasiTemplateChart } from "./rasi-template-chart";
+import { useDialogFocus } from "./use-dialog-focus";
 
 type ThaiChakraChartProps = {
   chart: DerivedChart;
@@ -32,35 +33,28 @@ function ThaiChakraFigure({
 }
 
 /** ราศีจักรตามไฟล์ Horasard Template — กดเพื่อเปิดภาพขนาดอ่านง่าย */
-export function ThaiChakraChart(props: ThaiChakraChartProps) {
+export const ThaiChakraChart = memo(function ThaiChakraChart(
+  props: ThaiChakraChartProps,
+) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    const trigger = triggerRef.current;
-    document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", onKeyDown);
-      trigger?.focus();
-    };
-  }, [open]);
+  useDialogFocus({
+    open,
+    dialogRef: panelRef,
+    onClose: () => setOpen(false),
+    initialFocusRef: closeButtonRef,
+  });
 
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
-        className={`press-scale block w-full rounded-xl bg-[#0d0d0f] p-2 outline-none ring-[var(--primary)] transition focus-visible:ring-2 ${
+        className={`press-scale block w-full rounded-2xl bg-[#0d0d0f] p-2 outline-none ring-[var(--primary)] transition focus-visible:ring-2 ${
           props.prominent ? "mx-auto max-w-xl" : ""
         }`}
         onClick={() => setOpen(true)}
@@ -81,7 +75,11 @@ export function ThaiChakraChart(props: ThaiChakraChartProps) {
                 if (event.target === event.currentTarget) setOpen(false);
               }}
             >
-              <div className="animate-fade-up flex max-h-[96vh] w-full max-w-2xl flex-col rounded-2xl border border-[var(--border)] bg-[#111113] p-4">
+              <div
+                ref={panelRef}
+                tabIndex={-1}
+                className="animate-fade-up flex max-h-[96dvh] w-full max-w-2xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 outline-none"
+              >
                 <div className="flex items-center justify-between gap-4">
                   <h2
                     id={titleId}
@@ -118,4 +116,4 @@ export function ThaiChakraChart(props: ThaiChakraChartProps) {
         : null}
     </>
   );
-}
+});

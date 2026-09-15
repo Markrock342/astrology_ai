@@ -14,6 +14,9 @@ export function PasswordField({
   show,
   onToggle,
   autoFocus,
+  label,
+  invalid,
+  describedBy,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -22,6 +25,11 @@ export function PasswordField({
   show: boolean;
   onToggle: () => void;
   autoFocus?: boolean;
+  /** Accessible name; defaults to the placeholder (which vanishes on typing). */
+  label?: string;
+  invalid?: boolean;
+  /** id of the error message this field should be read with. */
+  describedBy?: string;
 }) {
   return (
     <div className="relative">
@@ -29,6 +37,9 @@ export function PasswordField({
         type={show ? "text" : "password"}
         autoComplete={autoComplete}
         placeholder={placeholder}
+        aria-label={label ?? placeholder}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoFocus={autoFocus}
@@ -37,9 +48,9 @@ export function PasswordField({
       <button
         type="button"
         onClick={onToggle}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-2)] transition hover:text-[var(--foreground)]"
+        className="absolute right-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--muted-2)] transition hover:text-[var(--foreground)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
         aria-label={show ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
-        tabIndex={-1}
+        aria-pressed={show}
       >
         {show ? <EyeOffIcon /> : <EyeIcon />}
       </button>
@@ -51,10 +62,14 @@ export function EmailInput({
   value,
   onChange,
   disabled,
+  invalid,
+  describedBy,
 }: {
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   return (
     <input
@@ -62,6 +77,9 @@ export function EmailInput({
       inputMode="email"
       autoComplete="email"
       placeholder="อีเมล"
+      aria-label="อีเมล"
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}

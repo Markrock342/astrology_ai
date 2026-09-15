@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CompactRasiWheel } from "./compact-rasi-wheel";
+import { useDialogFocus } from "./use-dialog-focus";
 import {
   getPlanetMeaning,
   getPlanetTheme,
@@ -19,7 +20,7 @@ import type { ChartJson } from "@/types/chart";
  * every planet is tappable (touch-friendly) and reveals what it means and where
  * it sits — the old hover-only `<title>` did nothing on a phone.
  */
-export function ExpandableRasiWheel({
+export const ExpandableRasiWheel = memo(function ExpandableRasiWheel({
   chart,
   size = 132,
   label,
@@ -57,52 +58,11 @@ export function ExpandableRasiWheel({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const panel = panelRef.current;
-    // Capture the trigger now; the cleanup restores focus to it on close.
-    const trigger = triggerRef.current;
-    // Move focus into the dialog, and hand it back to the trigger on close so
-    // keyboard/AT users aren't dropped onto <body> behind the overlay.
-    const focusables = () =>
-      panel
-        ? Array.from(
-            panel.querySelectorAll<HTMLElement>(
-              'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-            ),
-          ).filter((el) => !el.hasAttribute("disabled"))
-        : [];
-    focusables()[0]?.focus();
-
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setOpen(false);
-        return;
-      }
-      if (e.key !== "Tab") return;
-      // Trap Tab within the panel.
-      const items = focusables();
-      if (items.length === 0) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      const active = document.activeElement as HTMLElement | null;
-      if (e.shiftKey && (active === first || !panel?.contains(active))) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && active === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-      trigger?.focus();
-    };
-  }, [open]);
+  useDialogFocus({
+    open,
+    dialogRef: panelRef,
+    onClose: () => setOpen(false),
+  });
 
   return (
     <>
@@ -132,7 +92,8 @@ export function ExpandableRasiWheel({
             >
               <div
                 ref={panelRef}
-                className="animate-fade-up relative flex max-h-[95vh] w-full max-w-lg flex-col items-center rounded-2xl border border-[var(--border)] bg-[#121214] p-4 shadow-2xl"
+                tabIndex={-1}
+                className="animate-fade-up relative flex max-h-[95dvh] w-full max-w-lg flex-col items-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-2xl outline-none"
               >
                 <div className="mb-2 flex w-full items-center justify-between">
                   <h2 id={titleId} className="text-sm font-semibold text-[var(--foreground)]">
@@ -141,7 +102,7 @@ export function ExpandableRasiWheel({
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-sm text-[var(--muted)] hover:bg-[var(--surface-3)] hover:text-[var(--foreground)]"
+                    className="flex size-11 items-center justify-center rounded-full border border-[var(--border)] text-sm text-[var(--muted)] hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] sm:size-8"
                     aria-label="ปิด"
                   >
                     ✕
@@ -161,7 +122,7 @@ export function ExpandableRasiWheel({
                 {/* Detail of the tapped planet — the touch-friendly replacement
                     for the hover tooltip that did nothing on a phone. */}
                 {selectedRow ? (
-                  <div className="mt-1 w-full rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/8 px-3.5 py-2.5">
+                  <div className="mt-1 w-full rounded-2xl border border-[var(--primary)]/30 bg-[var(--primary)]/8 px-3.5 py-2.5">
                     <p className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
                       <span style={{ color: selectedRow.theme.color }}>
                         {selectedRow.theme.numeral}
@@ -220,4 +181,4 @@ export function ExpandableRasiWheel({
         : null}
     </>
   );
-}
+});

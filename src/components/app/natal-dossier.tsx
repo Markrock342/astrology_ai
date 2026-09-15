@@ -40,16 +40,16 @@ export function NatalDossier({ onNavigate, activeView, activeSlug }: Props) {
         className={`mb-0.5 flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
           atlasOpen && !activeSlug
             ? "bg-[var(--background)] text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]"
-            : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+            : "text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]"
         }`}
       >
         <span className="flex items-center gap-2.5">
           <span className="text-[var(--foreground)]">
             <NatalChartIcon />
           </span>
-          ดวงจักรกำเนิด
+          ราศีจักร
         </span>
-        <span className="text-[10px] text-[var(--muted-2)]">พื้นดวง</span>
+        <span className="text-[11px] text-[var(--muted-2)]">พื้นดวง</span>
       </Link>
 
       {natalCategories.map((category) => {
@@ -62,7 +62,7 @@ export function NatalDossier({ onNavigate, activeView, activeSlug }: Props) {
               href="/account"
               onClick={onNavigate}
               title={`${category.label} · ปลดล็อกด้วย Pro`}
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--muted-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[var(--muted-2)] transition hover:bg-[var(--background)] hover:text-[var(--foreground)]"
             >
               <span className="relative text-[var(--foreground)]/45">
                 <CategoryIcon slug={category.slug} icon={category.icon} />
@@ -116,7 +116,7 @@ function NatalCategoryLink({
       className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
         active
           ? "bg-[var(--background)] text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)]"
-          : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+          : "text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)]"
       }`}
     >
       <span className="text-[var(--foreground)]">

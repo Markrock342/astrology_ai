@@ -34,7 +34,7 @@ export function FaqView({ items }: { items: FaqViewItem[] }) {
             {rows.map((item) => (
               <details
                 key={item.id}
-                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
+                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
               >
                 <summary className="cursor-pointer text-sm font-medium text-[var(--foreground)]">
                   {item.question}

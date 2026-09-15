@@ -51,7 +51,7 @@ export default function ForgotPasswordPage() {
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
       <BrandLogo size={44} className="mb-10" />
 
-      <div className="animate-fade-up w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 shadow-2xl backdrop-blur">
+      <div className="animate-fade-up w-full max-w-md rounded-3xl border border-[var(--primary)]/25 bg-[var(--surface)] p-8 shadow-[0_20px_55px_var(--shadow-color)]">
         <h1 className="mb-2 text-center text-lg font-semibold text-[var(--foreground)]">
           ลืมรหัสผ่าน
         </h1>
@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
 
         {sent ? (
           <div className="flex flex-col gap-4">
-            <p className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--muted)]">
+            <p className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm text-[var(--muted)]">
               หากมีบัญชีที่ใช้อีเมลนี้และตั้งรหัสผ่านไว้ เราได้ส่งลิงก์รีเซ็ตไปแล้ว
               กรุณาตรวจสอบกล่องจดหมาย (และโฟลเดอร์สแปม)
             </p>
