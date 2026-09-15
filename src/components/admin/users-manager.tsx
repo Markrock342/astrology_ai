@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { UserAvatar } from "@/components/app/user-avatar";
 import {
   AdminPage,
   Badge,
@@ -22,6 +23,7 @@ type UserRow = {
   id: string;
   name: string | null;
   email: string;
+  image?: string | null;
   role: string;
   status: "ACTIVE" | "DISABLED";
   createdAt: string;
@@ -184,8 +186,13 @@ export function UsersManager({
               return (
                 <tr key={u.id} className="hover:bg-[var(--surface-2)]/50">
                   <Td>
-                    <p className="font-medium">{u.name ?? "—"}</p>
-                    <p className="text-xs text-[var(--muted)]">{u.email}</p>
+                    <div className="flex items-center gap-3">
+                      <UserAvatar name={u.name} image={u.image} size={36} className="shrink-0" />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{u.name ?? "—"}</p>
+                        <p className="truncate text-xs text-[var(--muted)]">{u.email}</p>
+                      </div>
+                    </div>
                   </Td>
                   <Td>
                     <Badge
