@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   askPromptForNatalCategory,
   natalBriefForCategory,
+  natalBriefsForAllTopics,
   natalFactsForCategory,
   NATAL_FACT_HOUSES,
 } from "@/lib/natal-category-facts";
@@ -77,5 +78,18 @@ describe("natalFactsForCategory", () => {
     expect(brief.houses[0]?.sign).toBe("พฤษภ");
     expect(brief.houses[0]?.lord).toBe("ศุกร์");
     expect(brief.lagna).toBe("เมษ");
+  });
+
+  it("keeps every life topic on the natal page even when chat categories are folded into one", () => {
+    const topics = natalBriefsForAllTopics(chart, "self");
+    expect(topics.map((topic) => topic.slug)).toEqual([
+      "career",
+      "finance",
+      "love",
+      "health",
+      "fortune",
+    ]);
+    expect(topics.every((topic) => topic.label && topic.houses.length > 0)).toBe(true);
+    expect(natalBriefsForAllTopics(chart, null)).toHaveLength(6);
   });
 });
