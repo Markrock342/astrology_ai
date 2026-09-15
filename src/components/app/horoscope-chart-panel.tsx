@@ -3,23 +3,13 @@
 import { memo, useMemo, useState } from "react";
 import type { ChartJson } from "@/types/chart";
 import {
-  chartFromMyhoraRows,
   deriveDivisionalChart,
-  type DerivedChart,
+  wheelChartFor,
 } from "@/lib/chart-derivations";
 import { getPlanetTheme } from "@/lib/chart-theme";
 import { TaksaNineGrid } from "./taksa-nine-grid";
 import { ThaiChakraChart } from "./thai-chakra-chart";
 import { AstrologyGlossary } from "./astrology-glossary";
-
-function baseChart(chart: ChartJson): DerivedChart {
-  const fallback = {
-    lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
-    planets: chart.planets,
-    lagnaDegreeInSign: chart.chart?.lagnaDegreeInSign,
-  };
-  return chartFromMyhoraRows(chart.myhora?.natalPlanets, fallback) ?? fallback;
-}
 
 export function EvidenceGrid({
   title,
@@ -143,11 +133,11 @@ export const HoroscopeChartPanel = memo(function HoroscopeChartPanel({
   description?: string;
   presentation?: "message" | "reference" | "compact";
 }) {
-  const d1 = useMemo(() => baseChart(natal), [natal]);
+  const d1 = useMemo(() => wheelChartFor(natal, "natal"), [natal]);
   const d9 = useMemo(() => deriveDivisionalChart(natal, "navamsa"), [natal]);
   const d3 = useMemo(() => deriveDivisionalChart(natal, "drekkana"), [natal]);
   const transitChart = useMemo(
-    () => (transit ? baseChart(transit) : null),
+    () => (transit ? wheelChartFor(transit, "transit") : null),
     [transit],
   );
   const triwai = natal.myhora?.triwaiNatal ?? [];
