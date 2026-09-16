@@ -370,12 +370,30 @@ export function TransitDatePicker({
           if (open) closePanel(true);
           else openPanel();
         }}
-        className="flex min-h-9 max-w-[12.5rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-left text-[11px] text-[var(--muted)] transition hover:border-[var(--primary)]/50 disabled:opacity-50"
+        className="flex min-h-9 max-w-[16rem] items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 text-left text-[12px] text-[var(--muted)] transition hover:border-[var(--primary)]/50 disabled:opacity-50"
       >
-        <span className="shrink-0">วันจร</span>
-        <span className="min-w-0 truncate font-medium tabular-nums text-[var(--foreground)]">
-          {label ?? "จากคำถาม"}
-        </span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="shrink-0 text-[var(--primary)]"
+          aria-hidden
+        >
+          <rect x="3" y="5" width="18" height="16" rx="3" />
+          <path d="M3 10h18M8 3v4M16 3v4" />
+        </svg>
+        {label ? (
+          <span className="min-w-0 truncate font-medium tabular-nums text-[var(--foreground)]">
+            {label}
+          </span>
+        ) : (
+          <span className="min-w-0 truncate">เลือกวันที่ต้องการเช็คดวง</span>
+        )}
       </button>
       {panel}
     </div>

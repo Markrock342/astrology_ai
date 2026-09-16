@@ -7,6 +7,8 @@ import {
   getCachedMaintenanceMode,
   requireSessionShell,
 } from "@/server/auth/session-guard";
+import { CMS_DEFAULTS, CMS_KEYS, type CmsSiteFooter } from "@/lib/cms-keys";
+import { getPublishedSetting } from "@/server/settings/settings-service";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,9 @@ export default async function AppLayout({
 }) {
   const shell = await requireSessionShell();
   const maintenance = await getCachedMaintenanceMode();
+  const footer = (await getPublishedSetting(CMS_KEYS.siteFooter).catch(
+    () => CMS_DEFAULTS[CMS_KEYS.siteFooter],
+  )) as CmsSiteFooter;
   const isAdmin = shell.role === "ADMIN" || shell.role === "SUPER_ADMIN";
 
   if (maintenance.enabled && !isAdmin) {
@@ -35,7 +40,7 @@ export default async function AppLayout({
         hasIntake={shell.hasIntake}
       >
         <Suspense fallback={null}>
-          <AppShell>{children}</AppShell>
+          <AppShell footer={footer}>{children}</AppShell>
         </Suspense>
       </BirthProfileGate>
     </AppDataProvider>

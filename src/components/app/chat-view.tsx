@@ -248,12 +248,6 @@ const ERROR_MESSAGES: Record<string, string> = {
     "ถามต่อในแชทนี้ได้เลย",
 };
 
-function modelLabel(modelId: string): string {
-  return modelId
-    .split("-")
-    .map((w) => (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
-    .join(" ");
-}
 
 type PendingRetry = {
   question: string;
@@ -2246,19 +2240,6 @@ export function ChatView() {
                         ) : (
                           <CopyMessageButton text={m.content} />
                         )}
-                        {m.modelId && (
-                          <span className="ml-1 inline-flex items-center gap-1 text-[11px] text-[var(--muted-2)]">
-                            ตอบโดย {modelLabel(m.modelId)}
-                          </span>
-                        )}
-                        {m.elapsedMs != null && (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-[var(--muted-2)]">
-                            · ใช้เวลา {formatElapsed(Math.round(m.elapsedMs / 1000))}
-                            {m.firstTokenMs != null
-                              ? ` (เริ่มตอบใน ${Math.max(1, Math.round(m.firstTokenMs / 1000))} วิ)`
-                              : ""}
-                          </span>
-                        )}
                       </div>
                     )}
                     {!isBusy && !isStreamingTurn && m.status === "SUCCESS" ? (
@@ -2609,12 +2590,7 @@ function ReadingContextBar({
   category?: string;
   detail?: string | null;
 }) {
-  const label =
-    mode === "transit"
-      ? "กำลังถามดวงจร"
-      : mode === "reference"
-        ? "กำลังดูพื้นดวง"
-        : "กำลังอ่านพื้นดวง";
+  const label = mode === "reference" ? "กำลังดู" : "กำลังสนทนา";
   const hint =
     mode === "transit"
       ? "ถามต่อได้ในหมวดนี้"
@@ -2626,8 +2602,8 @@ function ReadingContextBar({
     <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 md:px-8">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
         <p className="min-w-0 text-sm text-[var(--foreground)]">
-          <span className="font-semibold text-[var(--primary)]">{label}</span>
-          {category ? <span> · {category}</span> : null}
+          <span className="font-semibold text-[var(--primary)]">{label}:</span>
+          <span> {category ?? "ดวงชะตา"}</span>
           {detail ? (
             <span className="hidden text-[var(--muted)] sm:inline"> · {detail}</span>
           ) : null}
