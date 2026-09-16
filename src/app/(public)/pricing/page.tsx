@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BrandMark } from "@/components/brand-logo";
+import { PublicPageHeader } from "@/components/marketing/public-page-header";
 import { SimpleMarkdown } from "@/components/cms/simple-markdown";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import {
@@ -9,7 +9,7 @@ import {
   type CmsPaymentInfo,
   type CmsSeo,
 } from "@/lib/cms-keys";
-import { isPaymentInfoConfigured } from "@/lib/payment-info";
+import { isPaymentInfoConfigured, paymentUnavailableNote } from "@/lib/payment-info";
 import { metadataFromSeo } from "@/lib/seo";
 import { listPublicPackages } from "@/server/admin/catalog-admin-service";
 import { isPreviewMode } from "@/server/cms/preview-mode";
@@ -47,12 +47,7 @@ export default async function PricingPage() {
 
   return (
     <main className="flex flex-1 flex-col">
-      <div className="mx-auto w-full max-w-5xl px-6 pt-14 text-center">
-        <Link href="/" className="inline-flex flex-col items-center gap-3">
-          <BrandMark size={48} />
-          <span className="text-sm text-[var(--muted)]">โหราศาสตร์</span>
-        </Link>
-      </div>
+      <PublicPageHeader className="px-6 pt-14" />
 
       <PricingSection section={pricingSection} packages={packages} />
 
@@ -101,7 +96,7 @@ export default async function PricingPage() {
             </>
           ) : (
             <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
-              ระบบยังไม่เปิดรับชำระเงินผ่านการโอน กรุณาติดต่อทีมงานก่อนโอนเงิน
+              {paymentUnavailableNote(paymentInfo)}
             </p>
           )}
         </div>

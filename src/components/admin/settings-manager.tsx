@@ -713,7 +713,7 @@ function PaymentInfoEditor({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <Field label="หัวข้อบล็อกชำระเงิน" hint="แสดงด้านบนในหน้าบัญชีผู้ใช้">
+      <Field label="หัวข้อบล็อกชำระเงิน" hint="แสดงบนบล็อกวิธีชำระเงิน ทั้งหน้าบัญชีและหน้าราคา">
         <TextInput
           value={info.title}
           onChange={(e) => onChange({ ...info, title: e.target.value })}
@@ -758,6 +758,15 @@ function PaymentInfoEditor({
         <TextInput
           value={info.footer ?? ""}
           onChange={(e) => onChange({ ...info, footer: e.target.value })}
+        />
+      </Field>
+      <Field
+        label="ข้อความตอนยังไม่เปิดรับโอน"
+        hint="แสดงแทนเลขบัญชี ตราบใดที่ชื่อ/เลขบัญชียังเป็นค่าตัวอย่าง (ตัวอย่าง / 000-0-00000-0)"
+      >
+        <TextInput
+          value={info.unavailableNote ?? ""}
+          onChange={(e) => onChange({ ...info, unavailableNote: e.target.value })}
         />
       </Field>
     </div>

@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { BrandLogo } from "@/components/brand-logo";
+import { PublicPageHeader } from "@/components/marketing/public-page-header";
 import { CmsDocumentView } from "@/components/cms/cms-document-view";
 import { CMS_KEYS, type CmsSeo } from "@/lib/cms-keys";
 import { metadataFromSeo } from "@/lib/seo";
@@ -17,9 +16,7 @@ export default async function TermsPage() {
 
   return (
     <main className="mx-auto max-w-2xl flex-1 px-6 py-16">
-      <Link href="/login" className="mb-8 inline-block">
-        <BrandLogo size={36} />
-      </Link>
+      <PublicPageHeader className="mb-8" />
       <CmsDocumentView doc={doc} />
     </main>
   );

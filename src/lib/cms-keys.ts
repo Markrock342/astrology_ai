@@ -28,6 +28,9 @@ export type CmsPaymentInfo = {
   amountNote: string;
   steps: string[];
   footer?: string;
+  /** Shown on /pricing and /account while the bank details are still the
+      seeded placeholder (transfers not accepted yet). */
+  unavailableNote?: string;
 };
 
 /** SEO metadata for public pages (title, description, Open Graph). */
@@ -390,6 +393,7 @@ export const CMS_DEFAULTS: Record<CmsKey, unknown> = {
       "รอแอดมินตรวจสอบ (ปกติภายใน 1–2 วันทำการ)",
     ],
     footer: "หากมีปัญหา ติดต่อทีมงานผ่านอีเมลในแอป",
+    unavailableNote: "ระบบยังไม่เปิดรับชำระเงินผ่านการโอน กรุณาติดต่อทีมงานก่อนโอนเงิน",
   } satisfies CmsPaymentInfo,
   [CMS_KEYS.seoHome]: {
     title: "โหราศาสตร์ — ดูดวง AI ออนไลน์",
@@ -641,8 +645,8 @@ export const CMS_META: Record<CmsKey, CmsMeta> = {
   },
   [CMS_KEYS.paymentInfo]: {
     group: "payment",
-    help: "บัญชีธนาคารและขั้นตอนโอนเงิน",
-    where: "หน้าบัญชี /account · หน้าราคา",
+    help: "หัวข้อ บัญชีธนาคาร ขั้นตอนโอนเงิน และข้อความตอนยังไม่เปิดรับโอน",
+    where: "หน้าบัญชี /account · หน้าราคา /pricing (บล็อกวิธีชำระเงิน)",
     previewPath: "/account",
   },
   [CMS_KEYS.seoHome]: {

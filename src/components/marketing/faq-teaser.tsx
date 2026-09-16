@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FaqDisclosure } from "@/components/cms/faq-disclosure";
 import { SimpleMarkdown } from "@/components/cms/simple-markdown";
 import { SectionHeader } from "@/components/marketing/section-header";
 
@@ -23,20 +24,9 @@ export function FaqTeaser({ items }: { items: FaqTeaserItem[] }) {
 
         <div className="mt-10 border-b border-[var(--border)]">
           {shown.map((item) => (
-            <details key={item.id} className="group border-t border-[var(--border)]">
-              <summary className="flex cursor-pointer list-none items-start justify-between gap-4 py-4 text-sm font-medium text-[var(--foreground)] marker:content-none sm:text-base [&::-webkit-details-marker]:hidden">
-                <span>{item.question}</span>
-                <span
-                  aria-hidden
-                  className="mt-0.5 shrink-0 text-[var(--primary)] transition-transform duration-200 group-open:rotate-45"
-                >
-                  +
-                </span>
-              </summary>
-              <p className="max-w-[65ch] pb-5 text-sm leading-relaxed text-[var(--muted)]">
-                <SimpleMarkdown text={item.answer} />
-              </p>
-            </details>
+            <FaqDisclosure key={item.id} question={item.question}>
+              <SimpleMarkdown text={item.answer} />
+            </FaqDisclosure>
           ))}
         </div>
 

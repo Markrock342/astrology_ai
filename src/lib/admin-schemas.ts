@@ -99,6 +99,7 @@ export const cmsPaymentInfoSchema = z.object({
   amountNote: z.string().max(300),
   steps: z.array(z.string().min(1).max(300)).min(1),
   footer: z.string().max(500).optional(),
+  unavailableNote: z.string().max(300).optional(),
 });
 
 export const cmsSeoSchema = z.object({

@@ -1,6 +1,5 @@
-import Link from "next/link";
 import type { Metadata } from "next";
-import { BrandLogo } from "@/components/brand-logo";
+import { PublicPageHeader } from "@/components/marketing/public-page-header";
 import { ChartCalculator } from "@/components/calculator/chart-calculator";
 
 export const metadata: Metadata = {
@@ -12,9 +11,7 @@ export const metadata: Metadata = {
 export default function CalculatorPage() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-10 sm:px-6">
-      <Link href="/" className="mb-8 inline-block self-start">
-        <BrandLogo size={36} />
-      </Link>
+      <PublicPageHeader className="mb-8" />
       <h1 className="text-2xl font-semibold text-[var(--foreground)]">
         เครื่องคำนวณราศีจักร
       </h1>
