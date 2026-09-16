@@ -46,6 +46,8 @@ import {
 import { formatTransitNowLabel } from "@/lib/transit-label";
 import { TransitDatePicker } from "./transit-date-picker";
 import {
+  bangkokDateKey,
+  CURRENT_PERIOD_PATTERN,
   detectFutureDatePromptTrigger,
   type FutureDatePromptTrigger,
   suggestedFutureDateKey,
@@ -1184,7 +1186,13 @@ export function ChatView() {
       );
     }
 
-    const futureDateTrigger = detectFutureDatePromptTrigger(content);
+    // "ช่วงนี้" is unambiguous on its own (= today). It stops being so once the
+    // user has a different วันจร picked — ask which day they mean.
+    const pickedAnotherDay =
+      Boolean(transitDateInput) && transitDateInput !== bangkokDateKey();
+    const futureDateTrigger: FutureDatePromptTrigger | null =
+      detectFutureDatePromptTrigger(content) ??
+      (pickedAnotherDay && CURRENT_PERIOD_PATTERN.test(content) ? "current_period" : null);
     if (
       !isIntro &&
       !options.retryKey &&
@@ -1196,7 +1204,8 @@ export function ChatView() {
       setPendingFutureDate({
         question: content,
         options,
-        initialDate: suggestedFutureDateKey(content),
+        // Start from the day already picked, not from a fresh guess.
+        initialDate: transitDateInput || suggestedFutureDateKey(content),
         trigger: futureDateTrigger,
       });
       return;
