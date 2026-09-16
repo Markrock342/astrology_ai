@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { BrandMark } from "@/components/brand-logo";
+import { PublicPageHeader } from "@/components/marketing/public-page-header";
 import {
   CMS_KEYS,
   type CmsContact,
@@ -36,10 +35,7 @@ export default async function ContactPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col px-6 py-16">
-      <Link href="/" className="mb-10 inline-flex flex-col items-center gap-3 self-center">
-        <BrandMark size={48} />
-        <span className="text-sm text-[var(--muted)]">โหราศาสตร์</span>
-      </Link>
+      <PublicPageHeader className="mb-10" />
 
       <h1 className="text-center text-3xl font-semibold text-[var(--foreground)]">
         ติดต่อเรา

@@ -1,3 +1,4 @@
+import { FaqDisclosure } from "@/components/cms/faq-disclosure";
 import { SimpleMarkdown } from "@/components/cms/simple-markdown";
 
 type FaqViewItem = {
@@ -32,17 +33,9 @@ export function FaqView({ items }: { items: FaqViewItem[] }) {
           </h2>
           <div className="space-y-3">
             {rows.map((item) => (
-              <details
-                key={item.id}
-                className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
-              >
-                <summary className="cursor-pointer text-sm font-medium text-[var(--foreground)]">
-                  {item.question}
-                </summary>
-                <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-                  <SimpleMarkdown text={item.answer} />
-                </p>
-              </details>
+              <FaqDisclosure key={item.id} question={item.question} variant="card">
+                <SimpleMarkdown text={item.answer} />
+              </FaqDisclosure>
             ))}
           </div>
         </section>

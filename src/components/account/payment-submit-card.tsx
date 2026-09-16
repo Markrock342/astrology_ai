@@ -6,7 +6,7 @@ import type { CmsPaymentInfo } from "@/lib/cms-keys";
 import { Button, Field, TextInput } from "@/components/admin/ui";
 import { useAppData } from "@/components/app/app-data-provider";
 import { PAYMENT_PENDING_SLA_HOURS } from "@/config/constants";
-import { isPaymentInfoConfigured } from "@/lib/payment-info";
+import { isPaymentInfoConfigured, paymentUnavailableNote } from "@/lib/payment-info";
 
 type PaymentRow = {
   id: string;
@@ -356,7 +356,7 @@ export function PaymentSubmitCard({
           <div>
             <p className="text-sm font-semibold text-[var(--foreground)]">ยังไม่เปิดรับโอนเงิน</p>
             <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-              ทีมงานยังไม่ได้ตั้งค่าบัญชีรับเงินจริง จึงยังส่งสลิปไม่ได้ กรุณาติดต่อทีมงานก่อนโอนเงิน
+              {paymentUnavailableNote(paymentInfo)}
             </p>
           </div>
         </div>
