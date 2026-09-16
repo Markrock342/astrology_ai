@@ -2597,7 +2597,10 @@ function ReadingContextBar({
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
         <p className="min-w-0 text-sm text-[var(--foreground)]">
           <span className="font-semibold text-[var(--primary)]">{label}:</span>
-          <span> {category ?? "ดวงชะตา"}</span>
+          {/* Say WHAT is being read, not which admin category the thread
+              belongs to — both buttons opened the same category and users
+              read the label as the reading type. */}
+          <span> {mode === "transit" ? "ดวงจร" : (category ?? "พื้นดวงเดิม")}</span>
           {detail ? (
             <span className="hidden text-[var(--muted)] sm:inline"> · {detail}</span>
           ) : null}
