@@ -97,6 +97,7 @@ export async function getOrComputeDailyTransit(
   const chart = assertUsableEngineChart(
     await computeTransitChart(transitInput, natalChart.input, {
       scrapeTimeoutMs: options?.scrapeTimeoutMs ?? 4_000,
+      natalLagna: natalChart.chart?.lagna ?? natalChart.meta.lagna,
     }),
   );
 

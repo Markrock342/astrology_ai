@@ -14,9 +14,6 @@ export type TransitWindow = {
   label: string;
 };
 
-const NATAL_HINT =
-  /พื้นดวง(?:เดิม)?|ดวงกำเนิด|ดวงจักรกำเนิด|ลัคนา(?:ฉัน|ผม|เกิด)?|ทักษาเกิด|ในดวง(?:ผม|ฉัน|เกิด)|โครงสร้างดวง/;
-
 const TRANSIT_HINT =
   /ดวงจร|วันจร|ช่วงนี้|ตอนนี้|วันนี้|พรุ่งนี้|เดือนนี้|เดือนหน้า|สัปดาห์|ปีนี้|ปีหน้า|อนาคต|อีก\s*\d+\s*เดือน|ช่วง\s*\d+\s*เดือน|[3๓]\s*เดือน|สามเดือน|จะ(?:เป็น|ได้|มี|ไป|เจอ)|เมื่อ(?:ไหร่|ไร)|จังหวะ/;
 
@@ -264,13 +261,19 @@ function parseOverride(raw?: string | Date | null): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * A question is a transit question only when it points at time or the future
+ * (ช่วงนี้ / เดือนหน้า / จะได้…ไหม / เมื่อไหร่ …). Anything else — "จุดแข็งของฉัน",
+ * "การงานเป็นยังไง" — is read from the natal chart. A user-picked date still
+ * wins in resolveTransitWindow regardless of wording.
+ */
 export function detectReadingIntent(question: string): ReadingIntent {
   const q = question.trim();
-  const wantsTransit = TRANSIT_HINT.test(q);
-  const wantsNatal = NATAL_HINT.test(q);
-  if (wantsTransit) return "transit";
-  if (wantsNatal) return "natal";
-  return "transit";
+  if (TRANSIT_HINT.test(q)) return "transit";
+  // Every wording the future-date modal recognises (มะรืน, สองวันข้างหน้า,
+  // อีก ๕ วัน, วันที่ 20/10 …) is a transit question too.
+  if (detectFutureDatePromptTrigger(q)) return "transit";
+  return "natal";
 }
 
 export function detectFutureDatePromptTrigger(

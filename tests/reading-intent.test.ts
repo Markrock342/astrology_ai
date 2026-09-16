@@ -18,6 +18,12 @@ describe("detectReadingIntent", () => {
     expect(detectReadingIntent("ลัคนาฉันบอกอะไร")).toBe("natal");
   });
 
+  it("reads a question with no time cue from the natal chart", () => {
+    expect(detectReadingIntent("จุดแข็งของฉันคืออะไร")).toBe("natal");
+    expect(detectReadingIntent("การงานเหมาะกับสายไหน")).toBe("natal");
+    expect(detectReadingIntent("นิสัยฉันเป็นยังไง")).toBe("natal");
+  });
+
   it("treats future / period questions as transit", () => {
     expect(detectReadingIntent("ช่วง 3 เดือนนี้การเงินเป็นยังไง")).toBe("transit");
     expect(detectReadingIntent("อนาคตงานจะไปได้ไหม")).toBe("transit");

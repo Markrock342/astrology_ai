@@ -83,10 +83,25 @@ export async function computeNatalChart(
  * Transit chart for a moment/place.
  * Short scrape timeout — chat must not hang on myhora.
  */
+function withNatalLagna(chart: ChartJson, natalLagna: string | undefined): ChartJson {
+  if (!natalLagna) return chart;
+  return {
+    ...chart,
+    chart: chart.chart ? { ...chart.chart, lagna: natalLagna } : chart.chart,
+    meta: { ...chart.meta, lagna: natalLagna },
+  };
+}
+
+/**
+ * Transit chart for a moment/place. The ascendant stays the NATAL lagna: Thai
+ * transit reading (ดาวจร) places the day's planets into the birth chart's
+ * houses, so the wheel, the evidence table and the AI all count houses from
+ * the same ล. The transit-moment ascendant is not what the reader wants.
+ */
 export async function computeTransitChart(
   input: BirthInputSnapshot,
   natalInput?: BirthInputSnapshot,
-  options?: { scrapeTimeoutMs?: number },
+  options?: { scrapeTimeoutMs?: number; natalLagna?: string },
 ): Promise<ChartJson> {
   const transit: TransitInput = {
     day: input.day,
@@ -119,34 +134,31 @@ export async function computeTransitChart(
         console.warn(
           "[myhora] transit scrape returned no transit table — using formula-pipeline for the transit day",
         );
-        return toChartJsonFromFormula(input);
+        return withNatalLagna(toChartJsonFromFormula(input), options?.natalLagna);
       }
+      // mapScrapeToChartJson is keyed on the birth data, so its lagna is the
+      // natal lagna — exactly the one the transit chart must keep.
       const chart = mapScrapeToChartJson(input, scrape);
       {
+        const natalLagna =
+          options?.natalLagna ?? chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ";
         const transitRows = chartFromMyhoraRows(
           scrape.tables.transitPlanets,
-          {
-            lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
-            planets: chart.planets,
-          },
+          { lagna: natalLagna, planets: chart.planets },
         );
-        return {
-          ...chart,
-          planets: transitRows?.planets ?? chart.planets,
-          chart: chart.chart
-            ? {
-                ...chart.chart,
-                lagna: transitRows?.lagna ?? chart.chart.lagna,
-              }
-            : chart.chart,
-          meta: {
-            ...chart.meta,
-            birthDisplay: formatBirthDisplay(input),
-            locationDisplay: formatLocationDisplay(input),
-            calculationSource: "myhora-scrape",
-            lagna: transitRows?.lagna ?? chart.meta.lagna,
+        return withNatalLagna(
+          {
+            ...chart,
+            planets: transitRows?.planets ?? chart.planets,
+            meta: {
+              ...chart.meta,
+              birthDisplay: formatBirthDisplay(input),
+              locationDisplay: formatLocationDisplay(input),
+              calculationSource: "myhora-scrape",
+            },
           },
-        };
+          natalLagna,
+        );
       }
     } catch (err) {
       console.warn(
@@ -156,7 +168,7 @@ export async function computeTransitChart(
     }
   }
 
-  return toChartJsonFromFormula(input);
+  return withNatalLagna(toChartJsonFromFormula(input), options?.natalLagna);
 }
 
 /** @deprecated use computeNatalChartFormula — kept for sync call sites in tests */

@@ -145,14 +145,25 @@ export type WheelChartKind = "natal" | "transit";
  * the natal table; the engine rows are the correct fallback.
  */
 export function wheelChartFor(chart: ChartJson, kind: WheelChartKind): DerivedChart {
+  // ดาวจร are read in the NATAL houses, so a transit wheel keeps the natal ล.
+  // Newer transit charts already carry it; older snapshots fall back to the
+  // scrape's natal lagna before the (transit-moment) chart lagna.
+  const natalLagna =
+    kind === "transit"
+      ? chart.myhora?.lagnaSign
+        ? normalizeMyhoraSign(chart.myhora.lagnaSign)
+        : undefined
+      : undefined;
   const fallback: DerivedChart = {
-    lagna: chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
+    lagna: natalLagna ?? chart.chart?.lagna ?? chart.meta.lagna ?? "เมษ",
     planets: chart.planets,
     lagnaDegreeInSign: chart.chart?.lagnaDegreeInSign,
   };
   const rows =
     kind === "transit" ? chart.myhora?.transitPlanets : chart.myhora?.natalPlanets;
-  return chartFromMyhoraRows(rows, fallback) ?? fallback;
+  const derived = chartFromMyhoraRows(rows, fallback) ?? fallback;
+  // The transit table's ลัคนา row is the transit-moment ascendant — override it.
+  return kind === "transit" ? { ...derived, lagna: fallback.lagna } : derived;
 }
 
 function signIndex(sign: string): number {

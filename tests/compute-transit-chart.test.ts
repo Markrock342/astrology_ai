@@ -77,6 +77,10 @@ describe("computeTransitChart", () => {
 
     expect(chart.meta.calculationSource).toBe("myhora-scrape");
     expect(chart.planets.find((p) => p.planet === "เสาร์")?.siderealSign).toBe("กรกฎ");
+    // ดาวจร are read in the natal houses: the transit chart keeps the natal ล (มกร),
+    // not the transit-moment ascendant (เมษ in the transit table).
+    expect(chart.chart?.lagna).toBe("มกร");
+    expect(chart.meta.lagna).toBe("มกร");
     expect(chart.myhora?.transitPlanets).toHaveLength(2);
   });
 });

@@ -225,7 +225,11 @@ export const HoroscopeChartPanel = memo(function HoroscopeChartPanel({
               mode="transit"
               countFromCenter={countFromCenter}
               onCountFromCenterChange={setCountFromCenter}
-              transitInput={transit?.input}
+              asOf={
+                transit
+                  ? new Date(transit.input.year, transit.input.month - 1, transit.input.day)
+                  : undefined
+              }
             />
           </div>
         )}
