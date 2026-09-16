@@ -30,6 +30,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/knowledge", label: "คลังความรู้", aiOnly: true, group: "ai" },
   { href: "/admin/chart-standards", label: "มาตรฐานและเกณฑ์", aiOnly: true, group: "ai" },
   { href: "/admin/feedback", label: "ฟีดแบ็กคำตอบ", aiOnly: true, group: "ai" },
+  { href: "/admin/readings", label: "ตรวจสอบการอ่าน", aiOnly: true, group: "ai" },
   { href: "/admin/usage", label: "บันทึกการใช้งาน AI", aiOnly: true, group: "ai" },
   { href: "/admin/analytics", label: "กราฟการใช้งาน", aiOnly: true, group: "ai" },
   { href: "/admin/costs", label: "ต้นทุนและกำไร", aiOnly: true, group: "users" },

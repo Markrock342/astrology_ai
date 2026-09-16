@@ -12,6 +12,7 @@ import {
 import type { ChartJson } from "@/types/chart";
 
 const mocks = vi.hoisted(() => ({
+  createReading: vi.fn(),
   findReading: vi.fn(),
   findUser: vi.fn(),
   findCategory: vi.fn(),
@@ -178,6 +179,11 @@ function setupHappyPath() {
     plan: "plan",
     category: "cat",
     outputFormat: "fmt",
+    sources: {
+      system: { code: "system.default", version: 2 },
+      persona: { code: "persona.default", version: 3 },
+      format: { code: "format.default", version: 5 },
+    },
   });
   mocks.loadChart.mockResolvedValue(null);
   mocks.requireReadyNatalChart.mockResolvedValue({
@@ -273,7 +279,7 @@ function setupHappyPath() {
   mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
     const tx = {
       horoscopeReading: {
-        create: vi.fn().mockResolvedValue({
+        create: mocks.createReading.mockResolvedValue({
           id: "reading-1",
           responseText: "คำตอบจาก AI",
           creditCost: 0,
@@ -591,6 +597,33 @@ describe("createReading (M3 B2)", () => {
     // resolvePromptParts is mocked here; plan hints are asserted in prompt-resolver tests.
     expect(freePrompt).toContain("กฎแหล่งความรู้");
     expect(freePrompt).toContain("[knowledge] ตำราจากคลังความรู้ของระบบ");
+  });
+
+  it("freezes a prompt trace with the reading: charts, window, doctrine chunks, template versions", async () => {
+    mocks.findKnowledge.mockResolvedValue([
+      { title: "ตำราการงาน", content: "การงาน อาชีพ ".repeat(80), categoryId: "cat-1", sortOrder: 1 },
+    ]);
+    mocks.assertCanRequestReading.mockResolvedValue("PRO");
+    await createReading({ userId: "user-1", categorySlug: "career", question: "การงานเป็นยังไง" });
+    const create = mocks.createReading.mock.calls[0]?.[0] as { data: { promptTraceJson: Record<string, unknown> } };
+    const trace = create.data.promptTraceJson as {
+      version: number;
+      intent: string;
+      natal: { lagna: string; planets: unknown[] };
+      knowledge: { chunks: Array<{ title: string }> };
+      templates: { persona: { code: string; version: number } | null };
+      systemPrompt: string;
+      userPrompt: string;
+      model: { modelId: string } | null;
+    };
+    expect(trace.version).toBe(1);
+    expect(trace.intent).toBe("natal");
+    expect(trace.natal.lagna).toBeTruthy();
+    expect(trace.knowledge.chunks.map((c) => c.title)).toContain("ตำราการงาน");
+    expect(trace.templates.persona).toEqual({ code: "persona.default", version: 3 });
+    expect(trace.systemPrompt).toContain("กฎแหล่งความรู้");
+    expect(trace.userPrompt).toContain("[natal]");
+    expect(trace.model?.modelId).toBeTruthy();
   });
 
   it("passes plan-specific maxOutputTokens to the AI router", async () => {

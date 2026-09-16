@@ -37,12 +37,20 @@ const DEFAULTS = {
     "อย่าเกริ่นว่ากำลังอ้างอิงพื้นดวง อย่าอธิบายว่ากราฟหรือ engine คืออะไร อย่าห่อคำตอบด้วย code fence — เข้าเรื่องเลย",
 };
 
+export type ResolvedPromptSource = { code: string; version: number } | null;
+
 export type ResolvedPrompts = {
   safety: string;
   persona: string;
   plan: string;
   category: string;
   outputFormat: string;
+  /** Which admin templates (code + version) produced each block; null = built-in default. */
+  sources: {
+    system: ResolvedPromptSource;
+    persona: ResolvedPromptSource;
+    format: ResolvedPromptSource;
+  };
 };
 
 async function loadByCode(code: string): Promise<PromptTemplate | null> {
@@ -67,12 +75,18 @@ export async function resolvePromptParts(input: {
   ]);
 
   let personaContent = personaDefault?.content ?? DEFAULTS.persona;
+  let personaRow: PromptTemplate | null = personaDefault;
   if (input.personaTemplateId) {
     const linked = await prisma.promptTemplate.findUnique({
       where: { id: input.personaTemplateId },
     });
-    if (linked?.enabled) personaContent = linked.content;
+    if (linked?.enabled) {
+      personaContent = linked.content;
+      personaRow = linked;
+    }
   }
+  const source = (row: PromptTemplate | null): ResolvedPromptSource =>
+    row ? { code: row.code, version: row.version } : null;
 
   return {
     safety: systemTpl?.content ?? DEFAULTS.system,
@@ -80,5 +94,10 @@ export async function resolvePromptParts(input: {
     plan: input.plan === "PRO" ? PLAN_HINT_PRO : PLAN_HINT_FREE,
     category: input.categoryDescription ?? input.categoryName,
     outputFormat: formatTpl?.content ?? DEFAULTS.format,
+    sources: {
+      system: source(systemTpl),
+      persona: source(personaRow),
+      format: source(formatTpl),
+    },
   };
 }

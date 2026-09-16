@@ -250,16 +250,24 @@ export function buildKnowledgePrompt(
   docs: KnowledgeSourceDoc[],
   input: KnowledgeRetrievalInput,
 ): string | undefined {
-  if (docs.length === 0) return undefined;
+  return buildKnowledgePromptWithTrace(docs, input).prompt;
+}
+
+/** Same as buildKnowledgePrompt, plus which chunks made the cut (for the reading trace). */
+export function buildKnowledgePromptWithTrace(
+  docs: KnowledgeSourceDoc[],
+  input: KnowledgeRetrievalInput,
+): { prompt: string | undefined; chunks: RetrievedKnowledgeChunk[]; usedChars: number } {
+  if (docs.length === 0) return { prompt: undefined, chunks: [], usedChars: 0 };
   const selected = retrieveKnowledgeChunks(docs, input);
-  if (selected.length === 0) return undefined;
-  return (
+  if (selected.length === 0) return { prompt: undefined, chunks: [], usedChars: 0 };
+  const prompt =
     KNOWLEDGE_BLOCK_HEADER +
     selected
       .map(
         (chunk) =>
           `## ${chunk.title} · ส่วน ${chunk.chunkIndex + 1}/${chunk.chunkCount}\n${chunk.content}`,
       )
-      .join("\n\n")
-  );
+      .join("\n\n");
+  return { prompt, chunks: selected, usedChars: prompt.length };
 }
