@@ -18,7 +18,7 @@ test("home is ready to chat without picking a category", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "ถามดวงได้เลย" })).toBeVisible();
   await expect(page.getByRole("textbox")).toBeVisible();
-  await expect(page.getByRole("region", { name: "พื้นดวงเดิม" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "ดวงชะตา" })).toBeVisible();
   await expect(
     page.getByRole("navigation", { name: "เลือกหมวดเพื่อเริ่มสนทนา" }),
   ).toHaveCount(0);
@@ -34,7 +34,7 @@ test("natal chart view fills the main pane and hides the composer", async ({
 
   await expect(page.getByRole("heading", { name: "ถามดวงได้เลย" })).toHaveCount(0);
   await expect(page.getByRole("textbox")).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "พื้นดวงเดิม" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "ดวงชะตา" })).toBeVisible();
   await expect(
     page.getByText(/กำลังเปิดดวงจักรกำเนิด|กำลังวางลัคนา|ดวงจักรกำเนิด|ผังดวงชะตา|ยังเปิดดวงจักร/),
   ).toBeVisible();
@@ -62,7 +62,8 @@ test("a sent message streams in full and the answer keeps its actions", async ({
 
   await expect(page.getByRole("textbox")).toHaveValue("");
   await expect(page.getByRole("button", { name: "สร้างใหม่" })).toBeVisible();
-  await expect(page.getByText(/ใช้เวลา/)).toBeVisible();
+  // The model / elapsed-time line was removed at the client's request.
+  await expect(page.getByText(/ใช้เวลา/)).toHaveCount(0);
 });
 
 test("editing a message sends the REAL row id and clears the composer", async ({

@@ -11,7 +11,6 @@ import {
   ChangePasswordModal,
   RenameModal,
 } from "./settings-modals";
-import { CategoryIcon } from "./category-icon";
 import { ConfirmModal, ThreadRenameModal } from "./confirm-modal";
 import {
   CollapseSidebarIcon,
@@ -37,6 +36,8 @@ import { UserAvatar } from "./user-avatar";
 import { ThemePicker } from "./theme-picker";
 import { TransitFormModal } from "./transit-form-modal";
 import { NatalDossier } from "./natal-dossier";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import type { CmsSiteFooter } from "@/lib/cms-keys";
 import {
   clearThreadCache,
   invalidateCachedThread,
@@ -44,7 +45,14 @@ import {
 } from "./thread-cache";
 import { OPEN_TRANSIT_EVENT, natalAtlasHref, readOpenTransitDetail } from "@/lib/chat-navigation-links";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  footer,
+}: {
+  children: React.ReactNode;
+  /** Site footer (CMS) rendered below the chat; reached by scrolling past the composer. */
+  footer?: CmsSiteFooter | null;
+}) {
   const searchParams = useChatRouteSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   // Two-phase mobile drawer so it can animate on both enter and exit:
@@ -95,7 +103,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     refreshLight,
     filteredNatalThreads,
     filteredTransitThreads,
-    categories,
     searchQuery,
     setSearchQuery,
     loading,
@@ -486,8 +493,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2">
-        <section aria-label="พื้นดวงเดิม" className="shrink-0">
-          <SectionLabel>พื้นดวงเดิม</SectionLabel>
+        <section aria-label="ดวงชะตา" className="shrink-0">
+          <SectionLabel>ดวงชะตา</SectionLabel>
           <NatalDossier
             onNavigate={closeMobile}
             activeView={searchParams.get("view")}
@@ -552,16 +559,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       : "text-[var(--muted)]"
                   }`}
                 >
-                  <span className="shrink-0 text-[var(--primary)]">
-                    {t.kind === "natal" && t.categorySlug ? (
-                      <CategoryIcon
-                        slug={t.categorySlug}
-                        icon={categories.find((c) => c.slug === t.categorySlug)?.icon}
-                      />
-                    ) : (
-                      <TransitIcon />
-                    )}
-                  </span>
                   <span
                     className="truncate"
                     title="ดับเบิลคลิกเพื่อเปลี่ยนชื่อ"
@@ -633,7 +630,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className="shape-capsule flex h-[100dvh] overflow-hidden"
+      className="shape-capsule flex min-h-[100dvh]"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
     >
@@ -678,7 +675,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         aria-label="แถบข้าง"
         className={`${
           collapsed ? "w-16" : "w-72"
-        } relative z-30 hidden shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)] md:flex md:flex-col`}
+        } sticky top-0 z-30 hidden h-[100dvh] shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)] md:flex md:flex-col`}
       >
         <div
           className={`absolute inset-0 transition-opacity duration-200 ${
@@ -724,6 +721,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         // focus, no clicks reach it, so the drawer is a real modal.
         inert={mobileShown}
       >
+      {/* The chat owns exactly one viewport; the footer sits under it and the
+          page scrolls to reveal it once the thread has been scrolled to its end. */}
+      <div className="flex h-[100dvh] min-w-0 flex-col">
         {/* Mobile top bar — gives the menu a home + brand context without a
             floating button overlapping page content. */}
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 md:hidden">
@@ -756,6 +756,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SiteAnnouncementBanner />
           {children}
         </main>
+      </div>
+      {footer ? <SiteFooter footer={footer} /> : null}
       </div>
 
       <ConfirmModal
