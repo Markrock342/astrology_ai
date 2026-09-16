@@ -19,7 +19,6 @@ import {
   NatalChartIcon,
   NewChatIcon,
   SearchIcon,
-  TransitIcon,
 } from "./sidebar-icons";
 import { useAppData } from "./app-data-provider";
 import {
@@ -457,7 +456,36 @@ export function AppShell({
         </button>
       </div>
 
-      <div className="flex flex-col gap-2 px-3 pt-4">
+
+      <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2">
+        <section aria-label="ดวงชะตา" className="shrink-0">
+          <SectionLabel>ดวงชะตา</SectionLabel>
+          <NatalDossier
+            onNavigate={closeMobile}
+            activeView={searchParams.get("view")}
+            activeSlug={searchParams.get("cat")}
+          />
+        </section>
+
+        <SidebarDivider />
+
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {loadError ? (
+          <div className="px-3 py-2 text-xs text-[var(--danger)]">
+            <p>{loadError}</p>
+            <button
+              type="button"
+              onClick={() => refresh()}
+              className="mt-1 text-[var(--primary)] underline"
+            >
+              ลองใหม่
+            </button>
+          </div>
+        ) : null}
+        <SectionLabel>การสนทนา</SectionLabel>
+        {/* New chat + search sit with the conversations they act on (client
+            request) — the old "เริ่มดวงจรใหม่" button did the same as new chat. */}
+        <div className="mb-2 flex flex-col gap-2">
         <Link
           href="/dashboard"
           onClick={(e) => {
@@ -490,47 +518,7 @@ export function AppShell({
             autoFocus
           />
         )}
-      </div>
-
-      <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2">
-        <section aria-label="ดวงชะตา" className="shrink-0">
-          <SectionLabel>ดวงชะตา</SectionLabel>
-          <NatalDossier
-            onNavigate={closeMobile}
-            activeView={searchParams.get("view")}
-            activeSlug={searchParams.get("cat")}
-          />
-        </section>
-
-        <SidebarDivider />
-
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        {loadError ? (
-          <div className="px-3 py-2 text-xs text-[var(--danger)]">
-            <p>{loadError}</p>
-            <button
-              type="button"
-              onClick={() => refresh()}
-              className="mt-1 text-[var(--primary)] underline"
-            >
-              ลองใหม่
-            </button>
-          </div>
-        ) : null}
-        <SectionLabel>การสนทนา</SectionLabel>
-        <button
-          type="button"
-          onClick={() => {
-            chatNav("/dashboard");
-            closeMobile();
-          }}
-          className="mb-1 flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2.5 text-sm text-[var(--primary)] transition hover:bg-[var(--background)]"
-        >
-          <span className="flex items-center gap-2.5">
-            <TransitIcon />
-            เริ่มดวงจรใหม่
-          </span>
-        </button>
+        </div>
         <nav aria-label="การสนทนา" className="flex flex-col gap-0.5">
           {conversationThreads.length === 0 ? (
             <p className="px-3 py-2 text-xs text-[var(--muted-2)]">

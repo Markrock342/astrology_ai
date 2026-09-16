@@ -223,22 +223,30 @@ describe("ทักษาปีจร (อายุย่าง)", () => {
     expect(yangKaoAge(wednesdayNight, new Date(2027, 7, 26, 12))).toBe(2);
   });
 
-  it("puts บริวารจร on ๑ in year 3, matching the combined MyHora overlay", () => {
+  it("walks บริวาร → ตากลาง → cycle when counting through the centre", () => {
+    // Wednesday-night birth: บริวาร = ราหู (๘); path ๘ ๙ ๖ ๑ ๒ ๓ ๔ ๗ ๕ | ๘ …
     const asOf = new Date(2028, 7, 26, 12);
     expect(resolveTaksaBirthDay(wednesdayNight)).toBe("พุธกลางคืน");
     expect(yangKaoAge(wednesdayNight, asOf)).toBe(3);
     const withCenter = computeTransitTaksaByAge(wednesdayNight, asOf, true);
+    expect(withCenter.slots[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 6 });
+    // Without the centre the cycle simply continues: year 3 → ๑
     const withoutCenter = computeTransitTaksaByAge(wednesdayNight, asOf, false);
-    expect(withCenter.slots[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 1 });
-    expect(withoutCenter.slots[0]).toMatchObject({
-      taksa: "บริวารจร",
-      planetNum: 1,
-    });
+    expect(withoutCenter.slots[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 1 });
   });
 
-  it("lands บริวารจร on Ketu in year 9 when counting through the centre", () => {
-    const asOf = new Date(2034, 7, 26, 12);
-    expect(yangKaoAge(wednesdayNight, asOf)).toBe(9);
+  it("Sunday-born at อายุย่าง 51 lands บริวารจร on เสาร์ (๗) — the client's worked example", () => {
+    const sunday = { ...wednesdayNight, day: 26, month: 8, year: 1979, time: "12:00" };
+    expect(resolveTaksaBirthDay(sunday)).toBe("อาทิตย์");
+    const asOf = new Date(2029, 7, 27, 12);
+    expect(yangKaoAge(sunday, asOf)).toBe(51);
+    const byAge = computeTransitTaksaByAge(sunday, asOf, true);
+    expect(byAge.slots[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 7 });
+  });
+
+  it("lands บริวารจร on Ketu in year 2 (and every 9th year after) through the centre", () => {
+    const asOf = new Date(2027, 7, 26, 12);
+    expect(yangKaoAge(wednesdayNight, asOf)).toBe(2);
     const withCenter = computeTransitTaksaByAge(wednesdayNight, asOf, true);
     expect(withCenter.centerIsBorivanTransit).toBe(true);
     expect(withCenter.slots.some((slot) => slot.taksa === "บริวารจร")).toBe(
@@ -248,7 +256,7 @@ describe("ทักษาปีจร (อายุย่าง)", () => {
     expect(withoutCenter.centerIsBorivanTransit).toBe(false);
     expect(withoutCenter.slots[0]).toMatchObject({
       taksa: "บริวารจร",
-      planetNum: 8,
+      planetNum: 6, // year 2 without the centre: one step past ราหู → ศุกร์,
     });
   });
 
