@@ -45,6 +45,8 @@ import {
 } from "@/lib/chat-navigation-links";
 import { formatTransitNowLabel } from "@/lib/transit-label";
 import { TransitDatePicker } from "./transit-date-picker";
+import { useAppFooter } from "./app-footer-context";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import {
   bangkokDateKey,
   CURRENT_PERIOD_PATTERN,
@@ -293,6 +295,13 @@ function recordFutureDatePromptOutcome(
 }
 
 const SCROLL_NEAR_BOTTOM_PX = 120;
+
+/** scrollTop that puts the end of the conversation at the bottom of the
+    viewport — the footer below it stays out of view until the reader asks. */
+function conversationBottom(el: HTMLElement, end: HTMLElement | null): number {
+  if (!end) return el.scrollHeight;
+  return Math.max(0, end.offsetTop - el.clientHeight);
+}
 /** No stream delta for this long → treat the turn as stuck and recover. */
 const STALE_TURN_MS = 45_000;
 /** Abort the HTTP stream if no SSE arrives — fall back to background poll. */
@@ -455,6 +464,11 @@ export function ChatView() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [showScrollFab, setShowScrollFab] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Marks where the conversation ends and the site footer begins. Auto-scroll
+  // and "near bottom" aim here, not at scrollHeight — otherwise every streamed
+  // token would drag the reader down into the footer.
+  const contentEndRef = useRef<HTMLDivElement>(null);
+  const footer = useAppFooter();
   // The composer owns its text so typing never re-renders the thread; the
   // parent reaches in through this handle to prefill, clear, read and focus.
   const composerRef = useRef<ComposerHandle>(null);
@@ -1019,7 +1033,7 @@ export function ChatView() {
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
+    el.scrollTo({ top: conversationBottom(el, contentEndRef.current), behavior });
     isNearBottomRef.current = true;
     setShowScrollFab(false);
   }, []);
@@ -1028,7 +1042,8 @@ export function ChatView() {
     const el = scrollRef.current;
     if (!el) return;
     const nearBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_NEAR_BOTTOM_PX;
+      conversationBottom(el, contentEndRef.current) - el.scrollTop <
+      SCROLL_NEAR_BOTTOM_PX;
     isNearBottomRef.current = nearBottom;
     setShowScrollFab(!nearBottom);
   }, []);
@@ -1057,7 +1072,7 @@ export function ChatView() {
     const ro = new ResizeObserver(() => {
       if (!isNearBottomRef.current) return;
       const s = scrollRef.current;
-      if (s) s.scrollTop = s.scrollHeight;
+      if (s) s.scrollTop = conversationBottom(s, contentEndRef.current);
     });
     ro.observe(el);
     pinObserver.current = ro;
@@ -2028,6 +2043,9 @@ export function ChatView() {
         onScroll={handleScroll}
         className="relative min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8"
       >
+        {/* The conversation fills at least one viewport, so the footer below
+            it always starts under the fold — even on an empty chat. */}
+        <div className="flex min-h-full flex-col">
         {!FEATURES.aiChat && (
           <div className="animate-fade-in mx-auto mb-6 max-w-3xl rounded-2xl border border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 text-center text-xs text-[var(--muted)]">
             ตัวอย่างระบบ (เฟสนี้) — ระบบดูดวงด้วย AI จะเปิดให้ใช้งานจริงในเฟสถัดไป
@@ -2311,6 +2329,16 @@ export function ChatView() {
             )}
           </div>
         )}
+        {/* End of the conversation: auto-scroll targets this line. The site
+            footer sits below it, reached only by scrolling past everything —
+            it never shows on first paint and never covers the composer. */}
+        <div ref={contentEndRef} aria-hidden className="mt-auto h-6" />
+        </div>
+        {footer && !loadingThread ? (
+          <div className="-mx-4 -mb-6 mt-16 md:-mx-8">
+            <SiteFooter footer={footer} />
+          </div>
+        ) : null}
         {/* Feedback lives on one message, so its failure belongs next to the
             thread, not in the chat-wide ErrorBanner (which would read as if the
             ANSWER failed). Silent was the worst option: a thumb that lights up
