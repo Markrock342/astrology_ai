@@ -664,6 +664,9 @@ model HoroscopeReading {
   modelId                  String?
   promptTemplateId         String?
   promptVersion            Int?
+  /// What the model was actually given (charts, window, knowledge chunks,
+  /// template versions, full prompts) — see src/types/reading-trace.ts.
+  promptTraceJson          Json?
   status                   ReadingStatus @default(SUCCESS)
   creditCost               Int           @default(0)
   usageCostUnits           Int           @default(0)

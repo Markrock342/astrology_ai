@@ -75,7 +75,8 @@ import {
   formatUserAiMemoryForPrompt,
   getUserAiMemory,
 } from "@/server/user/ai-memory-service";
-import { buildKnowledgePrompt } from "@/server/horoscope/knowledge-retrieval";
+import { buildKnowledgePromptWithTrace } from "@/server/horoscope/knowledge-retrieval";
+import type { ReadingPromptTrace, TracePlanet } from "@/types/reading-trace";
 
 export { buildKnowledgePrompt } from "@/server/horoscope/knowledge-retrieval";
 
@@ -431,13 +432,15 @@ async function runReading(
   ]
     .filter(Boolean)
     .join("\n");
-  const doctrine = buildKnowledgePrompt(scopedKnowledge, {
+  const knowledgeBudget = plan === "FREE" ? FREE_KNOWLEDGE_MAX_CHARS : KNOWLEDGE_MAX_CHARS;
+  const doctrineTrace = buildKnowledgePromptWithTrace(scopedKnowledge, {
     query: question,
     context: retrievalContext,
     categoryId: category.id,
     // Trial depth: Free gets the best-ranked doctrine only (see FREE_TRIAL_DEPTH_PERCENT).
-    maxChars: plan === "FREE" ? FREE_KNOWLEDGE_MAX_CHARS : KNOWLEDGE_MAX_CHARS,
+    maxChars: knowledgeBudget,
   });
+  const doctrine = doctrineTrace.prompt;
   const glossary: StandardGlossaryItem[] = standardRows.map((row) => ({
     matchKey: row.matchKey,
     term: row.term,
@@ -514,6 +517,53 @@ async function runReading(
       "Transit engine chart missing from prompt",
     );
   }
+
+  // Frozen with the reading so an admin can see exactly what the model got.
+  const tracePlanets = (chart: ChartJson): TracePlanet[] =>
+    chart.planets.map((row) => ({ planet: row.planet, sign: row.siderealSign }));
+  const promptTrace: ReadingPromptTrace = {
+    version: 1,
+    createdAt: new Date().toISOString(),
+    question,
+    answerMode,
+    plan,
+    intent: transitWindow.intent,
+    window: {
+      label: transitWindow.label,
+      sampleAt: transitWindow.sampleAt.toISOString(),
+      horizonAt: transitWindow.horizonAt?.toISOString() ?? null,
+      pickedByUser: Boolean(input.transit?.explicitDate),
+    },
+    natal: {
+      lagna: natalChart.chart?.lagna ?? natalChart.meta.lagna ?? "—",
+      birthDisplay: natalChart.meta.birthDisplay ?? null,
+      source: natalChart.meta.calculationSource ?? null,
+      planets: tracePlanets(natalChart),
+    },
+    transit: transitChart
+      ? {
+          lagna: transitChart.chart?.lagna ?? transitChart.meta.lagna ?? "—",
+          asOf: `${transitChart.input.day}/${transitChart.input.month}/${transitChart.input.year} ${transitChart.input.time}`,
+          source: transitChart.meta.calculationSource ?? null,
+          planets: tracePlanets(transitChart),
+        }
+      : null,
+    knowledge: {
+      budgetChars: knowledgeBudget,
+      usedChars: doctrineTrace.usedChars,
+      chunks: doctrineTrace.chunks.map((chunk) => ({
+        title: chunk.title,
+        chunkIndex: chunk.chunkIndex,
+        chunkCount: chunk.chunkCount,
+        chars: chunk.content.length,
+        score: Math.round(chunk.score * 100) / 100,
+      })),
+    },
+    templates: promptParts.sources ?? { system: null, persona: null, format: null },
+    model: null,
+    systemPrompt,
+    userPrompt,
+  };
 
   // Writing phase — reserve quota then call the model.
   onPhase?.("writing");
@@ -671,7 +721,11 @@ async function runReading(
           provider: result.provider,
           modelId: result.modelId,
           promptTemplateId: templateId ?? undefined,
-          promptVersion: undefined,
+          promptVersion: promptParts.sources?.persona?.version ?? undefined,
+          promptTraceJson: {
+            ...promptTrace,
+            model: { provider: result.provider, modelId: result.modelId },
+          } as object,
           status: "SUCCESS",
           creditCost,
           usageCostUnits: 0,
