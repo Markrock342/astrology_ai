@@ -31,6 +31,7 @@ export const FUTURE_DATE_PROMPT_TRIGGERS = [
   "when",
   "future",
   "future_outcome",
+  "current_period",
 ] as const;
 
 export type FutureDatePromptTrigger =
@@ -53,7 +54,11 @@ export const FUTURE_DATE_PROMPT_TRIGGER_LABELS: Record<
   when: "เมื่อไหร่ / เมื่อไร",
   future: "อนาคต",
   future_outcome: "จะได้ / จะมี / มีโอกาส",
+  current_period: "ช่วงนี้ / ตอนนี้ ขณะที่เลือกวันจรไว้แล้ว",
 };
+
+/** "ช่วงนี้ / ตอนนี้ / วันนี้" — only ambiguous once another วันจร is already picked. */
+export const CURRENT_PERIOD_PATTERN = /ช่วงนี้|ตอนนี้|วันนี้|ระยะนี้/;
 
 const THAI_NUMBER_WORDS: Record<string, number> = {
   หนึ่ง: 1,

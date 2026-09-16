@@ -3,12 +3,9 @@
 import { useId, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useDialogFocus } from "./use-dialog-focus";
-import {
-  TRANSIT_DATE_PRESETS,
-  transitDateKeyFromPreset,
-  transitDateLabelFromKey,
-} from "@/lib/transit-date-pick";
+import { transitDateLabelFromKey } from "@/lib/transit-date-pick";
 import { bangkokDateKey } from "@/lib/reading-intent";
+import { TransitDateWheel } from "./transit-date-picker";
 
 function subscribeToHydration() {
   return () => {};
@@ -36,7 +33,6 @@ export function FutureDateModal({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const [date, setDate] = useState(initialDate || bangkokDateKey());
   const hydrated = useSyncExternalStore(
     subscribeToHydration,
@@ -48,7 +44,6 @@ export function FutureDateModal({
     open: hydrated,
     dialogRef,
     onClose: onCancel,
-    initialFocusRef: inputRef,
   });
 
   if (!hydrated) return null;
@@ -88,34 +83,19 @@ export function FutureDateModal({
             onConfirm(date);
           }}
         >
-          <label className="mt-4 block text-xs font-medium text-[var(--foreground)]">
-            วันที่ต้องการถาม
-            <input
-              ref={inputRef}
-              type="date"
-              required
-              min={bangkokDateKey()}
+          <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+            <TransitDateWheel
               value={date}
-              onChange={(event) => setDate(event.target.value)}
-              className="mt-1.5 min-h-11 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface-2)] px-3 text-sm tabular-nums text-[var(--foreground)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--ring)]"
+              onChange={setDate}
+              onSubmit={(key) => onConfirm(key)}
+              hint="วันที่ระบบเสนอมาจากคำถาม — แก้ได้ที่ช่อง พิมพ์ กดชิป หรือหมุนวงล้อ"
             />
-          </label>
-          {dateLabel ? (
-            <p className="mt-1.5 text-xs text-[var(--muted)]">{dateLabel}</p>
-          ) : null}
-
-          <div className="mt-3 flex flex-wrap gap-1.5" aria-label="วันที่แนะนำ">
-            {TRANSIT_DATE_PRESETS.map((preset) => (
-              <button
-                key={preset.kind}
-                type="button"
-                onClick={() => setDate(transitDateKeyFromPreset(preset.kind))}
-                className="min-h-9 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)]"
-              >
-                {preset.label}
-              </button>
-            ))}
           </div>
+          {dateLabel ? (
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              จะอ่านดวงจร ณ วันที่ <span className="font-medium text-[var(--foreground)]">{dateLabel}</span>
+            </p>
+          ) : null}
 
           <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button

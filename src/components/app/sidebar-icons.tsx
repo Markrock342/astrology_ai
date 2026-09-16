@@ -147,6 +147,30 @@ export function ExpandSidebarIcon({ size = 20, className = "" }: IconProps) {
   );
 }
 
+export function EditIcon({ size = 14, className = "" }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} aria-hidden>
+      <path
+        d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path d="M13.5 7.5l3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function TrashIcon({ size = 14, className = "" }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} aria-hidden>
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** Small transit / orbit icon for ดวงจร rows (when listed). */
 export function TransitIcon({ size = 14, className = "" }: IconProps) {
   return (

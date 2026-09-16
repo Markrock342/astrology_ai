@@ -11,7 +11,7 @@ import {
   TRANSIT_DATE_PRESETS,
   transitDateKeyFromPreset,
   transitDateLabelFromKey,
-  type TransitDatePreset,
+
 } from "@/lib/transit-date-pick";
 import { bangkokDateKey } from "@/lib/reading-intent";
 
@@ -40,71 +40,35 @@ function yearForEra(ceYear: number, era: Era) {
   return era === "BE" ? ceYear + BUDDHIST_YEAR_OFFSET : ceYear;
 }
 
-export function TransitDatePicker({
+/**
+ * The one date UI for วันจร — used by the composer picker and by the
+ * future-date modal, so users meet the same wheels, presets and typed entry
+ * everywhere. Fully controlled: reports every change through onChange with a
+ * YYYY-MM-DD key; the host decides when to commit.
+ */
+export function TransitDateWheel({
   value,
   onChange,
-  disabled,
+  onPreset,
+  onSubmit,
+  hint = "พิมพ์วันที่ หรือหมุนวงล้อ",
 }: {
   value: string;
-  onChange: (value: string) => void;
-  disabled?: boolean;
+  onChange: (key: string) => void;
+  /** A preset chip was tapped (hosts may commit + close immediately). */
+  onPreset?: (key: string) => void;
+  /** Enter in the typed field. */
+  onSubmit?: (key: string) => void;
+  hint?: string;
 }) {
-  const panelId = useId();
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const dirtyRef = useRef(false);
-  const [open, setOpen] = useState(false);
+  const initial = value ? partsFromKey(value) : partsFromKey(bangkokDateKey());
   const [era, setEra] = useState<Era>("BE");
-  const [typed, setTyped] = useState("");
-  const [pos, setPos] = useState<{ left: number; bottom: number; width: number } | null>(
-    null,
+  const [typed, setTyped] = useState(
+    value ? (transitDateLabelFromKey(value) ?? value) : "",
   );
-
-  const selected = value ? partsFromKey(value) : partsFromKey(bangkokDateKey());
-  const [day, setDay] = useState(String(selected.day));
-  const [month, setMonth] = useState(String(selected.month));
-  const [year, setYear] = useState(String(yearForEra(selected.year, "BE")));
-
-  function hydrateFrom(nextValue: string, nextEra: Era) {
-    const next = nextValue ? partsFromKey(nextValue) : partsFromKey(bangkokDateKey());
-    setDay(String(next.day));
-    setMonth(String(next.month));
-    setYear(String(yearForEra(next.year, nextEra)));
-    setTyped(nextValue ? transitDateLabelFromKey(nextValue) ?? nextValue : "");
-    dirtyRef.current = false;
-  }
-
-  function openPanel() {
-    hydrateFrom(value, era);
-    setOpen(true);
-  }
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    function place() {
-      const el = buttonRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const width = Math.min(340, window.innerWidth - 24);
-      let left = r.right - width;
-      if (left < 12) left = 12;
-      if (left + width > window.innerWidth - 12) {
-        left = window.innerWidth - width - 12;
-      }
-      setPos({
-        left,
-        bottom: window.innerHeight - r.top + 8,
-        width,
-      });
-    }
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [open]);
+  const [day, setDay] = useState(String(initial.day));
+  const [month, setMonth] = useState(String(initial.month));
+  const [year, setYear] = useState(String(yearForEra(initial.year, "BE")));
 
   const ceYear = era === "BE" ? Number(year) - BUDDHIST_YEAR_OFFSET : Number(year);
   const daysInMonth = useMemo(() => {
@@ -139,36 +103,199 @@ export function TransitDatePicker({
     });
   }, [era]);
 
-  function draftKeyFromWheels(
+  function keyFromWheels(
     nextDay = safeDay,
     nextMonth = month,
     nextYear = year,
     nextEra = era,
   ): string | null {
     const ce =
-      nextEra === "BE"
-        ? Number(nextYear) - BUDDHIST_YEAR_OFFSET
-        : Number(nextYear);
+      nextEra === "BE" ? Number(nextYear) - BUDDHIST_YEAR_OFFSET : Number(nextYear);
     const m = Number(nextMonth);
     const d = Number(nextDay);
-    if (!Number.isFinite(ce) || !Number.isFinite(m) || !Number.isFinite(d)) {
-      return null;
-    }
+    if (!Number.isFinite(ce) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
     return formatTransitDateKey(ce, m, d);
   }
 
-  function draftKey(): string | null {
-    return parseTypedTransitDate(typed) ?? draftKeyFromWheels();
+  function pushWheels(nextDay: string, nextMonth: string, nextYear: string, nextEra = era) {
+    const key = keyFromWheels(nextDay, nextMonth, nextYear, nextEra);
+    if (!key) return;
+    setTyped(transitDateLabelFromKey(key) ?? key);
+    onChange(key);
   }
 
-  function applyDraft() {
-    const next = draftKey();
-    if (next) onChange(next);
+  function selectEra(next: Era) {
+    if (next === era) return;
+    const shown =
+      next === "BE"
+        ? Number(year) + BUDDHIST_YEAR_OFFSET
+        : Number(year) - BUDDHIST_YEAR_OFFSET;
+    setEra(next);
+    setYear(String(shown));
   }
+
+  function applyKey(key: string) {
+    const parts = parseTransitDateKey(key);
+    if (!parts) return;
+    setDay(String(parts.day));
+    setMonth(String(parts.month));
+    setYear(String(yearForEra(parts.year, era)));
+    setTyped(transitDateLabelFromKey(key) ?? key);
+    onChange(key);
+  }
+
+  function currentKey(): string | null {
+    return parseTypedTransitDate(typed) ?? keyFromWheels();
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[12px] font-medium text-[var(--foreground)]">วันจร</p>
+        <span className="flex gap-1">
+          <EraChip era={era} value="BE" label="พ.ศ." onSelect={selectEra} />
+          <EraChip era={era} value="CE" label="ค.ศ." onSelect={selectEra} />
+        </span>
+      </div>
+      <p className="mb-2 text-[11px] leading-4 text-[var(--muted)]">{hint}</p>
+      <input
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        spellCheck={false}
+        value={typed}
+        onChange={(e) => {
+          setTyped(e.target.value);
+          const key = parseTypedTransitDate(e.target.value);
+          if (key) {
+            const parts = parseTransitDateKey(key);
+            if (parts) {
+              setDay(String(parts.day));
+              setMonth(String(parts.month));
+              setYear(String(yearForEra(parts.year, era)));
+            }
+            onChange(key);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const key = currentKey();
+            if (key) {
+              onChange(key);
+              onSubmit?.(key);
+            }
+          }
+        }}
+        placeholder="เช่น 15/10/2569 หรือ 15 ต.ค. 2569"
+        aria-label="พิมพ์วันจร"
+        className="mb-2 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-[13px] tabular-nums text-[var(--foreground)] outline-none placeholder:text-[var(--muted-2)] focus:border-[var(--primary)]/70 focus:ring-1 focus:ring-[var(--primary)]/30"
+      />
+      <div className="mb-2 flex flex-wrap gap-1">
+        {TRANSIT_DATE_PRESETS.map((p) => (
+          <button
+            key={p.kind}
+            type="button"
+            onClick={() => {
+              const key = transitDateKeyFromPreset(p.kind);
+              applyKey(key);
+              onPreset?.(key);
+            }}
+            className="min-h-8 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[11px] text-[var(--foreground)] transition hover:border-[var(--primary)]/60 hover:text-[var(--primary)]"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <WheelGroup
+        headers={["วัน", "เดือน", era === "BE" ? "พ.ศ." : "ค.ศ."]}
+        hint="พิมพ์ที่ช่องบนได้เลย ไม่ต้องเลื่อนหา"
+      >
+        <WheelColumn
+          options={dayOptions}
+          value={safeDay}
+          onChange={(next) => {
+            setDay(next);
+            pushWheels(next, month, year);
+          }}
+          ariaLabel="วันที่จร"
+        />
+        <WheelColumn
+          options={monthOptions}
+          value={month}
+          onChange={(next) => {
+            setMonth(next);
+            pushWheels(safeDay, next, year);
+          }}
+          ariaLabel="เดือนจร"
+        />
+        <WheelColumn
+          options={yearOptions}
+          value={year}
+          onChange={(next) => {
+            setYear(next);
+            pushWheels(safeDay, month, next);
+          }}
+          ariaLabel="ปีจร"
+        />
+      </WheelGroup>
+    </div>
+  );
+}
+
+export function TransitDatePicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const panelId = useId();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const draftRef = useRef<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ left: number; bottom: number; width: number } | null>(
+    null,
+  );
+
+  function openPanel() {
+    draftRef.current = null;
+    setOpen(true);
+  }
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    function place() {
+      const el = buttonRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const width = Math.min(340, window.innerWidth - 24);
+      let left = r.right - width;
+      if (left < 12) left = 12;
+      if (left + width > window.innerWidth - 12) {
+        left = window.innerWidth - width - 12;
+      }
+      setPos({
+        left,
+        bottom: window.innerHeight - r.top + 8,
+        width,
+      });
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
 
   function closePanel(commit: boolean) {
-    if (commit && dirtyRef.current) applyDraft();
-    dirtyRef.current = false;
+    if (commit && draftRef.current) onChange(draftRef.current);
+    draftRef.current = null;
     setOpen(false);
   }
 
@@ -207,34 +334,6 @@ export function TransitDatePicker({
     };
   }, [open]);
 
-  function markDraft(
-    nextDay: string,
-    nextMonth: string,
-    nextYear: string,
-    nextEra = era,
-  ) {
-    dirtyRef.current = true;
-    const key = draftKeyFromWheels(nextDay, nextMonth, nextYear, nextEra);
-    if (key) setTyped(transitDateLabelFromKey(key) ?? key);
-  }
-
-  function selectEra(next: Era) {
-    if (next === era) return;
-    const shown =
-      next === "BE"
-        ? Number(year) + BUDDHIST_YEAR_OFFSET
-        : Number(year) - BUDDHIST_YEAR_OFFSET;
-    setEra(next);
-    setYear(String(shown));
-    markDraft(safeDay, month, String(shown), next);
-  }
-
-  function pickPreset(kind: TransitDatePreset) {
-    onChange(transitDateKeyFromPreset(kind));
-    dirtyRef.current = false;
-    setOpen(false);
-  }
-
   const label = value ? transitDateLabelFromKey(value) : null;
 
   const panel =
@@ -248,88 +347,29 @@ export function TransitDatePicker({
             style={{ left: pos.left, bottom: pos.bottom, width: pos.width }}
             className="fixed z-50 max-h-[min(32rem,calc(100dvh-5.5rem))] overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-2xl"
           >
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-[12px] font-medium text-[var(--foreground)]">
-                วันจร
-              </p>
-              <span className="flex gap-1">
-                <EraChip era={era} value="BE" label="พ.ศ." onSelect={selectEra} />
-                <EraChip era={era} value="CE" label="ค.ศ." onSelect={selectEra} />
-              </span>
-            </div>
-            <p className="mb-2 text-[11px] leading-4 text-[var(--muted)]">
-              พิมพ์วันที่ หรือหมุนวงล้อ — เว้นว่างถ้าให้ระบบอ่านจากคำถาม
-            </p>
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              spellCheck={false}
-              value={typed}
-              onChange={(e) => {
-                dirtyRef.current = true;
-                setTyped(e.target.value);
+            <TransitDateWheel
+              value={value}
+              hint="พิมพ์วันที่ หรือหมุนวงล้อ — เว้นว่างถ้าให้ระบบอ่านจากคำถาม"
+              onChange={(key) => {
+                draftRef.current = key;
               }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  closePanel(true);
-                }
+              onPreset={(key) => {
+                onChange(key);
+                draftRef.current = null;
+                setOpen(false);
               }}
-              placeholder="เช่น 15/10/2569 หรือ 15 ต.ค. 2569"
-              aria-label="พิมพ์วันจร"
-              className="mb-2 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-2 text-[13px] tabular-nums text-[var(--foreground)] outline-none placeholder:text-[var(--muted-2)] focus:border-[var(--primary)]/70 focus:ring-1 focus:ring-[var(--primary)]/30"
+              onSubmit={(key) => {
+                onChange(key);
+                draftRef.current = null;
+                setOpen(false);
+              }}
             />
-            <div className="mb-2 flex flex-wrap gap-1">
-              {TRANSIT_DATE_PRESETS.map((p) => (
-                <button
-                  key={p.kind}
-                  type="button"
-                  onClick={() => pickPreset(p.kind)}
-                  className="min-h-8 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[11px] text-[var(--foreground)] transition hover:border-[var(--primary)]/60 hover:text-[var(--primary)]"
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <WheelGroup
-              headers={["วัน", "เดือน", era === "BE" ? "พ.ศ." : "ค.ศ."]}
-              hint="พิมพ์ที่ช่องล่างได้เลย ไม่ต้องเลื่อนหา"
-            >
-              <WheelColumn
-                options={dayOptions}
-                value={safeDay}
-                onChange={(next) => {
-                  setDay(next);
-                  markDraft(next, month, year);
-                }}
-                ariaLabel="วันที่จร"
-              />
-              <WheelColumn
-                options={monthOptions}
-                value={month}
-                onChange={(next) => {
-                  setMonth(next);
-                  markDraft(safeDay, next, year);
-                }}
-                ariaLabel="เดือนจร"
-              />
-              <WheelColumn
-                options={yearOptions}
-                value={year}
-                onChange={(next) => {
-                  setYear(next);
-                  markDraft(safeDay, month, next);
-                }}
-                ariaLabel="ปีจร"
-              />
-            </WheelGroup>
             <div className="mt-2 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => {
                   onChange("");
-                  dirtyRef.current = false;
+                  draftRef.current = null;
                   setOpen(false);
                 }}
                 className="min-h-8 px-1 text-[12px] text-[var(--muted)] underline-offset-2 hover:text-[var(--foreground)] hover:underline"
@@ -338,10 +378,7 @@ export function TransitDatePicker({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  dirtyRef.current = true;
-                  closePanel(true);
-                }}
+                onClick={() => closePanel(true)}
                 className="min-h-8 rounded-lg bg-[var(--primary)] px-3 text-[12px] font-semibold text-[var(--primary-foreground)]"
               >
                 ตกลง

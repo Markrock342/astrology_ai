@@ -19,6 +19,8 @@ import {
   NatalChartIcon,
   NewChatIcon,
   SearchIcon,
+  EditIcon,
+  TrashIcon,
 } from "./sidebar-icons";
 import { useAppData } from "./app-data-provider";
 import {
@@ -482,7 +484,6 @@ export function AppShell({
             </button>
           </div>
         ) : null}
-        <SectionLabel>การสนทนา</SectionLabel>
         {/* New chat + search sit with the conversations they act on (client
             request) — the old "เริ่มดวงจรใหม่" button did the same as new chat. */}
         <div className="mb-2 flex flex-col gap-2">
@@ -519,6 +520,7 @@ export function AppShell({
           />
         )}
         </div>
+        <SectionLabel>การสนทนา</SectionLabel>
         <nav aria-label="การสนทนา" className="flex flex-col gap-0.5">
           {conversationThreads.length === 0 ? (
             <p className="px-3 py-2 text-xs text-[var(--muted-2)]">
@@ -578,18 +580,18 @@ export function AppShell({
                 </button>
                 <button
                   type="button"
-                  title="เปลี่ยนชื่อ"
-                  aria-label="เปลี่ยนชื่อแชท"
+                  title="แก้ไขชื่อ"
+                  aria-label="แก้ไขชื่อแชท"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     openRenameThread(t.id, t.title);
                   }}
-                  className={`min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
+                  className={`min-h-11 shrink-0 rounded-md px-2 py-2 text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
                     threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
                   }`}
                 >
-                  ชื่อ
+                  <EditIcon />
                 </button>
                 <button
                   type="button"
@@ -600,11 +602,11 @@ export function AppShell({
                     e.stopPropagation();
                     void deleteThread(t.id);
                   }}
-                  className={`min-h-11 shrink-0 rounded-md px-2.5 py-2 text-[11px] text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
+                  className={`min-h-11 shrink-0 rounded-md px-2 py-2 text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
                     threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
                   }`}
                 >
-                  ลบ
+                  <TrashIcon />
                 </button>
               </li>
             ))}
