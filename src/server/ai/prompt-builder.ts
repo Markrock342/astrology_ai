@@ -62,6 +62,7 @@ export const RESPONSE_LAYOUT_RULE =
   "ห้ามตั้งหัวข้อเป็นหมวดตัวตน การงาน การเงิน ความรัก สุขภาพ โชคลาภ ถ้าผู้ใช้ไม่ได้ถามหลายเรื่อง " +
   "ห้ามบอกให้ไปเปิดหมวดอื่น ห้ามชวนให้ถามต่อในหมวดนั้น — ตอบในแชทนี้ให้จบ " +
   "ห้ามห่อคำตอบทั้งก้อนด้วย code fence " +
+  "ห้ามใช้แท็ก HTML ใด ๆ เช่น <br> <b> <table> ในคำตอบ — ในช่องตารางที่ต้องมีหลายรายการให้คั่นด้วย · แทนการขึ้นบรรทัดใหม่ " +
   "รักษาบุคลิกและน้ำเสียงจากบล็อก persona ตลอดการสนทนา — อย่าเปลี่ยนเป็นโทนหุ่นยนต์หรือเลิกเป็นตัวละครนั้น";
 
 /** Never leave a general user alone with unexplained technical astrology terms. */
@@ -266,6 +267,7 @@ export function buildUserPrompt(
       formatChartForPrompt(transit, {
         title: transitBlockTitle(transit),
         preferTransitSamrap: true,
+        natalInput: natal.input,
       }),
       "",
     );
@@ -280,6 +282,7 @@ export function buildUserPrompt(
           "[transit_horizon]",
         ),
         preferTransitSamrap: true,
+        natalInput: natal.input,
       }),
       "",
     );

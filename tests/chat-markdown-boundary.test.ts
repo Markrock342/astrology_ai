@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { stableBlockBoundary } from "@/components/app/chat-markdown";
+import { stableBlockBoundary, stripHtmlBreaks } from "@/components/app/chat-markdown";
+
+describe("stripHtmlBreaks", () => {
+  it("turns <br> inside table cells into a separator", () => {
+    expect(stripHtmlBreaks("| ดาวอังคาร (๓) <br>(เจ้าเรือนการงาน) | ก |")).toBe(
+      "| ดาวอังคาร (๓) · (เจ้าเรือนการงาน) | ก |",
+    );
+    expect(stripHtmlBreaks("a<br/>b<BR />c")).toBe("a · b · c");
+  });
+});
 
 describe("stableBlockBoundary", () => {
   it("cuts after the last completed paragraph", () => {

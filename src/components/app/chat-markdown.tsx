@@ -182,6 +182,15 @@ function reactNodeText(node: unknown): string {
 
 const REMARK_PLUGINS = [remarkGfm];
 
+/**
+ * Gemini sometimes writes `<br>` inside table cells (there is no line break
+ * in GFM cells). react-markdown renders raw HTML as literal text, so the tag
+ * showed up in the answer. A separator reads the way the model meant it.
+ */
+export function stripHtmlBreaks(markdown: string): string {
+  return markdown.replace(/\s*<br\s*\/?>\s*/gi, " · ");
+}
+
 /** One parsed run of blocks. Memoized so a settled `source` never re-parses. */
 const MarkdownBlocks = memo(function MarkdownBlocks({ source }: { source: string }) {
   return (
@@ -239,7 +248,7 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   if (!content) return null;
 
   if (!streaming) {
-    const source = linkChatNavigationCtas(content);
+    const source = linkChatNavigationCtas(stripHtmlBreaks(content));
     if (!source) return null;
     return (
       <div className="chat-md max-w-none">
@@ -252,9 +261,10 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   // markdown, which it renders faithfully as pipe salad and stray asterisks that
   // then rearrange themselves. Complete the live tail before it gets there; the
   // head ends at a blank line and is whole by construction.
-  const cut = stableBlockBoundary(content);
-  const head = cut > 0 ? linkChatNavigationCtas(content.slice(0, cut)) : "";
-  const tail = linkChatNavigationCtas(completeMarkdown(content.slice(cut)));
+  const cleaned = stripHtmlBreaks(content);
+  const cut = stableBlockBoundary(cleaned);
+  const head = cut > 0 ? linkChatNavigationCtas(cleaned.slice(0, cut)) : "";
+  const tail = linkChatNavigationCtas(completeMarkdown(cleaned.slice(cut)));
   if (!head && !tail) return null;
 
   return (

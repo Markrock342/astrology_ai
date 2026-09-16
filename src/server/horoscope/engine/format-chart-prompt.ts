@@ -1,4 +1,4 @@
-import type { ChartJson } from "@/types/chart";
+import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet, MyhoraTriwaiCell } from "@/types/myhora";
 import { SIGNS } from "@/server/horoscope/engine/newhora/data/astrologyConstants";
 import { MYHORA_PLANET_NUM } from "@/server/horoscope/engine/myhora/sign-codes";
@@ -20,6 +20,12 @@ export type FormatChartOptions = {
   title?: string;
   /** Prefer transit samrap rows from myhora when formatting a transit chart. */
   preferTransitSamrap?: boolean;
+  /**
+   * Birth input, needed for a transit block: ทักษาจร is walked by อายุย่างเข้า
+   * from the natal บริวาร (the same grid the user sees), not by the transit
+   * day's weekday.
+   */
+  natalInput?: BirthInputSnapshot;
 };
 
 const SIGN_INDEX = new Map(SIGNS.map((s, i) => [s, i]));
@@ -219,14 +225,28 @@ export function formatChartForPrompt(
     );
   }
   if (options.preferTransitSamrap) {
-    const transitTaksa = computeTransitTaksaMethod1(chart.input);
-    lines.push(
-      ...formatTaksaSlots(
-        "ทักษาจร",
-        formatTaksaDayHeading(resolveTaksaBirthDay(chart.input), "transit"),
-        transitTaksa,
-      ),
-    );
+    if (options.natalInput) {
+      const asOf = new Date(chart.input.year, chart.input.month - 1, chart.input.day);
+      const byAge = computeTransitTaksaByAge(options.natalInput, asOf, true);
+      lines.push(
+        ...formatTaksaSlots(
+          "ทักษาจร",
+          `อายุย่างเข้า ${byAge.yangKao} นับอายุจรตากลาง${
+            byAge.centerIsBorivanTransit ? " · บริวารจรอยู่ตากลาง (เกตุ)" : ""
+          }`,
+          byAge.slots.filter((slot) => slot.taksa),
+        ),
+      );
+    } else {
+      const transitTaksa = computeTransitTaksaMethod1(chart.input);
+      lines.push(
+        ...formatTaksaSlots(
+          "ทักษาจร",
+          formatTaksaDayHeading(resolveTaksaBirthDay(chart.input), "transit"),
+          transitTaksa,
+        ),
+      );
+    }
   }
 
   if (chart.myhora?.triwaiNatal?.length) {
