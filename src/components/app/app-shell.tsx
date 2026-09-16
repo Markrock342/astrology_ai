@@ -37,7 +37,7 @@ import { UserAvatar } from "./user-avatar";
 import { ThemePicker } from "./theme-picker";
 import { TransitFormModal } from "./transit-form-modal";
 import { NatalDossier } from "./natal-dossier";
-import { SiteFooter } from "@/components/marketing/site-footer";
+import { AppFooterContext } from "./app-footer-context";
 import type { CmsSiteFooter } from "@/lib/cms-keys";
 import {
   clearThreadCache,
@@ -51,7 +51,7 @@ export function AppShell({
   footer,
 }: {
   children: React.ReactNode;
-  /** Site footer (CMS) rendered below the chat; reached by scrolling past the composer. */
+  /** Site footer (CMS); the chat renders it at the very end of its scroll area. */
   footer?: CmsSiteFooter | null;
 }) {
   const searchParams = useChatRouteSearchParams();
@@ -282,41 +282,141 @@ export function AppShell({
     };
   }, []);
 
-  // Edge-swipe: drag in from the left edge to open the drawer, swipe left on the
-  // open drawer to close it — the gesture people reach for on a phone. It never
-  // calls preventDefault, so vertical scrolling is untouched; it only reads the
-  // touch and, once per gesture, decides whether a clear horizontal swipe fired.
-  const swipe = useRef<{
+  // Drag-to-open / drag-to-close (ChatGPT-style): the drawer follows the
+  // finger. Pull in from the left edge to open, drag the open drawer left to
+  // close; release snaps to whichever side is nearer (or the flick direction).
+  // Position is written straight to the DOM during the gesture — no re-render
+  // per touchmove — and the class transition takes over on release. It never
+  // calls preventDefault, so vertical scrolling is untouched: the gesture is
+  // only claimed once the movement is clearly horizontal.
+  const drag = useRef<{
     x: number;
     y: number;
-    fromEdge: boolean;
-    fired: boolean;
+    /** Opening from the closed state (edge pull) vs. closing the open drawer. */
+    opening: boolean;
+    mode: "pending" | "drag" | "scroll";
+    width: number;
+    dx: number;
+    lastX: number;
+    lastT: number;
+    /** px per ms, positive = rightwards. */
+    vx: number;
   } | null>(null);
+  const overlayRef = useRef<HTMLButtonElement>(null);
+
+  function drawerWidth() {
+    return (
+      mobileDrawerRef.current?.offsetWidth ??
+      Math.min(window.innerWidth * 0.86, 288)
+    );
+  }
+
+  /** `offset` is the drawer's translateX in px: -width = hidden, 0 = open. */
+  function paintDrawer(offset: number, width: number) {
+    const el = mobileDrawerRef.current;
+    const ov = overlayRef.current;
+    if (el) {
+      // Tailwind v4's translate-x-* classes set the `translate` property, so
+      // that is what we override — an inline `transform` would stack on top.
+      el.style.transition = "none";
+      el.style.translate = `${offset}px 0`;
+    }
+    if (ov) {
+      ov.style.transition = "none";
+      ov.style.opacity = String(Math.max(0, Math.min(1, 1 + offset / width)));
+    }
+  }
+
+  /** Hand control back to the CSS classes; the transition runs from the
+      current inline position to the class target. */
+  function releaseDrawer() {
+    const el = mobileDrawerRef.current;
+    const ov = overlayRef.current;
+    if (el) {
+      el.style.transition = "";
+      el.style.translate = "";
+    }
+    if (ov) {
+      ov.style.transition = "";
+      ov.style.opacity = "";
+    }
+  }
 
   // Plain functions — the React Compiler memoizes them; a manual useCallback
   // here conflicts with it ("existing memoization could not be preserved").
   function onTouchStart(e: React.TouchEvent) {
     const t = e.touches[0];
-    if (!t) return;
-    swipe.current = {
+    if (!t || e.touches.length > 1) return;
+    const opening = !mobileShown && t.clientX <= 28;
+    if (!opening && !mobileShown) {
+      drag.current = null;
+      return;
+    }
+    drag.current = {
       x: t.clientX,
       y: t.clientY,
-      fromEdge: t.clientX <= 28,
-      fired: false,
+      opening,
+      mode: "pending",
+      width: drawerWidth(),
+      dx: 0,
+      lastX: t.clientX,
+      lastT: e.timeStamp,
+      vx: 0,
     };
   }
 
   function onTouchMove(e: React.TouchEvent) {
-    const s = swipe.current;
+    const d = drag.current;
     const t = e.touches[0];
-    if (!s || s.fired || !t) return;
-    const dx = t.clientX - s.x;
-    const dy = t.clientY - s.y;
-    // Ignore anything that is mostly vertical — that is a scroll, not a swipe.
-    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
-    s.fired = true;
-    if (dx > 0 && s.fromEdge && !mobileShown) openMobile();
-    else if (dx < 0 && mobileShown) closeMobile();
+    if (!d || d.mode === "scroll" || !t) return;
+    const dx = t.clientX - d.x;
+    const dy = t.clientY - d.y;
+    if (d.mode === "pending") {
+      // Decide once: mostly vertical → it is a scroll, leave it alone.
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+        d.mode = "scroll";
+        return;
+      }
+      if (Math.abs(dx) < 10) return;
+      d.mode = "drag";
+      if (d.opening) {
+        // Mount the drawer (still in its hidden position) so it can follow.
+        if (closeMobileTimer.current != null) {
+          window.clearTimeout(closeMobileTimer.current);
+          closeMobileTimer.current = null;
+        }
+        setMobileRender(true);
+      }
+    }
+    const dt = Math.max(1, e.timeStamp - d.lastT);
+    d.vx = (t.clientX - d.lastX) / dt;
+    d.lastX = t.clientX;
+    d.lastT = e.timeStamp;
+    d.dx = dx;
+    const base = d.opening ? -d.width : 0;
+    const offset = Math.max(-d.width, Math.min(0, base + dx));
+    paintDrawer(offset, d.width);
+  }
+
+  function onTouchEnd() {
+    const d = drag.current;
+    drag.current = null;
+    if (!d || d.mode !== "drag") return;
+    const flick = 0.35; // px/ms
+    const settle = d.width * 0.4;
+    const open = d.opening
+      ? d.vx > flick || (d.vx > -flick && d.dx > settle)
+      : !(d.vx < -flick || (d.vx < flick && -d.dx > settle));
+    releaseDrawer();
+    if (open) {
+      if (closeMobileTimer.current != null) {
+        window.clearTimeout(closeMobileTimer.current);
+        closeMobileTimer.current = null;
+      }
+      setMobileShown(true);
+    } else {
+      closeMobile();
+    }
   }
 
   useEffect(() => {
@@ -620,9 +720,11 @@ export function AppShell({
 
   return (
     <div
-      className="shape-capsule flex min-h-[100dvh]"
+      className="shape-capsule flex h-[100dvh] overflow-hidden"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
     >
       {/* Mobile drawer: overlay fades, panel slides. transform/opacity only. */}
       {mobileRender && (
@@ -632,6 +734,7 @@ export function AppShell({
           }`}
         >
           <button
+            ref={overlayRef}
             type="button"
             className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ease-[var(--ease-out-quart)] ${
               mobileShown ? "opacity-100" : "opacity-0"
@@ -665,7 +768,7 @@ export function AppShell({
         aria-label="แถบข้าง"
         className={`${
           collapsed ? "w-16" : "w-72"
-        } sticky top-0 z-30 hidden h-[100dvh] shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)] md:flex md:flex-col`}
+        } relative z-30 hidden h-full shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)] md:flex md:flex-col`}
       >
         <div
           className={`absolute inset-0 transition-opacity duration-200 ${
@@ -711,9 +814,6 @@ export function AppShell({
         // focus, no clicks reach it, so the drawer is a real modal.
         inert={mobileShown}
       >
-      {/* The chat owns exactly one viewport; the footer sits under it and the
-          page scrolls to reveal it once the thread has been scrolled to its end. */}
-      <div className="flex h-[100dvh] min-w-0 flex-col">
         {/* Mobile top bar — gives the menu a home + brand context without a
             floating button overlapping page content. */}
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 md:hidden">
@@ -744,10 +844,8 @@ export function AppShell({
           <ProExpiryBanner />
           <ProPromotionBanner />
           <SiteAnnouncementBanner />
-          {children}
+          <AppFooterContext value={footer ?? null}>{children}</AppFooterContext>
         </main>
-      </div>
-      {footer ? <SiteFooter footer={footer} /> : null}
       </div>
 
       <ConfirmModal
