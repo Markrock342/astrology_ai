@@ -342,9 +342,12 @@ async function runReading(
     }
   }
 
+  // A natal question (no time cue, no picked date) is answered from the birth
+  // chart alone: no transit block for the model, no ดวงจร wheel on the answer.
+  const wantsTransit = transitWindow.intent === "transit";
   const [transitChart, transitHorizonChart] = await Promise.all([
-    loadTransitAt(transitWindow.sampleAt, true),
-    transitWindow.horizonAt
+    wantsTransit ? loadTransitAt(transitWindow.sampleAt, true) : Promise.resolve(null),
+    wantsTransit && transitWindow.horizonAt
       ? loadTransitAt(transitWindow.horizonAt, false)
       : Promise.resolve(null),
   ]);

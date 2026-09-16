@@ -10,7 +10,7 @@ import {
   forwardRef,
 } from "react";
 import dynamic from "next/dynamic";
-import { APP_NAME, DEFAULTS } from "@/config/constants";
+import { DEFAULTS } from "@/config/constants";
 import { FEATURES } from "@/config/features";
 import { ChatThreadSkeleton } from "@/components/app/content-skeleton";
 import {
@@ -2132,14 +2132,8 @@ export function ChatView() {
                     >
                       <BrandMark size={18} />
                     </div>
-                    <p className="text-xs font-semibold tracking-wide text-[var(--primary)] sm:hidden">
-                      {APP_NAME}
-                    </p>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="mb-2 hidden text-xs font-semibold tracking-wide text-[var(--primary)] sm:block">
-                      {APP_NAME}
-                    </p>
                     {showCharts && (
                       <div className="mb-4 flex flex-col gap-2">
                         {isFirstNatal && m.chartSnapshot ? (
