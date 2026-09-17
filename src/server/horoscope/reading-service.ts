@@ -511,7 +511,11 @@ async function runReading(
       "Engine chart/memory missing from prompt",
     );
   }
-  if (mode === "TRANSIT" && !userPrompt.includes("[transit]")) {
+  // Only when this turn actually reads ดวงจร. Every chat is a TRANSIT-mode
+  // conversation, but a question with no time cue is answered from the birth
+  // chart alone (no transit block by design) — guarding on `mode` here failed
+  // every such question with CHART_NOT_READY.
+  if (wantsTransit && mode === "TRANSIT" && !userPrompt.includes("[transit]")) {
     throw new AppError(
       "CHART_NOT_READY",
       "Transit engine chart missing from prompt",

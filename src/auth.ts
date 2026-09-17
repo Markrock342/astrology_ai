@@ -16,6 +16,11 @@ if (env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET) {
     Google({
       clientId: env.AUTH_GOOGLE_ID,
       clientSecret: env.AUTH_GOOGLE_SECRET,
+      // Always show Google's account chooser. Without it Google silently
+      // reuses whichever account the browser is signed into — in the installed
+      // PWA that meant logging out and back in always returned the same Gmail,
+      // with no way to pick another.
+      authorization: { params: { prompt: "select_account" } },
     }),
   );
 }
