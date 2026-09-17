@@ -641,6 +641,21 @@ describe("createReading (M3 B2)", () => {
     expect(aiCall.maxOutputTokens).toBe(2048);
   });
 
+  it("answers a plain natal question inside a TRANSIT-mode chat without loading ดวงจร", async () => {
+    // Regression: every chat is created in TRANSIT mode. A question with no
+    // time cue is natal by design, so there is no [transit] block — the final
+    // guard must not reject it as CHART_NOT_READY.
+    await expect(
+      createReading({
+        userId: "user-1",
+        categorySlug: "career",
+        question: "งานสายไหนเหมาะกับฉัน",
+        mode: "TRANSIT",
+      }),
+    ).resolves.toBeTruthy();
+    expect(mocks.getOrComputeDailyTransit).not.toHaveBeenCalled();
+  });
+
   it("uses live Bangkok time and conversation place for TRANSIT (skips day cache)", async () => {
     const frozen = new Date("2020-01-01T00:00:00.000Z");
     const transitChart = {
