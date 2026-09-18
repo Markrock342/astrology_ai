@@ -397,6 +397,21 @@ html[data-theme-origin="1"]::view-transition-new(root) {
   }
 }
 
+@keyframes flash-target {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+
+/* Marks where an in-page jump landed (e.g. "ต่ออายุ" → the renew card). */
+.flash-target {
+  border-radius: var(--radius-2xl);
+  animation: flash-target 1.6s var(--ease-out-quart) both;
+}
+
 .press-scale {
   transition: transform 0.15s var(--ease-out-quart);
 }
