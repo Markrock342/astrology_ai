@@ -295,6 +295,15 @@ function recordFutureDatePromptOutcome(
 const SCROLL_NEAR_BOTTOM_PX = 120;
 /** Breathing room above the parked question. */
 const TURN_TOP_GAP_PX = 12;
+
+/** Height of whatever is stuck to the top of the page (the mobile header). */
+function stickyTopOffset(): number {
+  if (typeof document === "undefined") return 0;
+  const header = document.querySelector<HTMLElement>("header.sticky");
+  if (!header) return 0;
+  const rect = header.getBoundingClientRect();
+  return rect.top <= 1 ? rect.height : 0;
+}
 /** No stream delta for this long → treat the turn as stuck and recover. */
 const STALE_TURN_MS = 45_000;
 /** Abort the HTTP stream if no SSE arrives — fall back to background poll. */
@@ -463,6 +472,7 @@ export function ChatView() {
   // fills the space below it.
   const turnTopRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const composerBoxRef = useRef<HTMLDivElement | null>(null);
   const [turnSpacer, setTurnSpacer] = useState(0);
   // The composer owns its text so typing never re-renders the thread; the
   // parent reaches in through this handle to prefill, clear, read and focus.
@@ -1026,51 +1036,60 @@ export function ChatView() {
   // Natal auto-intro removed: home is ready to type, one chat covers every topic.
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
+    if (typeof window === "undefined") return;
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior });
     isNearBottomRef.current = true;
     setShowScrollFab(false);
   }, []);
 
   /** Park the newest question at the top of the viewport. */
   const pinTurnTop = useCallback((behavior: ScrollBehavior = "auto") => {
-    const el = scrollRef.current;
     const turn = turnTopRef.current;
-    if (!el || !turn) return;
-    // Measured, not computed from offsetTop: the scroller's own padding and any
-    // positioned ancestor would otherwise push the row a few pixels off-screen.
-    const delta =
-      turn.getBoundingClientRect().top -
-      el.getBoundingClientRect().top -
-      TURN_TOP_GAP_PX;
+    if (!turn || typeof window === "undefined") return;
+    // Under the sticky mobile header, not behind it. scroll-margin on the row
+    // tells the browser how much room that header needs.
+    const delta = turn.getBoundingClientRect().top - stickyTopOffset() - TURN_TOP_GAP_PX;
     if (Math.abs(delta) < 2) return;
-    const top = Math.max(0, Math.min(el.scrollHeight, el.scrollTop + delta));
-    el.scrollTo({ top, behavior });
+    window.scrollBy({ top: delta, behavior });
   }, []);
 
   /** Room below the newest turn so it can actually reach the top. */
   const measureTurnSpacer = useCallback(() => {
-    const el = scrollRef.current;
     const list = listRef.current;
     const turn = turnTopRef.current;
-    if (!el || !list) return;
+    if (!list || typeof window === "undefined") return;
     if (!turn) {
       setTurnSpacer(0);
       return;
     }
-    const below = list.offsetHeight - turn.offsetTop;
-    setTurnSpacer(Math.max(0, el.clientHeight - below - TURN_TOP_GAP_PX));
+    // Room the newest turn needs to be able to sit at the top: everything from
+    // it to the end of the thread, measured against the space between the
+    // sticky header and the sticky composer.
+    const below = list.getBoundingClientRect().bottom - turn.getBoundingClientRect().top;
+    const composerH = composerBoxRef.current?.offsetHeight ?? 0;
+    const room = window.innerHeight - stickyTopOffset() - composerH - TURN_TOP_GAP_PX;
+    setTurnSpacer(Math.max(0, Math.round(room - below)));
   }, []);
 
   const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
+    if (typeof window === "undefined") return;
+    const doc = document.documentElement;
     const nearBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_NEAR_BOTTOM_PX;
+      doc.scrollHeight - window.scrollY - window.innerHeight <
+      SCROLL_NEAR_BOTTOM_PX;
     isNearBottomRef.current = nearBottom;
     setShowScrollFab(!nearBottom);
   }, []);
+
+  // The page is the scroller now, so the listener lives on the window.
+  useEffect(() => {
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [handleScroll]);
 
   useEffect(() => {
     if (loadingThread || showingNatalChart) return;
@@ -1138,8 +1157,7 @@ export function ChatView() {
       // typewriter is still revealing.
       if (pinnedTurnRef.current) return;
       if (!isNearBottomRef.current) return;
-      const s = scrollRef.current;
-      if (s) s.scrollTop = s.scrollHeight;
+      window.scrollTo({ top: document.documentElement.scrollHeight });
     });
     ro.observe(el);
     pinObserver.current = ro;
@@ -2084,7 +2102,7 @@ export function ChatView() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex flex-1 flex-col">
       {/* Screen readers hear the finished answer here, once. */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {liveAnnounce}
@@ -2106,11 +2124,12 @@ export function ChatView() {
       ) : category ? (
         <ReadingContextBar mode="natal" category={category.label} />
       ) : null}
+      {/* No overflow box here: the page scrolls, which is what lets a phone
+          browser shrink its address bar while reading. */}
       <div
         ref={scrollRef}
-        onScroll={handleScroll}
         data-testid="chat-scroller"
-        className="relative min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8"
+        className="relative flex-1 px-4 py-6 md:px-8"
       >
         {!FEATURES.aiChat && (
           <div className="animate-fade-in mx-auto mb-6 max-w-3xl rounded-2xl border border-[var(--primary)]/30 bg-[var(--surface-2)] px-4 py-3 text-center text-xs text-[var(--muted)]">
@@ -2195,7 +2214,7 @@ export function ChatView() {
                   key={m.id}
                   ref={idx === lastUserIdx ? turnTopRef : undefined}
                   data-testid={idx === lastUserIdx ? "turn-top" : undefined}
-                  className="animate-msg-in group flex flex-col items-end"
+                  className="animate-msg-in group flex scroll-mt-20 flex-col items-end md:scroll-mt-6"
                 >
                   <div
                     className={`max-w-[min(85%,42rem)] overflow-hidden whitespace-pre-wrap break-words rounded-2xl rounded-br-[6px] px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)] ${
@@ -2445,7 +2464,10 @@ export function ChatView() {
       </div>
 
       {showingNatalChart ? null : (
-      <div className="relative shrink-0">
+      <div
+        ref={composerBoxRef}
+        className="sticky bottom-0 z-20 shrink-0 border-t border-[var(--border)]/60 bg-[var(--background)] pt-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
+      >
           {editingMessageId ? (
             <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 pb-2 md:px-8">
               <p className="text-xs text-[var(--muted)]">

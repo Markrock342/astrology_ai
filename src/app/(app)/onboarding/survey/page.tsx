@@ -13,7 +13,7 @@ export default async function OnboardingSurveyPage() {
   if (await hasIntake(userId)) redirect("/dashboard");
 
   return (
-    <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-10">
+    <div className="flex flex-1 flex-col items-center px-6 py-10">
       <div className="mb-8 max-w-xl text-center">
         <p className="text-xs font-medium tracking-wide text-[var(--primary)]">
           ขั้นตอนที่ 2 จาก 2
