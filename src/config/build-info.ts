@@ -1,9 +1,10 @@
 /**
- * Stamped at build time. Coolify/Nixpacks expose the commit as SOURCE_COMMIT;
- * other hosts use their own name, so a few are read in order. Unknown is a
- * valid answer — it means the platform gave the build no commit id.
+ * Stamped at build time by next.config.ts, which reads the platform's commit
+ * variable or falls back to the checkout itself. Unknown is a valid answer — it
+ * means the build had neither.
  */
 const commit =
+  process.env.BUILD_COMMIT ??
   process.env.SOURCE_COMMIT ??
   process.env.COOLIFY_GIT_COMMIT_SHA ??
   process.env.GIT_COMMIT_SHA ??
