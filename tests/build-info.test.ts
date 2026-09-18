@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUILD_INFO } from "@/config/build-info";
+import { BUILD_INFO, runtimeCommit } from "@/config/build-info";
 
 describe("build info", () => {
   it("always answers with a commit field and a timestamp", () => {
@@ -8,5 +8,6 @@ describe("build info", () => {
     expect(typeof BUILD_INFO.commit).toBe("string");
     expect(BUILD_INFO.commit.length).toBeGreaterThan(0);
     expect(Number.isNaN(Date.parse(BUILD_INFO.builtAt))).toBe(false);
+    expect(typeof runtimeCommit()).toBe("string");
   });
 });
