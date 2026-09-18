@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import type { NextConfig } from "next";
+import { sourceFingerprint } from "./scripts/source-fingerprint.mjs";
 
 /**
  * Stamped into the bundle at build time so /api/version can say which commit is
@@ -27,6 +28,10 @@ const nextConfig: NextConfig = {
   env: {
     BUILD_COMMIT: buildCommit(),
     BUILD_TIME: new Date().toISOString(),
+    // Works with no platform support at all: the same checkout always hashes to
+    // the same value, so `npm run fingerprint` here can be compared with what
+    // /api/version reports.
+    BUILD_SOURCE: sourceFingerprint(),
   },
   async redirects() {
     return [
