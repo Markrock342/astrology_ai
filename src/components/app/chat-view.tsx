@@ -293,6 +293,8 @@ function recordFutureDatePromptOutcome(
 }
 
 const SCROLL_NEAR_BOTTOM_PX = 120;
+/** Breathing room above the parked question. */
+const TURN_TOP_GAP_PX = 12;
 /** No stream delta for this long → treat the turn as stuck and recover. */
 const STALE_TURN_MS = 45_000;
 /** Abort the HTTP stream if no SSE arrives — fall back to background poll. */
@@ -455,6 +457,13 @@ export function ChatView() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [showScrollFab, setShowScrollFab] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // The question that opened the newest turn. A long answer used to stream past
+  // the bottom edge, leaving the reader to scroll back up hunting for its first
+  // line; instead this row is parked at the top of the viewport and the answer
+  // fills the space below it.
+  const turnTopRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const [turnSpacer, setTurnSpacer] = useState(0);
   // The composer owns its text so typing never re-renders the thread; the
   // parent reaches in through this handle to prefill, clear, read and focus.
   const composerRef = useRef<ComposerHandle>(null);
@@ -1024,6 +1033,36 @@ export function ChatView() {
     setShowScrollFab(false);
   }, []);
 
+  /** Park the newest question at the top of the viewport. */
+  const pinTurnTop = useCallback((behavior: ScrollBehavior = "auto") => {
+    const el = scrollRef.current;
+    const turn = turnTopRef.current;
+    if (!el || !turn) return;
+    // Measured, not computed from offsetTop: the scroller's own padding and any
+    // positioned ancestor would otherwise push the row a few pixels off-screen.
+    const delta =
+      turn.getBoundingClientRect().top -
+      el.getBoundingClientRect().top -
+      TURN_TOP_GAP_PX;
+    if (Math.abs(delta) < 2) return;
+    const top = Math.max(0, Math.min(el.scrollHeight, el.scrollTop + delta));
+    el.scrollTo({ top, behavior });
+  }, []);
+
+  /** Room below the newest turn so it can actually reach the top. */
+  const measureTurnSpacer = useCallback(() => {
+    const el = scrollRef.current;
+    const list = listRef.current;
+    const turn = turnTopRef.current;
+    if (!el || !list) return;
+    if (!turn) {
+      setTurnSpacer(0);
+      return;
+    }
+    const below = list.offsetHeight - turn.offsetTop;
+    setTurnSpacer(Math.max(0, el.clientHeight - below - TURN_TOP_GAP_PX));
+  }, []);
+
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -1038,12 +1077,41 @@ export function ChatView() {
     composerRef.current?.focus();
   }, [threadId, catSlug, loadingThread, showingNatalChart]);
 
+  const isAnswering = state === "streaming" || state === "processing";
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === "user") {
+      lastUserIdx = i;
+      break;
+    }
+  }
+
+  // The turn we parked at the top. Kept after the answer finishes so nothing
+  // yanks the reader to the end of a ทำนาย they have not read yet.
+  const pinnedTurnRef = useRef<string | null>(null);
+  const lastUserId = lastUserIdx >= 0 ? messages[lastUserIdx]?.id ?? null : null;
+
   useEffect(() => {
+    measureTurnSpacer();
+    // While an answer is being written, hold the question at the top so the
+    // reader watches it fill downwards from its first line. Chasing the tail is
+    // what forced them to scroll back up afterwards.
+    if (isAnswering) {
+      pinnedTurnRef.current = lastUserId;
+      pinTurnTop();
+      return;
+    }
+    if (pinnedTurnRef.current && pinnedTurnRef.current === lastUserId) return;
     if (!isNearBottomRef.current) return;
-    scrollToBottom(
-      state === "streaming" || state === "processing" ? "auto" : "smooth",
-    );
-  }, [messages, state, scrollToBottom]);
+    scrollToBottom("smooth");
+  }, [
+    messages,
+    isAnswering,
+    lastUserId,
+    scrollToBottom,
+    pinTurnTop,
+    measureTurnSpacer,
+  ]);
 
   // Follow content that grows WITHOUT a messages change: the typewriter revealing
   // its tail after `done`, a chart/table/image finishing layout. The effect
@@ -1051,10 +1119,24 @@ export function ChatView() {
   // them — but only while the reader is already at the bottom, so it never yanks
   // the view away from someone scrolling back through the answer.
   const pinObserver = useRef<ResizeObserver | null>(null);
+  const answeringRef = useRef(false);
+  useEffect(() => {
+    answeringRef.current = isAnswering;
+  }, [isAnswering]);
+
   function pinToBottomRef(el: HTMLDivElement | null) {
     pinObserver.current?.disconnect();
+    listRef.current = el;
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => {
+      measureTurnSpacer();
+      if (answeringRef.current) {
+        pinTurnTop();
+        return;
+      }
+      // A finished turn stays where the reader left it — including the tail the
+      // typewriter is still revealing.
+      if (pinnedTurnRef.current) return;
       if (!isNearBottomRef.current) return;
       const s = scrollRef.current;
       if (s) s.scrollTop = s.scrollHeight;
@@ -1241,8 +1323,9 @@ export function ChatView() {
       window.localStorage.removeItem(DRAFT_KEY);
     }
 
+    // No jump to the bottom here: the effect below parks this question at the
+    // top of the viewport instead, so the answer is read from its first line.
     isNearBottomRef.current = true;
-    scrollToBottom("auto");
 
     if (!FEATURES.aiChat) {
       setErrorCode("FEATURE_DISABLED");
@@ -2026,6 +2109,7 @@ export function ChatView() {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
+        data-testid="chat-scroller"
         className="relative min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8"
       >
         {!FEATURES.aiChat && (
@@ -2107,7 +2191,12 @@ export function ChatView() {
                 return null;
               }
               return m.role === "user" ? (
-                <div key={m.id} className="animate-msg-in group flex flex-col items-end">
+                <div
+                  key={m.id}
+                  ref={idx === lastUserIdx ? turnTopRef : undefined}
+                  data-testid={idx === lastUserIdx ? "turn-top" : undefined}
+                  className="animate-msg-in group flex flex-col items-end"
+                >
                   <div
                     className={`max-w-[min(85%,42rem)] overflow-hidden whitespace-pre-wrap break-words rounded-2xl rounded-br-[6px] px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)] ${
                       editingMessageId === m.id
@@ -2309,6 +2398,10 @@ export function ChatView() {
                 }
               />
             )}
+            {/* Lets the newest question reach the top of the viewport even when
+                the answer under it is short. Collapses to nothing once the turn
+                is taller than the screen. */}
+            <div aria-hidden style={{ minHeight: turnSpacer }} />
           </div>
         )}
         {/* Feedback lives on one message, so its failure belongs next to the
@@ -2929,7 +3022,10 @@ const Composer = forwardRef<
           </p>
         ) : null}
       </div>
-      <p className="mx-auto mb-2 max-w-3xl text-[11px] text-[var(--muted)]">
+      <p
+        data-compact-hide
+        className="mx-auto mb-2 max-w-3xl text-[11px] text-[var(--muted)]"
+      >
         กระชับ ≈ สั้น เร็ว · ละเอียด ≈ ยาวขึ้น ใช้โควตามากกว่า
       </p>
       <div className="mx-auto flex max-w-3xl items-end gap-2.5 rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 transition-colors md:py-2 duration-200 focus-within:border-[var(--primary)]/70 focus-within:ring-1 focus-within:ring-[var(--primary)]/30">
@@ -2985,7 +3081,10 @@ const Composer = forwardRef<
           </button>
         )}
       </div>
-      <p className="mt-1.5 text-center text-[11px] text-[var(--muted-2)]">
+      <p
+        data-compact-hide
+        className="mt-1.5 text-center text-[11px] text-[var(--muted-2)]"
+      >
         Horasard อาจให้ข้อมูลที่ไม่ถูกต้องเสมอไป โปรดใช้วิจารณญาณ ·{" "}
         <a href="/disclaimer" className="underline hover:text-[var(--muted)]">
           ข้อจำกัดความรับผิด
@@ -3018,7 +3117,10 @@ function ChatDisclaimerNotice() {
   if (!storedVisible || dismissed) return null;
 
   return (
-    <div className="mx-auto mt-2 flex max-w-3xl items-start justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)]">
+    <div
+      data-compact-hide
+      className="mx-auto mt-2 flex max-w-3xl items-start justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)]"
+    >
       <p>
         คำทำนายเพื่อความบันเทิงและเป็นแนวทางเท่านั้น ไม่ใช่คำแนะนำทางการเงิน กฎหมาย
         หรือการแพทย์ —{" "}

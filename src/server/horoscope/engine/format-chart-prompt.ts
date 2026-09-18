@@ -26,6 +26,12 @@ export type FormatChartOptions = {
    * day's weekday.
    */
   natalInput?: BirthInputSnapshot;
+  /**
+   * The day this reading is about. ทักษาปีจร is walked to THIS date, so the
+   * block always matches the 9-cell grid the user is looking at. Without it a
+   * question about a picked future date quoted today's ทักษา instead.
+   */
+  taksaAsOf?: Date;
 };
 
 const SIGN_INDEX = new Map(SIGNS.map((s, i) => [s, i]));
@@ -213,7 +219,11 @@ export function formatChartForPrompt(
         natalTaksa,
       ),
     );
-    const yearTransit = computeTransitTaksaByAge(chart.input, new Date(), true);
+    const yearTransit = computeTransitTaksaByAge(
+      chart.input,
+      options.taksaAsOf ?? new Date(),
+      true,
+    );
     lines.push(
       ...formatTaksaSlots(
         "ทักษาปีจร",
@@ -226,7 +236,9 @@ export function formatChartForPrompt(
   }
   if (options.preferTransitSamrap) {
     if (options.natalInput) {
-      const asOf = new Date(chart.input.year, chart.input.month - 1, chart.input.day);
+      const asOf =
+        options.taksaAsOf ??
+        new Date(chart.input.year, chart.input.month - 1, chart.input.day);
       const byAge = computeTransitTaksaByAge(options.natalInput, asOf, true);
       lines.push(
         ...formatTaksaSlots(

@@ -412,6 +412,26 @@ html[data-theme-origin="1"]::view-transition-new(root) {
   animation: flash-target 1.6s var(--ease-out-quart) both;
 }
 
+/* Landscape phones: the chat screen is only ~330px tall, and fixed chrome ate
+   most of it. Tighten the banners and the mobile header so the conversation
+   keeps the space. Nothing is hidden — only the padding shrinks. */
+@media (max-height: 460px) and (orientation: landscape) {
+  /* Helper lines that cost more height than they earn on a 340px-tall screen.
+     Everything they say is still one tap away on /disclaimer. */
+  [data-compact-hide] {
+    display: none !important;
+  }
+  [data-compact-chrome] {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 0.6875rem;
+    line-height: 1.15rem;
+  }
+  [data-compact-chrome] p {
+    margin: 0;
+  }
+}
+
 .press-scale {
   transition: transform 0.15s var(--ease-out-quart);
 }

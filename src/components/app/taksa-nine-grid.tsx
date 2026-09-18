@@ -1,10 +1,8 @@
 "use client";
 
 import type { BirthInputSnapshot, TaksaSlot } from "@/types/chart";
-import type { MyhoraTaksaCell } from "@/types/myhora";
 import { toThaiNumeral } from "@/lib/chart-theme";
 import {
-  combinedGridFromScraped,
   computeTransitTaksaByAge,
   computeTransitTaksaMethod1,
   formatTaksaDayHeading,
@@ -12,42 +10,16 @@ import {
   resolveTaksaSlots,
   TAKSA_CELL_PLANETS,
   TAKSA_PLANET_NAMES,
-  TAKSA_TRANSIT_NAMES,
   type TaksaMode,
 } from "@/lib/taksa";
 
 const GOLD = "#d4a84b";
 const CREAM = "#f1ede5";
 
-function transitSlotsFromScraped(
-  scraped: (MyhoraTaksaCell | null)[][] | null | undefined,
-): TaksaSlot[] | null {
-  const cells = combinedGridFromScraped(scraped);
-  if (!cells) return null;
-  const byLabel = new Map<string, TaksaSlot>();
-  for (const cell of cells) {
-    if (cell.isCenter || !cell.transitLabel) continue;
-    if (!TAKSA_TRANSIT_NAMES.includes(cell.transitLabel as (typeof TAKSA_TRANSIT_NAMES)[number])) {
-      continue;
-    }
-    byLabel.set(cell.transitLabel, {
-      taksa: cell.transitLabel,
-      planet: TAKSA_PLANET_NAMES[cell.planetNum] ?? String(cell.planetNum),
-      planetNum: cell.planetNum,
-      index: TAKSA_TRANSIT_NAMES.indexOf(
-        cell.transitLabel as (typeof TAKSA_TRANSIT_NAMES)[number],
-      ),
-    });
-  }
-  if (byLabel.size !== TAKSA_TRANSIT_NAMES.length) return null;
-  return TAKSA_TRANSIT_NAMES.map((name) => byLabel.get(name)!);
-}
-
 export function TaksaNineGrid({
   title,
   input,
   slots,
-  scraped,
   asOf,
   mode = "natal",
   countFromCenter = true,
@@ -57,7 +29,6 @@ export function TaksaNineGrid({
   title?: string;
   input: BirthInputSnapshot;
   slots?: TaksaSlot[] | null;
-  scraped?: (MyhoraTaksaCell | null)[][] | null;
   asOf?: Date;
   mode?: TaksaMode;
   countFromCenter?: boolean;
@@ -68,15 +39,16 @@ export function TaksaNineGrid({
   const now = asOf ?? new Date();
   const natalDay = resolveTaksaBirthDay(input);
   const ageTransit = computeTransitTaksaByAge(input, now, countFromCenter);
-  const scrapedTransit = transitSlotsFromScraped(scraped);
 
+  // ทักษาจร by age is computed here and nowhere else. It used to prefer the
+  // MyHora overlay scraped with the NATAL chart, whose จร labels belong to the
+  // day of that scrape — so the grid disagreed with both the heading above it
+  // and the ทักษา the answer was written from.
   const resolved =
     mode === "transit"
       ? transitInput
         ? computeTransitTaksaMethod1(transitInput)
-        : countFromCenter && scrapedTransit
-          ? scrapedTransit
-          : ageTransit.slots.filter((slot) => slot.taksa)
+        : ageTransit.slots.filter((slot) => slot.taksa)
       : resolveTaksaSlots(input, slots);
 
   const heading =

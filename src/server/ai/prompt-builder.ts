@@ -224,11 +224,26 @@ export function buildUserPrompt(
   const natal = assertUsableEngineChart(chartJson);
 
   const formatNatal = opts.compactNatal ? formatChartCompactForPrompt : formatChartForPrompt;
+  // Every ทักษา block in the prompt is walked to the SAME day — the transit
+  // chart's day when there is one, else today. Mixing "today" into the natal
+  // block while the transit block used the picked date made the answer quote
+  // a ทักษา the user could not find in the grid on screen.
+  const transitChartForTaksa = opts.transitChartJson
+    ? assertUsableEngineChart(opts.transitChartJson)
+    : null;
+  const taksaAsOf = transitChartForTaksa
+    ? new Date(
+        transitChartForTaksa.input.year,
+        transitChartForTaksa.input.month - 1,
+        transitChartForTaksa.input.day,
+      )
+    : undefined;
   const lines: Array<string | null> = [
     formatNatal(natal, {
       title: opts.compactNatal
         ? "[natal] พื้นดวงที่คำนวณแล้ว (ย่อ — ใช้ตำแหน่งดาวนี้เท่านั้น ห้ามแต่งดาว)"
         : "[natal] พื้นดวงที่คำนวณแล้ว (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)",
+      taksaAsOf,
     }),
     "",
   ];
@@ -268,6 +283,7 @@ export function buildUserPrompt(
         title: transitBlockTitle(transit),
         preferTransitSamrap: true,
         natalInput: natal.input,
+        taksaAsOf,
       }),
       "",
     );

@@ -822,7 +822,7 @@ export function AppShell({
       <div className="flex h-[100dvh] min-w-0 flex-col">
         {/* Mobile top bar — gives the menu a home + brand context without a
             floating button overlapping page content. */}
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 md:hidden">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 landscape:max-h-[2.75rem] md:hidden">
           <button
             type="button"
             onClick={openMobile}
