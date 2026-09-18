@@ -24,4 +24,6 @@ export function runtimeCommit(): string {
 export const BUILD_INFO = {
   commit: runtimeCommit(),
   builtAt: process.env.BUILD_TIME ?? new Date().toISOString(),
+  /** Hash of the source this build was made from — see scripts/source-fingerprint.mjs. */
+  source: process.env.BUILD_SOURCE ?? "unknown",
 } as const;

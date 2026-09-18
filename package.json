@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "fingerprint": "node scripts/source-fingerprint.mjs",
     "vercel-build": "npm run ci && npm run migrations:check && prisma migrate deploy && next build",
     "postinstall": "prisma generate",
     "start": "next start",
