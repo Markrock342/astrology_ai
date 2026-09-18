@@ -16,7 +16,10 @@ export function ProPromotionBanner() {
   if (!user?.promotionEndsAt) return null;
 
   return (
-    <div className="shrink-0 border-b border-[var(--primary)]/25 bg-[var(--primary)]/10 px-4 py-2 text-center text-xs leading-5 text-[var(--foreground)]">
+    <div
+      data-compact-hide
+      className="shrink-0 border-b border-[var(--primary)]/25 bg-[var(--primary)]/10 px-4 py-2 text-center text-xs leading-5 text-[var(--foreground)]"
+    >
       <span className="font-semibold text-[var(--primary)]">Pro เปิดครบทุกหมวด</span>
       <span>
         {" "}ถึง {formatDate(user.promotionEndsAt)}

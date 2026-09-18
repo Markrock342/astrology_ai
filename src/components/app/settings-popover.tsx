@@ -8,7 +8,7 @@ import {
   SETTINGS_POPOVER_ATTR,
   isOutsideSettingsPopover,
 } from "./settings-popover-outside";
-import { ThemeSettingsControl } from "./theme-picker";
+import { TextSizeSettingsControl, ThemeSettingsControl } from "./theme-picker";
 
 // Total birthday settings allowed = 1 initial + 1 edit (design shows x/2).
 const BIRTH_TOTAL = 2;
@@ -168,6 +168,13 @@ export function SettingsPopover({
           <p className="text-[11px] text-[var(--muted-2)]">จำค่าไว้ในอุปกรณ์นี้</p>
         </div>
         <ThemeSettingsControl />
+      </div>
+      <div className="px-1 pb-3">
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <p className="text-xs font-medium text-[var(--foreground)]">ขนาดตัวอักษร</p>
+          <p className="text-[11px] text-[var(--muted-2)]">อ่านง่ายขึ้นทั้งเว็บ</p>
+        </div>
+        <TextSizeSettingsControl />
       </div>
       <div className="flex flex-col gap-2">
         {isStaff ? (

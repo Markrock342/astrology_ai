@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EvidenceGrid } from "@/components/app/horoscope-chart-panel";
+import { computeTransitTaksaByAge } from "@/lib/taksa";
 import { TaksaNineGrid } from "@/components/app/taksa-nine-grid";
 
 describe("horoscope chart evidence grids", () => {
@@ -74,43 +75,42 @@ describe("horoscope chart evidence grids", () => {
     expect(html).toContain("๙");
   });
 
-  it("renders a separate ทักษาจร grid with จร labels", () => {
+  it("walks ทักษาจร by อายุย่าง to the date on screen, from one source only", () => {
+    // Client's rule, their own example: born a Sunday, reading a day in 2571
+    // (2028) at อายุย่าง ๕๒ → บริวารจร sits on ๕ (พฤหัสบดี).
+    // Regression: the grid used to prefer the MyHora overlay scraped with the
+    // NATAL chart, whose จร labels belong to the day of that scrape, so the
+    // grid contradicted its own heading and the answer written beside it.
+    const sundayBorn = {
+      day: 2,
+      month: 1,
+      year: 1977,
+      time: "12:00",
+      country: "ไทย",
+      province: "กรุงเทพมหานคร",
+      district: "วัฒนา",
+    };
+    const byAge = computeTransitTaksaByAge(
+      sundayBorn,
+      new Date(2028, 11, 31),
+      true,
+    );
+    expect(byAge.yangKao).toBe(52);
+    expect(
+      byAge.slots.find((slot) => slot.taksa === "บริวารจร")?.planetNum,
+    ).toBe(5);
+
     const html = renderToStaticMarkup(
       createElement(TaksaNineGrid, {
-        input: {
-          day: 26,
-          month: 8,
-          year: 2026,
-          time: "20:00",
-          country: "ไทย",
-          province: "กรุงเทพมหานคร",
-          district: "วัฒนา",
-        },
+        input: sundayBorn,
         mode: "transit",
-        asOf: new Date(2028, 7, 26, 12),
+        asOf: new Date(2028, 11, 31),
         onCountFromCenterChange: () => {},
-        scraped: [
-          [
-            { label: "เดช", planetNum: 1, transitLabel: "บริวารจร", highlighted: true },
-            { label: "ศรี", planetNum: 2, transitLabel: "อายุจร" },
-            { label: "มูละ", planetNum: 3, transitLabel: "เดชจร" },
-          ],
-          [
-            { label: "อายุ", planetNum: 6, transitLabel: "กาลกิณีจร" },
-            { label: "กลาง", planetNum: 9, transitLabel: "", isCenter: true },
-            { label: "อุตสาหะ", planetNum: 4, transitLabel: "ศรีจร" },
-          ],
-          [
-            { label: "บริวาร", planetNum: 8, transitLabel: "มนตรีจร" },
-            { label: "กาลกิณี", planetNum: 5, transitLabel: "อุตสาหะจร" },
-            { label: "มนตรี", planetNum: 7, transitLabel: "มูละจร" },
-          ],
-        ],
       }),
     );
     expect(html).toContain("ทักษาจร");
     expect(html).toContain("บริวารจร");
-    expect(html).toContain("๙");
+    expect(html).toContain("อายุย่างเข้า ๕๒");
     expect(html).toContain("นับอายุจรตากลาง");
   });
 });

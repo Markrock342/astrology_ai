@@ -221,7 +221,6 @@ export const HoroscopeChartPanel = memo(function HoroscopeChartPanel({
             />
             <TaksaNineGrid
               input={natal.input}
-              scraped={natal.myhora?.taksa}
               mode="transit"
               countFromCenter={countFromCenter}
               onCountFromCenterChange={setCountFromCenter}

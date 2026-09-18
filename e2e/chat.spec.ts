@@ -182,3 +182,33 @@ test("a thumbs verdict reaches the SERVER and is persisted", async ({
     await expect(page.getByText(/บันทึกฟีดแบ็กไม่สำเร็จ/)).toBeVisible();
   }
 });
+
+test("a long answer starts at its first line instead of scrolling past it", async ({
+  page,
+}) => {
+  // Readers complained that a long ทำนาย streamed past the bottom edge and they
+  // had to scroll back up to find where it began. The question that opened the
+  // turn must stay parked at the top of the viewport while the answer fills in.
+  const longAnswer = Array.from(
+    { length: 60 },
+    (_, i) => `บรรทัดที่ ${i + 1} ของคำทำนายที่ยาวมากสำหรับการทดสอบการเลื่อนหน้าจอ`,
+  ).join("\n\n");
+  await stubChat(page, { events: happyTurn(longAnswer) });
+  await page.goto("/dashboard");
+  await page.getByPlaceholder(/สอบถามเราได้เลย/).fill("ขอคำทำนายยาว ๆ");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.locator("p").filter({ hasText: "บรรทัดที่ 60 " }).first(),
+  ).toBeVisible({ timeout: 15_000 });
+
+  const questionTop = await page
+    .getByTestId("turn-top")
+    .evaluate((el) => Math.round(el.getBoundingClientRect().top));
+  const scrollerTop = await page
+    .getByTestId("chat-scroller")
+    .evaluate((el) => Math.round(el.getBoundingClientRect().top));
+  // Checks where the view comes to rest once the answer is complete: the
+  // question is still at the top of the conversation area, not scrolled off it.
+  expect(questionTop).toBeGreaterThanOrEqual(scrollerTop - 4);
+  expect(questionTop).toBeLessThan(scrollerTop + 160);
+});

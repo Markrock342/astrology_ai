@@ -5,6 +5,7 @@ import { Geist_Mono, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { APP_NAME_TH, APP_TAGLINE_TH } from "@/config/constants";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TextSizeProvider } from "@/components/text-size-provider";
 import { SiteBrandProvider } from "@/components/site-brand-provider";
 import { NavProgress } from "@/components/app/nav-progress";
 import { CMS_KEYS, type CmsSiteTheme } from "@/lib/cms-keys";
@@ -40,7 +41,9 @@ export const metadata: Metadata = {
 };
 
 function buildThemeBootScript(brandJson: string) {
-  return `(function(){try{var t=localStorage.getItem("hora-theme");if(t!=="light"&&t!=="dark")t="dark";document.documentElement.setAttribute("data-theme",t);document.documentElement.style.colorScheme=t;var brand=${brandJson};if(brand&&brand.enabled){var vars=t==="light"?brand.light:brand.dark;var r=document.documentElement;for(var k in vars)if(Object.prototype.hasOwnProperty.call(vars,k))r.style.setProperty(k,vars[k]);}}catch(e){document.documentElement.setAttribute("data-theme","dark");document.documentElement.style.colorScheme="dark";}})();`;
+  // Also applies the reader's text size before first paint, so an enlarged
+  // page never flashes at the default size first.
+  return `(function(){try{var s=localStorage.getItem("hora-text-size");var scale=s==="large"?1.25:s==="medium"?1.125:1;document.documentElement.dataset.textSize=s||"small";document.documentElement.style.fontSize=(16*scale).toFixed(2)+"px";}catch(e){}try{var t=localStorage.getItem("hora-theme");if(t!=="light"&&t!=="dark")t="dark";document.documentElement.setAttribute("data-theme",t);document.documentElement.style.colorScheme=t;var brand=${brandJson};if(brand&&brand.enabled){var vars=t==="light"?brand.light:brand.dark;var r=document.documentElement;for(var k in vars)if(Object.prototype.hasOwnProperty.call(vars,k))r.style.setProperty(k,vars[k]);}}catch(e){document.documentElement.setAttribute("data-theme","dark");document.documentElement.style.colorScheme="dark";}})();`;
 }
 
 export default async function RootLayout({
@@ -77,12 +80,14 @@ export default async function RootLayout({
       </head>
       <body className={`${notoThai.className} min-h-full flex flex-col`}>
         <ThemeProvider>
+          <TextSizeProvider>
           <SiteBrandProvider initialTheme={siteTheme}>
             <Suspense fallback={null}>
               <NavProgress />
             </Suspense>
             {children}
           </SiteBrandProvider>
+          </TextSizeProvider>
         </ThemeProvider>
       </body>
     </html>

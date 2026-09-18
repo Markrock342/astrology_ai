@@ -13,6 +13,7 @@ import {
 import type { BirthProfileSnapshot } from "@/types";
 import type { ChartJson } from "@/types/chart";
 import { deriveChartMemory } from "@/server/horoscope/engine/derive-chart-memory";
+import { computeTaksaFromBirth } from "@/lib/taksa";
 
 const profile: BirthProfileSnapshot = {
   nickname: "ทดสอบ",
@@ -97,6 +98,28 @@ describe("buildUserPrompt picked transit date", () => {
     expect(prompt).toContain("วันจรที่ผู้ใช้เลือกเอง: 1 ต.ค. 2569");
     expect(prompt).toContain("ให้ตอบอิงเดือนตุลาคม 2569");
     expect(prompt).toContain("ห้ามเลื่อนไปเดือนถัดจากวันจรอีก");
+  });
+
+  it("walks every ทักษา block to the transit day, not to today", () => {
+    // The answer quoted today's ทักษาปีจร while the grid on screen showed the
+    // picked day's — the reader could not find the term anywhere in the table.
+    const sundayBorn = {
+      ...chart,
+      input: { ...chart.input, day: 2, month: 1, year: 1977 },
+      // A natal ทักษา table is what makes the natal block print ทักษาปีจร.
+      chart: { lagna: "เมษ", taksa: computeTaksaFromBirth({ ...chart.input, day: 2, month: 1, year: 1977 }) },
+    };
+    const transitChart = {
+      ...chart,
+      input: { ...chart.input, day: 31, month: 12, year: 2028, time: "07:00" },
+    } as typeof chart;
+    const prompt = buildUserPrompt(profile, "ปีหน้าเป็นอย่างไร", sundayBorn as typeof chart, {
+      transitChartJson: transitChart,
+      transitWindowLabel: "31 ธ.ค. 2571",
+      readingIntent: "transit",
+    });
+    expect(prompt).toContain("อายุย่างเข้า 52");
+    expect(prompt).not.toContain("อายุย่างเข้า 50");
   });
 
   it("says nothing about a picked day when the date came from the question alone", () => {
