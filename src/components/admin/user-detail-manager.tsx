@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { subscriptionExpiryPayload } from "@/lib/pro-expiry";
 import {
   AdminPage,
   Badge,
@@ -80,6 +81,19 @@ type RevealedBirth = {
   birthCountry: string;
 };
 
+/** 2026-12-31 → "31 ธ.ค. 2569" (Buddhist year, Bangkok). */
+function thaiDay(value: string | null): string {
+  if (!value) return "";
+  const d = new Date(value.length === 10 ? `${value}T00:00:00+07:00` : value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("th-TH", {
+    timeZone: "Asia/Bangkok",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function UserDetailManager({
   userId,
   actorRole = "ADMIN",
@@ -102,13 +116,25 @@ export function UserDetailManager({
   >("ADMIN_ADD");
   const [packageCode, setPackageCode] = useState("PRO");
   const [expiresAt, setExpiresAt] = useState("");
+  /** "date" = ends on the chosen day · "forever" = no expiry at all. */
+  const [expiryMode, setExpiryMode] = useState<"date" | "forever">("date");
   const [grantCredits, setGrantCredits] = useState(true);
+  const [saved, setSaved] = useState<string | null>(null);
   const [role, setRole] = useState("");
   const [confirmReset2fa, setConfirmReset2fa] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setUser(await adminFetch<UserDetail>(`/api/admin/users/${userId}`));
+      const fresh = await adminFetch<UserDetail>(`/api/admin/users/${userId}`);
+      setUser(fresh);
+      // Show what the account actually has, so the form is never a blank slate
+      // that looks like "ไม่มีวันหมด" when a date is in fact set.
+      const active = fresh.subscriptions.find((sub) => sub.status === "ACTIVE");
+      if (active) {
+        setPackageCode(active.package.type === "PRO" ? "PRO" : "FREE");
+        setExpiryMode(active.expiresAt ? "date" : "forever");
+        setExpiresAt(active.expiresAt ? active.expiresAt.slice(0, 10) : "");
+      }
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
@@ -206,17 +232,25 @@ export function UserDetailManager({
   }
 
   async function setSubscription() {
+    if (expiryMode === "date" && !expiresAt) {
+      setError("เลือกวันหมดอายุ หรือเลือก «ไม่มีวันหมดอายุ»");
+      return;
+    }
     setBusy(true);
+    setSaved(null);
     try {
+      const until = subscriptionExpiryPayload(expiryMode, expiresAt);
       await adminFetch(`/api/admin/users/${userId}/subscription`, {
         method: "PATCH",
-        body: JSON.stringify({
-          packageCode,
-          expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-          grantCredits,
-        }),
+        body: JSON.stringify({ packageCode, expiresAt: until, grantCredits }),
       });
       await load();
+      setError(null);
+      setSaved(
+        expiryMode === "forever"
+          ? `บันทึกแล้ว — ${packageCode} ไม่มีวันหมดอายุ`
+          : `บันทึกแล้ว — ${packageCode} ถึง ${thaiDay(expiresAt)}`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "ตั้งแพ็กเกจไม่สำเร็จ");
     } finally {
@@ -278,6 +312,11 @@ export function UserDetailManager({
   }
 
   const activeSub = user?.subscriptions.find((s) => s.status === "ACTIVE");
+  const currentPlanLabel = !activeSub
+    ? "ยังไม่มีแพ็กเกจที่ใช้งานอยู่"
+    : activeSub.expiresAt
+      ? `${activeSub.package.name} ถึง ${thaiDay(activeSub.expiresAt)}`
+      : `${activeSub.package.name} — ไม่มีวันหมดอายุ`;
 
   return (
     <AdminPage>
@@ -406,6 +445,9 @@ export function UserDetailManager({
 
           <Card>
             <h2 className="text-sm font-semibold">ตั้งแพ็กเกจ</h2>
+            <p className="mt-1 text-xs text-[var(--muted-2)]">
+              ตอนนี้: {currentPlanLabel}
+            </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <Field label="แพ็กเกจ">
                 <Select
@@ -416,14 +458,29 @@ export function UserDetailManager({
                   <option value="PRO">Pro</option>
                 </Select>
               </Field>
-              <Field label="วันหมดอายุ" hint="เว้นว่าง = ไม่มีกำหนด">
-                <TextInput
-                  type="date"
-                  value={expiresAt}
-                  onChange={(e) => setExpiresAt(e.target.value)}
-                />
+              <Field label="อายุแพ็กเกจ">
+                <Select
+                  value={expiryMode}
+                  onChange={(e) =>
+                    setExpiryMode(e.target.value === "forever" ? "forever" : "date")
+                  }
+                >
+                  <option value="date">กำหนดวันหมดอายุ</option>
+                  <option value="forever">ใช้ได้ตลอดไป (ไม่มีวันหมดอายุ)</option>
+                </Select>
               </Field>
             </div>
+            {expiryMode === "date" ? (
+              <div className="mt-3 sm:max-w-[calc(50%-0.375rem)]">
+                <Field label="วันหมดอายุ" hint="หมดอายุตอนสิ้นวันนั้น (เวลาไทย)">
+                  <TextInput
+                    type="date"
+                    value={expiresAt}
+                    onChange={(e) => setExpiresAt(e.target.value)}
+                  />
+                </Field>
+              </div>
+            ) : null}
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <Toggle
                 checked={grantCredits}
@@ -434,6 +491,11 @@ export function UserDetailManager({
                 บันทึกแพ็กเกจ
               </Button>
             </div>
+            {saved ? (
+              <p role="status" className="mt-3 text-xs text-[var(--primary)]">
+                {saved}
+              </p>
+            ) : null}
           </Card>
 
           {user.cost ? (

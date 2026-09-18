@@ -13,7 +13,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return ok(
       await setUserSubscription(
         id,
-        { packageCode: data.packageCode, expiresAt: data.expiresAt ?? null },
+        {
+          packageCode: data.packageCode,
+          expiresAt: data.expiresAt ?? null,
+          grantCredits: data.grantCredits,
+        },
         { id: admin.id, ip },
       ),
     );

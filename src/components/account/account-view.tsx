@@ -6,6 +6,7 @@ import { DeleteAccountCard } from "./delete-account-card";
 import type { UsageLimitsFallback } from "@/types/my-usage";
 import { PRO_EXPIRY_WARN_DAYS } from "@/config/constants";
 import { AiMemoryCard } from "./ai-memory-card";
+import { RenewHashScroller, RenewLink } from "./renew-link";
 import type { UserAiMemory } from "@/server/user/ai-memory-service";
 
 export type PublicPackage = {
@@ -30,6 +31,9 @@ type MyPackage = {
   usageRemainingPercent: number;
   usageUsedPercent: number;
   usagePeriodEndsAt: string | null;
+  /** When Pro ends; null when it never does (admin-granted "ไม่มีวันหมดอายุ"). */
+  proEndsAt?: string | null;
+  proNeverExpires?: boolean;
   subscription: {
     status?: string;
     startsAt?: string;
@@ -118,7 +122,11 @@ export function AccountView({
   const showTopUpBanner =
     isPro && myPackage.usageRemainingPercent <= 20;
 
-  const expiresAt = myPackage.subscription?.expiresAt ?? null;
+  // proEndsAt is the resolved answer (own subscription, else the promotion);
+  // the raw subscription row is only a fallback for an older cached payload.
+  const expiresAt =
+    myPackage.proEndsAt ?? myPackage.subscription?.expiresAt ?? null;
+  const neverExpires = isPro && Boolean(myPackage.proNeverExpires);
   const daysLeft = isPro && expiresAt ? daysUntil(expiresAt) : null;
   const expirySoon =
     daysLeft != null && daysLeft >= 0 && daysLeft <= PRO_EXPIRY_WARN_DAYS;
@@ -164,13 +172,15 @@ export function AccountView({
                   ? ` · เหลือ ${daysLeft} วัน`
                   : ""}
               </p>
-              <a
-                href="#renew"
-                className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)]"
-              >
+              <RenewLink className="press-scale rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)]">
                 ต่ออายุ
-              </a>
+              </RenewLink>
             </div>
+          ) : null}
+          {/* Admin-granted Pro with no end date — say so, instead of leaving the
+              card silent about how long it lasts. */}
+          {neverExpires ? (
+            <p className="mt-3 text-sm text-[var(--muted)]">ไม่มีวันหมดอายุ</p>
           ) : null}
           {!isPro ? (
             <p className="mt-2 text-sm text-[var(--muted)]">
@@ -184,12 +194,9 @@ export function AccountView({
         {expirySoon && expiresAt ? (
           <div className="mt-4 rounded-2xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 text-sm text-[var(--foreground)]">
             Pro ใกล้หมดอายุ ({formatExpiry(expiresAt)}) —{" "}
-            <a
-              href="#renew"
-              className="font-semibold text-[var(--primary)] underline"
-            >
+            <RenewLink className="font-semibold text-[var(--primary)] underline">
               ต่ออายุที่นี่
-            </a>
+            </RenewLink>
           </div>
         ) : null}
 
@@ -228,7 +235,8 @@ export function AccountView({
         )}
 
         {isPro && proPkg ? (
-          <div id="renew">
+          <div id="renew" className="scroll-mt-4">
+            <RenewHashScroller />
             <PaymentSubmitCard
               variant="renew"
               proPrice={proPkg.price}

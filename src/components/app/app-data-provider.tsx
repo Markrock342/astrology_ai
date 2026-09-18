@@ -22,6 +22,7 @@ export type AppUser = {
   plan: "FREE" | "PRO";
   /** ISO expiry of active Pro subscription, if any. */
   proExpiresAt?: string | null;
+  proNeverExpires?: boolean;
   promotionEndsAt?: string | null;
   promotionCreditGrant?: number | null;
   role: "USER" | "ADMIN" | "SUPER_ADMIN";
@@ -132,6 +133,7 @@ function mapMe(me: Record<string, unknown>): AppUser {
     image: (me.image as string | null | undefined) ?? null,
     plan: (me.plan as "FREE" | "PRO") ?? "FREE",
     proExpiresAt: (me.proExpiresAt as string | null | undefined) ?? null,
+    proNeverExpires: Boolean(me.proNeverExpires),
     promotionEndsAt:
       (me.promotionEndsAt as string | null | undefined) ?? null,
     promotionCreditGrant:

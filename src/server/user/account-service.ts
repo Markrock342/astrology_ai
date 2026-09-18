@@ -8,6 +8,7 @@ import {
   isLaunchProPromotionActive,
   LAUNCH_PRO_PROMOTION,
 } from "@/config/promotion";
+import { resolveProExpiry } from "@/lib/pro-expiry";
 
 /** Effective plan = an ACTIVE, non-expired Pro subscription, else FREE. */
 export async function getEffectivePlan(userId: string): Promise<"FREE" | "PRO"> {
@@ -73,13 +74,12 @@ export async function getMe(userId: string) {
   const includedUsageBalance = user.usageWallet?.includedBalanceUnits ?? 0;
   const purchasedUsageBalance = user.usageWallet?.purchasedBalanceUnits ?? 0;
   const usageAllowance = user.usageWallet?.includedAllowanceUnits ?? 0;
-  const paidExpiry = user.subscriptions[0]?.expiresAt ?? null;
-  const effectiveExpiry =
-    promotionActive &&
-    (!paidExpiry || paidExpiry < LAUNCH_PRO_PROMOTION.endsAt)
-      ? LAUNCH_PRO_PROMOTION.endsAt
-      : paidExpiry;
-  const proExpiresAt = effectiveExpiry?.toISOString() ?? null;
+  const proExpiry = resolveProExpiry({
+    subscription: user.subscriptions[0] ?? null,
+    promotionActive,
+    promotionEndsAt: LAUNCH_PRO_PROMOTION.endsAt,
+  });
+  const proExpiresAt = proExpiry.endsAt?.toISOString() ?? null;
 
   const editsRemaining = isStaffRole(user.role)
     ? 999
@@ -103,10 +103,13 @@ export async function getMe(userId: string) {
     birthEditsUnlimited: isStaffRole(user.role),
     plan,
     proExpiresAt,
-    promotionEndsAt: promotionActive
+    proNeverExpires: proExpiry.neverExpires,
+    // Hidden for an account whose own Pro already outlasts the promotion —
+    // "Pro ถึง 23 ก.ย." would read as if their plan ended that day.
+    promotionEndsAt: proExpiry.showPromotion
       ? LAUNCH_PRO_PROMOTION.endsAt.toISOString()
       : null,
-    promotionCreditGrant: promotionActive
+    promotionCreditGrant: proExpiry.showPromotion
       ? LAUNCH_PRO_PROMOTION.creditGrant
       : null,
     creditBalance: balance,
@@ -186,6 +189,12 @@ export async function getMyPackage(userId: string) {
         })
       : null;
 
+  const proExpiry = resolveProExpiry({
+    subscription: effectiveSub,
+    promotionActive: isLaunchProPromotionActive(),
+    promotionEndsAt: LAUNCH_PRO_PROMOTION.endsAt,
+  });
+
   return {
     plan,
     credits: balance,
@@ -193,6 +202,9 @@ export async function getMyPackage(userId: string) {
     usageRemainingPercent: usageBudget.remainingPercent,
     usageUsedPercent: usageBudget.usedPercent,
     usagePeriodEndsAt: usageBudget.periodEndsAt?.toISOString() ?? null,
+    /** When Pro ends — null when it never does (see resolveProExpiry). */
+    proEndsAt: proExpiry.endsAt?.toISOString() ?? null,
+    proNeverExpires: proExpiry.neverExpires,
     canChat: plan === "PRO",
     subscription: effectiveSub
       ? {
