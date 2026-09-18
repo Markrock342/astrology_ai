@@ -72,7 +72,7 @@ describe("resolveConfig (M3 B2)", () => {
     expect(config.id).toBe("category");
   });
 
-  it("brief mode (preferFast) uses 3.5 Flash over the 3.7 detailed model", async () => {
+  it("brief mode never picks a model that costs more per turn than detailed", async () => {
     mocks.findMany.mockResolvedValue([
       {
         id: "pro-detailed",
@@ -92,14 +92,17 @@ describe("resolveConfig (M3 B2)", () => {
       },
     ]);
 
+    // Regression: กระชับ used to take the 3.5 Flash row by name. That bills
+    // twice 3.7 Flash's input rate on the SAME prompt, so a short answer cost
+    // as much as — often more than — a ละเอียด one.
     const brief = await resolveConfig("cat-1", "PRO", { preferFast: true });
-    expect(brief.id).toBe("all-brief");
+    expect(brief.id).toBe("pro-detailed");
 
     const detailed = await resolveConfig("cat-1", "PRO");
     expect(detailed.id).toBe("pro-detailed");
   });
 
-  it("brief mode prefers 3.5 Flash over lite when both exist", async () => {
+  it("brief mode keeps lite as a last resort, not the primary", async () => {
     mocks.findMany.mockResolvedValue([
       {
         id: "all-lite",

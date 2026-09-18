@@ -3,18 +3,15 @@ import { geminiVisibleText } from "@/server/ai/providers/gemini";
 import {
   DEFAULT_GEMINI_BRIEF_MODEL_ID,
   DEFAULT_GEMINI_MODEL_ID,
-  briefGeminiRank,
   gemini3ThinkingLevel,
   geminiReplacementHint,
-  isBriefGeminiModel,
   isDetailedGeminiModel,
   isGeminiLiteModel,
 } from "@/config/gemini-models";
+import { briefTurnCostUsd } from "@/config/ai-pricing";
 
 describe("gemini model routing helpers", () => {
-  it("treats 3.5 Flash as brief and 3.7 Flash as detailed", () => {
-    expect(isBriefGeminiModel(DEFAULT_GEMINI_BRIEF_MODEL_ID)).toBe(true);
-    expect(isBriefGeminiModel("gemini-3.5-flash-lite")).toBe(true);
+  it("treats 3.7 Flash as detailed and spots lite models", () => {
     expect(isGeminiLiteModel("gemini-3.5-flash-lite")).toBe(true);
     expect(isGeminiLiteModel("gemini-3.5-flash")).toBe(false);
     expect(isGeminiLiteModel(DEFAULT_GEMINI_MODEL_ID)).toBe(false);
@@ -24,9 +21,12 @@ describe("gemini model routing helpers", () => {
     expect(isDetailedGeminiModel(DEFAULT_GEMINI_BRIEF_MODEL_ID)).toBe(false);
   });
 
-  it("ranks 3.5 Flash above lite for brief mode", () => {
-    expect(briefGeminiRank("gemini-3.5-flash")).toBeGreaterThan(
-      briefGeminiRank("gemini-3.5-flash-lite"),
+  it("prices a กระชับ turn on 3.7 Flash below 3.5 Flash", () => {
+    // Regression: กระชับ used to route to 3.5 Flash by name. It bills $1.50 in
+    // / $9.00 out per 1M against 3.7 Flash's $0.75 / $3.75, and the prompt is
+    // the same in both modes — so กระชับ burned more usage than ละเอียด.
+    expect(briefTurnCostUsd("gemini-3.7-flash")).toBeLessThan(
+      briefTurnCostUsd(DEFAULT_GEMINI_BRIEF_MODEL_ID),
     );
   });
 

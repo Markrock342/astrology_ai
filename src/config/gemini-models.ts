@@ -7,7 +7,11 @@
 /** Detailed / Pro default. */
 export const DEFAULT_GEMINI_MODEL_ID = "gemini-3.7-flash";
 
-/** Brief (กระชับ) default — not lite. */
+/**
+ * Listed in the Admin model picker. NOT a routing preference: กระชับ picks the
+ * cheapest enabled non-lite model by rate card (see resolveConfig), because
+ * 3.5 Flash bills twice 3.7 Flash's input rate.
+ */
 export const DEFAULT_GEMINI_BRIEF_MODEL_ID = "gemini-3.5-flash";
 
 /** Cheapest fallback when the brief/detailed model fails. */
@@ -43,24 +47,10 @@ export function isGeminiLiteModel(modelId: string): boolean {
   return normalizeModelId(modelId).includes("lite");
 }
 
-/** กระชับ: 3.5 Flash or any *lite* model. */
-export function isBriefGeminiModel(modelId: string): boolean {
-  const id = normalizeModelId(modelId);
-  return id.includes("lite") || id === DEFAULT_GEMINI_BRIEF_MODEL_ID;
-}
-
 /** ละเอียด: 3.7 / 3.6 Flash (not lite). */
 export function isDetailedGeminiModel(modelId: string): boolean {
   const id = normalizeModelId(modelId);
   return id.includes("3.7-flash") || id.includes("3.6-flash");
-}
-
-/** Higher is preferred among brief candidates (3.5 Flash over lite). */
-export function briefGeminiRank(modelId: string): number {
-  const id = normalizeModelId(modelId);
-  if (id === DEFAULT_GEMINI_BRIEF_MODEL_ID) return 2;
-  if (id.includes("lite")) return 1;
-  return 0;
 }
 
 /** Higher is preferred among detailed candidates (3.7 over 3.6). */
