@@ -26,15 +26,15 @@ export function ProExpiryBanner() {
   return (
     <div
       data-compact-chrome
-      className="border-b border-[var(--primary)]/30 bg-[var(--primary)]/8 px-4 py-2.5 md:px-6"
+      className="border-b border-[var(--primary)]/30 bg-[var(--primary)]/8 px-4 py-1.5 md:px-6 md:py-2.5"
     >
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2 text-sm">
-        <p className="text-[var(--foreground)]">
+      <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 text-[11px] md:flex-wrap md:text-sm">
+        <p className="min-w-0 truncate text-[var(--foreground)]">
           Pro ใกล้หมดอายุ {label} (เหลือ {daysLeft} วัน)
         </p>
         <Link
           href="/account#renew"
-          className="font-semibold text-[var(--primary)] underline"
+          className="shrink-0 font-semibold text-[var(--primary)] underline"
         >
           ต่ออายุ
         </Link>
