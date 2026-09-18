@@ -473,6 +473,7 @@ export function ChatView() {
   const turnTopRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const composerBoxRef = useRef<HTMLDivElement | null>(null);
+  const chatRootRef = useRef<HTMLDivElement | null>(null);
   const [turnSpacer, setTurnSpacer] = useState(0);
   // The composer owns its text so typing never re-renders the thread; the
   // parent reaches in through this handle to prefill, clear, read and focus.
@@ -1035,12 +1036,31 @@ export function ChatView() {
 
   // Natal auto-intro removed: home is ready to type, one chat covers every topic.
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    if (typeof window === "undefined") return;
-    window.scrollTo({ top: document.documentElement.scrollHeight, behavior });
-    isNearBottomRef.current = true;
-    setShowScrollFab(false);
+  /** Page offset where the composer sits at the bottom of the screen. The end
+      of the DOCUMENT is the footer — landing there hides the composer and looks
+      like the page jumped somewhere else entirely. */
+  const conversationBottom = useCallback(() => {
+    if (typeof window === "undefined") return 0;
+    const max = Math.max(
+      0,
+      document.documentElement.scrollHeight - window.innerHeight,
+    );
+    const root = chatRootRef.current;
+    if (!root) return max;
+    const target =
+      window.scrollY + root.getBoundingClientRect().bottom - window.innerHeight;
+    return Math.max(0, Math.min(max, Math.round(target)));
   }, []);
+
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      if (typeof window === "undefined") return;
+      window.scrollTo({ top: conversationBottom(), behavior });
+      isNearBottomRef.current = true;
+      setShowScrollFab(false);
+    },
+    [conversationBottom],
+  );
 
   /** Park the newest question at the top of the viewport. */
   const pinTurnTop = useCallback((behavior: ScrollBehavior = "auto") => {
@@ -1073,13 +1093,11 @@ export function ChatView() {
 
   const handleScroll = useCallback(() => {
     if (typeof window === "undefined") return;
-    const doc = document.documentElement;
     const nearBottom =
-      doc.scrollHeight - window.scrollY - window.innerHeight <
-      SCROLL_NEAR_BOTTOM_PX;
+      conversationBottom() - window.scrollY < SCROLL_NEAR_BOTTOM_PX;
     isNearBottomRef.current = nearBottom;
     setShowScrollFab(!nearBottom);
-  }, []);
+  }, [conversationBottom]);
 
   // The page is the scroller now, so the listener lives on the window.
   useEffect(() => {
@@ -1157,7 +1175,7 @@ export function ChatView() {
       // typewriter is still revealing.
       if (pinnedTurnRef.current) return;
       if (!isNearBottomRef.current) return;
-      window.scrollTo({ top: document.documentElement.scrollHeight });
+      window.scrollTo({ top: conversationBottom() });
     });
     ro.observe(el);
     pinObserver.current = ro;
@@ -2102,7 +2120,7 @@ export function ChatView() {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div ref={chatRootRef} className="flex flex-1 flex-col">
       {/* Screen readers hear the finished answer here, once. */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {liveAnnounce}
@@ -3046,7 +3064,7 @@ const Composer = forwardRef<
       </div>
       <p
         data-compact-hide
-        className="mx-auto mb-2 max-w-3xl text-[11px] text-[var(--muted)]"
+        className="mx-auto mb-2 hidden max-w-3xl text-[11px] text-[var(--muted)] md:block"
       >
         กระชับ ≈ สั้น เร็ว · ละเอียด ≈ ยาวขึ้น ใช้โควตามากกว่า
       </p>
@@ -3105,7 +3123,7 @@ const Composer = forwardRef<
       </div>
       <p
         data-compact-hide
-        className="mt-1.5 text-center text-[11px] text-[var(--muted-2)]"
+        className="mt-1.5 text-center text-[10px] leading-4 text-[var(--muted-2)] md:text-[11px]"
       >
         Horasard อาจให้ข้อมูลที่ไม่ถูกต้องเสมอไป โปรดใช้วิจารณญาณ ·{" "}
         <a href="/disclaimer" className="underline hover:text-[var(--muted)]">
@@ -3141,7 +3159,7 @@ function ChatDisclaimerNotice() {
   return (
     <div
       data-compact-hide
-      className="mx-auto mt-2 flex max-w-3xl items-start justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)]"
+      className="mx-auto mt-2 hidden max-w-3xl items-start justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)] md:flex"
     >
       <p>
         คำทำนายเพื่อความบันเทิงและเป็นแนวทางเท่านั้น ไม่ใช่คำแนะนำทางการเงิน กฎหมาย

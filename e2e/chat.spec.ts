@@ -77,7 +77,12 @@ test("editing a message sends the REAL row id and clears the composer", async ({
   await page.keyboard.press("Enter");
   await expect(page.locator(".chat-md", { hasText: "นี่คือคำตอบทดสอบจากระบบ" })).toBeVisible();
 
-  await page.getByRole("button", { name: "แก้ไข" }).click();
+  // Scoped to the conversation: the sidebar's rename button ("แก้ไขชื่อแชท")
+  // also matches this name once the account has a saved thread.
+  await page
+    .getByTestId("chat-scroller")
+    .getByRole("button", { name: "แก้ไข" })
+    .click();
   await page.getByRole("textbox").fill("คำถามที่แก้แล้ว");
   await page.keyboard.press("Enter");
 

@@ -14,11 +14,13 @@ function formatDate(iso: string): string {
 export function ProPromotionBanner() {
   const { user } = useAppData();
   if (!user?.promotionEndsAt) return null;
+  // Two stacked notice bars cost a phone a quarter of its screen. When the
+  // expiry warning is up, it wins; this one is hidden below md either way.
 
   return (
     <div
       data-compact-hide
-      className="shrink-0 border-b border-[var(--primary)]/25 bg-[var(--primary)]/10 px-4 py-2 text-center text-xs leading-5 text-[var(--foreground)]"
+      className="hidden shrink-0 border-b border-[var(--primary)]/25 bg-[var(--primary)]/10 px-4 py-2 text-center text-xs leading-5 text-[var(--foreground)] md:block"
     >
       <span className="font-semibold text-[var(--primary)]">Pro เปิดครบทุกหมวด</span>
       <span>
