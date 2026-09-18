@@ -144,7 +144,11 @@ export function IntakeSurveyForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="animate-fade-up w-full max-w-xl overflow-x-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-8"
+      // No `overflow-*` here: it would make the card its own scroll container,
+      // and as a shrinking flex item the card then squeezed to a fraction of
+      // the screen with the action bar pinned inside it (worse the larger the
+      // reader's font). `shrink-0` keeps its natural height; the page scrolls.
+      className="animate-fade-up w-full max-w-xl shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-8"
     >
       <p className="text-xs text-[var(--muted)]">{progressLabel}</p>
       <div
@@ -231,7 +235,10 @@ export function IntakeSurveyForm() {
       ) : null}
 
       <div
-        className="sticky bottom-0 z-10 -mx-5 mt-8 border-t border-[var(--border)] bg-[var(--surface)] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:static sm:mx-0 sm:px-0 sm:pb-0"
+        // Plain flow, not a floating bar: pinned to the viewport it sat on top
+        // of the answer chips (worse with a large system font), and the button
+        // is disabled until the step is answered anyway.
+        className="-mx-5 -mb-5 mt-8 rounded-b-2xl border-t border-[var(--border)] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 sm:mx-0 sm:mb-0 sm:px-0 sm:pb-0"
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
           {step > 0 ? (

@@ -37,7 +37,7 @@ import { UserAvatar } from "./user-avatar";
 import { ThemePicker } from "./theme-picker";
 import { TransitFormModal } from "./transit-form-modal";
 import { NatalDossier } from "./natal-dossier";
-import { AppFooterContext } from "./app-footer-context";
+import { SiteFooter } from "@/components/marketing/site-footer";
 import type { CmsSiteFooter } from "@/lib/cms-keys";
 import {
   clearThreadCache,
@@ -51,7 +51,7 @@ export function AppShell({
   footer,
 }: {
   children: React.ReactNode;
-  /** Site footer (CMS); the chat renders it at the very end of its scroll area. */
+  /** Site footer (CMS); sits below the composer, reached by scrolling past it. */
   footer?: CmsSiteFooter | null;
 }) {
   const searchParams = useChatRouteSearchParams();
@@ -814,6 +814,12 @@ export function AppShell({
         // focus, no clicks reach it, so the drawer is a real modal.
         inert={mobileShown}
       >
+      {/* One page scroller holding the full-height app screen and, under it,
+          the site footer. Scrolling past the end of the conversation carries on
+          into this scroller, so the footer appears BELOW the composer — it is
+          the last thing on the page and is never in the way before that. */}
+      <div className="h-[100dvh] overflow-y-auto">
+      <div className="flex h-[100dvh] min-w-0 flex-col">
         {/* Mobile top bar — gives the menu a home + brand context without a
             floating button overlapping page content. */}
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 md:hidden">
@@ -844,8 +850,11 @@ export function AppShell({
           <ProExpiryBanner />
           <ProPromotionBanner />
           <SiteAnnouncementBanner />
-          <AppFooterContext value={footer ?? null}>{children}</AppFooterContext>
+          {children}
         </main>
+      </div>
+      {footer ? <SiteFooter footer={footer} /> : null}
+      </div>
       </div>
 
       <ConfirmModal

@@ -144,3 +144,23 @@ export function formatBaht(thb: number): string {
 export function formatThb(usd: number): string {
   return formatBaht(usdToThb(usd));
 }
+
+/**
+ * Representative shape of one chat turn, used to compare models by price.
+ * The prompt (chart tables + doctrine + memory) dwarfs a กระชับ answer, so the
+ * INPUT rate decides which model is cheaper for brief mode — picking a model
+ * with a cheaper output rate but a pricier input rate made กระชับ burn MORE
+ * usage than ละเอียด.
+ */
+const BRIEF_TURN_INPUT_TOKENS = 8_000;
+const BRIEF_TURN_OUTPUT_TOKENS = 800;
+
+/** Lower is cheaper. Compares models for one representative brief turn. */
+export function briefTurnCostUsd(modelId: string): number {
+  return estimateCostUsd(
+    modelId,
+    BRIEF_TURN_INPUT_TOKENS,
+    BRIEF_TURN_OUTPUT_TOKENS,
+    0,
+  );
+}

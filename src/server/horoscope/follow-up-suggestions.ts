@@ -4,7 +4,7 @@ import {
   resolveConfig,
 } from "@/server/ai/router";
 import { logUsage } from "@/server/ai/usage-logger";
-import { briefGeminiRank, isBriefGeminiModel } from "@/config/gemini-models";
+import { briefTurnCostUsd } from "@/config/ai-pricing";
 
 export type FollowUpMeta = {
   summaryLine?: string;
@@ -86,10 +86,12 @@ export async function resolveAuxConfig(opts?: {
     orderBy: [{ provider: "asc" }, { displayName: "asc" }],
   });
   if (candidates.length === 0) return null;
-  const brief = candidates
-    .filter((c) => isBriefGeminiModel(c.modelId))
-    .sort((a, b) => briefGeminiRank(b.modelId) - briefGeminiRank(a.modelId));
-  return brief[0] ?? candidates[0];
+  // Suggestion chips are a throwaway side call — take the cheapest model there
+  // is, by rate card rather than by model name.
+  const cheapest = [...candidates].sort(
+    (a, b) => briefTurnCostUsd(a.modelId) - briefTurnCostUsd(b.modelId),
+  );
+  return cheapest[0] ?? candidates[0];
 }
 
 function truncateQuestionTitle(text: string, max = 48): string {

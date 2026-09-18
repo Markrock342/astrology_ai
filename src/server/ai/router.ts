@@ -7,12 +7,11 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { resolveApiKey } from "@/server/ai/secret-resolver";
 import {
-  briefGeminiRank,
   detailedGeminiRank,
-  isBriefGeminiModel,
   isDetailedGeminiModel,
   isGeminiLiteModel,
 } from "@/config/gemini-models";
+import { briefTurnCostUsd } from "@/config/ai-pricing";
 
 /**
  * Model router (spec 3 / 6.5). Resolves an AIProviderConfig from the DB, picks
@@ -41,9 +40,12 @@ function adapterFor(provider: AIProvider): AIProviderAdapter {
  * When multiple configs share the same top score, a warning is logged so ops
  * can remove overlapping rows.
  *
- * `preferFast` (brief / กระชับ): prefer 3.5 Flash, then a non-lite model
- * (3.7 if 3.5 is missing). Lite is last-resort only — using it as the brief
- * primary made กระชับ answers vaguer than ละเอียด on the same account.
+ * `preferFast` (brief / กระชับ): the CHEAPEST non-lite model in the pool, by
+ * real rate card. It used to prefer 3.5 Flash by name, which bills $1.50/$9.00
+ * per 1M tokens against 3.7 Flash's $0.75/$3.75 — and since the prompt (chart
+ * tables + doctrine + memory) is identical in both modes and dwarfs a short
+ * answer, กระชับ burned as much usage as ละเอียด, often more. Lite stays a
+ * last-resort fallback: as the brief primary it made กระชับ answers vaguer.
  * Detailed (ละเอียด): prefer 3.7 / 3.6 Flash when one is in the eligible pool.
  */
 export async function resolveConfig(
@@ -93,15 +95,10 @@ export async function resolveConfig(
   };
 
   if (opts?.preferFast) {
-    const briefNonLite = candidates.filter(
-      (c) => isBriefGeminiModel(c.modelId) && !isGeminiLiteModel(c.modelId),
-    );
-    if (briefNonLite.length > 0) {
-      return pickDeterministic(briefNonLite, (c) => briefGeminiRank(c.modelId));
-    }
     const nonLite = candidates.filter((c) => !isGeminiLiteModel(c.modelId));
     if (nonLite.length > 0) {
-      return pickDeterministic(nonLite, (c) => detailedGeminiRank(c.modelId));
+      // Negated so "higher rank wins" means "cheaper model wins".
+      return pickDeterministic(nonLite, (c) => -briefTurnCostUsd(c.modelId));
     }
   } else {
     const detailed = candidates.filter((c) => isDetailedGeminiModel(c.modelId));

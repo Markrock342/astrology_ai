@@ -54,7 +54,7 @@ export function AiMemoryCard({ initialMemory }: { initialMemory: UserAiMemory })
       }
       setMemory(body.data);
       setConfirmReset(false);
-      setMessage("ล้างบริบทจากแชทเก่าแล้ว ประวัติสนทนายังอยู่ครบ");
+      setMessage("ล้างแล้ว — AI จะไม่ใช้บริบทจากแชทเก่า ประวัติสนทนายังอยู่ครบ");
     } catch {
       setMessage("เชื่อมต่อระบบไม่ได้ กรุณาลองอีกครั้ง");
     } finally {
@@ -62,8 +62,11 @@ export function AiMemoryCard({ initialMemory }: { initialMemory: UserAiMemory })
     }
   }
 
-  const hasChatMemory =
-    memory.commonTopics.length > 0 || memory.recentQuestions.length > 0;
+  // The card no longer lists old questions — that is chat history, and the
+  // sidebar already owns deleting it. What stays is one honest line about how
+  // much context exists, so "ล้างความจำจากแชทเก่า" has a visible effect.
+  const rememberedCount = memory.recentQuestions.length;
+  const hasChatMemory = rememberedCount > 0 || memory.commonTopics.length > 0;
 
   return (
     <section
@@ -104,44 +107,11 @@ export function AiMemoryCard({ initialMemory }: { initialMemory: UserAiMemory })
           <p className="text-sm text-[var(--muted)]">ยังไม่มีชื่อเล่นในข้อมูลวันเกิด</p>
         )}
 
-        {memory.commonTopics.length > 0 ? (
-          <div className="mt-4">
-            <p className="text-xs text-[var(--muted-2)]">หมวดที่คุณถามบ่อย</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {memory.commonTopics.map((topic) => (
-                <span
-                  key={topic.slug}
-                  className="rounded-full border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs text-[var(--foreground)]"
-                >
-                  {topic.label} · {topic.count}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        <details className="group mt-4" open={hasChatMemory}>
-          <summary className="min-h-11 cursor-pointer list-none py-3 text-sm font-medium text-[var(--foreground)] marker:content-none">
-            <span className="inline-flex items-center gap-2">
-              คำถามล่าสุดที่ใช้เป็นบริบท
-              <span aria-hidden className="text-[var(--primary)] transition-transform group-open:rotate-180">⌄</span>
-            </span>
-          </summary>
-          {memory.recentQuestions.length > 0 ? (
-            <ol className="grid gap-3 pb-2 sm:grid-cols-2">
-              {memory.recentQuestions.slice(0, 4).map((item, index) => (
-                <li key={`${item.askedAt}-${index}`} className="text-sm leading-6 text-[var(--muted)]">
-                  <span className="mr-2 text-xs text-[var(--primary)]">{item.category}</span>
-                  {item.question}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="pb-2 text-sm text-[var(--muted)]">
-              ยังไม่มีคำถามเก่าสำหรับใช้เป็นบริบท เมื่อเริ่มถาม AI จะค่อย ๆ รู้จักคุณมากขึ้น
-            </p>
-          )}
-        </details>
+        <p className="mt-4 text-sm text-[var(--muted)]">
+          {rememberedCount > 0
+            ? `ตอนนี้ใช้ข้อความที่คุณเคยพิมพ์ ${rememberedCount} ข้อความเป็นบริบท`
+            : "ยังไม่มีบริบทจากแชทเก่า เมื่อเริ่มถาม AI จะค่อย ๆ รู้จักคุณมากขึ้น"}
+        </p>
       </div>
 
       <div className="mt-4 border-t border-[var(--border)] pt-4">
