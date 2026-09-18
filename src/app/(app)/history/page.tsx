@@ -9,7 +9,7 @@ export default function HistoryPage() {
   const { natalThreads, transitThreads, loading } = useAppData();
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-10 pt-16 md:px-10 md:pt-10">
+    <div className="flex-1 px-6 py-10 pt-16 md:px-10 md:pt-10">
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-semibold text-[var(--foreground)]">
           ประวัติแชท

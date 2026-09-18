@@ -139,7 +139,7 @@ export function AccountView({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-10 md:px-10">
+    <div className="flex-1 px-6 py-10 md:px-10">
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-semibold text-[var(--foreground)]">
           บัญชี & แพ็กเกจ

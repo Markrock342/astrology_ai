@@ -720,7 +720,7 @@ export function AppShell({
 
   return (
     <div
-      className="shape-capsule flex h-[100dvh] overflow-hidden"
+      className="shape-capsule flex min-h-[100dvh]"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -768,7 +768,7 @@ export function AppShell({
         aria-label="แถบข้าง"
         className={`${
           collapsed ? "w-16" : "w-72"
-        } relative z-30 hidden h-full shrink-0 border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)] md:flex md:flex-col`}
+        } sticky top-0 z-30 hidden h-[100dvh] shrink-0 self-start border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-300 ease-[var(--ease-out-quart)] md:flex md:flex-col`}
       >
         <div
           className={`absolute inset-0 transition-opacity duration-200 ${
@@ -814,15 +814,13 @@ export function AppShell({
         // focus, no clicks reach it, so the drawer is a real modal.
         inert={mobileShown}
       >
-      {/* One page scroller holding the full-height app screen and, under it,
-          the site footer. Scrolling past the end of the conversation carries on
-          into this scroller, so the footer appears BELOW the composer — it is
-          the last thing on the page and is never in the way before that. */}
-      <div className="h-[100dvh] overflow-y-auto">
-      <div className="flex h-[100dvh] min-w-0 flex-col">
+      {/* The page itself scrolls — no inner scroll box. That is what lets a
+          phone browser collapse its address bar as you read, and it puts the
+          site footer below the composer at the true end of the document. */}
+      <div className="flex min-h-[100dvh] min-w-0 flex-col">
         {/* Mobile top bar — gives the menu a home + brand context without a
             floating button overlapping page content. */}
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 landscape:max-h-[2.75rem] md:hidden">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 landscape:max-h-[2.75rem] md:hidden">
           <button
             type="button"
             onClick={openMobile}
@@ -844,7 +842,7 @@ export function AppShell({
             <BrandLockup markSize={26} showTagline={false} />
           </Link>
         </header>
-        <main className="flex min-h-0 flex-1 flex-col">
+        <main className="flex flex-1 flex-col">
           <VerifyEmailBanner />
           <PendingPaymentBanner />
           <ProExpiryBanner />
@@ -854,7 +852,6 @@ export function AppShell({
         </main>
       </div>
       {footer ? <SiteFooter footer={footer} /> : null}
-      </div>
       </div>
 
       <ConfirmModal

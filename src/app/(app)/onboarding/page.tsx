@@ -34,7 +34,7 @@ export default async function OnboardingPage() {
   ]);
 
   return (
-    <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 py-10">
+    <div className="flex flex-1 flex-col items-center px-6 py-10">
       <div className="mb-8 max-w-2xl text-center">
         <h1 className="text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
           ในทางโหราศาสตร์ไทย ดวงดาวเป็นเพียงเครื่องมือ
