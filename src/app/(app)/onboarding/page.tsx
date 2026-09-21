@@ -6,7 +6,6 @@ import {
   isStaffRole,
   MAX_BIRTH_EDITS,
 } from "@/server/user/birth-profile-service";
-import { hasIntake } from "@/server/user/intake-service";
 import { requireSessionUserId } from "@/server/auth/session-guard";
 import {
   getConsentTexts,
@@ -25,7 +24,7 @@ export default async function OnboardingPage() {
   // (staff bypass the one-edit quota).
   const profile = await getBirthProfile(userId);
   if (profile && !staff && profile.editCount >= MAX_BIRTH_EDITS) {
-    redirect((await hasIntake(userId)) ? "/dashboard" : "/onboarding/survey");
+    redirect("/dashboard");
   }
 
   const [{ birthPrivacy, birthEditLimit }, privacyPolicy] = await Promise.all([

@@ -250,7 +250,7 @@ export function BirthForm({
         setError(json?.error?.message ?? "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่");
         return;
       }
-      router.push("/onboarding/survey");
+      router.push("/dashboard");
       router.refresh();
     } catch {
       setError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองใหม่");

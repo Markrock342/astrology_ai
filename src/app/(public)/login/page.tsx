@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { env } from "@/config/env";
-import { BrandLogo } from "@/components/brand-logo";
+import { PublicPageHeader } from "@/components/marketing/public-page-header";
 import { AuthPanels } from "@/components/auth/auth-panels";
 import { resolveAppEntryPath } from "@/server/auth/app-entry";
 import { getConsentTexts } from "@/server/settings/settings-service";
@@ -32,7 +32,7 @@ export default async function LoginPage() {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(201,162,75,0.07),transparent_65%)]"
         aria-hidden
       />
-      <BrandLogo size={44} className="relative mb-8" />
+      <PublicPageHeader className="relative mb-8" />
       <div className="relative w-full flex justify-center">
         <AuthPanels
           googleEnabled={googleEnabled}

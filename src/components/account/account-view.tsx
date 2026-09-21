@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { CmsPaymentInfo } from "@/lib/cms-keys";
 import { PaymentSubmitCard } from "./payment-submit-card";
 import { ProfileAvatarCard } from "./profile-avatar-card";
@@ -91,6 +92,7 @@ export function AccountView({
   packages,
   paymentInfo,
   aiMemory,
+  hasIntake,
 }: {
   profile: {
     name: string;
@@ -99,6 +101,7 @@ export function AccountView({
     canUploadAvatar: boolean;
   };
   myPackage: MyPackage;
+  hasIntake: boolean;
   packages: PublicPackage[];
   paymentInfo: CmsPaymentInfo;
   aiMemory: UserAiMemory;
@@ -201,6 +204,27 @@ export function AccountView({
         ) : null}
 
         <UsageSummary fallbackLimits={usageLimits} />
+
+        {/* The survey used to block the way in and people bounced off it. It is
+            offered here instead, for anyone who wants sharper readings. */}
+        {hasIntake ? null : (
+          <section className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+            <p className="text-xs font-medium text-[var(--primary)]">ไม่บังคับ</p>
+            <h2 className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+              เล่าชีวิตตอนนี้สั้น ๆ
+            </h2>
+            <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">
+              ตอบ 10 ข้อ ใช้ประกอบคำทำนายให้ตรงกับชีวิตคุณมากขึ้น ข้ามได้ตลอด
+              และไม่หัก usage
+            </p>
+            <Link
+              href="/onboarding/survey"
+              className="press-scale mt-4 inline-flex min-h-11 items-center rounded-full border border-[var(--primary)]/45 px-5 text-sm font-semibold text-[var(--primary)] transition hover:bg-[var(--primary)]/10"
+            >
+              เริ่มตอบ
+            </Link>
+          </section>
+        )}
 
         <AiMemoryCard initialMemory={aiMemory} />
 

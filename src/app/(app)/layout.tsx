@@ -37,7 +37,6 @@ export default async function AppLayout({
     <AppDataProvider initialData={null}>
       <BirthProfileGate
         hasBirthProfile={shell.hasBirthProfile}
-        hasIntake={shell.hasIntake}
       >
         <Suspense fallback={null}>
           <AppShell footer={footer}>{children}</AppShell>

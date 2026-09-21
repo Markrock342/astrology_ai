@@ -5,19 +5,18 @@ import { useEffect } from "react";
 
 const ACCOUNT_PATH = "/account";
 const BIRTH_PATH = "/onboarding";
-const SURVEY_PATH = "/onboarding/survey";
 
 /**
- * Hard gates after sign-in: birth profile, then the signup survey.
+ * One hard gate after sign-in: the birth profile, which every reading needs.
+ * The ten-question survey used to gate the app too, and people bounced off it —
+ * it is optional context now, offered from the account page instead.
  * Account stays reachable so the user can log out or delete.
  */
 export function BirthProfileGate({
   hasBirthProfile,
-  hasIntake,
   children,
 }: {
   hasBirthProfile: boolean;
-  hasIntake: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -26,16 +25,10 @@ export function BirthProfileGate({
   useEffect(() => {
     if (pathname === ACCOUNT_PATH) return;
 
-    if (!hasBirthProfile) {
-      if (pathname !== BIRTH_PATH) router.replace(BIRTH_PATH);
-      return;
+    if (!hasBirthProfile && pathname !== BIRTH_PATH) {
+      router.replace(BIRTH_PATH);
     }
-
-    if (!hasIntake) {
-      const allowed = pathname === SURVEY_PATH || pathname === BIRTH_PATH;
-      if (!allowed) router.replace(SURVEY_PATH);
-    }
-  }, [hasBirthProfile, hasIntake, pathname, router]);
+  }, [hasBirthProfile, pathname, router]);
 
   return children;
 }

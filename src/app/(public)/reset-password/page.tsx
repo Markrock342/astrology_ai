@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { BrandLogo } from "@/components/brand-logo";
+import { PublicPageHeader } from "@/components/marketing/public-page-header";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -192,7 +192,7 @@ function EyeOffIcon() {
 export default function ResetPasswordPage() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
-      <BrandLogo size={44} className="mb-10" />
+      <PublicPageHeader className="mb-10" />
       <Suspense
         fallback={
           <div className="w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)]/80 p-8 text-center text-sm text-[var(--muted)]">
