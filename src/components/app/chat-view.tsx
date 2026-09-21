@@ -1073,8 +1073,15 @@ export function ChatView() {
     window.scrollBy({ top: delta, behavior });
   }, []);
 
-  /** Room below the newest turn so it can actually reach the top. */
-  const measureTurnSpacer = useCallback(() => {
+  /**
+   * Room below the newest turn so it can actually reach the top.
+   *
+   * Measured twice per turn and never in between. Recomputing it as the answer
+   * streamed changed the page height, which re-fired the observer that asked
+   * for the measurement, which changed the height again — the loop showed up as
+   * the page shivering up and down while the AI wrote.
+   */
+  const measureTurnSpacer = useCallback((mode: "start" | "trim") => {
     const list = listRef.current;
     const turn = turnTopRef.current;
     if (!list || typeof window === "undefined") return;
@@ -1082,13 +1089,22 @@ export function ChatView() {
       setTurnSpacer(0);
       return;
     }
-    // Room the newest turn needs to be able to sit at the top: everything from
-    // it to the end of the thread, measured against the space between the
-    // sticky header and the sticky composer.
-    const below = list.getBoundingClientRect().bottom - turn.getBoundingClientRect().top;
+    const below =
+      list.getBoundingClientRect().bottom - turn.getBoundingClientRect().top;
     const composerH = composerBoxRef.current?.offsetHeight ?? 0;
-    const room = window.innerHeight - stickyTopOffset() - composerH - TURN_TOP_GAP_PX;
-    setTurnSpacer(Math.max(0, Math.round(room - below)));
+    const room =
+      window.innerHeight - stickyTopOffset() - composerH - TURN_TOP_GAP_PX;
+    const next = Math.max(0, Math.round(room - below));
+    setTurnSpacer((current) => {
+      if (mode === "start") return next;
+      if (next >= current) return current;
+      // Trimming shortens the page. Only do it when the browser cannot be
+      // forced to clamp the scroll position, which would yank the view.
+      const shrinkBy = current - next;
+      const maxAfter =
+        document.documentElement.scrollHeight - shrinkBy - window.innerHeight;
+      return window.scrollY <= maxAfter ? next : current;
+    });
   }, []);
 
   const handleScroll = useCallback(() => {
@@ -1126,19 +1142,32 @@ export function ChatView() {
   // The turn we parked at the top. Kept after the answer finishes so nothing
   // yanks the reader to the end of a ทำนาย they have not read yet.
   const pinnedTurnRef = useRef<string | null>(null);
+  /** Turns already parked / already tidied, so each happens exactly once. */
+  const openedTurnRef = useRef<string | null>(null);
+  const trimmedTurnRef = useRef<string | null>(null);
   const lastUserId = lastUserIdx >= 0 ? messages[lastUserIdx]?.id ?? null : null;
 
   useEffect(() => {
-    measureTurnSpacer();
-    // While an answer is being written, hold the question at the top so the
-    // reader watches it fill downwards from its first line. Chasing the tail is
-    // what forced them to scroll back up afterwards.
+    // The question is parked at the top ONCE, when its turn opens. After that
+    // the answer grows below a scroll position that nobody touches, so it stays
+    // there on its own — scrolling on every chunk is what made the page shake.
     if (isAnswering) {
+      if (openedTurnRef.current === lastUserId) return;
+      openedTurnRef.current = lastUserId;
       pinnedTurnRef.current = lastUserId;
+      trimmedTurnRef.current = null;
+      measureTurnSpacer("start");
+      const raf = requestAnimationFrame(() => pinTurnTop());
       pinTurnTop();
+      return () => cancelAnimationFrame(raf);
+    }
+    if (pinnedTurnRef.current && pinnedTurnRef.current === lastUserId) {
+      // Turn finished: take back the slack once, never mid-answer.
+      if (trimmedTurnRef.current === lastUserId) return;
+      trimmedTurnRef.current = lastUserId;
+      measureTurnSpacer("trim");
       return;
     }
-    if (pinnedTurnRef.current && pinnedTurnRef.current === lastUserId) return;
     if (!isNearBottomRef.current) return;
     scrollToBottom("smooth");
   }, [
@@ -1166,11 +1195,9 @@ export function ChatView() {
     listRef.current = el;
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => {
-      measureTurnSpacer();
-      if (answeringRef.current) {
-        pinTurnTop();
-        return;
-      }
+      // Deliberately does nothing while a turn is being written: no measuring,
+      // no scrolling. Growing content must not move the page under the reader.
+      if (answeringRef.current) return;
       // A finished turn stays where the reader left it — including the tail the
       // typewriter is still revealing.
       if (pinnedTurnRef.current) return;

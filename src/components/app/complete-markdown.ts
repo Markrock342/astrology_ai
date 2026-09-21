@@ -19,6 +19,18 @@
  * lines — it never rewrites content.
  */
 
+/**
+ * Occurrences of an emphasis marker, ignoring longer markers it is part of:
+ * the two stars of `**` are not two single `*`.
+ */
+function countMarker(text: string, marker: string): number {
+  if (marker === "*" || marker === "_") {
+    const doubled = marker.repeat(2);
+    return text.split(doubled).join("").split(marker).length - 1;
+  }
+  return text.split(marker).length - 1;
+}
+
 /** A table row is only a table once the `|---|---|` separator has arrived. */
 function isTableRow(line: string): boolean {
   return /^\s*\|.*\|?\s*$/.test(line) && line.includes("|");
@@ -64,14 +76,18 @@ export function completeMarkdown(text: string): string {
     }
   }
 
-  // 3. Dangling inline emphasis: strip the orphan marker rather than show it.
-  //    Only touches the very end of the string, and only when unpaired.
+  // 3. Dangling inline emphasis.
+  //    A marker sitting at the very end has nothing to wrap yet — drop it.
+  //    One that already has text after it is CLOSED instead of shown raw:
+  //    "**ดาวอังคาร" rendered as literal asterisks until its partner landed,
+  //    and then restyled into bold, which is one more thing moving on screen
+  //    while the answer is still being written.
   for (const marker of ["**", "__", "*", "_", "`"]) {
-    const count = out.split(marker).length - 1;
-    if (count % 2 === 1 && out.endsWith(marker)) {
-      out = out.slice(0, -marker.length);
-      break;
-    }
+    if (countMarker(out, marker) % 2 === 0) continue;
+    out = out.endsWith(marker)
+      ? out.slice(0, -marker.length)
+      : `${out}${marker}`;
+    break;
   }
 
   return out;
