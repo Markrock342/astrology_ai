@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BrandLogo } from "@/components/brand-logo";
+import { PublicPageHeader } from "@/components/marketing/public-page-header";
 
 export function VerifyEmailClient() {
   const params = useSearchParams();
@@ -49,7 +49,7 @@ export function VerifyEmailClient() {
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
-      <BrandLogo size={44} className="mb-10" />
+      <PublicPageHeader className="mb-10" />
       <div className="w-full max-w-md rounded-3xl border border-[var(--primary)]/25 bg-[var(--surface)] p-8 text-center shadow-[0_20px_55px_var(--shadow-color)]">
         {status === "loading" && (
           <p className="text-sm text-[var(--muted)]">กำลังยืนยันอีเมล…</p>

@@ -66,6 +66,7 @@ export default async function AccountPage() {
       packages={packages}
       paymentInfo={paymentInfo}
       aiMemory={aiMemory}
+      hasIntake={me.hasIntake}
     />
   );
 }

@@ -130,6 +130,57 @@ export function parseRelativeSpan(question: string): RelativeSpan | null {
 }
 
 /** Ordered from most specific to broadest so one prompt produces one safe tag. */
+/**
+ * Client's keyword table (Sep 2026). Everything is measured in DAYS from
+ * today, which is always the starting point. Users found the date pop-up
+ * unsmooth, so a phrase that names a period resolves to a day by itself and
+ * the chat just answers; the calendar button stays for picking a day by hand.
+ *
+ * Ordered: the first pattern that matches wins, so a phrase carrying a count
+ * ("อีก 2-3 ปี") must come before the bare unit ("ปี").
+ */
+const TIME_KEYWORD_RULES: ReadonlyArray<{
+  pattern: RegExp;
+  days: number;
+  label: string;
+}> = [
+  // "ครึ่งปีนี้" carries "ปีนี้" inside it, so it has to be tested first.
+  { pattern: /ครึ่งปี|6\s*เดือน|หกเดือน/, days: 180, label: "ครึ่งปี" },
+  // Year
+  { pattern: /อีก\s*[2-3๒-๓](?:\s*[-–]\s*[2-3๒-๓])?\s*ปี/, days: 730, label: "อีก 2 ปี" },
+  { pattern: /ปีหน้า/, days: 365, label: "ปีหน้า" },
+  { pattern: /ปีที่แล้ว|ปีก่อน/, days: -365, label: "ปีที่แล้ว" },
+  { pattern: /ปีนี้/, days: 0, label: "ปีนี้" },
+  // Month
+  { pattern: /อีก\s*[2-3๒-๓](?:\s*[-–]\s*[2-3๒-๓])?\s*เดือน|[2-3๒-๓]\s*[-–]\s*[2-3๒-๓]\s*เดือน/, days: 60, label: "อีก 2 เดือน" },
+  { pattern: /เดือนหน้า/, days: 30, label: "เดือนหน้า" },
+  { pattern: /เดือนที่แล้ว|เดือนก่อน/, days: -30, label: "เดือนที่แล้ว" },
+  { pattern: /เดือนนี้/, days: 0, label: "เดือนนี้" },
+  // Week
+  { pattern: /(?:สัปดาห์|อาทิตย์|week|weekend)\s*หน้า/i, days: 7, label: "สัปดาห์หน้า" },
+  { pattern: /(?:สัปดาห์|อาทิตย์|week)\s*ที่แล้ว|(?:สัปดาห์|อาทิตย์)ก่อน/i, days: -7, label: "สัปดาห์ที่แล้ว" },
+  { pattern: /(?:สัปดาห์|อาทิตย์|week)\s*นี้/i, days: 0, label: "สัปดาห์นี้" },
+  // Day
+  { pattern: /มะรืน/, days: 2, label: "มะรืนนี้" },
+  { pattern: /พรุ่งนี้/, days: 1, label: "พรุ่งนี้" },
+  { pattern: /เมื่อวาน|เมื่อวานนี้/, days: -1, label: "เมื่อวานนี้" },
+  { pattern: /ช่วงนี้|ตอนนี้|วันนี้|ระยะนี้/, days: 0, label: "ช่วงนี้" },
+];
+
+export type TimeKeywordHit = { at: Date; days: number; label: string };
+
+/** The day a time phrase points at, counted from today. */
+export function resolveTimeKeyword(
+  question: string,
+  now = new Date(),
+): TimeKeywordHit | null {
+  const q = question.trim();
+  if (!q) return null;
+  const rule = TIME_KEYWORD_RULES.find(({ pattern }) => pattern.test(q));
+  if (!rule) return null;
+  return { at: addCalendarDays(now, rule.days), days: rule.days, label: rule.label };
+}
+
 const FUTURE_DATE_PROMPT_RULES: ReadonlyArray<{
   trigger: FutureDatePromptTrigger;
   pattern: RegExp;
@@ -373,6 +424,21 @@ export function resolveTransitWindow(
       explicit,
       formatTransitDateLabel(explicit) ?? "วันจร",
       explicit,
+      null,
+    );
+  }
+
+  // The client's keyword table decides the day whenever a phrase names one.
+  // Anything with an explicit count ("อีก 5 วัน") still goes through
+  // parseRelativeSpan below, which handles arbitrary numbers.
+  const keyword = resolveTimeKeyword(q, now);
+  if (keyword && !parseRelativeSpan(q)) {
+    return windowOf(
+      "transit",
+      keyword.at,
+      keyword.at,
+      rangeLabel(keyword.label, keyword.at, keyword.at),
+      keyword.at,
       null,
     );
   }

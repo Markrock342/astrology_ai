@@ -22,6 +22,7 @@ import { BrandMark } from "@/components/brand-logo";
 import { softNavigate, useChatRouteSearchParams, isPlainLeftClick } from "./chat-nav";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { HoroscopeChartPanel } from "./horoscope-chart-panel";
+import { ChartDisclosure } from "./chart-disclosure";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import { CopyMessageButton } from "./copy-message-button";
 import { MessageActions } from "./message-actions";
@@ -48,7 +49,6 @@ import { TransitDatePicker } from "./transit-date-picker";
 import {
   bangkokDateKey,
   CURRENT_PERIOD_PATTERN,
-  detectFutureDatePromptTrigger,
   type FutureDatePromptTrigger,
   suggestedFutureDateKey,
 } from "@/lib/reading-intent";
@@ -1331,13 +1331,16 @@ export function ChatView() {
       );
     }
 
-    // "ช่วงนี้" is unambiguous on its own (= today). It stops being so once the
-    // user has a different วันจร picked — ask which day they mean.
+    // Time phrases resolve to a day by themselves now (resolveTimeKeyword), so
+    // the chat just answers instead of interrupting with a date picker. One
+    // case still genuinely needs asking: "ช่วงนี้ / ตอนนี้" while a DIFFERENT
+    // วันจร is pinned — today, or the pinned day?
     const pickedAnotherDay =
       Boolean(transitDateInput) && transitDateInput !== bangkokDateKey();
     const futureDateTrigger: FutureDatePromptTrigger | null =
-      detectFutureDatePromptTrigger(content) ??
-      (pickedAnotherDay && CURRENT_PERIOD_PATTERN.test(content) ? "current_period" : null);
+      pickedAnotherDay && CURRENT_PERIOD_PATTERN.test(content)
+        ? "current_period"
+        : null;
     if (
       !isIntro &&
       !options.retryKey &&
@@ -2297,7 +2300,14 @@ export function ChatView() {
                   </div>
                   <div className="min-w-0 flex-1">
                     {showCharts && (
-                      <div className="mb-4 flex flex-col gap-2">
+                      <ChartDisclosure
+                        lagna={
+                          (isLatestTransit
+                            ? m.transitSnapshot?.meta?.lagna
+                            : null) ?? m.chartSnapshot?.meta?.lagna
+                        }
+                      >
+                      <div className="flex flex-col gap-2">
                         {isFirstNatal && m.chartSnapshot ? (
                           <HoroscopeChartPanel
                             natal={m.chartSnapshot}
@@ -2344,6 +2354,7 @@ export function ChatView() {
                           </div>
                         )}
                       </div>
+                      </ChartDisclosure>
                     )}
                     {isStreamingTurn && !m.content ? (
                       <ThinkingIndicator

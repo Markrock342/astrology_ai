@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BrandLogo } from "@/components/brand-logo";
+import { PublicPageHeader } from "@/components/marketing/public-page-header";
 import { TurnstileField, turnstileRequired } from "@/components/auth/turnstile-field";
 
 export default function ForgotPasswordPage() {
@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
-      <BrandLogo size={44} className="mb-10" />
+      <PublicPageHeader className="mb-10" />
 
       <div className="animate-fade-up w-full max-w-md rounded-3xl border border-[var(--primary)]/25 bg-[var(--surface)] p-8 shadow-[0_20px_55px_var(--shadow-color)]">
         <h1 className="mb-2 text-center text-lg font-semibold text-[var(--foreground)]">
