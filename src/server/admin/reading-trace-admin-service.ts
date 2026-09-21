@@ -55,11 +55,11 @@ export async function listReadingTraces(args: ListReadingsArgs) {
       user: row.user,
       hasTrace: Boolean(trace),
       intent: trace?.intent ?? null,
-      windowLabel: trace?.window.label ?? null,
-      pickedByUser: trace?.window.pickedByUser ?? false,
-      knowledgeChunks: trace?.knowledge.chunks.length ?? 0,
+      windowLabel: trace?.window?.label ?? null,
+      pickedByUser: trace?.window?.pickedByUser ?? false,
+      knowledgeChunks: trace?.knowledge?.chunks?.length ?? 0,
       confirmed: check?.confirmed ?? 0,
-      flagged: check?.flags.length ?? 0,
+      flagged: check?.flags?.length ?? 0,
     };
   });
   return { total, page: args.page, pageSize: args.pageSize, items };

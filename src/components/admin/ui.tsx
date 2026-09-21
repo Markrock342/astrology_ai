@@ -401,11 +401,14 @@ export function Modal({
   title,
   children,
   onClose,
+  size = "md",
 }: {
   open: boolean;
   title: string;
   children: React.ReactNode;
   onClose: () => void;
+  /** "lg" for dialogs that show a document — a reading trace, a raw prompt. */
+  size?: "md" | "lg";
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -469,9 +472,14 @@ export function Modal({
         role="dialog"
         aria-modal
         aria-labelledby="admin-modal-title"
-        className="relative z-10 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl"
+        // Capped to the screen and scrollable inside: long content used to run
+        // off the bottom with the page locked behind it, so it could not be
+        // read at all.
+        className={`relative z-10 flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-xl ${
+          size === "lg" ? "max-w-3xl" : "max-w-md"
+        }`}
       >
-        <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="flex shrink-0 items-start justify-between gap-3 px-5 pb-3 pt-5">
           <h2 id="admin-modal-title" className="text-sm font-semibold text-[var(--foreground)]">
             {title}
           </h2>
@@ -485,7 +493,9 @@ export function Modal({
             ✕
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5">
+          {children}
+        </div>
       </div>
     </div>
   );
