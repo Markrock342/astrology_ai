@@ -236,7 +236,12 @@ export function ReadingTracePanel() {
         </div>
       </div>
 
-      <Modal open={Boolean(openId)} title="หลักฐานการอ่าน" onClose={() => setOpenId(null)}>
+      <Modal
+        open={Boolean(openId)}
+        title="หลักฐานการอ่าน"
+        size="lg"
+        onClose={() => setOpenId(null)}
+      >
         {detailError ? (
           <p className="text-sm text-[var(--danger)]">{detailError}</p>
         ) : !detail ? (
