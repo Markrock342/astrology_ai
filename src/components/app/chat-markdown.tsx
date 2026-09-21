@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
@@ -245,6 +245,23 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   content: string;
   streaming?: boolean;
 }) {
+  // A streamed answer re-renders its live tail every frame, and the tail can
+  // come out SHORTER for a frame — a half-arrived table row is completed into a
+  // full row, a bullet joins the list above it. On screen that reads as the
+  // answer shivering up and down while the AI writes. The block is held at the
+  // tallest height it has reached, so it only ever grows.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [floor, setFloor] = useState(0);
+  useLayoutEffect(() => {
+    if (!streaming) {
+      if (floor !== 0) setFloor(0);
+      return;
+    }
+    const height = wrapRef.current?.offsetHeight ?? 0;
+    // Monotonic, so this settles after one extra pass instead of looping.
+    if (height > floor) setFloor(height);
+  }, [streaming, floor, content]);
+
   if (!content) return null;
 
   if (!streaming) {
@@ -268,7 +285,12 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   if (!head && !tail) return null;
 
   return (
-    <div className="chat-md stream-caret max-w-none" data-streaming="true">
+    <div
+      ref={wrapRef}
+      className="chat-md stream-caret max-w-none"
+      data-streaming="true"
+      style={floor ? { minHeight: floor } : undefined}
+    >
       {head ? <MarkdownBlocks source={head} /> : null}
       {tail ? <MarkdownBlocks source={tail} /> : null}
     </div>

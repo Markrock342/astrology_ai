@@ -35,6 +35,17 @@ describe("completeMarkdown — half-typed input", () => {
     expect(completeMarkdown(src)).toBe(src);
   });
 
+  it("closes bold that already has text, instead of showing raw asterisks", () => {
+    // The live tail used to print "**ดาวอังคาร" literally and then restyle it
+    // into bold when the partner arrived — visible churn mid-answer.
+    expect(completeMarkdown("**ดาวอังคารจร")).toBe("**ดาวอังคารจร**");
+    expect(completeMarkdown("ข้อความ `code")).toBe("ข้อความ `code`");
+  });
+
+  it("does not mistake the two stars of bold for single emphasis", () => {
+    expect(completeMarkdown("**ตัวหนา** ปกติ")).toBe("**ตัวหนา** ปกติ");
+  });
+
   it("strips a dangling bold marker", () => {
     expect(completeMarkdown("ดวงของคุณ **")).toBe("ดวงของคุณ ");
   });
