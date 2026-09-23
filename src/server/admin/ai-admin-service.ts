@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
+import { PROMPT_CODES } from "@/server/horoscope/prompt-resolver";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/server/audit/audit-service";
 import { recordRevision } from "@/server/admin/content-revision-service";
@@ -74,11 +75,48 @@ const promptSummarySelect = {
   updatedAt: true,
 } as const;
 
-/** List metadata only — omit large content bodies (admin list views). */
-export function listPromptsSummary() {
-  return prisma.promptTemplate.findMany({
-    orderBy: { createdAt: "asc" },
-    select: promptSummarySelect,
+/**
+ * List metadata only — omit large content bodies (admin list views).
+ *
+ * Also says, per template, whether the reading engine can actually reach it.
+ * A template edited in the CMS under a code the engine never reads, and linked
+ * to no category, is silently ignored at reading time — which looks exactly
+ * like "the AI is not following my prompt".
+ */
+export async function listPromptsSummary() {
+  const [rows, byCategory, byConfig] = await Promise.all([
+    prisma.promptTemplate.findMany({
+      orderBy: { createdAt: "asc" },
+      select: promptSummarySelect,
+    }),
+    prisma.horoscopeCategory.groupBy({
+      by: ["promptTemplateId"],
+      where: { promptTemplateId: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.aIProviderConfig.groupBy({
+      by: ["promptTemplateId"],
+      where: { promptTemplateId: { not: null } },
+      _count: { _all: true },
+    }),
+  ]);
+  const countOf = (
+    groups: Array<{ promptTemplateId: string | null; _count: { _all: number } }>,
+    id: string,
+  ) => groups.find((g) => g.promptTemplateId === id)?._count._all ?? 0;
+  const engineCodes = new Set<string>(Object.values(PROMPT_CODES));
+
+  return rows.map((row) => {
+    const linkedCategories = countOf(byCategory, row.id);
+    const linkedConfigs = countOf(byConfig, row.id);
+    const reachable = engineCodes.has(row.code) || linkedCategories + linkedConfigs > 0;
+    return {
+      ...row,
+      linkedCategories,
+      linkedConfigs,
+      /** Enabled AND something points at it — otherwise the engine never sees it. */
+      live: row.enabled && reachable,
+    };
   });
 }
 

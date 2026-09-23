@@ -2,7 +2,9 @@ import type { PromptTemplate } from "@prisma/client";
 import { PLAN_HINT_FREE, PLAN_HINT_PRO } from "@/config/constants";
 import { prisma } from "@/server/db";
 
-const PROMPT_CODES = {
+/** The only codes the reading engine ever reads. Anything else is used only
+    when a category or an AI config points at it by id. */
+export const PROMPT_CODES = {
   system: "system.default",
   format: "format.default",
   persona: "persona.default",
