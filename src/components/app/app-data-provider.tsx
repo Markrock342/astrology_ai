@@ -24,7 +24,7 @@ export type AppUser = {
   proExpiresAt?: string | null;
   proNeverExpires?: boolean;
   promotionEndsAt?: string | null;
-  promotionCreditGrant?: number | null;
+  promotionUsagePercent?: number | null;
   role: "USER" | "ADMIN" | "SUPER_ADMIN";
   creditBalance: number;
   usageRemainingPercent: number;
@@ -136,8 +136,8 @@ function mapMe(me: Record<string, unknown>): AppUser {
     proNeverExpires: Boolean(me.proNeverExpires),
     promotionEndsAt:
       (me.promotionEndsAt as string | null | undefined) ?? null,
-    promotionCreditGrant:
-      (me.promotionCreditGrant as number | null | undefined) ?? null,
+    promotionUsagePercent:
+      (me.promotionUsagePercent as number | null | undefined) ?? null,
     role: (me.role as AppUser["role"]) ?? "USER",
     creditBalance: Number(me.creditBalance ?? 0),
     usageRemainingPercent: Number(me.usageRemainingPercent ?? 0),

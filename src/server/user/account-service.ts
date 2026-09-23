@@ -9,6 +9,7 @@ import {
   LAUNCH_PRO_PROMOTION,
 } from "@/config/promotion";
 import { resolveProExpiry } from "@/lib/pro-expiry";
+import { ensurePromotionUsageGrant } from "@/server/user/promotion-grant-service";
 
 /** Effective plan = an ACTIVE, non-expired Pro subscription, else FREE. */
 export async function getEffectivePlan(userId: string): Promise<"FREE" | "PRO"> {
@@ -30,6 +31,10 @@ export async function getEffectivePlan(userId: string): Promise<"FREE" | "PRO"> 
 /** Current user profile + plan + wallet snapshot for GET /api/me. */
 export async function getMe(userId: string) {
   const now = new Date();
+  // A promotion opened after launch has to reach accounts that already exist,
+  // and this is the call every session makes first. No-op outside the window
+  // and after the account has been granted once.
+  await ensurePromotionUsageGrant(userId, now);
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -109,8 +114,8 @@ export async function getMe(userId: string) {
     promotionEndsAt: proExpiry.showPromotion
       ? LAUNCH_PRO_PROMOTION.endsAt.toISOString()
       : null,
-    promotionCreditGrant: proExpiry.showPromotion
-      ? LAUNCH_PRO_PROMOTION.creditGrant
+    promotionUsagePercent: proExpiry.showPromotion
+      ? LAUNCH_PRO_PROMOTION.usageGrantPercent
       : null,
     creditBalance: balance,
     usageRemainingPercent: availableUsagePercent(

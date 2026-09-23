@@ -25,8 +25,8 @@ export function ProPromotionBanner() {
       <span className="font-semibold text-[var(--primary)]">Pro เปิดครบทุกหมวด</span>
       <span>
         {" "}ถึง {formatDate(user.promotionEndsAt)}
-        {user.promotionCreditGrant
-          ? ` · เพิ่ม usage ให้ ${user.promotionCreditGrant}% แล้ว`
+        {user.promotionUsagePercent
+          ? ` · รีเซ็ต usage ให้เต็ม ${user.promotionUsagePercent}% แล้ว`
           : ""}
       </span>
     </div>
