@@ -5,6 +5,7 @@ import { grantIncludedUsage } from "@/server/usage/usage-budget-service";
 import { DEFAULTS } from "@/config/constants";
 import {
   getLaunchPromotionCreditReferenceId,
+  getLaunchPromotionUsageReferenceId,
   isLaunchProPromotionActive,
   LAUNCH_PRO_PROMOTION,
 } from "@/config/promotion";
@@ -77,9 +78,12 @@ export async function provisionUser(input: {
             activationSource: "SYSTEM_DEFAULT",
           },
         });
+        // Percent of the Pro AI budget, straight from the campaign — it used
+        // to be derived from the credit grant, which tied two unrelated numbers
+        // together and made "100%" impossible to express.
         const promotionUsage = Math.round(
-          (proPkg.usageBudgetUnits * LAUNCH_PRO_PROMOTION.creditGrant) /
-            Math.max(proPkg.creditQuota, 1),
+          (proPkg.usageBudgetUnits * LAUNCH_PRO_PROMOTION.usageGrantPercent) /
+            100,
         );
         if (promotionUsage > 0) {
           await grantIncludedUsage(
@@ -88,8 +92,8 @@ export async function provisionUser(input: {
             {
               type: "PROMOTION",
               referenceType: "PROMOTION",
-              referenceId: `usage:${getLaunchPromotionCreditReferenceId(created.id)}`,
-              note: "Pro ทดลอง — งบการใช้งาน AI",
+              referenceId: getLaunchPromotionUsageReferenceId(created.id),
+              note: "โปรโมชัน Pro — งบการใช้งาน AI เต็ม 100%",
             },
             {
               startsAt: LAUNCH_PRO_PROMOTION.startsAt,
@@ -124,7 +128,7 @@ export async function provisionUser(input: {
           referenceType: "PROMOTION",
           // Ledger idempotency is global, so namespace the campaign per user.
           referenceId: getLaunchPromotionCreditReferenceId(created.id),
-          note: `สำรองเครดิตเดิมสำหรับ Pro ทดลอง 1 เดือน`,
+          note: `สำรองเครดิตเดิมสำหรับโปรโมชัน Pro`,
         },
         tx,
       );
