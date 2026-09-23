@@ -595,7 +595,7 @@ describe("createReading (M3 B2)", () => {
     expect(count(freePrompt)).toBeLessThan(count(proPrompt));
 
     // resolvePromptParts is mocked here; plan hints are asserted in prompt-resolver tests.
-    expect(freePrompt).toContain("กฎแหล่งความรู้");
+    expect(freePrompt).toContain("กฎลำดับแหล่งข้อมูล");
     expect(freePrompt).toContain("[knowledge] ตำราจากคลังความรู้ของระบบ");
   });
 
@@ -621,7 +621,7 @@ describe("createReading (M3 B2)", () => {
     expect(trace.natal.lagna).toBeTruthy();
     expect(trace.knowledge.chunks.map((c) => c.title)).toContain("ตำราการงาน");
     expect(trace.templates.persona).toEqual({ code: "persona.default", version: 3 });
-    expect(trace.systemPrompt).toContain("กฎแหล่งความรู้");
+    expect(trace.systemPrompt).toContain("กฎลำดับแหล่งข้อมูล");
     expect(trace.userPrompt).toContain("[natal]");
     expect(trace.model?.modelId).toBeTruthy();
   });

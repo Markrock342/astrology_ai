@@ -53,7 +53,7 @@ const chart = {
 
 const memory = deriveChartMemory(chart);
 
-describe("buildSystemPrompt closed-book knowledge contract", () => {
+describe("buildSystemPrompt source precedence contract", () => {
   const base = {
     safety: "safe",
     persona: "persona",
@@ -62,24 +62,33 @@ describe("buildSystemPrompt closed-book knowledge contract", () => {
     outputFormat: "markdown",
   };
 
-  it("forbids the model's own astrology knowledge and other sources", () => {
+  it("ranks persona above the corpus, and the corpus above everything else", () => {
     const prompt = buildSystemPrompt({ ...base, knowledge: "[knowledge] ตำรา A" });
-    expect(prompt).toContain("กฎแหล่งความรู้");
-    expect(prompt).toContain("ห้ามใช้ความรู้โหราศาสตร์ที่โมเดลเรียนรู้มาเอง");
-    expect(prompt).toContain("โหราศาสตร์สากล/ตะวันตก");
-    expect(prompt).toContain("บุคลิก น้ำเสียง และวิธีพูดจากบล็อก persona");
+    expect(prompt).toContain("กฎลำดับแหล่งข้อมูล");
+    // The three tiers, in the order the team asked for.
+    const persona = prompt.indexOf("(1) กฎความปลอดภัย บุคลิก");
+    const corpus = prompt.indexOf("(2) ข้อเท็จจริงของดวงจากตาราง");
+    const outside = prompt.indexOf("(3) เฉพาะประเด็นที่ตำราในคลังความรู้ไม่ได้พูดถึงเลย");
+    expect(persona).toBeGreaterThan(-1);
+    expect(persona).toBeLessThan(corpus);
+    expect(corpus).toBeLessThan(outside);
     // Rule sits right after the doctrine block it governs.
-    expect(prompt.indexOf("[knowledge] ตำรา A")).toBeLessThan(
-      prompt.indexOf("กฎแหล่งความรู้"),
-    );
+    expect(prompt.indexOf("[knowledge] ตำรา A")).toBeLessThan(persona);
     expect(prompt).not.toContain("ไม่มีตำราจากคลังความรู้แนบมา");
   });
 
-  it("tells the model not to fill the gap itself when no doctrine was retrieved", () => {
+  it("keeps outside knowledge to meaning — never to chart facts", () => {
+    const prompt = buildSystemPrompt({ ...base, knowledge: "[knowledge] ตำรา A" });
+    expect(prompt).toContain("ข้อ (3) ใช้กับการตีความความหมายเท่านั้น");
+    expect(prompt).toContain("ห้ามข้ามไปศาสตร์อื่น");
+    expect(prompt).toContain("ห้ามอ้างชื่อตำราเล่มอื่น");
+  });
+
+  it("falls back to tier 3 when no doctrine was retrieved", () => {
     const prompt = buildSystemPrompt(base);
     expect(prompt).toContain("ไม่มีตำราจากคลังความรู้แนบมา");
-    expect(prompt).toContain("ห้ามใช้ความรู้ของโมเดลเองแทน");
-    expect(prompt).toContain("กฎแหล่งความรู้");
+    expect(prompt).toContain("ข้อ (3) ของกฎลำดับแหล่งข้อมูล");
+    expect(prompt).toContain("ห้ามอ้างว่าเป็นตำราของระบบ");
   });
 });
 
