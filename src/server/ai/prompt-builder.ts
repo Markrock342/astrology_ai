@@ -109,27 +109,39 @@ export const CONVERSATION_MEMORY_RULE =
   "ข้อเท็จจริงหรือคำแก้ไขล่าสุดที่ผู้ใช้บอกให้ถือเป็นข้อมูลล่าสุด";
 
 /**
- * Closed-book rule: interpretation comes from the admin knowledge base and
- * the astrology-standards block only. Gemini's own astrology knowledge (Thai
- * or otherwise), web lore and other schools are off-limits — this is the fix
- * for answers that drifted to "ที่อื่น" when the corpus did not cover a topic.
+ * Source precedence, in the order the team asked for (Sep 2026):
+ *   1. the persona and rules set in the CMS — never overridden;
+ *   2. the chart tables and the admin knowledge base — the interpretation the
+ *      answer must use wherever the corpus covers the point;
+ *   3. only where the corpus is silent, general Thai astrology may fill in,
+ *      provided it contradicts neither of the two above.
+ *
+ * This replaces a strictly closed-book rule that made the model stop at
+ * "ยังไม่มีตำราสำหรับส่วนนี้" whenever the corpus had a gap. Tier 3 is about
+ * MEANING only: positions, lagna, ทักษา and aspects stay facts from the
+ * tables, never something the model may supply.
  */
 export const KNOWLEDGE_SOURCE_RULE =
-  "กฎแหล่งความรู้ (บังคับสูงสุด รองจากกฎความปลอดภัย): ตีความดวงได้จากแหล่งเหล่านี้เท่านั้น " +
-  "(1) ตาราง [natal] [memory] [transit] [aspects] ในข้อความผู้ใช้ " +
-  "(2) บล็อก [knowledge] ตำราจากคลังความรู้ และบล็อกมาตรฐานดาวในคำสั่งนี้ " +
-  "(3) บุคลิก น้ำเสียง และวิธีพูดจากบล็อก persona " +
-  "ห้ามใช้ความรู้โหราศาสตร์ที่โมเดลเรียนรู้มาเอง ห้ามอ้างตำราเล่มอื่น เว็บไซต์ สำนักอื่น โหราศาสตร์สากล/ตะวันตก " +
-  "ราศีสากล เลขศาสตร์ ไพ่ทาโรต์ หรือศาสตร์อื่นที่ไม่อยู่ในคลังความรู้ " +
-  "ความหมายของดาว เรือน ราศี มุม ทักษา และดวงจร ต้องเป็นความหมายตามที่คลังความรู้ให้ไว้ ห้ามเติมความหมายจากที่อื่นแม้จะฟังดูถูกต้อง " +
-  "ถ้าคลังความรู้ไม่ครอบคลุมประเด็นย่อยที่ถาม ให้ตอบเฉพาะส่วนที่ตำราและตารางดวงรองรับ " +
-  "แล้วบอกสั้น ๆ ในบุคลิกเดิมว่ายังไม่มีตำราสำหรับส่วนนั้น ห้ามเดา ห้ามเติมจากความรู้ภายนอก " +
-  "ถ้าไม่มีบล็อก [knowledge] แนบมาเลย ให้ตอบจากตารางดวงและบล็อกมาตรฐานดาวเท่านั้น";
+  "กฎลำดับแหล่งข้อมูล (บังคับ เรียงจากสูงสุดลงมา): " +
+  "(1) กฎความปลอดภัย บุคลิก น้ำเสียง และคำสั่งจากบล็อก persona — สูงสุดเสมอ " +
+  "ห้ามขัดไม่ว่าตำราหรือความรู้อื่นจะว่าอย่างไร " +
+  "(2) ข้อเท็จจริงของดวงจากตาราง [natal] [memory] [transit] [aspects] " +
+  "และความหมายจากบล็อก [knowledge] ตำราคลังความรู้ พร้อมบล็อกมาตรฐานดาวในคำสั่งนี้ — " +
+  "เป็นแหล่งตีความหลัก ประเด็นใดที่ตำราครอบคลุมแล้วต้องใช้ตามตำราเท่านั้น " +
+  "ห้ามแทนด้วยความหมายจากที่อื่นแม้จะฟังดูถูกต้องกว่า " +
+  "(3) เฉพาะประเด็นที่ตำราในคลังความรู้ไม่ได้พูดถึงเลย จึงเสริมด้วยหลักโหราศาสตร์ไทยทั่วไปได้ " +
+  "โดยต้องไม่ขัดข้อ (1) และ (2) ต้องอยู่ในกรอบโหราศาสตร์ไทยระบบสุริยยาตร์/ลาหิริ " +
+  "และพูดในน้ำเสียงเดิมแบบแนวทางประกอบ ห้ามยกขึ้นเป็นตำราของระบบ " +
+  "ข้อ (3) ใช้กับการตีความความหมายเท่านั้น — ตำแหน่งดาว ลัคนา ทักษา องศา และมุม " +
+  "เป็นข้อเท็จจริงจากตารางเสมอ ห้ามแต่ง ห้ามเดา ห้ามเติมเอง " +
+  "ห้ามอ้างชื่อตำราเล่มอื่น เว็บไซต์ สำนัก หรือบุคคลภายนอก " +
+  "และห้ามข้ามไปศาสตร์อื่น เช่น โหราศาสตร์สากล/ตะวันตก ราศีสากล เลขศาสตร์ ไพ่ทาโรต์";
 
-/** Injected when the corpus returned nothing so the model does not fill the gap itself. */
+/** Injected when the corpus returned nothing, so tier 3 is the whole reading. */
 export const KNOWLEDGE_MISSING_NOTE =
   "[knowledge] ไม่มีตำราจากคลังความรู้แนบมาในคำถามนี้ — " +
-  "ห้ามใช้ความรู้ของโมเดลเองแทน ให้อ่านจากตารางดวงและบล็อกมาตรฐานดาวเท่านั้น และบอกข้อจำกัดอย่างสุภาพเมื่อจำเป็น";
+  "ให้ยึดตารางดวงและบล็อกมาตรฐานดาวเป็นหลัก แล้วตีความตามข้อ (3) ของกฎลำดับแหล่งข้อมูล " +
+  "อย่างระมัดระวังในกรอบโหราศาสตร์ไทย ห้ามแต่งตำแหน่งดาว และห้ามอ้างว่าเป็นตำราของระบบ";
 
 export function buildSystemPrompt(parts: PromptParts): string {
   return [

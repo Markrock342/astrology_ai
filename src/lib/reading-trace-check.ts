@@ -135,7 +135,7 @@ function unknownTerms(answer: string, sources: string): TraceCheckFlag[] {
       seen.add(term);
       flags.push({
         kind: "unknown_term",
-        detail: `"${term}" ไม่มีอยู่ในตำราหรือข้อมูลที่ส่งให้ AI ในคำถามนี้เลย`,
+        detail: `"${term}" ไม่มีอยู่ในตำราหรือข้อมูลที่ส่งให้ AI ในคำถามนี้ — AI ตีความเสริมเอง`,
         snippet: `${leadIn}${term}`,
       });
     }

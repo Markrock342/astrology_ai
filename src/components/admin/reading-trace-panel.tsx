@@ -313,8 +313,20 @@ function TraceDetail({ detail }: { detail: Detail }) {
               <ul className="space-y-2">
                 {check.flags.map((flag, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs">
-                    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--danger)]" aria-hidden />
+                    {/* A term outside the ตำรา is allowed now (tier 3), so it is
+                        reported, not accused. A wrong position still is. */}
+                    <span
+                      className={`mt-1.5 size-2 shrink-0 rounded-full ${
+                        flag.kind === "unknown_term"
+                          ? "bg-[var(--primary)]"
+                          : "bg-[var(--danger)]"
+                      }`}
+                      aria-hidden
+                    />
                     <span>
+                      {flag.kind === "unknown_term" ? (
+                        <span className="mr-1 text-[var(--primary)]">นอกตำรา:</span>
+                      ) : null}
                       <span className="text-[var(--foreground)]">{flag.detail}</span>
                       <span className="block text-[var(--muted-2)]">“{flag.snippet}”</span>
                     </span>
@@ -329,9 +341,9 @@ function TraceDetail({ detail }: { detail: Detail }) {
               </p>
             )}
             <p className="mt-2 text-[11px] text-[var(--muted-2)]">
-              ตรวจข้อเท็จจริงเชิงตำแหน่ง (ดาวอยู่ราศีไหน ลัคนาราศีไหน)
-              และศัพท์ที่คำตอบอ้างว่าเป็นตำแหน่ง/ทักษา/เกณฑ์ ว่ามีอยู่ในตำราที่ส่งให้ AI จริงหรือไม่
-              — ไม่ได้ตัดสินความหมายที่ตีความ
+              จุดแดงคือขัดกับตาราง จุดทองคือศัพท์ที่ไม่ได้มาจากตำราที่ส่งไป
+              ซึ่งอนุญาตได้ถ้าตำราไม่ครอบคลุม แต่ไว้ดูว่าควรเพิ่มตำราเรื่องนั้นไหม
+              — ระบบไม่ได้ตัดสินความหมายที่ตีความ
             </p>
           </Section>
 
