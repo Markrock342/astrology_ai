@@ -70,7 +70,11 @@ function dignityLabel(planet: string, sign: string): string {
   if (!d) return "—";
   if (d.exalt.includes(sign)) return "อุจจ์";
   if (d.fall.includes(sign)) return "นีจ";
-  if (d.own.includes(sign)) return "สวักษ์";
+  // "เกษตร" is what Thai astrology calls a planet in its own sign. The old
+  // label here, "สวักษ์", was a transliteration of the Sanskrit that reads as a
+  // made-up word in Thai — and it came out of our own table, not the model, so
+  // no amount of prompt wording removed it from answers.
+  if (d.own.includes(sign)) return "เกษตร";
   return "ปกติ";
 }
 

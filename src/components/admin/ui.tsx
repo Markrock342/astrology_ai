@@ -8,10 +8,13 @@ import { adminFetchTimeoutMessage } from "@/lib/admin-fetch-timeout";
 export function PageHeader({
   title,
   description,
+  hint,
   action,
 }: {
   title: string;
   description?: string;
+  /** A second, quieter line — for a rule the admin needs before editing. */
+  hint?: string;
   action?: React.ReactNode;
 }) {
   return (
@@ -20,6 +23,11 @@ export function PageHeader({
         <h1 className="text-xl font-semibold text-[var(--foreground)]">{title}</h1>
         {description && (
           <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>
+        )}
+        {hint && (
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--muted-2)]">
+            {hint}
+          </p>
         )}
       </div>
       {action}

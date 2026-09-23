@@ -34,6 +34,9 @@ export async function upsertChartMemory(
 /**
  * Load memory for chat. Re-derives if missing or birth hash no longer matches.
  */
+/** Labels this app no longer writes; their presence means a stale cache. */
+const RETIRED_DIGNITY_LABELS = new Set(["สวักษ์"]);
+
 export async function getOrRefreshChartMemory(
   userId: string,
   natalChart: ChartJson,
@@ -48,7 +51,12 @@ export async function getOrRefreshChartMemory(
       (slot) =>
         typeof slot.planet === "string" && typeof slot.planetNum === "number",
     );
-  if (stored && row?.birthHash === expectedHash && hasCurrentTaksa) {
+  // Chart memory is cached until the birth input changes, so a correction to
+  // the words we write into it would otherwise never reach existing users.
+  const hasRetiredWording = [...RETIRED_DIGNITY_LABELS].some((label) =>
+    JSON.stringify(stored ?? null).includes(label),
+  );
+  if (stored && row?.birthHash === expectedHash && hasCurrentTaksa && !hasRetiredWording) {
     return stored;
   }
   return upsertChartMemory(userId, natalChart);

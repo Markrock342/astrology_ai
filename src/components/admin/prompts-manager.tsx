@@ -28,6 +28,10 @@ type PromptSummary = {
   version: number;
   enabled: boolean;
   draftUpdatedAt: string | null;
+  /** False = the reading engine never reads this one. See the hint below. */
+  live: boolean;
+  linkedCategories: number;
+  linkedConfigs: number;
 };
 
 type Prompt = PromptSummary & {
@@ -219,6 +223,7 @@ export function PromptsManager() {
       <PageHeader
         title="Prompt / Persona"
         description="กำหนดนิสัย โทนเสียง และกฎการตอบของ AI — แก้เนื้อหาแล้ว version จะ +1 อัตโนมัติ (การตั้งค่า prompt ไม่ใช่การเทรนโมเดล)"
+        hint="AI จะอ่านเฉพาะ prompt ที่ใช้ code ว่า persona.default, system.default, format.default หรือที่ถูกผูกไว้กับหมวดดูดวง/โมเดล AI เท่านั้น — อันที่ขึ้นว่า “AI ไม่ได้อ่านอันนี้” แก้ไปก็ไม่มีผลกับคำตอบ"
         action={
           <Button
             onClick={() => {
@@ -323,6 +328,18 @@ export function PromptsManager() {
               <Badge>v{p.version}</Badge>
               <Badge>{p.code}</Badge>
               {!p.enabled && <Badge tone="red">ปิดอยู่</Badge>}
+              {p.enabled ? (
+                p.live ? (
+                  <Badge tone="green">
+                    ใช้งานจริง
+                    {p.linkedCategories + p.linkedConfigs > 0
+                      ? ` · ผูกไว้ ${p.linkedCategories + p.linkedConfigs} จุด`
+                      : ""}
+                  </Badge>
+                ) : (
+                  <Badge tone="red">AI ไม่ได้อ่านอันนี้</Badge>
+                )
+              ) : null}
               {p.draftUpdatedAt ? <Badge tone="gold">มีแบบร่าง</Badge> : null}
               <div className="ml-auto flex gap-2">
                 <Button variant="ghost" onClick={() => toggleEnabled(p)}>

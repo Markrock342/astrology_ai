@@ -62,3 +62,66 @@ describe("checkAnswerAgainstTrace", () => {
     expect(result.confirmed).toBe(0);
   });
 });
+
+describe("terms the answer invents", () => {
+  const withPrompt = (systemPrompt: string): ReadingPromptTrace => ({
+    ...trace,
+    systemPrompt,
+  });
+
+  it("flags a position name that is in no ตำรา that was sent", () => {
+    // The real complaint: "สวักษ์" keeps appearing and exists in no source.
+    const result = checkAnswerAgainstTrace(
+      "ดาวศุกร์ (๖) ซึ่งได้ตำแหน่งสวักษ์ ส่งผลให้การเงินดีขึ้น",
+      withPrompt("[knowledge] ตำราทักษา: มหาจักร ราชาโชค กาลกิณี"),
+    );
+    const flag = result.flags.find((f) => f.kind === "unknown_term");
+    expect(flag).toBeDefined();
+    expect(flag?.detail).toContain("สวัก");
+  });
+
+  it("stays quiet when the term really is in the material", () => {
+    const result = checkAnswerAgainstTrace(
+      "ดาวอังคารได้ตำแหน่งมหาจักร จึงมีพลังในการลงมือทำ",
+      withPrompt("[knowledge] ตำรา: ดาวที่ได้ตำแหน่งมหาจักร หมายถึงผู้มีอำนาจ"),
+    );
+    expect(result.flags.filter((f) => f.kind === "unknown_term")).toHaveLength(0);
+  });
+
+  it("does not flag ordinary words after the lead-in", () => {
+    const result = checkAnswerAgainstTrace(
+      "ตำแหน่งงานที่เหมาะกับคุณคือสายประสานงาน",
+      withPrompt("[knowledge] เรือนกัมมะว่าด้วยตำแหน่งงานและอาชีพการงาน"),
+    );
+    expect(result.flags.filter((f) => f.kind === "unknown_term")).toHaveLength(0);
+  });
+
+  it("skips the check on old rows that stored no prompt", () => {
+    const result = checkAnswerAgainstTrace(
+      "ได้ตำแหน่งสวักษ์",
+      withPrompt(""),
+    );
+    expect(result.flags.filter((f) => f.kind === "unknown_term")).toHaveLength(0);
+  });
+});
+
+describe("the chart table's own wording", () => {
+  it("no longer ships the retired own-sign label", async () => {
+    // "สวักษ์" came from our own dignity table, not from the model, so it kept
+    // reappearing in answers however the prompt was worded.
+    const { readFileSync } = await import("node:fs");
+    const files = [
+      "src/server/horoscope/engine/format-chart-prompt.ts",
+      "src/server/horoscope/engine/derive-chart-memory.ts",
+      "src/server/ai/prompt-builder.ts",
+    ];
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      const code = source
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("//") && !line.trim().startsWith("*"))
+        .join("\n");
+      expect(code, file).not.toContain("สวักษ์");
+    }
+  });
+});

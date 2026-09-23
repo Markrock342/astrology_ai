@@ -44,7 +44,7 @@ const SIGN_ALIASES: Record<string, string> = {
 };
 
 export type TraceCheckFlag = {
-  kind: "planet_sign" | "lagna";
+  kind: "planet_sign" | "lagna" | "unknown_term";
   detail: string;
   snippet: string;
 };
@@ -73,6 +73,74 @@ function allowedSigns(trace: ReadingPromptTrace, planet: string): Set<string> {
     if (normalizePlanet(row.planet) === planet) allowed.add(normalizeSign(row.sign));
   }
   return allowed;
+}
+
+/**
+ * Words that introduce a technical astrology term in Thai doctrine. What
+ * follows one of these is a name the answer claims the chart gives — so it has
+ * to come from the material the model was handed, not from its own training.
+ */
+const TERM_LEAD_INS = ["ตำแหน่ง", "ทักษา", "เกณฑ์"] as const;
+
+/** Shorter than this and a Thai fragment is too ambiguous to judge. */
+const MIN_TERM_CHARS = 3;
+
+const TERM_WORD_ALLOWED = new Set<string>([
+  ...PLANETS,
+  ...SIGNS,
+  ...Object.keys(SIGN_ALIASES),
+]);
+
+/**
+ * Terms the answer presents as chart positions but that appear nowhere in what
+ * was actually sent to the model. This is the "สวักษ์" failure: a plausible,
+ * authoritative-sounding term that exists in no ตำรา in the knowledge base.
+ *
+ * Thai writes without spaces and Intl.Segmenter shreds any word it does not
+ * know ("ตำแหน่งสวักษ์" comes back as ตำ|แหน่|งส|วัก|ษ์), so segmentation
+ * cannot be trusted here. Instead: read the run of Thai after the lead-in, and
+ * accept it if ANY prefix of it occurs in the material. A real term shares its
+ * opening with the ตำรา it came from; an invented one shares nothing.
+ */
+function unknownTerms(answer: string, sources: string): TraceCheckFlag[] {
+  // No stored prompt (older rows) means nothing to compare against.
+  if (!sources.trim()) return [];
+  const flags: TraceCheckFlag[] = [];
+  const seen = new Set<string>();
+
+  for (const leadIn of TERM_LEAD_INS) {
+    let from = 0;
+    while (true) {
+      const at = answer.indexOf(leadIn, from);
+      if (at < 0) break;
+      from = at + leadIn.length;
+      const run = (answer.slice(from).match(/^[\u0E00-\u0E7F]+/u)?.[0] ?? "").slice(
+        0,
+        24,
+      );
+      if (run.length < MIN_TERM_CHARS) continue;
+      if (TERM_WORD_ALLOWED.has(run)) continue;
+
+      let known = false;
+      for (let len = MIN_TERM_CHARS; len <= run.length; len += 1) {
+        if (sources.includes(run.slice(0, len))) {
+          known = true;
+          break;
+        }
+      }
+      if (known) continue;
+
+      const term = run.slice(0, 12);
+      if (seen.has(term)) continue;
+      seen.add(term);
+      flags.push({
+        kind: "unknown_term",
+        detail: `"${term}" ไม่มีอยู่ในตำราหรือข้อมูลที่ส่งให้ AI ในคำถามนี้เลย`,
+        snippet: `${leadIn}${term}`,
+      });
+    }
+  }
+  return flags;
 }
 
 export function checkAnswerAgainstTrace(
@@ -121,6 +189,10 @@ export function checkAnswerAgainstTrace(
       });
     }
   }
+
+  flags.push(
+    ...unknownTerms(text, `${trace.systemPrompt ?? ""}\n${trace.userPrompt ?? ""}`),
+  );
 
   return { confirmed, flags };
 }
