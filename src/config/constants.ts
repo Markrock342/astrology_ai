@@ -75,10 +75,20 @@ function scaleForTrial(value: number, roundTo = 10): number {
 export const FREE_KNOWLEDGE_MAX_CHARS = scaleForTrial(KNOWLEDGE_MAX_CHARS, 100);
 
 /** Pro detailed visible length (words) — Free is derived from this. */
-export const PRO_DETAILED_WORDS_MIN = 350;
-export const PRO_DETAILED_WORDS_MAX = 500;
+/**
+ * Length target for a detailed single-topic answer. It was 350–500, set when
+ * answers leaned on headings and tables; once the team's method asked for one
+ * continuous story per topic, the same budget read as four thin paragraphs.
+ */
+export const PRO_DETAILED_WORDS_MIN = 800;
+export const PRO_DETAILED_WORDS_MAX = 1_100;
+/** Per topic, for a 17-topic overview. */
+export const PRO_OVERVIEW_WORDS_PER_TOPIC_MIN = 150;
+export const PRO_OVERVIEW_WORDS_PER_TOPIC_MAX = 220;
 export const FREE_DETAILED_WORDS_MIN = scaleForTrial(PRO_DETAILED_WORDS_MIN);
 export const FREE_DETAILED_WORDS_MAX = scaleForTrial(PRO_DETAILED_WORDS_MAX);
+export const FREE_OVERVIEW_WORDS_PER_TOPIC_MIN = scaleForTrial(PRO_OVERVIEW_WORDS_PER_TOPIC_MIN);
+export const FREE_OVERVIEW_WORDS_PER_TOPIC_MAX = scaleForTrial(PRO_OVERVIEW_WORDS_PER_TOPIC_MAX);
 
 /** Plan block of the system prompt (spec 7.2 slot 3). */
 export const PLAN_HINT_PRO =
@@ -103,8 +113,8 @@ export const PLAN_HINT_FREE =
  * PLUS the visible length the DETAILED_ANSWER_HINT asks for. Visible length is
  * still the hint — not this ceiling.
  */
-export const FREE_MAX_OUTPUT_TOKENS = 2_048;
-export const PRO_MAX_OUTPUT_TOKENS = 4_096;
+export const FREE_MAX_OUTPUT_TOKENS = 4_096;
+export const PRO_MAX_OUTPUT_TOKENS = 6_144;
 /** A 17-topic overview in prose (see READING_METHOD_RULE). */
 export const PRO_OVERVIEW_MAX_OUTPUT_TOKENS = 12_288;
 export const FREE_OVERVIEW_MAX_OUTPUT_TOKENS = 6_144;
@@ -143,19 +153,45 @@ export const BRIEF_ANSWER_HINT =
   "ถ้าถามช่วงเวลา ให้ระบุเดือนจาก [transit] ก่อน แล้วค่อยอธิบายสั้น ๆ " +
   "ห้ามปิดท้ายด้วยคำถามคนละเรื่อง ถ้าจะชวนต่อได้เพียงประโยคที่เจาะคำถามเดิมให้ชัดขึ้น";
 
-/** Free detailed — still capped so trial credits don't burn on 700-word essays. */
+/**
+ * How a detailed single-topic answer is laid out. Depth comes from the story,
+ * not from padding: the topic is split into a few ## sections, each prose,
+ * and one summary table closes it — the table the team missed. It stays
+ * outside the narrative, which is where the reading method forbids lists.
+ */
+const DETAILED_SINGLE_TOPIC_SHAPE =
+  "แบ่งหัวข้อที่ถามเป็น 3–5 ส่วนด้วย ## เช่น ภาพรวมจากพื้นดวง · ตามดาวเจ้าเรือนไปดู · ดาวร่วมเรือน มุม และดาวคู่ · " +
+  "ทักษาเดิม (และจังหวะดวงจรกับทักษาจรถ้าถามเรื่องเวลา) · ข้อแนะนำที่ทำได้จริง " +
+  "แต่ละส่วนเป็นความเรียงหลายย่อหน้า ห้ามข้อย่อยในเนื้อหา " +
+  "ปิดท้ายด้วยตารางสรุปหนึ่งตาราง ชื่อ ### ดาวที่เกี่ยวข้องกับเรื่องนี้ คอลัมน์ ดาว | ราศี · ภพ | มาตรฐาน | ทักษา | บทบาทในเรื่องนี้ " +
+  "ใช้ข้อมูลจาก [planet_facts] เท่านั้น แล้วจบด้วยคำถามชวนคุยต่อหนึ่งประโยคที่เจาะคำถามเดิม";
+
+/** Free detailed — the same shape, shorter (trial depth). */
 export const DETAILED_ANSWER_HINT_FREE =
-  `โหมดละเอียด (แพ็กเกจทดลอง): ตอบชัด อ่านง่าย รวมประมาณ ${FREE_DETAILED_WORDS_MIN}–${FREE_DETAILED_WORDS_MAX} คำ ` +
-  "หัวข้อย่อยใช้ได้เฉพาะเมื่อคำถามมีหลายส่วน ห้ามตั้งหัวข้อเป็นหมวดชีวิต " +
-  "ห้ามยืดยาวซ้ำซ้อน ห้ามตารางยาว " +
-  "ปิดท้ายด้วยคำถามชวนคุยต่อหนึ่งประโยคที่เจาะคำถามเดิม";
+  `โหมดละเอียด (แพ็กเกจทดลอง): เขียนลึก อ่านลื่น รวมประมาณ ${FREE_DETAILED_WORDS_MIN}–${FREE_DETAILED_WORDS_MAX} คำ ไม่นับตาราง ` +
+  DETAILED_SINGLE_TOPIC_SHAPE +
+  " ห้ามยืดยาวซ้ำซ้อน ห้ามตัดท้ายกลางประโยค";
 
 /** Pro detailed — keep the visible answer complete without filling the token cap. */
 export const DETAILED_ANSWER_HINT_PRO =
-  `โหมดละเอียด: ตอบชัด อ่านง่าย รวมประมาณ ${PRO_DETAILED_WORDS_MIN}–${PRO_DETAILED_WORDS_MAX} คำ ` +
-  "หัวข้อย่อยใช้ได้เฉพาะเมื่อคำถามมีหลายส่วน ห้ามตั้งหัวข้อเป็นหมวดชีวิต " +
-  "ห้ามยืดยาวซ้ำซ้อน ห้ามตารางยาว " +
-  "ห้ามตัดท้ายกลางประโยค — ถ้าใกล้จบให้สรุปสั้นแล้วปิดด้วยคำถามชวนคุยต่อหนึ่งประโยคที่เจาะคำถามเดิม";
+  `โหมดละเอียด: เขียนลึก อ่านลื่น รวมประมาณ ${PRO_DETAILED_WORDS_MIN}–${PRO_DETAILED_WORDS_MAX} คำ ไม่นับตาราง ` +
+  DETAILED_SINGLE_TOPIC_SHAPE +
+  " ห้ามยืดยาวซ้ำซ้อน ห้ามตัดท้ายกลางประโยค — ถ้าใกล้จบให้สรุปสั้นแล้วปิด";
+
+/**
+ * An overview walks all 17 topics. It used to get the single-topic hint,
+ * whose 350–500-word total left each topic about thirty words.
+ */
+export const OVERVIEW_ANSWER_HINT_PRO =
+  `โหมดละเอียด ดูดวงภาพรวม: ไล่ครบ 17 หัวข้อ หัวข้อละประมาณ ${PRO_OVERVIEW_WORDS_PER_TOPIC_MIN}–${PRO_OVERVIEW_WORDS_PER_TOPIC_MAX} คำ ` +
+  "แต่ละหัวข้อเป็น ## ตามด้วยความเรียง ห้ามข้อย่อย " +
+  "ปิดท้ายด้วยตารางสรุปหนึ่งตาราง ชื่อ ### ภาพรวมดาวในดวง คอลัมน์ ดาว | ราศี · ภพ | มาตรฐาน | ทักษา จาก [planet_facts] " +
+  "แล้วข้อคิดเชิงบวก 1–2 ประโยค ห้ามตัดท้ายกลางประโยค";
+
+export const OVERVIEW_ANSWER_HINT_FREE =
+  `โหมดละเอียด ดูดวงภาพรวม (แพ็กเกจทดลอง): ไล่ครบ 17 หัวข้อ หัวข้อละประมาณ ${FREE_OVERVIEW_WORDS_PER_TOPIC_MIN}–${FREE_OVERVIEW_WORDS_PER_TOPIC_MAX} คำ ` +
+  "แต่ละหัวข้อเป็น ## ตามด้วยความเรียง ห้ามข้อย่อย " +
+  "ปิดท้ายด้วยตารางสรุปหนึ่งตาราง จาก [planet_facts] แล้วข้อคิดเชิงบวก 1–2 ประโยค ห้ามตัดท้ายกลางประโยค";
 
 /** Delete private slip blobs this many days after admin review (PDPA retention). */
 export const SLIP_RETENTION_DAYS = 90;

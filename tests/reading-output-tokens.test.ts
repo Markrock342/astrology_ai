@@ -15,10 +15,11 @@ import {
 
 describe("resolveMaxOutputTokens", () => {
   it("uses plan cap for detailed mode", () => {
-    expect(resolveMaxOutputTokens("PRO", 4096, "detailed")).toBe(
+    // An admin ceiling above the plan cap, so the plan cap is what shows.
+    expect(resolveMaxOutputTokens("PRO", 16_384, "detailed")).toBe(
       PRO_MAX_OUTPUT_TOKENS,
     );
-    expect(resolveMaxOutputTokens("FREE", 4096, "detailed")).toBe(
+    expect(resolveMaxOutputTokens("FREE", 16_384, "detailed")).toBe(
       FREE_MAX_OUTPUT_TOKENS,
     );
   });
@@ -77,5 +78,22 @@ describe("resolveAiTimeoutMs", () => {
     expect(resolveAiTimeoutMs("gemini-3.5-flash", 30_000, "detailed")).toBe(
       30_000,
     );
+  });
+});
+
+describe("detailed answers are long enough for the reading method", () => {
+  it("asks a single topic for real depth, in sections, with a closing table", async () => {
+    const c = await import("@/config/constants");
+    expect(c.PRO_DETAILED_WORDS_MIN).toBeGreaterThanOrEqual(800);
+    expect(c.DETAILED_ANSWER_HINT_PRO).toContain("3–5 ส่วนด้วย ##");
+    expect(c.DETAILED_ANSWER_HINT_PRO).toContain("### ดาวที่เกี่ยวข้องกับเรื่องนี้");
+    // The old hint forbade tables outright and capped the answer at 500 words.
+    expect(c.DETAILED_ANSWER_HINT_PRO).not.toContain("350–500");
+  });
+
+  it("gives an overview a per-topic target instead of the single-topic total", async () => {
+    const c = await import("@/config/constants");
+    expect(c.OVERVIEW_ANSWER_HINT_PRO).toContain("ไล่ครบ 17 หัวข้อ");
+    expect(c.OVERVIEW_ANSWER_HINT_PRO).toContain("หัวข้อละประมาณ 150–220 คำ");
   });
 });
