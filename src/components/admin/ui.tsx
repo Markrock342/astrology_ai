@@ -107,8 +107,13 @@ export const TextArea = forwardRef<
   );
 });
 
-export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={inputClass} />;
+export function Select({
+  className = "",
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  // className used to be dropped here, so every "max-w-…" a page asked for
+  // was ignored and the filter stretched across the whole row.
+  return <select {...props} className={`${inputClass} ${className}`} />;
 }
 
 export function Toggle({

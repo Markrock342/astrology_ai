@@ -1,4 +1,5 @@
-import type { Prisma, Role, UserStatus, CreditTxnType } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { Role, UserStatus, CreditTxnType } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
@@ -29,7 +30,40 @@ export type ListUsersArgs = {
   search?: string;
   status?: UserStatus;
   role?: "USER" | "ADMIN" | "SUPER_ADMIN";
+  sort?: "recent" | "newest";
 };
+
+/**
+ * Last time each user asked something — their latest chat message or reading.
+ * The same signal the profile page calls ใช้งานล่าสุด; there is no login
+ * column to use instead.
+ */
+const LAST_ACTIVE_SQL = Prisma.sql`GREATEST(
+  (SELECT MAX(m."createdAt") FROM messages m
+     JOIN conversations c ON c.id = m."conversationId"
+    WHERE c."userId" = u.id AND m.role = 'USER'),
+  (SELECT MAX(r."createdAt") FROM horoscope_readings r WHERE r."userId" = u.id)
+)`;
+
+function userFilterSql(args: ListUsersArgs): Prisma.Sql {
+  const parts: Prisma.Sql[] = [Prisma.sql`TRUE`];
+  if (args.status) parts.push(Prisma.sql`u.status = ${args.status}::"UserStatus"`);
+  if (args.role) parts.push(Prisma.sql`u.role = ${args.role}::"Role"`);
+  if (args.search) {
+    const like = `%${args.search}%`;
+    parts.push(Prisma.sql`(u.email ILIKE ${like} OR u.name ILIKE ${like})`);
+  }
+  return Prisma.join(parts, " AND ");
+}
+
+async function lastActiveFor(ids: string[]): Promise<Map<string, Date | null>> {
+  if (!ids.length) return new Map();
+  const rows = await prisma.$queryRaw<Array<{ id: string; lastActiveAt: Date | null }>>`
+    SELECT u.id, ${LAST_ACTIVE_SQL} AS "lastActiveAt"
+      FROM users u
+     WHERE u.id IN (${Prisma.join(ids)})`;
+  return new Map(rows.map((r) => [r.id, r.lastActiveAt]));
+}
 
 export async function listUsers(args: ListUsersArgs) {
   const where: Prisma.UserWhereInput = {
@@ -45,14 +79,7 @@ export async function listUsers(args: ListUsersArgs) {
       : {}),
   };
 
-  const [total, items] = await Promise.all([
-    prisma.user.count({ where }),
-    prisma.user.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (args.page - 1) * args.pageSize,
-      take: args.pageSize,
-      select: {
+  const select = {
         id: true,
         name: true,
         email: true,
@@ -73,10 +100,45 @@ export async function listUsers(args: ListUsersArgs) {
           take: 1,
           select: { package: { select: { code: true, type: true } }, expiresAt: true },
         },
-      },
-    }),
-  ]);
+  } satisfies Prisma.UserSelect;
+  const skip = (args.page - 1) * args.pageSize;
+  const total = await prisma.user.count({ where });
 
+  if ((args.sort ?? "recent") === "newest") {
+    const items = await prisma.user.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: args.pageSize,
+      select,
+    });
+    const active = await lastActiveFor(items.map((u) => u.id));
+    return {
+      total,
+      page: args.page,
+      pageSize: args.pageSize,
+      items: items.map((u) => ({ ...u, lastActiveAt: active.get(u.id) ?? null })),
+    };
+  }
+
+  // Prisma cannot order by a value computed from other tables, so the page of
+  // ids comes from SQL (never-active users last, newest sign-up first among
+  // them), and the rows are then loaded and put back in that order.
+  const ordered = await prisma.$queryRaw<Array<{ id: string; lastActiveAt: Date | null }>>`
+    SELECT u.id, ${LAST_ACTIVE_SQL} AS "lastActiveAt"
+      FROM users u
+     WHERE ${userFilterSql(args)}
+     ORDER BY "lastActiveAt" DESC NULLS LAST, u."createdAt" DESC
+     LIMIT ${args.pageSize} OFFSET ${skip}`;
+  const rows = await prisma.user.findMany({
+    where: { id: { in: ordered.map((r) => r.id) } },
+    select,
+  });
+  const byId = new Map(rows.map((u) => [u.id, u]));
+  const items = ordered.flatMap((r) => {
+    const u = byId.get(r.id);
+    return u ? [{ ...u, lastActiveAt: r.lastActiveAt }] : [];
+  });
   return { total, page: args.page, pageSize: args.pageSize, items };
 }
 
@@ -95,7 +157,6 @@ export async function getUserDetail(userId: string) {
       emailVerifiedAt: true,
       // Only to say whether a password exists; never returned.
       passwordHash: true,
-      accounts: { select: { provider: true } },
       birthProfile: {
         select: {
           id: true,
@@ -152,11 +213,17 @@ export async function getUserDetail(userId: string) {
       .filter((d): d is Date => Boolean(d))
       .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
 
-  const { passwordHash, accounts, ...rest } = user;
+  const { passwordHash, ...rest } = user;
+  // Google sign-in runs without a database adapter, so the accounts table is
+  // always empty and cannot say who used Google. The only two ways in are
+  // email + password and Google: no password means Google, and a Google photo
+  // (synced on every Google sign-in) means they have used it.
+  const usedGoogle =
+    !passwordHash || /(^|\.)googleusercontent\.com\//.test(user.image ?? "");
   return {
     ...rest,
     hasPassword: Boolean(passwordHash),
-    signInProviders: [...new Set(accounts.map((a) => a.provider))],
+    signInProviders: usedGoogle ? ["google"] : [],
     lastActiveAt,
     // Birth date and time stay behind the audited "แสดงวันเกิดเต็ม".
     birthProfile: user.birthProfile

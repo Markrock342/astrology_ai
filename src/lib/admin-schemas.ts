@@ -22,6 +22,8 @@ export const listQuerySchema = z.object({
 export const userListQuerySchema = listQuerySchema.extend({
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
   role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"]).optional(),
+  /** recent = last asked first (default); newest = last signed up first. */
+  sort: z.enum(["recent", "newest"]).optional(),
 });
 
 export const userStatusSchema = z.object({
