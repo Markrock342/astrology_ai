@@ -44,7 +44,7 @@ const SIGN_ALIASES: Record<string, string> = {
 };
 
 export type TraceCheckFlag = {
-  kind: "planet_sign" | "lagna" | "unknown_term";
+  kind: "planet_sign" | "lagna" | "unknown_term" | "transit_only";
   detail: string;
   snippet: string;
 };
@@ -193,6 +193,21 @@ export function checkAnswerAgainstTrace(
   flags.push(
     ...unknownTerms(text, `${trace.systemPrompt ?? ""}\n${trace.userPrompt ?? ""}`),
   );
+
+  // A period reading has to say where the moving planets land in THIS chart.
+  // An answer that never refers back to the natal chart read transit alone —
+  // the failure the team kept seeing unless they asked for the blend in chat.
+  if (trace.intent === "transit" && trace.transit && text.trim()) {
+    const planetAlt = [...PLANETS, "ลัคนา"].join("|");
+    const refersToNatal = new RegExp(`พื้นดวง|(?:${planetAlt})\\s*เดิม`).test(text);
+    if (!refersToNatal) {
+      flags.push({
+        kind: "transit_only",
+        detail: "ตอบจากดาวจรอย่างเดียว ไม่ได้โยงกลับไปที่พื้นดวงเดิมของผู้ถามเลย",
+        snippet: text.slice(0, 80),
+      });
+    }
+  }
 
   return { confirmed, flags };
 }

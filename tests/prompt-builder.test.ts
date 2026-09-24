@@ -140,6 +140,29 @@ describe("buildUserPrompt picked transit date", () => {
   });
 });
 
+describe("natal + transit are read together", () => {
+  const base = {
+    safety: "safe",
+    persona: "persona",
+    plan: "pro",
+    category: "work",
+    outputFormat: "markdown",
+  };
+
+  it("no longer demotes the natal chart on period questions", () => {
+    const prompt = buildSystemPrompt(base);
+    expect(prompt).not.toContain("[natal] และ [memory] คือโครงสร้างพื้นดวงทั้งชีวิต ใช้ประกอบเท่านั้น");
+    expect(prompt).toContain("ต้องใช้คู่กันเสมอ");
+  });
+
+  it("makes the computed links the spine of a period answer", () => {
+    const prompt = buildSystemPrompt(base);
+    expect(prompt).toContain("อ่านจากบล็อก [transit_to_natal] เป็นแกนของคำตอบ");
+    expect(prompt).toContain("ยกอย่างน้อย 2 จุดที่ดาวจรกระทบพื้นดวง");
+    expect(prompt).toContain("ห้ามตอบจากดาวจรลอย ๆ โดยไม่โยงกลับพื้นดวง");
+  });
+});
+
 describe("buildSystemPrompt plain-language contract", () => {
   it("requires a short translation when the answer uses astrology jargon", () => {
     const prompt = buildSystemPrompt({
@@ -181,7 +204,7 @@ describe("buildSystemPrompt plain-language contract", () => {
     expect(prompt).toContain("กฎช่วงเวลา");
     expect(prompt).toContain("ห้ามทำตารางภาพรวมระยะยาวจากเจ้าเรือนพื้นดวง");
     expect(prompt).toContain("กฎผสมดวง");
-    expect(prompt).toContain("ต้องเอาพื้นดวง");
+    expect(prompt).toContain("โยงกลับพื้นดวง");
   });
 
   it("never sends a transit user back to the transit form", () => {
@@ -253,6 +276,36 @@ describe("buildConversationHistory (M3 B1)", () => {
     expect(userPrompt).toContain("[natal]");
     expect(userPrompt).toContain("[memory]");
     expect(userPrompt).toContain("คำถาม:");
+  });
+
+  it("hands a transit question the computed natal links, not transit alone", () => {
+    const transit = {
+      ...chart,
+      input: { ...chart.input, day: 8, month: 9, year: 2026, time: "12:17" },
+    } as ChartJson;
+    const { userPrompt } = buildConversationHistory(
+      [],
+      profile,
+      chart,
+      "เดือนหน้าการงานเป็นยังไง",
+      { chartMemory: memory, transitChartJson: transit, readingIntent: "transit" },
+    );
+    // The block itself, not just a mention of its name in another header.
+    expect(userPrompt).toContain("[transit_to_natal] ดาวจรกระทบพื้นดวงของผู้ถาม");
+    expect(userPrompt).toContain("ของพื้นดวง");
+    // The transit header used to say "use INSTEAD of the permanent natal chart".
+    expect(userPrompt).not.toContain("ใช้แทนคำตอบเก่าและพื้นดวงถาวร");
+  });
+
+  it("leaves a natal-only question without transit links", () => {
+    const { userPrompt } = buildConversationHistory(
+      [],
+      profile,
+      chart,
+      "นิสัยของฉันเป็นยังไง",
+      { chartMemory: memory },
+    );
+    expect(userPrompt).not.toContain("ดาวจรกระทบพื้นดวงของผู้ถาม");
   });
 
   it("attaches a transit window and horizon chart for a 3-month question", () => {

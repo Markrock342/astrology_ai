@@ -272,7 +272,8 @@ export function formatMemoryForPrompt(
       : options;
 
   const lines: string[] = [
-    "[memory] พื้นดวงถาวรของเจ้าชะตา (โครงสร้างทั้งชีวิต ไม่ใช่ดวงจรช่วงนี้ — ใช้ประกอบ ห้ามแต่งดาว)",
+    // "ใช้ประกอบ" here used to demote the natal chart on period questions.
+    "[memory] พื้นดวงถาวรของเจ้าชะตา (โครงสร้างทั้งชีวิต ไม่ใช่ดวงจรช่วงนี้ — คำถามเรื่องช่วงเวลาให้อ่านคู่กับดวงจรผ่าน [transit_to_natal] ห้ามแต่งดาว)",
     `ลัคนา: ${memory.lagna}`,
   ];
 

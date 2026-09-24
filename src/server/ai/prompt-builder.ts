@@ -14,6 +14,10 @@ import {
   formatChartForPrompt,
 } from "@/server/horoscope/engine/format-chart-prompt";
 import { formatMemoryForPrompt } from "@/server/horoscope/engine/derive-chart-memory";
+import {
+  formatTransitToNatalForPrompt,
+  linkTransitToNatal,
+} from "@/lib/transit-to-natal";
 
 /**
  * Composes the final prompt in the order defined by spec 7.2:
@@ -81,20 +85,30 @@ export const ANSWER_THE_QUESTION_RULE =
   "ห้ามจัดคำตอบเป็นสารบัญหมวดชีวิต ตัวตน / การงาน / การเงิน / ความรัก / สุขภาพ / โชคลาภ " +
   "บล็อก [memory] เป็นหลักฐานของเรื่องที่ถาม ไม่ใช่หัวข้อที่ต้องไล่ครบทุกก้อน";
 
-/** Stops natal house-lord tables being sold as "these 3 months". */
+/**
+ * Stops natal house-lord tables being sold as "these 3 months" — WITHOUT
+ * swinging the other way. It used to say "[transit] เป็นหลัก, [natal] ใช้
+ * ประกอบเท่านั้น", and the transit header said to use transit INSTEAD of the
+ * natal chart; together they beat the blend rule, and transit answers came
+ * back reading the moving planets alone. Transit is the clock; natal is where
+ * the clock strikes. Both, always.
+ */
 export const TIME_BOUNDED_READING_RULE =
   "กฎช่วงเวลา (บังคับ): ถ้าคำถามพูดถึง ช่วงนี้ เดือนนี้ สัปดาห์นี้ ปีนี้ 3 เดือน " +
-  "หรือช่วงปฏิทินใด ๆ ให้ตอบจากบล็อก [transit] เป็นหลัก " +
-  "[natal] และ [memory] คือโครงสร้างพื้นดวงทั้งชีวิต ใช้ประกอบเท่านั้น " +
+  "หรือช่วงปฏิทินใด ๆ ให้ [transit] เป็นตัวบอกจังหวะเวลา ว่าช่วงนั้นมีอะไรเคลื่อนไหว " +
+  "และให้พื้นดวง [natal]/[memory] เป็นตัวบอกว่าจังหวะนั้นลงที่เรื่องไหนในชีวิตของคนนี้ ต้องใช้คู่กันเสมอ " +
   "ห้ามทำตารางภาพรวมระยะยาวจากเจ้าเรือนพื้นดวงแล้วบอกว่าเป็นดวงช่วงนี้ " +
   "คำตอบเก่าในเธรดและบล็อกความรู้เป็นตำรา ไม่ใช่ดวงวันนี้";
 
 export const NATAL_TRANSIT_BLEND_RULE =
   "กฎผสมดวง (บังคับ): คำถามมี 2 แบบ " +
   "1) พื้นดวงเดิม — ตอบจาก [natal]/[memory] อย่างเดียว " +
-  "2) อนาคต/ช่วงเวลา/ดวงจร — ต้องเอาพื้นดวง [natal]/[memory] ไปผสมกับดวงจร [transit] " +
-  "(และ [transit_horizon] ถ้ามี) ตามตำราในบล็อกความรู้ " +
-  "ห้ามตอบแบบที่ 2 จากพื้นดวงอย่างเดียว ห้ามทิ้งตารางจร";
+  "2) อนาคต/ช่วงเวลา/ดวงจร — อ่านจากบล็อก [transit_to_natal] เป็นแกนของคำตอบ " +
+  "(และ [transit_horizon_to_natal] ถ้ามี): ยกอย่างน้อย 2 จุดที่ดาวจรกระทบพื้นดวงของผู้ถาม " +
+  "คือดาวจรเดินผ่านเรือนไหนของพื้นดวง และกุม เล็ง ตรีโกณ หรือจตุโกณดาวเดิมดวงไหน " +
+  "แล้วอธิบายว่าส่งผลกับผู้ถามอย่างไร ตามความหมายของเรือนนั้นและของดาวเดิมดวงนั้นในพื้นดวงของเขา " +
+  "เรียงจากดาวจรที่เดินช้าก่อน (เสาร์ ราหู เกตุ พฤหัสบดี) เพราะเป็นตัวกำหนดช่วงเวลา " +
+  "ห้ามตอบจากดาวจรลอย ๆ โดยไม่โยงกลับพื้นดวง และห้ามตอบจากพื้นดวงอย่างเดียวโดยไม่มีดาวจร";
 
 export const USER_CONTEXT_MEMORY_RULE =
   "กฎความจำผู้ใช้: ถ้ามีบล็อก [user_context] ให้ใช้เพื่อเชื่อมโยงคำตอบกับสิ่งที่ผู้ใช้เคยถามอย่างเป็นธรรมชาติ " +
@@ -219,7 +233,7 @@ export function transitBlockTitle(chart: ChartJson): string {
     `${year}-${pad2(month)}-${pad2(day)}T${hhmm}:00+07:00`,
   );
   const when = asOf ?? "ขณะนี้ตามเวลาไทย";
-  return `[transit] ดวงจร ณ ${when} (จังหวะช่วงนี้ — ใช้แทนคำตอบเก่าและพื้นดวงถาวรเมื่อถามเรื่องเวลา ห้ามแต่งดาว)`;
+  return `[transit] ดวงจร ณ ${when} (ตัวบอกจังหวะเวลา — ใช้แทนคำตอบเก่าในเธรด แต่ต้องอ่านคู่กับพื้นดวงผ่านบล็อก [transit_to_natal] ห้ามแต่งดาว)`;
 }
 
 /**
@@ -288,6 +302,8 @@ export function buildUserPrompt(
     lines.push("");
   }
 
+  // Computed, not requested: where each moving planet lands in THIS chart.
+  const natalLagna = natal.chart?.lagna ?? natal.meta.lagna;
   if (opts.transitChartJson) {
     const transit = assertUsableEngineChart(opts.transitChartJson);
     lines.push(
@@ -297,6 +313,14 @@ export function buildUserPrompt(
         natalInput: natal.input,
         taksaAsOf,
       }),
+      "",
+      ...formatTransitToNatalForPrompt(
+        linkTransitToNatal({
+          natalLagna,
+          natalPlanets: natal.planets,
+          transitPlanets: transit.planets,
+        }),
+      ),
       "",
     );
   }
@@ -312,6 +336,15 @@ export function buildUserPrompt(
         preferTransitSamrap: true,
         natalInput: natal.input,
       }),
+      "",
+      ...formatTransitToNatalForPrompt(
+        linkTransitToNatal({
+          natalLagna,
+          natalPlanets: natal.planets,
+          transitPlanets: horizon.planets,
+        }),
+        { horizon: true },
+      ),
       "",
     );
   }
