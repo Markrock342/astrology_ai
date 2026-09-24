@@ -38,27 +38,27 @@ describe("checkAnswerAgainstTrace", () => {
       "ดาวเสาร์ (๗) ในพื้นดวงอยู่ราศีพฤษภ ส่วนดาวเสาร์จรสถิตราศีมีน ลัคนาของคุณอยู่ราศีตุลย์",
       trace,
     );
-    expect(result.flags).toEqual([]);
+    expect(result.flags.filter((f) => f.kind !== "transit_only")).toEqual([]);
     expect(result.confirmed).toBe(3);
   });
 
   it("flags a planet placed in a sign that is in neither table", () => {
     const result = checkAnswerAgainstTrace("ดาวเสาร์ยังคงสถิตอยู่ที่ราศีกุมภ์ ทำให้…", trace);
-    expect(result.flags).toHaveLength(1);
-    expect(result.flags[0]).toMatchObject({ kind: "planet_sign" });
-    expect(result.flags[0]?.detail).toContain("เสาร์");
-    expect(result.flags[0]?.detail).toContain("กุมภ์");
+    expect(result.flags.filter((f) => f.kind !== "transit_only")).toHaveLength(1);
+    expect(result.flags.filter((f) => f.kind !== "transit_only")[0]).toMatchObject({ kind: "planet_sign" });
+    expect(result.flags.filter((f) => f.kind !== "transit_only")[0]?.detail).toContain("เสาร์");
+    expect(result.flags.filter((f) => f.kind !== "transit_only")[0]?.detail).toContain("กุมภ์");
   });
 
   it("flags a lagna that differs from the natal chart", () => {
     const result = checkAnswerAgainstTrace("ลัคนาสถิตราศีกันย์ จึง…", trace);
-    expect(result.flags).toHaveLength(1);
-    expect(result.flags[0]).toMatchObject({ kind: "lagna" });
+    expect(result.flags.filter((f) => f.kind !== "transit_only")).toHaveLength(1);
+    expect(result.flags.filter((f) => f.kind !== "transit_only")[0]).toMatchObject({ kind: "lagna" });
   });
 
   it("ignores planets the tables do not carry", () => {
     const result = checkAnswerAgainstTrace("ดาวราหูอยู่ราศีมิถุน", trace);
-    expect(result.flags).toEqual([]);
+    expect(result.flags.filter((f) => f.kind !== "transit_only")).toEqual([]);
     expect(result.confirmed).toBe(0);
   });
 });
@@ -123,5 +123,32 @@ describe("the chart table's own wording", () => {
         .join("\n");
       expect(code, file).not.toContain("สวักษ์");
     }
+  });
+});
+
+describe("transit answers that forget the natal chart", () => {
+  it("flags a period reading that never refers back to the natal chart", () => {
+    const result = checkAnswerAgainstTrace(
+      "ช่วงนี้ดาวเสาร์จรอยู่ราศีมีน การงานจะมีความกดดัน ต้องอดทน",
+      trace,
+    );
+    expect(result.flags.map((f) => f.kind)).toContain("transit_only");
+  });
+
+  it("is satisfied once the answer ties a transit to a natal planet", () => {
+    const result = checkAnswerAgainstTrace(
+      "เสาร์จรราศีมีนเล็งศุกร์เดิมของคุณ เรื่องเงินจึงต้องระวัง",
+      trace,
+    );
+    expect(result.flags.map((f) => f.kind)).not.toContain("transit_only");
+  });
+
+  it("does not apply to a natal-only reading", () => {
+    const result = checkAnswerAgainstTrace("ลัคนาราศีตุลย์ ทำให้คุณรักความยุติธรรม", {
+      ...trace,
+      intent: "natal",
+      transit: null,
+    });
+    expect(result.flags.map((f) => f.kind)).not.toContain("transit_only");
   });
 });
