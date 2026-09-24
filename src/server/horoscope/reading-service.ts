@@ -54,6 +54,8 @@ import {
   BRIEF_MAX_OUTPUT_TOKENS_PRO,
   DETAILED_ANSWER_HINT_FREE,
   DETAILED_ANSWER_HINT_PRO,
+  OVERVIEW_ANSWER_HINT_FREE,
+  OVERVIEW_ANSWER_HINT_PRO,
   FREE_KNOWLEDGE_MAX_CHARS,
   FREE_MAX_OUTPUT_TOKENS,
   GEMINI_DETAILED_FIRST_TOKEN_MS,
@@ -486,8 +488,11 @@ async function runReading(
     knowledge,
   });
   systemPrompt = `${systemPrompt}\n\n${UNIFIED_CHAT_INSTRUCTION}`;
+  const overview = isOverviewQuestion(question);
   if (answerMode === "brief") {
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
+  } else if (overview) {
+    systemPrompt = `${systemPrompt}\n\n${plan === "FREE" ? OVERVIEW_ANSWER_HINT_FREE : OVERVIEW_ANSWER_HINT_PRO}`;
   } else if (plan === "FREE") {
     systemPrompt = `${systemPrompt}\n\n${DETAILED_ANSWER_HINT_FREE}`;
   } else {

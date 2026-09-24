@@ -292,6 +292,11 @@ describe("the team's reading method is hard-coded", () => {
     expect(prompt).toContain("ห้ามใช้รายการ `-` หรือ `1.` ห้ามใช้ตาราง");
   });
 
+  it("allows one summary table after the prose, and nothing list-like inside it", () => {
+    const prompt = buildSystemPrompt(base);
+    expect(prompt).toContain("อนุญาตตารางสรุปข้อมูลดาวหนึ่งตารางท้ายคำตอบ");
+  });
+
   it("walks all 17 topics only for an overview", () => {
     const prompt = buildSystemPrompt(base);
     expect(prompt).toContain("ถ้าผู้ใช้ขอดูดวงภาพรวม ให้ไล่ครบ 17 หัวข้อ");
