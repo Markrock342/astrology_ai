@@ -91,12 +91,22 @@ export async function getUserDetail(userId: string) {
       status: true,
       createdAt: true,
       updatedAt: true,
+      image: true,
+      emailVerifiedAt: true,
+      // Only to say whether a password exists; never returned.
+      passwordHash: true,
+      accounts: { select: { provider: true } },
       birthProfile: {
         select: {
           id: true,
           nickname: true,
+          gender: true,
+          birthCountry: true,
           birthProvince: true,
+          birthDistrict: true,
+          birthTimeKnown: true,
           editCount: true,
+          createdAt: true,
         },
       },
       creditWallet: { select: { balance: true, version: true } },
@@ -120,18 +130,46 @@ export async function getUserDetail(userId: string) {
     },
   });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
-  const [usage, cost] = await Promise.all([
+  // There is no last-login column (adding one needs a migration, and the host
+  // does not run them). The last thing the person asked is the honest signal
+  // of use we do have: their latest chat message or reading.
+  const [usage, cost, lastMessage, lastReading] = await Promise.all([
     getMyUsage(userId),
     getUserCost(userId),
+    prisma.message.findFirst({
+      where: { role: "USER", conversation: { userId } },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
+    prisma.horoscopeReading.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
   ]);
+  const lastActiveAt =
+    [lastMessage?.createdAt, lastReading?.createdAt]
+      .filter((d): d is Date => Boolean(d))
+      .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+
+  const { passwordHash, accounts, ...rest } = user;
   return {
-    ...user,
+    ...rest,
+    hasPassword: Boolean(passwordHash),
+    signInProviders: [...new Set(accounts.map((a) => a.provider))],
+    lastActiveAt,
+    // Birth date and time stay behind the audited "แสดงวันเกิดเต็ม".
     birthProfile: user.birthProfile
       ? {
           hasBirthProfile: true as const,
           nickname: user.birthProfile.nickname,
+          gender: user.birthProfile.gender,
+          birthCountry: user.birthProfile.birthCountry,
           birthProvince: user.birthProfile.birthProvince,
+          birthDistrict: user.birthProfile.birthDistrict,
+          birthTimeKnown: user.birthProfile.birthTimeKnown,
           editCount: user.birthProfile.editCount,
+          createdAt: user.birthProfile.createdAt,
         }
       : null,
     usage,
