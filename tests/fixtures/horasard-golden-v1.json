@@ -142,7 +142,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "มกร",
         "planets": {
           "อาทิตย์": "มกร",
           "จันทร์": "สิงห์",
@@ -173,7 +173,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "พิจิก",
         "planets": {
           "อาทิตย์": "กรกฎ",
           "จันทร์": "มิถุน",
@@ -204,7 +204,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "กุมภ",
         "planets": {
           "อาทิตย์": "กุมภ์",
           "จันทร์": "มีน",
@@ -235,7 +235,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "กันย์",
         "planets": {
           "อาทิตย์": "ธนู",
           "จันทร์": "กุมภ์",
@@ -266,7 +266,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "กันย์",
         "planets": {
           "อาทิตย์": "มิถุน",
           "จันทร์": "กันย์",
@@ -297,7 +297,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "มีน",
         "planets": {
           "อาทิตย์": "กุมภ์",
           "จันทร์": "กรกฎ",
@@ -328,7 +328,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "ตุลย์",
         "planets": {
           "อาทิตย์": "พฤษภ",
           "จันทร์": "มกร",
@@ -359,7 +359,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "กันย์",
         "planets": {
           "อาทิตย์": "กันย์",
           "จันทร์": "ธนู",
@@ -390,7 +390,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "ตุลย์",
         "planets": {
           "อาทิตย์": "เมษ",
           "จันทร์": "มกร",
@@ -421,7 +421,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "พิจิก",
         "planets": {
           "อาทิตย์": "สิงห์",
           "จันทร์": "กุมภ์",
@@ -452,7 +452,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "กันย์",
         "planets": {
           "อาทิตย์": "ธนู",
           "จันทร์": "มิถุน",
@@ -483,7 +483,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "มิถุน",
         "planets": {
           "อาทิตย์": "ตุลย์",
           "จันทร์": "พิจิก",
@@ -514,7 +514,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "พฤษภ",
         "planets": {
           "อาทิตย์": "เมษ",
           "จันทร์": "เมษ",
@@ -545,7 +545,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "กันย์",
         "planets": {
           "อาทิตย์": "มิถุน",
           "จันทร์": "ธนู",
@@ -576,7 +576,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "มีน",
         "planets": {
           "อาทิตย์": "กุมภ์",
           "จันทร์": "ธนู",
@@ -623,5 +623,7 @@
         "taksaCountMin": 6
       }
     }
-  ]
+  ],
+  "lagnaRelockedAt": "2026-09-24",
+  "lagnaRelockNote": "All 16 suryayat-year-locked cases had locked lagna 'เมษ' — the hard-coded default the pipeline returned when the 100-year table had no lagna for the day. Re-locked to the antonathi-computed lagna; four cases checked by hand against the Sun's sidereal degree and sunrise/sunset."
 }

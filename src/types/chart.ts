@@ -79,5 +79,8 @@ export type ChartJson = {
  *    province centre, which could shift the lagna by a sign).
  * 4: myhora is sent its numeric province/district ids — names left its
  *    dropdowns on Bangkok, so v3 charts were still computed for กรุงเทพฯ.
+ * 5: the local fallback gave every birth on a day the 100-year table has no
+ *    lagna for an Aries ascendant ('เมษ' hard-coded), whatever the time. Any
+ *    chart built while the myhora scrape was down could carry it.
  */
-export const CHART_EVIDENCE_VERSION = 4;
+export const CHART_EVIDENCE_VERSION = 5;

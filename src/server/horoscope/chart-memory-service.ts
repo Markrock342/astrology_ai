@@ -56,7 +56,18 @@ export async function getOrRefreshChartMemory(
   const hasRetiredWording = [...RETIRED_DIGNITY_LABELS].some((label) =>
     JSON.stringify(stored ?? null).includes(label),
   );
-  if (stored && row?.birthHash === expectedHash && hasCurrentTaksa && !hasRetiredWording) {
+  // Memory is derived from the chart, so it must agree with it. A chart can be
+  // recomputed with a different lagna while the birth input — the cache key —
+  // stays the same (the fallback that forced 'เมษ' was one such case).
+  const natalLagna = natalChart.chart?.lagna ?? natalChart.meta.lagna;
+  const agreesWithChart = !natalLagna || stored?.lagna === natalLagna;
+  if (
+    stored &&
+    row?.birthHash === expectedHash &&
+    hasCurrentTaksa &&
+    !hasRetiredWording &&
+    agreesWithChart
+  ) {
     return stored;
   }
   return upsertChartMemory(userId, natalChart);
