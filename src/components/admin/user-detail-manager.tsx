@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   Field,
+  Modal,
   PageHeader,
   Select,
   StatCard,
@@ -17,6 +18,7 @@ import {
   adminFetch,
 } from "./ui";
 import { ConfirmModal } from "@/components/app/confirm-modal";
+import { UserAvatar } from "@/components/app/user-avatar";
 import { formatThb, usdToThb } from "@/config/ai-pricing";
 
 type UserDetail = {
@@ -26,11 +28,23 @@ type UserDetail = {
   role: string;
   status: "ACTIVE" | "DISABLED";
   createdAt: string;
+  image: string | null;
+  emailVerifiedAt: string | null;
+  hasPassword: boolean;
+  /** OAuth providers linked to the account, e.g. "google". */
+  signInProviders: string[];
+  /** Latest message or reading the person sent; null if they never asked. */
+  lastActiveAt: string | null;
   birthProfile: {
     hasBirthProfile: true;
     nickname: string | null;
+    gender: string | null;
+    birthCountry: string | null;
     birthProvince: string | null;
+    birthDistrict: string | null;
+    birthTimeKnown: boolean;
     editCount: number;
+    createdAt: string;
   } | null;
   usage?: {
     balance: number;
@@ -81,6 +95,37 @@ type RevealedBirth = {
   birthCountry: string;
 };
 
+/** Full Bangkok date and time, plus how long ago — "24 ก.ย. 2569 20:14 · 3 วันที่แล้ว". */
+function thaiMoment(value: string | null): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const when = d.toLocaleString("th-TH", {
+    timeZone: "Asia/Bangkok",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const minutes = Math.floor((Date.now() - d.getTime()) / 60_000);
+  const ago =
+    minutes < 1
+      ? "เมื่อสักครู่"
+      : minutes < 60
+        ? `${minutes} นาทีที่แล้ว`
+        : minutes < 60 * 24
+          ? `${Math.floor(minutes / 60)} ชั่วโมงที่แล้ว`
+          : `${Math.floor(minutes / (60 * 24))} วันที่แล้ว`;
+  return `${when} · ${ago}`;
+}
+
+function signUpMethod(user: { hasPassword: boolean; signInProviders: string[] }): string {
+  const ways = user.signInProviders.map((p) => (p === "google" ? "Google" : p));
+  if (user.hasPassword) ways.push("อีเมลและรหัสผ่าน");
+  return ways.length ? ways.join(" · ") : "—";
+}
+
 /** 2026-12-31 → "31 ธ.ค. 2569" (Buddhist year, Bangkok). */
 function thaiDay(value: string | null): string {
   if (!value) return "";
@@ -110,6 +155,7 @@ export function UserDetailManager({
   const [creditAmount, setCreditAmount] = useState(10);
   const [creditNote, setCreditNote] = useState("");
   const [revealedBirth, setRevealedBirth] = useState<RevealedBirth | null>(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [creditType, setCreditType] = useState<
     "ADMIN_ADD" | "ADMIN_DEDUCT" | "PROMOTION" | "REFUND"
@@ -338,8 +384,38 @@ export function UserDetailManager({
       {user && (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
-            <h2 className="text-sm font-semibold">โปรไฟล์</h2>
+            <div className="flex items-center gap-3">
+              {user.image ? (
+                <button
+                  type="button"
+                  onClick={() => setPhotoOpen(true)}
+                  className="press-scale shrink-0 rounded-full ring-2 ring-transparent transition hover:ring-[var(--primary)]/60"
+                  aria-label="ดูรูปโปรไฟล์ขนาดเต็ม"
+                  title="กดเพื่อดูรูปเต็ม"
+                >
+                  <UserAvatar name={user.name ?? user.email} image={user.image} size={56} />
+                </button>
+              ) : (
+                <UserAvatar name={user.name ?? user.email} image={null} size={56} className="shrink-0" />
+              )}
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold">โปรไฟล์</h2>
+                <p className="truncate text-[11px] text-[var(--muted)]">
+                  {user.image ? "กดที่รูปเพื่อดูขนาดเต็ม" : "ไม่มีรูปโปรไฟล์"}
+                </p>
+              </div>
+            </div>
             <dl className="mt-3 space-y-2 text-xs">
+              <Row label="สมัครเมื่อ" value={thaiMoment(user.createdAt)} />
+              <Row
+                label="ใช้งานล่าสุด"
+                value={user.lastActiveAt ? thaiMoment(user.lastActiveAt) : "ยังไม่เคยถาม"}
+              />
+              <Row label="สมัครด้วย" value={signUpMethod(user)} />
+              <Row
+                label="ยืนยันอีเมล"
+                value={user.emailVerifiedAt ? `ยืนยันแล้ว · ${thaiDay(user.emailVerifiedAt)}` : "ยังไม่ยืนยัน"}
+              />
               <Row label="บทบาท" value={user.role} />
               <Row
                 label="สถานะ"
@@ -365,14 +441,32 @@ export function UserDetailManager({
                 label="แพ็กเกจ"
                 value={activeSub?.package.name ?? "Free (ไม่มี subscription)"}
               />
-              <Row
-                label="วันเกิด"
-                value={
-                  user.birthProfile
-                    ? `${user.birthProfile.nickname ?? "—"} · ${user.birthProfile.birthProvince ?? "—"} (แก้ ${user.birthProfile.editCount}/1)`
-                    : "ยังไม่กรอก"
-                }
-              />
+              {user.birthProfile ? (
+                <>
+                  <Row label="ชื่อเล่น" value={user.birthProfile.nickname ?? "—"} />
+                  <Row label="เพศ" value={user.birthProfile.gender ?? "—"} />
+                  <Row
+                    label="สถานที่เกิด"
+                    value={[
+                      user.birthProfile.birthDistrict,
+                      user.birthProfile.birthProvince,
+                      user.birthProfile.birthCountry,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                  />
+                  <Row
+                    label="เวลาเกิด"
+                    value={user.birthProfile.birthTimeKnown ? "ทราบเวลาเกิด" : "ไม่ทราบเวลาเกิด"}
+                  />
+                  <Row
+                    label="กรอกข้อมูลเกิดเมื่อ"
+                    value={`${thaiMoment(user.birthProfile.createdAt)} · แก้แล้ว ${user.birthProfile.editCount}/1`}
+                  />
+                </>
+              ) : (
+                <Row label="ข้อมูลวันเกิด" value="ยังไม่กรอก" />
+              )}
               {revealedBirth ? (
                 <Row
                   label="วันเกิดเต็ม"
@@ -696,6 +790,32 @@ export function UserDetailManager({
         }}
         onConfirm={() => void resetTarget2fa()}
       />
+      <Modal
+        open={photoOpen && Boolean(user?.image)}
+        title={user?.name ?? user?.email ?? "รูปโปรไฟล์"}
+        size="lg"
+        onClose={() => setPhotoOpen(false)}
+      >
+        {user?.image ? (
+          <div className="flex flex-col items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={user.image}
+              alt={`รูปโปรไฟล์ ${user.name ?? user.email}`}
+              referrerPolicy="no-referrer"
+              className="max-h-[70dvh] w-auto max-w-full rounded-2xl object-contain"
+            />
+            <a
+              href={user.image}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-[var(--primary)] underline"
+            >
+              เปิดรูปในแท็บใหม่
+            </a>
+          </div>
+        ) : null}
+      </Modal>
     </AdminPage>
   );
 }
