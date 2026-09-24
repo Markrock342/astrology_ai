@@ -37,7 +37,11 @@ import {
   requireReadyNatalChart,
 } from "@/server/horoscope/chart-context";
 import { getOrRefreshChartMemory } from "@/server/horoscope/chart-memory-service";
-import { bangkokTimeHm, resolveTransitWindow } from "@/lib/reading-intent";
+import {
+  bangkokTimeHm,
+  isOverviewQuestion,
+  resolveTransitWindow,
+} from "@/lib/reading-intent";
 import { getOrComputeDailyTransit } from "@/server/horoscope/daily-transit-service";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
 import {
@@ -55,6 +59,8 @@ import {
   GEMINI_DETAILED_FIRST_TOKEN_MS,
   KNOWLEDGE_MAX_CHARS,
   PRO_MAX_OUTPUT_TOKENS,
+  PRO_OVERVIEW_MAX_OUTPUT_TOKENS,
+  FREE_OVERVIEW_MAX_OUTPUT_TOKENS,
 } from "@/config/constants";
 import { isDetailedGeminiModel } from "@/config/gemini-models";
 import type { ChartJson } from "@/types/chart";
@@ -138,9 +144,18 @@ export function resolveMaxOutputTokens(
   plan: "FREE" | "PRO",
   configMaxOutputTokens: number,
   answerMode: AnswerMode = "detailed",
+  overview = false,
 ): number {
-  const planCap =
-    plan === "PRO" ? PRO_MAX_OUTPUT_TOKENS : FREE_MAX_OUTPUT_TOKENS;
+  // Seventeen topics told as prose do not fit the everyday cap; an overview
+  // cut off at topic six is worse than a slightly dearer answer. The admin's
+  // per-model limit still applies on top.
+  const planCap = overview
+    ? plan === "PRO"
+      ? PRO_OVERVIEW_MAX_OUTPUT_TOKENS
+      : FREE_OVERVIEW_MAX_OUTPUT_TOKENS
+    : plan === "PRO"
+      ? PRO_MAX_OUTPUT_TOKENS
+      : FREE_MAX_OUTPUT_TOKENS;
   const briefCap =
     plan === "PRO" ? BRIEF_MAX_OUTPUT_TOKENS_PRO : BRIEF_MAX_OUTPUT_TOKENS_FREE;
   const modeCap = answerMode === "brief" ? briefCap : planCap;
@@ -499,6 +514,7 @@ async function runReading(
         ? transitWindow.sampleAt
         : null,
       readingIntent: transitWindow.intent,
+      overview: isOverviewQuestion(question),
       intakeText: intakeAnswers ? formatIntakeForPrompt(intakeAnswers) : null,
       userContextText: formatUserAiMemoryForPrompt(userAiMemory),
     },
@@ -590,6 +606,7 @@ async function runReading(
       plan,
       config.maxOutputTokens,
       answerMode,
+      isOverviewQuestion(question),
     );
     const aiInput = {
       systemPrompt,

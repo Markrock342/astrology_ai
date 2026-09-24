@@ -5,6 +5,8 @@ import {
   BRIEF_MAX_OUTPUT_TOKENS_PRO,
   BRIEF_MAX_OUTPUT_TOKENS_FREE,
   GEMINI_DETAILED_FIRST_TOKEN_MS,
+  PRO_OVERVIEW_MAX_OUTPUT_TOKENS,
+  FREE_OVERVIEW_MAX_OUTPUT_TOKENS,
 } from "@/config/constants";
 import {
   resolveAiTimeoutMs,
@@ -34,6 +36,20 @@ describe("resolveMaxOutputTokens", () => {
     expect(resolveMaxOutputTokens("FREE", 4096, "brief")).toBeLessThan(
       resolveMaxOutputTokens("FREE", 4096, "detailed"),
     );
+  });
+
+  it("gives a 17-topic overview room to finish", () => {
+    expect(resolveMaxOutputTokens("PRO", 16_384, "detailed", true)).toBe(
+      PRO_OVERVIEW_MAX_OUTPUT_TOKENS,
+    );
+    expect(resolveMaxOutputTokens("FREE", 16_384, "detailed", true)).toBe(
+      FREE_OVERVIEW_MAX_OUTPUT_TOKENS,
+    );
+    // Brief stays brief, and the admin's per-model ceiling still wins.
+    expect(resolveMaxOutputTokens("PRO", 16_384, "brief", true)).toBe(
+      BRIEF_MAX_OUTPUT_TOKENS_PRO,
+    );
+    expect(resolveMaxOutputTokens("PRO", 4096, "detailed", true)).toBe(4096);
   });
 
   it("respects admin config ceiling below plan cap", () => {

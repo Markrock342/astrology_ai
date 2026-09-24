@@ -105,6 +105,9 @@ export const PLAN_HINT_FREE =
  */
 export const FREE_MAX_OUTPUT_TOKENS = 2_048;
 export const PRO_MAX_OUTPUT_TOKENS = 4_096;
+/** A 17-topic overview in prose (see READING_METHOD_RULE). */
+export const PRO_OVERVIEW_MAX_OUTPUT_TOKENS = 12_288;
+export const FREE_OVERVIEW_MAX_OUTPUT_TOKENS = 6_144;
 
 /**
  * First visible token wait for ละเอียด / Gemini 3.7. Thinking-only SSE frames
