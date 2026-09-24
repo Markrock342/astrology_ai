@@ -27,6 +27,8 @@ type UserRow = {
   role: string;
   status: "ACTIVE" | "DISABLED";
   createdAt: string;
+  /** Latest message or reading the person sent; null if they never asked. */
+  lastActiveAt: string | null;
   usageWallet: {
     includedBalanceUnits: number;
     includedAllowanceUnits: number;
@@ -37,6 +39,18 @@ type UserRow = {
     expiresAt: string | null;
   }>;
 };
+
+/** "เมื่อสักครู่" · "12 นาทีที่แล้ว" · "3 ชั่วโมงที่แล้ว" · "5 วันที่แล้ว" · a date past a month. */
+function timeAgo(iso: string): string {
+  const d = new Date(iso);
+  const minutes = Math.floor((Date.now() - d.getTime()) / 60_000);
+  if (minutes < 1) return "เมื่อสักครู่";
+  if (minutes < 60) return `${minutes} นาทีที่แล้ว`;
+  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)} ชั่วโมงที่แล้ว`;
+  const days = Math.floor(minutes / (60 * 24));
+  if (days <= 30) return `${days} วันที่แล้ว`;
+  return d.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" });
+}
 
 type UsersResponse = {
   total: number;
@@ -54,6 +68,7 @@ export function UsersManager({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState<"" | "ACTIVE" | "DISABLED">("");
+  const [sort, setSort] = useState<"recent" | "newest">("recent");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,6 +95,7 @@ export function UsersManager({
       });
       if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
       if (status) params.set("status", status);
+      params.set("sort", sort);
       setData(await adminFetch<UsersResponse>(`/api/admin/users?${params}`));
       setError(null);
     } catch (e) {
@@ -87,7 +103,7 @@ export function UsersManager({
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, status]);
+  }, [page, debouncedSearch, status, sort]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -157,6 +173,18 @@ export function UsersManager({
           <option value="ACTIVE">ใช้งาน</option>
           <option value="DISABLED">ระงับ</option>
         </Select>
+        <Select
+          value={sort}
+          onChange={(e) => {
+            setSort(e.target.value as typeof sort);
+            setPage(1);
+          }}
+          className="max-w-[200px]"
+          aria-label="เรียงลำดับ"
+        >
+          <option value="recent">เรียง: ใช้งานล่าสุด</option>
+          <option value="newest">เรียง: สมัครล่าสุด</option>
+        </Select>
         <Button variant="ghost" onClick={() => void load()}>
           รีเฟรช
         </Button>
@@ -175,6 +203,7 @@ export function UsersManager({
               <Th>แพ็กเกจ</Th>
               <Th>usage เหลือ</Th>
               <Th>สถานะ</Th>
+              <Th>ใช้งานล่าสุด</Th>
               <Th>สมัครเมื่อ</Th>
               <Th className="text-right">จัดการ</Th>
             </tr>
@@ -184,15 +213,22 @@ export function UsersManager({
               const sub = u.subscriptions[0];
               const plan = sub?.package.type ?? "FREE";
               return (
-                <tr key={u.id} className="hover:bg-[var(--surface-2)]/50">
+                <tr key={u.id} className="group hover:bg-[var(--surface-2)]/50">
                   <Td>
-                    <div className="flex items-center gap-3">
+                    {/* The whole person opens their profile — not only the
+                        small "รายละเอียด" link at the far end of the row. */}
+                    <Link
+                      href={`/admin/users/${u.id}`}
+                      className="-m-1 flex items-center gap-3 rounded-lg p-1 transition hover:bg-[var(--surface-2)]"
+                    >
                       <UserAvatar name={u.name} image={u.image} size={36} className="shrink-0" />
                       <div className="min-w-0">
-                        <p className="truncate font-medium">{u.name ?? "—"}</p>
+                        <p className="truncate font-medium group-hover:text-[var(--primary)]">
+                          {u.name ?? "—"}
+                        </p>
                         <p className="truncate text-xs text-[var(--muted)]">{u.email}</p>
                       </div>
-                    </div>
+                    </Link>
                   </Td>
                   <Td>
                     <Badge
@@ -225,6 +261,15 @@ export function UsersManager({
                       {u.status === "ACTIVE" ? "ใช้งาน" : "ระงับ"}
                     </Badge>
                   </Td>
+                  <Td className="text-xs">
+                    {u.lastActiveAt ? (
+                      <span title={new Date(u.lastActiveAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}>
+                        {timeAgo(u.lastActiveAt)}
+                      </span>
+                    ) : (
+                      <span className="text-[var(--muted-2)]">ยังไม่เคยถาม</span>
+                    )}
+                  </Td>
                   <Td className="text-xs text-[var(--muted)]">
                     {new Date(u.createdAt).toLocaleDateString("th-TH")}
                   </Td>
@@ -241,7 +286,7 @@ export function UsersManager({
             })}
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-[var(--muted)]">
+                <td colSpan={8} className="px-4 py-8 text-center text-[var(--muted)]">
                   ไม่พบผู้ใช้
                 </td>
               </tr>

@@ -45,3 +45,13 @@ export function UserAvatar({
     </div>
   );
 }
+
+/**
+ * The same photo at a size worth opening. Google hands out profile photos at
+ * 96 px ("…=s96-c"), so the "view full size" dialog showed a thumbnail; the
+ * size suffix can be asked for larger. Other URLs (uploads) are already full.
+ */
+export function largeAvatarUrl(url: string): string {
+  if (!/googleusercontent\.com\//.test(url)) return url;
+  return /=s\d+(-c)?$/.test(url) ? url.replace(/=s\d+(-c)?$/, "=s800") : url;
+}

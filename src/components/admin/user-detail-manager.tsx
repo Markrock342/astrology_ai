@@ -18,7 +18,7 @@ import {
   adminFetch,
 } from "./ui";
 import { ConfirmModal } from "@/components/app/confirm-modal";
-import { UserAvatar } from "@/components/app/user-avatar";
+import { largeAvatarUrl, UserAvatar } from "@/components/app/user-avatar";
 import { formatThb, usdToThb } from "@/config/ai-pricing";
 
 type UserDetail = {
@@ -800,13 +800,13 @@ export function UserDetailManager({
           <div className="flex flex-col items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={user.image}
+              src={largeAvatarUrl(user.image)}
               alt={`รูปโปรไฟล์ ${user.name ?? user.email}`}
               referrerPolicy="no-referrer"
               className="max-h-[70dvh] w-auto max-w-full rounded-2xl object-contain"
             />
             <a
-              href={user.image}
+              href={largeAvatarUrl(user.image)}
               target="_blank"
               rel="noreferrer"
               className="text-xs text-[var(--primary)] underline"

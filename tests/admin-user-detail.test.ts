@@ -29,7 +29,6 @@ const row = {
   image: "https://lh3.googleusercontent.com/a/photo",
   emailVerifiedAt: new Date("2026-09-01T03:05:00Z"),
   passwordHash: "$2b$10$abcdefghijklmnopqrstuv",
-  accounts: [{ provider: "google" }, { provider: "google" }],
   birthProfile: {
     id: "b1",
     nickname: "ชาย",
@@ -60,7 +59,24 @@ describe("admin user detail", () => {
     expect(json).not.toContain("passwordHash");
     expect(json).not.toContain("$2b$");
     expect(detail.hasPassword).toBe(true);
+    // A Google photo means they have signed in with Google too.
     expect(detail.signInProviders).toEqual(["google"]);
+  });
+
+  it("reads a password-less account as a Google sign-up", async () => {
+    mocks.findUser.mockResolvedValue({ ...row, passwordHash: null, image: null });
+    mocks.lastMessage.mockResolvedValue(null);
+    mocks.lastReading.mockResolvedValue(null);
+    const detail = await getUserDetail("u1");
+    expect(detail.hasPassword).toBe(false);
+    expect(detail.signInProviders).toEqual(["google"]);
+  });
+
+  it("reads email + password with no Google trace as email only", async () => {
+    mocks.findUser.mockResolvedValue({ ...row, image: null });
+    mocks.lastMessage.mockResolvedValue(null);
+    mocks.lastReading.mockResolvedValue(null);
+    expect((await getUserDetail("u1")).signInProviders).toEqual([]);
   });
 
   it("uses the latest message or reading as last activity", async () => {
@@ -85,5 +101,16 @@ describe("admin user detail", () => {
       birthTimeKnown: false,
     });
     expect(JSON.stringify(detail)).not.toMatch(/birthDate|"birthTime"/);
+  });
+});
+
+describe("full-size avatar", () => {
+  it("asks Google for a large photo instead of the 96 px thumbnail", async () => {
+    const { largeAvatarUrl } = await import("@/components/app/user-avatar");
+    expect(largeAvatarUrl("https://lh3.googleusercontent.com/a/ACg8oc=s96-c")).toBe(
+      "https://lh3.googleusercontent.com/a/ACg8oc=s800",
+    );
+    const upload = "https://blob.example.com/avatars/u1.webp";
+    expect(largeAvatarUrl(upload)).toBe(upload);
   });
 });
