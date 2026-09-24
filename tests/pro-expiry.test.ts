@@ -66,3 +66,42 @@ describe("subscriptionExpiryPayload (admin form)", () => {
     );
   });
 });
+
+describe("a silent promotion", () => {
+  const ends = new Date("2026-10-01T23:59:59+07:00");
+
+  it("gives Pro with no end date and nothing to announce", () => {
+    const out = resolveProExpiry({
+      subscription: null,
+      promotionActive: true,
+      promotionEndsAt: ends,
+      promotionSilent: true,
+    });
+    // No date → no "Pro ใกล้หมดอายุ · ต่ออายุ" banner and no date on /account.
+    expect(out.endsAt).toBeNull();
+    expect(out.neverExpires).toBe(false);
+    expect(out.showPromotion).toBe(false);
+  });
+
+  it("still shows a paying user's own dates", () => {
+    const own = new Date("2026-09-28T23:59:59+07:00");
+    const out = resolveProExpiry({
+      subscription: { expiresAt: own },
+      promotionActive: true,
+      promotionEndsAt: ends,
+      promotionSilent: true,
+    });
+    expect(out.endsAt).toEqual(own);
+  });
+
+  it("is announced as before when not silent", () => {
+    const out = resolveProExpiry({
+      subscription: null,
+      promotionActive: true,
+      promotionEndsAt: ends,
+      promotionSilent: false,
+    });
+    expect(out.endsAt).toEqual(ends);
+    expect(out.showPromotion).toBe(true);
+  });
+});

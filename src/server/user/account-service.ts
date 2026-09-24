@@ -5,6 +5,8 @@ import { availableUsagePercent } from "@/server/usage/usage-budget-service";
 import { getUsageBudgetSnapshot } from "@/server/usage/usage-budget-service";
 import { MAX_BIRTH_EDITS, isStaffRole } from "@/server/user/birth-profile-service";
 import {
+  hideSilentPromotionDate,
+  isSilentPromotionSubscription,
   isLaunchProPromotionActive,
   LAUNCH_PRO_PROMOTION,
 } from "@/config/promotion";
@@ -66,7 +68,7 @@ export async function getMe(userId: string) {
         },
         orderBy: { expiresAt: "desc" },
         take: 1,
-        select: { id: true, expiresAt: true },
+        select: { id: true, expiresAt: true, activationSource: true },
       },
     },
   });
@@ -79,10 +81,12 @@ export async function getMe(userId: string) {
   const includedUsageBalance = user.usageWallet?.includedBalanceUnits ?? 0;
   const purchasedUsageBalance = user.usageWallet?.purchasedBalanceUnits ?? 0;
   const usageAllowance = user.usageWallet?.includedAllowanceUnits ?? 0;
+  const ownSub = user.subscriptions[0] ?? null;
   const proExpiry = resolveProExpiry({
-    subscription: user.subscriptions[0] ?? null,
+    subscription: isSilentPromotionSubscription(ownSub) ? null : ownSub,
     promotionActive,
     promotionEndsAt: LAUNCH_PRO_PROMOTION.endsAt,
+    promotionSilent: LAUNCH_PRO_PROMOTION.silent,
   });
   const proExpiresAt = proExpiry.endsAt?.toISOString() ?? null;
 
@@ -195,9 +199,10 @@ export async function getMyPackage(userId: string) {
       : null;
 
   const proExpiry = resolveProExpiry({
-    subscription: effectiveSub,
+    subscription: isSilentPromotionSubscription(effectiveSub) ? null : effectiveSub,
     promotionActive: isLaunchProPromotionActive(),
     promotionEndsAt: LAUNCH_PRO_PROMOTION.endsAt,
+    promotionSilent: LAUNCH_PRO_PROMOTION.silent,
   });
 
   return {
@@ -206,7 +211,7 @@ export async function getMyPackage(userId: string) {
     creditBalance: balance,
     usageRemainingPercent: usageBudget.remainingPercent,
     usageUsedPercent: usageBudget.usedPercent,
-    usagePeriodEndsAt: usageBudget.periodEndsAt?.toISOString() ?? null,
+    usagePeriodEndsAt: hideSilentPromotionDate(usageBudget.periodEndsAt)?.toISOString() ?? null,
     /** When Pro ends — null when it never does (see resolveProExpiry). */
     proEndsAt: proExpiry.endsAt?.toISOString() ?? null,
     proNeverExpires: proExpiry.neverExpires,
