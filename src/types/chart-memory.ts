@@ -28,7 +28,17 @@ export type CategoryFocus = {
  * Persisted user astrology memory — derived from engine chart only.
  * Never invent fields with an LLM.
  */
+/**
+ * Bump when the WORDS written into memory change (dignity labels, house
+ * names). Memory is cached until the birth input changes, so without this a
+ * vocabulary fix never reaches existing users.
+ *   2: นีจ → นิจ, and "ประ" added.
+ */
+export const CHART_MEMORY_VOCAB_VERSION = 2;
+
 export type UserChartMemoryJson = {
+  /** See CHART_MEMORY_VOCAB_VERSION; absent on memories written before it. */
+  vocabVersion?: number;
   lagna: string;
   source?: CalculationSource | string;
   birthHash: string;

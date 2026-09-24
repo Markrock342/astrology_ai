@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { CHART_MEMORY_VOCAB_VERSION } from "@/types/chart-memory";
 import type { ChartJson } from "@/types/chart";
 import type { UserChartMemoryJson } from "@/types/chart-memory";
 import {
@@ -35,7 +36,7 @@ export async function upsertChartMemory(
  * Load memory for chat. Re-derives if missing or birth hash no longer matches.
  */
 /** Labels this app no longer writes; their presence means a stale cache. */
-const RETIRED_DIGNITY_LABELS = new Set(["สวักษ์"]);
+const RETIRED_DIGNITY_LABELS = new Set(["สวักษ์", "นีจ"]);
 
 export async function getOrRefreshChartMemory(
   userId: string,
@@ -61,12 +62,14 @@ export async function getOrRefreshChartMemory(
   // stays the same (the fallback that forced 'เมษ' was one such case).
   const natalLagna = natalChart.chart?.lagna ?? natalChart.meta.lagna;
   const agreesWithChart = !natalLagna || stored?.lagna === natalLagna;
+  const currentVocabulary = stored?.vocabVersion === CHART_MEMORY_VOCAB_VERSION;
   if (
     stored &&
     row?.birthHash === expectedHash &&
     hasCurrentTaksa &&
     !hasRetiredWording &&
-    agreesWithChart
+    agreesWithChart &&
+    currentVocabulary
   ) {
     return stored;
   }
