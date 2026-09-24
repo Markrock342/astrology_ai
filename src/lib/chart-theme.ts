@@ -194,7 +194,14 @@ export function normalizeSignName(raw: string): string {
     const idx = Number(m[1]);
     if (idx >= 0 && idx < 12) return SIGNS[idx];
   }
-  return raw;
+  // The engine writes "กุมภ์" for some rows and "กุมภ" for others, while this
+  // list spells it without the ์ but spells สิงห์/กันย์/ตุลย์ with one. An
+  // exact match missed every planet in Aquarius: dropped from [aspects], and
+  // signIndex() fell back to 0 — Aries. Compare with the ์ and "ราศี" removed.
+  const bare = (s: string) => s.replace(/^ราศี/, "").replace(/์/g, "").trim();
+  const wanted = bare(raw);
+  const hit = SIGNS.find((sign) => bare(sign) === wanted);
+  return hit ?? raw;
 }
 
 export function signIndex(sign: string): number {

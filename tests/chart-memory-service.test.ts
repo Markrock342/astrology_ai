@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChartJson } from "@/types/chart";
+import { CHART_MEMORY_VOCAB_VERSION } from "@/types/chart-memory";
 
 const mocks = vi.hoisted(() => ({
   findMemory: vi.fn(),
@@ -64,6 +65,7 @@ describe("chart-memory Taksa cache version", () => {
       lagna: chart.chart?.lagna ?? chart.meta.lagna,
       birthHash: hashBirthInput(chart.input),
       computedAt: new Date().toISOString(),
+      vocabVersion: CHART_MEMORY_VOCAB_VERSION,
       taksaBirthDay: "เสาร์",
       taksa: chart.chart!.taksa.map((slot) => ({
         taksa: slot.taksa,
@@ -82,6 +84,29 @@ describe("chart-memory Taksa cache version", () => {
     expect(mocks.upsertMemory).not.toHaveBeenCalled();
   });
 
+  it("rebuilds a memory written with the old dignity words", async () => {
+    // No vocabVersion: written before นีจ became นิจ and ประ existed.
+    mocks.findMemory.mockResolvedValue({
+      birthHash: hashBirthInput(chart.input),
+      memoryJson: {
+        lagna: chart.chart?.lagna ?? chart.meta.lagna,
+        birthHash: hashBirthInput(chart.input),
+        computedAt: new Date().toISOString(),
+        taksaBirthDay: "เสาร์",
+        taksa: chart.chart!.taksa.map((slot) => ({
+          taksa: slot.taksa,
+          planet: slot.planet,
+          planetNum: slot.planetNum,
+        })),
+        houseOccupants: [],
+        categories: { career: {}, love: {}, money: {}, health: {} },
+      },
+    });
+    const memory = await getOrRefreshChartMemory("user-1", chart);
+    expect(mocks.upsertMemory).toHaveBeenCalledOnce();
+    expect(memory.vocabVersion).toBe(CHART_MEMORY_VOCAB_VERSION);
+  });
+
   it("rebuilds a cache whose lagna no longer matches the chart", async () => {
     // A chart recomputed after the 'เมษ' fallback fix keeps the same birth
     // input — the cache key — so only this comparison catches the stale memory.
@@ -90,6 +115,7 @@ describe("chart-memory Taksa cache version", () => {
       lagna: lagna === "เมษ" ? "ตุลย์" : "เมษ",
       birthHash: hashBirthInput(chart.input),
       computedAt: new Date().toISOString(),
+      vocabVersion: CHART_MEMORY_VOCAB_VERSION,
       taksaBirthDay: "เสาร์",
       taksa: chart.chart!.taksa.map((slot) => ({
         taksa: slot.taksa,

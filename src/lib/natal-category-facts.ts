@@ -1,3 +1,4 @@
+import { lordOfSign } from "@/lib/thai-dignity";
 import type { ChartJson } from "@/types/chart";
 import {
   HOUSE_MEANING,
@@ -6,20 +7,6 @@ import {
   SIGNS,
 } from "@/lib/chart-theme";
 
-const SIGN_LORDS: Record<string, string> = {
-  เมษ: "อังคาร",
-  พฤษภ: "ศุกร์",
-  มิถุน: "พุธ",
-  กรกฎ: "จันทร์",
-  สิงห์: "อาทิตย์",
-  กันย์: "พุธ",
-  ตุลย์: "ศุกร์",
-  พิจิก: "อังคาร",
-  ธนู: "พฤหัสบดี",
-  มกร: "เสาร์",
-  กุมภ: "เสาร์",
-  มีน: "พฤหัสบดี",
-};
 
 /** Natal houses shown per chat category — Free/Pro gating is applied in the UI. */
 export const NATAL_FACT_HOUSES: Record<string, readonly number[]> = {
@@ -114,7 +101,7 @@ export function natalFactsForCategory(
   for (const house of houses) {
     const sign = signForHouse(lagna, house);
     if (!sign) continue;
-    const lord = SIGN_LORDS[sign];
+    const lord = lordOfSign(sign);
     const lordRow = lord
       ? chart.planets.find((planet) => planet.planet === lord)
       : undefined;
@@ -152,7 +139,7 @@ function houseNote(
   const name = HOUSE_NAMES[house - 1] ?? `เรือน ${house}`;
   const meaning = HOUSE_MEANING[name as (typeof HOUSE_NAMES)[number]] ?? "";
   const sign = signForHouse(lagna, house);
-  const lord = sign ? (SIGN_LORDS[sign] ?? null) : null;
+  const lord = sign ? (lordOfSign(sign) ?? null) : null;
   const lordRow = lord
     ? chart.planets.find((planet) => planet.planet === lord)
     : undefined;

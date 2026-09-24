@@ -1,3 +1,4 @@
+import { dignityLabel } from "@/lib/thai-dignity";
 import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet, MyhoraTriwaiCell } from "@/types/myhora";
 import { SIGNS } from "@/server/horoscope/engine/newhora/data/astrologyConstants";
@@ -44,28 +45,7 @@ export function houseFromLagna(lagna: string, planetSign: string): number | null
   return ((p - l + 12) % 12) + 1;
 }
 
-const DIGNITY: Record<string, { own: string[]; exalt: string[]; fall: string[] }> = {
-  อาทิตย์: { own: ["สิงห์"], exalt: ["เมษ"], fall: ["ตุลย์"] },
-  จันทร์: { own: ["กรกฎ"], exalt: ["พฤษภ"], fall: ["พิจิก"] },
-  อังคาร: { own: ["เมษ", "พิจิก"], exalt: ["มกร"], fall: ["กรกฎ"] },
-  พุธ: { own: ["มิถุน", "กันย์"], exalt: ["กันย์"], fall: ["มีน"] },
-  พฤหัสบดี: { own: ["ธนู", "มีน"], exalt: ["กรกฎ"], fall: ["มกร"] },
-  ศุกร์: { own: ["พฤษภ", "ตุลย์"], exalt: ["มีน"], fall: ["กันย์"] },
-  เสาร์: { own: ["มกร", "กุมภ์"], exalt: ["ตุลย์"], fall: ["เมษ"] },
-};
 
-function dignityLabel(planet: string, sign: string): string {
-  const d = DIGNITY[planet];
-  if (!d) return "—";
-  if (d.exalt.includes(sign)) return "อุจจ์";
-  if (d.fall.includes(sign)) return "นีจ";
-  // "เกษตร" is what Thai astrology calls a planet in its own sign. The old
-  // label here, "สวักษ์", was a transliteration of the Sanskrit that reads as a
-  // made-up word in Thai — and it came out of our own table, not the model, so
-  // no amount of prompt wording removed it from answers.
-  if (d.own.includes(sign)) return "เกษตร";
-  return "ปกติ";
-}
 
 function pad(s: string, n: number): string {
   const t = s.slice(0, n);
