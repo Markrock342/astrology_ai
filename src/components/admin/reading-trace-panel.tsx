@@ -399,8 +399,14 @@ function TraceDetail({ detail }: { detail: Detail }) {
                     <span>
                       {chunk.title}
                       <span className="text-[var(--muted)]">
-                        {" "}· ส่วน {chunk.chunkIndex + 1}/{chunk.chunkCount} · {chunk.chars.toLocaleString()} ตัวอักษร · คะแนน {chunk.score}
+                        {" "}· ส่วน {chunk.chunkIndex + 1}/{chunk.chunkCount} · {chunk.chars.toLocaleString()} ตัวอักษร
+                        {chunk.pinned ? "" : ` · คะแนน ${chunk.score}`}
                       </span>
+                      {chunk.pinned ? (
+                        <span className="ml-1.5 rounded-full bg-[var(--primary)]/15 px-1.5 py-0.5 text-[10px] text-[var(--primary)]">
+                          ตำรานิยาม ส่งทุกคำถาม
+                        </span>
+                      ) : null}
                     </span>
                   </li>
                 ))}

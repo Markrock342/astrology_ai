@@ -25,7 +25,36 @@ export type RetrievedKnowledgeChunk = {
   chunkCount: number;
   score: number;
   sortOrder: number;
+  /** Sent because it defines a rule the method always needs, not for matching the question. */
+  pinned?: boolean;
 };
+
+/**
+ * Words that mark a passage as a DEFINITION the reading method needs on every
+ * question — the planet-pair table and the special patterns (the team's own
+ * list). Matching the question cannot find these: "การงานปีนี้เป็นยังไง" has
+ * none of these words, so the pair table was never sent and the method's
+ * "ประเมินดาวคู่" step had nothing to read. Kept to the specific names; broad
+ * words like เกษตร or อุจจ์ are on nearly every page and would pin everything.
+ */
+export const DOCTRINE_RULE_TERMS = [
+  "ดาวคู่",
+  "คู่มิตร",
+  "คู่ธาตุ",
+  "คู่สมพล",
+  "คู่ศัตรู",
+  "รูปดวง",
+  "เกณฑ์พิเศษ",
+  "มาลัยโยค",
+  "ดอกพิกุล",
+  "จตุสดัย",
+  "องค์เกณฑ์",
+  "ปทุมเกณฑ์",
+  "พินทุบาทว์",
+] as const;
+
+/** Share of the doctrine budget reserved for rule definitions. */
+const RULES_BUDGET_SHARE = 0.3;
 
 /**
  * Header of the doctrine block. Wording is a hard instruction, not a hint:
@@ -227,21 +256,39 @@ export function retrieveKnowledgeChunks(
   let used = KNOWLEDGE_BLOCK_HEADER.length;
   const perDocument = new Map<string, number>();
   const selected: RetrievedKnowledgeChunk[] = [];
+  const taken = new Set<RetrievedKnowledgeChunk>();
 
-  for (const chunk of ranked) {
-    if ((perDocument.get(chunk.documentId) ?? 0) >= MAX_CHUNKS_PER_DOCUMENT) {
-      continue;
-    }
+  const take = (chunk: RetrievedKnowledgeChunk, limit: number, pinned: boolean) => {
+    if (taken.has(chunk)) return;
+    if ((perDocument.get(chunk.documentId) ?? 0) >= MAX_CHUNKS_PER_DOCUMENT) return;
     const label = `## ${chunk.title} · ส่วน ${chunk.chunkIndex + 1}/${chunk.chunkCount}\n`;
     const blockChars = label.length + chunk.content.length + (selected.length ? 2 : 0);
-    if (used + blockChars > maxChars) continue;
-    selected.push(chunk);
+    if (used + blockChars > limit) return;
+    selected.push(pinned ? { ...chunk, pinned: true } : chunk);
+    taken.add(chunk);
     used += blockChars;
     perDocument.set(
       chunk.documentId,
       (perDocument.get(chunk.documentId) ?? 0) + 1,
     );
-  }
+  };
+
+  // 1. Rule definitions first, inside their own share of the budget: the
+  //    passages naming the most distinct rule terms win.
+  const rulesLimit = used + Math.floor((maxChars - used) * RULES_BUDGET_SHARE);
+  const ruleChunks = ranked
+    .map((chunk) => {
+      const text = normalize(`${chunk.title}\n${chunk.content}`);
+      const named = DOCTRINE_RULE_TERMS.filter((term) => text.includes(term));
+      const hits = named.reduce((n, term) => n + occurrences(text, term), 0);
+      return { chunk, distinct: named.length, hits };
+    })
+    .filter((r) => r.distinct > 0)
+    .sort((a, b) => b.distinct - a.distinct || b.hits - a.hits);
+  for (const { chunk } of ruleChunks) take(chunk, rulesLimit, true);
+
+  // 2. The rest of the budget goes to what matches the question, as before.
+  for (const chunk of ranked) take(chunk, maxChars, false);
 
   return selected;
 }

@@ -43,6 +43,8 @@ export type ReadingPromptTrace = {
       chunkCount: number;
       chars: number;
       score: number;
+      /** A rule definition sent on every question (see DOCTRINE_RULE_TERMS). */
+      pinned?: boolean;
     }>;
   };
   templates: {
