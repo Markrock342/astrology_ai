@@ -245,7 +245,57 @@ describe("buildSystemPrompt plain-language contract", () => {
     });
     expect(prompt).toContain("กฎตอบตรงคำถาม");
     expect(prompt).toContain("ห้ามจัดคำตอบเป็นสารบัญหมวดชีวิต");
-    expect(prompt).toContain("ห้ามตั้งหัวข้อเป็นหมวดตัวตน");
+    // Several life-category headings only when asked for several, or for an overview.
+    expect(prompt).toContain("ห้ามตั้งหัวข้อเป็นหมวดชีวิตหลายหมวด");
+  });
+});
+
+describe("the team's reading method is hard-coded", () => {
+  const base = {
+    safety: "safe",
+    persona: "persona from the CMS",
+    plan: "pro",
+    category: "self",
+    outputFormat: "markdown",
+  };
+
+  it("is always present, right after the persona", () => {
+    const prompt = buildSystemPrompt(base);
+    const persona = prompt.indexOf("persona from the CMS");
+    const method = prompt.indexOf("กฎวิธีพยากรณ์");
+    expect(method).toBeGreaterThan(persona);
+    expect(prompt.indexOf("pro")).toBeGreaterThan(method);
+  });
+
+  it("points the mechanical steps at computed blocks instead of asking for them", () => {
+    const prompt = buildSystemPrompt(base);
+    expect(prompt).toContain("[house_chains] ภพผสมภพของทุกภพ");
+    expect(prompt).toContain("[planet_facts]");
+    expect(prompt).toContain("ห้ามคำนวณหรือไล่ใหม่เอง");
+  });
+
+  it("keeps the team's element table and forbids any other", () => {
+    const prompt = buildSystemPrompt(base);
+    expect(prompt).toContain("ไฟ: อาทิตย์ เสาร์ · ดิน: จันทร์ พฤหัสบดี · ลม: อังคาร ราหู · น้ำ: พุธ ศุกร์");
+    expect(prompt).toContain("ห้ามตีความระบบธาตุอื่น");
+  });
+
+  it("only lets special patterns be named when a table or ตำรา backs them", () => {
+    const prompt = buildSystemPrompt(base);
+    expect(prompt).toContain("ถ้าไม่มีระบุ ห้ามอ้างว่าดวงนี้มี");
+  });
+
+  it("asks for prose inside each topic, and the layout rule no longer says otherwise", () => {
+    const prompt = buildSystemPrompt(base);
+    expect(prompt).toContain("ต้องเป็นความเรียงเรื่องเดียวต่อเนื่อง");
+    expect(prompt).not.toContain("ใช้ตาราง Markdown (| คอลัมน์ |) เมื่อสรุปดาว");
+    expect(prompt).toContain("ห้ามใช้รายการ `-` หรือ `1.` ห้ามใช้ตาราง");
+  });
+
+  it("walks all 17 topics only for an overview", () => {
+    const prompt = buildSystemPrompt(base);
+    expect(prompt).toContain("ถ้าผู้ใช้ขอดูดวงภาพรวม ให้ไล่ครบ 17 หัวข้อ");
+    expect(prompt).toContain("17 ศัตรูลับและงานเบื้องหลัง (เจ้าเรือนวินาศ)");
   });
 });
 
@@ -295,6 +345,21 @@ describe("buildConversationHistory (M3 B1)", () => {
     expect(userPrompt).toContain("ของพื้นดวง");
     // The transit header used to say "use INSTEAD of the permanent natal chart".
     expect(userPrompt).not.toContain("ใช้แทนคำตอบเก่าและพื้นดวงถาวร");
+  });
+
+  it("hands every reading the computed chains and the answer's scope", () => {
+    const single = buildConversationHistory([], profile, chart, "นิสัยของฉันเป็นยังไง", {
+      chartMemory: memory,
+    }).userPrompt;
+    expect(single).toContain("[planet_facts] ข้อเท็จจริงของดาวเจ้าเรือน");
+    expect(single).toContain("[house_chains] ภพผสมภพของทุกภพ");
+    expect(single).toContain("ขอบเขตคำตอบ: คำถามเฉพาะเรื่อง");
+
+    const overview = buildConversationHistory([], profile, chart, "ขอดูดวงภาพรวม", {
+      chartMemory: memory,
+      overview: true,
+    }).userPrompt;
+    expect(overview).toContain("วิเคราะห์ครบ 17 หัวข้อ");
   });
 
   it("leaves a natal-only question without transit links", () => {

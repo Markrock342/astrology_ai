@@ -508,3 +508,16 @@ export function resolveTransitWindow(
     null,
   );
 }
+
+/**
+ * "Read my whole chart" rather than one question. The team's method walks 17
+ * topics for this and one topic otherwise; deciding it here — not leaving it
+ * to the model — is what keeps a single question from turning into a table of
+ * contents, and an overview from stopping after two topics.
+ */
+const OVERVIEW_PATTERN =
+  /ภาพรวม|ดูดวงทั้งหมด|ทุกด้าน|ทุกเรื่อง|ทุกหัวข้อ|ครบทุก|ดวงชะตาโดยรวม|ดวงโดยรวม|ดูดวงทั่วไป|พยากรณ์ทั้งหมด|ทั้งชีวิต/;
+
+export function isOverviewQuestion(question: string): boolean {
+  return OVERVIEW_PATTERN.test(question);
+}
