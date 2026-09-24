@@ -577,6 +577,7 @@ async function runReading(
         chunkCount: chunk.chunkCount,
         chars: chunk.content.length,
         score: Math.round(chunk.score * 100) / 100,
+        pinned: chunk.pinned ?? false,
       })),
     },
     templates: promptParts.sources ?? { system: null, persona: null, format: null },
