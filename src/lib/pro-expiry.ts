@@ -12,6 +12,8 @@ export type ProExpiryInput = {
   subscription: { expiresAt: Date | null } | null;
   promotionActive: boolean;
   promotionEndsAt: Date;
+  /** A quiet promotion is never announced and never counted down. */
+  promotionSilent?: boolean;
 };
 
 export type ProExpiry = {
@@ -27,6 +29,7 @@ export function resolveProExpiry({
   subscription,
   promotionActive,
   promotionEndsAt,
+  promotionSilent = false,
 }: ProExpiryInput): ProExpiry {
   const own = subscription ?? null;
   // Pro that already outlasts the promotion gains nothing from it — announcing
@@ -38,11 +41,11 @@ export function resolveProExpiry({
   return {
     endsAt: own
       ? own.expiresAt
-      : promotionActive
+      : promotionActive && !promotionSilent
         ? promotionEndsAt
         : null,
     neverExpires: own !== null && own.expiresAt === null,
-    showPromotion: promotionActive && !outlastsPromotion,
+    showPromotion: promotionActive && !outlastsPromotion && !promotionSilent,
   };
 }
 

@@ -4,6 +4,7 @@ import {
   getUsageBudgetSnapshot,
   percentageOf,
 } from "@/server/usage/usage-budget-service";
+import { hideSilentPromotionDate } from "@/config/promotion";
 
 export type UsageHistoryItem = {
   id: string;
@@ -50,7 +51,7 @@ function serializeSummary(
     includedRemainingPercent: budget.includedRemainingPercent,
     purchasedRemainingPercent: budget.purchasedRemainingPercent,
     periodStartedAt: budget.periodStartedAt?.toISOString() ?? null,
-    periodEndsAt: budget.periodEndsAt?.toISOString() ?? null,
+    periodEndsAt: hideSilentPromotionDate(budget.periodEndsAt)?.toISOString() ?? null,
     dailyLimit: counts.dailyLimit,
     monthlyLimit: counts.monthlyLimit,
     usedToday: counts.usedToday,
