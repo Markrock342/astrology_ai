@@ -106,9 +106,14 @@ export function computeFullChartSync(
 ): PipelineResult {
   const lookup = lookupSuryayatSync(input, place)
   if (lookup) {
-    const lagna = lookupLagnaSync(input, place) ?? 'เมษ'
     const suryayatRows = signsToRows(lookup.signs)
     const formula = fromFormulaPipeline(input, place)
+    // The 100-year table carries planet signs for most days but a lagna for
+    // few of them. The fallback here used to be a hard-coded 'เมษ', so every
+    // birth on such a day got an Aries ascendant whatever the time — and every
+    // house in the reading was counted from it. The antonathi formula computes
+    // the real one from sunrise and birth time; use it.
+    const lagna = lookupLagnaSync(input, place) ?? formula.lagna
     const verifiedFormulaRows = applyRahuEightSignsAquarius(formula.planets, formula.lagna)
     return {
       planets: mergeVerifiedFormulaDegrees(suryayatRows, verifiedFormulaRows),
