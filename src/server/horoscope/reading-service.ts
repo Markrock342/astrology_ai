@@ -14,6 +14,7 @@ import {
 } from "@/server/ai/router";
 import {
   classifyProviderFailure,
+  AI_UNAVAILABLE_USER_MESSAGE,
   logProviderAlert,
   providerAlertUserMessage,
 } from "@/server/ai/provider-alerts";
@@ -673,12 +674,20 @@ async function runReading(
         errorMessage: result.errorMessage,
       });
       const code =
-        result.errorCode === "TIMEOUT" ? "AI_TIMEOUT" : "AI_PROVIDER_ERROR";
+        result.errorCode === "TIMEOUT"
+          ? "AI_TIMEOUT"
+          : alert === "BILLING" || alert === "QUOTA"
+            ? "AI_CAPACITY"
+            : "AI_PROVIDER_ERROR";
+      if (!alert) {
+        // The raw provider text is for us, not for the customer.
+        console.error(
+          `[ai] reading failed model=${result.modelId ?? "?"} code=${result.errorCode ?? "?"} ${result.errorMessage ?? ""}`.trim(),
+        );
+      }
       throw new AppError(
         code,
-        providerAlertUserMessage(alert) ??
-          result.errorMessage ??
-          "AI request failed",
+        providerAlertUserMessage(alert) ?? AI_UNAVAILABLE_USER_MESSAGE,
       );
     }
 

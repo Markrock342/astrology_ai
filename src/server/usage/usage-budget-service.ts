@@ -168,7 +168,8 @@ export async function assertHasUsageBudget(
     !wallet ||
     wallet.includedBalanceUnits + wallet.purchasedBalanceUnits <= 0
   ) {
-    throw new AppError("NO_QUOTA", "AI usage budget is exhausted");
+    // Shown in the chat bubble; the box under it carries the button to buy more.
+    throw new AppError("NO_QUOTA", "เครดิตการใช้งานของคุณถึงขีดจำกัดแล้ว");
   }
 }
 

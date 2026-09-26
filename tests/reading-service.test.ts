@@ -433,6 +433,45 @@ describe("createReading (M3 B2)", () => {
     expect(mocks.deductUsageCost).not.toHaveBeenCalled();
   });
 
+  it("tells the customer the site is busy — never the vendor — when AI credit runs out", async () => {
+    // The shape Gemini returns when the prepaid balance is gone.
+    mocks.generateWithFallback.mockResolvedValue({
+      ok: false,
+      provider: "GEMINI",
+      modelId: "gemini-3.7-flash",
+      latencyMs: 300,
+      errorCode: "BILLING_EXHAUSTED",
+      errorMessage: "Your prepayment credits are depleted. Please go to AI Studio to manage your billing.",
+    });
+
+    const failure = await failureOf(
+      createReading({ userId: "user-1", categorySlug: "career", question: "q" }),
+    );
+
+    expect(failure.code).toBe("AI_CAPACITY");
+    expect(failure.message).toContain("ขณะนี้มีผู้ใช้งานระบบพร้อมกันเป็นจำนวนมาก");
+    expect(failure.message).not.toMatch(/gemini|google|studio|เติมเงิน/i);
+    expect(mocks.deductUsageCost).not.toHaveBeenCalled();
+  });
+
+  it("does not pass a raw provider error through to the customer", async () => {
+    mocks.generateWithFallback.mockResolvedValue({
+      ok: false,
+      provider: "GEMINI",
+      modelId: "gemini-3.7-flash",
+      latencyMs: 300,
+      errorCode: "HTTP_500",
+      errorMessage: "internal error at models/gemini-3.7-flash:streamGenerateContent",
+    });
+
+    const failure = await failureOf(
+      createReading({ userId: "user-1", categorySlug: "career", question: "q" }),
+    );
+
+    expect(failure.code).toBe("AI_PROVIDER_ERROR");
+    expect(failure.message).not.toContain("streamGenerateContent");
+  });
+
   it("deducts cost-weighted usage on successful AI response", async () => {
     const result = await createReading({
       userId: "user-1",
@@ -821,3 +860,13 @@ describe("buildAstrologyStandardsPrompt", () => {
     expect(prompt).toContain("คำอธิบายดวงจรจากแอดมิน");
   });
 });
+
+/** The error a call rejects with, typed for assertions on code and message. */
+async function failureOf(p: Promise<unknown>): Promise<{ code?: string; message?: string }> {
+  try {
+    await p;
+  } catch (e) {
+    return e as { code?: string; message?: string };
+  }
+  throw new Error("expected the call to fail");
+}
