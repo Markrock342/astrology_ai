@@ -21,6 +21,8 @@ export type AppErrorCode =
   | "CHART_NOT_READY"
   | "AI_TIMEOUT"
   | "AI_PROVIDER_ERROR"
+  /** The site's AI provider is out of credit or quota — not the user's fault. */
+  | "AI_CAPACITY"
   | "AI_INVALID_OUTPUT"
   | "DUPLICATE_REQUEST"
   | "RATE_LIMITED"
@@ -46,6 +48,7 @@ const STATUS: Record<AppErrorCode, number> = {
   CHART_NOT_READY: 422,
   AI_TIMEOUT: 504,
   AI_PROVIDER_ERROR: 502,
+  AI_CAPACITY: 503,
   AI_INVALID_OUTPUT: 502,
   DUPLICATE_REQUEST: 409,
   RATE_LIMITED: 429,

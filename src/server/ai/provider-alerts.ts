@@ -79,16 +79,23 @@ export function normalizeGeminiError(input: {
   return { errorCode: status, errorMessage: message, alert: null };
 }
 
+/**
+ * What a USER sees when the site's AI side fails. These used to be written for
+ * the admin — "เครดิต Gemini อาจหมด กรุณาเติมเงินใน Google AI Studio" — and
+ * went straight into the chat, telling customers which vendor we use and that
+ * we had not paid it. The wording for running out is the team's own. Admins
+ * still get the real cause from the logs and the AI status panel.
+ */
+export const AI_CAPACITY_USER_MESSAGE =
+  "ขณะนี้มีผู้ใช้งานระบบพร้อมกันเป็นจำนวนมาก เรากำลังเร่งขยายขีดความสามารถ" +
+  "เพื่อให้คุณกลับมาใช้งานได้โดยเร็วที่สุด กรุณาลองใหม่อีกครั้งในภายหลัง";
+
+export const AI_UNAVAILABLE_USER_MESSAGE =
+  "ระบบทำนายขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งในภายหลัง";
+
 export function providerAlertUserMessage(kind: ProviderAlertKind): string | null {
-  if (kind === "BILLING") {
-    return "ระบบ AI ใช้ไม่ได้ชั่วคราว — เครดิต Gemini อาจหมด กรุณาเติมเงินใน Google AI Studio แล้วลองใหม่";
-  }
-  if (kind === "QUOTA") {
-    return "ระบบ AI ถูกจำกัดโควต้าชั่วคราว กรุณาลองใหม่ในอีกสักครู่ หรือเพิ่มโควต้าใน Google AI Studio";
-  }
-  if (kind === "KEY") {
-    return "ระบบ AI ตั้งค่าไม่ครบ (API key) — แอดมินต้องตรวจ API key ในหน้าโมเดล AI หรือ env fallback";
-  }
+  if (kind === "BILLING" || kind === "QUOTA") return AI_CAPACITY_USER_MESSAGE;
+  if (kind === "KEY") return AI_UNAVAILABLE_USER_MESSAGE;
   return null;
 }
 

@@ -206,6 +206,7 @@ type ChatState =
 const RETRYABLE_ERRORS = new Set([
   "AI_TIMEOUT",
   "AI_PROVIDER_ERROR",
+  "AI_CAPACITY",
   "RATE_LIMITED",
   "NETWORK",
   "INTERNAL",
@@ -222,8 +223,9 @@ const UPGRADE_ERRORS = new Set([
 
 /** Map API error codes (lib/errors.ts) to friendly Thai messages. */
 const ERROR_MESSAGES: Record<string, string> = {
+  // The team's wording (Sep 2026); the box adds the button to buy more.
   NO_QUOTA:
-    "usage หมดแล้ว — เติม usage เพื่อถามต่อ หรืออัปเกรด Pro หากยังใช้แพ็กทดลอง",
+    "เครดิตการใช้งานของคุณถึงขีดจำกัดแล้ว คุณสามารถเพิ่มเครดิตได้ที่นี่",
   CATEGORY_LOCKED:
     "หมวดนี้ใช้ได้ใน Pro — แพ็ก Free ใช้หมวด「ตัวตน」กับ「การงาน」ได้",
   CHAT_REQUIRES_PRO: "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
@@ -239,6 +241,9 @@ const ERROR_MESSAGES: Record<string, string> = {
     "ยังคำนวณพื้นดวงไม่สำเร็จ กรุณาตรวจสอบข้อมูลวันเกิดแล้วลองใหม่",
   AI_TIMEOUT: "หมอดูใช้เวลานานเกินไป ลองถามใหม่อีกครั้ง (ไม่ถูกหัก usage)",
   AI_PROVIDER_ERROR: "ระบบทำนายขัดข้องชั่วคราว ลองใหม่อีกครั้ง (ไม่ถูกหัก usage)",
+  // The bubble above already says why (the site is busy); this line only adds
+  // that nothing was charged, instead of repeating the paragraph.
+  AI_CAPACITY: "ไม่ถูกหัก usage · ลองใหม่อีกครั้งภายหลังได้เลย",
   VALIDATION: "กรุณากรอกข้อมูลวันเกิดก่อนเริ่มดูดวง",
   RATE_LIMITED: "ถามถี่เกินไป รอสักครู่แล้วลองใหม่",
   QUOTA_EXCEEDED:
@@ -2637,6 +2642,7 @@ function ErrorBanner({
     state === "no-quota" ||
     (errorCode != null && UPGRADE_ERRORS.has(errorCode));
   const quotaExceeded = errorCode === "QUOTA_EXCEEDED";
+  const plan = useAppData().user?.plan ?? "FREE";
   const showBirthProfile =
     errorCode === "VALIDATION" && errorText === ERROR_MESSAGES.VALIDATION;
 
@@ -2680,13 +2686,20 @@ function ErrorBanner({
         )}
         {showUpgrade && (
           <a
-            href="/account"
+            href={
+              state === "no-quota" && !quotaExceeded
+                ? // Pro buys a top-up; a trial account buys Pro.
+                  plan === "PRO"
+                  ? "/account#topup"
+                  : "/account#payment"
+                : "/account"
+            }
             className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
           >
             {quotaExceeded
               ? "ดูแพ็กเกจ / รอวันใหม่"
               : state === "no-quota"
-                ? "อัปเกรด / ดูแพ็กเกจ"
+                ? "เพิ่มเครดิต"
                 : "อัปเกรดเป็น Pro"}
           </a>
         )}

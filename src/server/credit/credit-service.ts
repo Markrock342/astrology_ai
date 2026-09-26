@@ -45,7 +45,7 @@ export async function deductCredits(
 
   const wallet = await ensureWallet(userId, tx);
   if (wallet.balance < amount) {
-    throw new AppError("NO_QUOTA", "Not enough credit");
+    throw new AppError("NO_QUOTA", "เครดิตการใช้งานของคุณถึงขีดจำกัดแล้ว");
   }
 
   const updated = await tx.creditWallet.updateMany({

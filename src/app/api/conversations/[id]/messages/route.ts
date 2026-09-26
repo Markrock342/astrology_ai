@@ -10,6 +10,7 @@ import {
   isStopRequested,
 } from "@/server/horoscope/message-service";
 import { generateThreadTitle } from "@/server/horoscope/follow-up-suggestions";
+import { AI_UNAVAILABLE_USER_MESSAGE } from "@/server/ai/provider-alerts";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -321,12 +322,11 @@ export async function POST(
           close();
         } catch (err) {
           const code = err instanceof AppError ? err.code : "AI_PROVIDER_ERROR";
+          // Anything that is not one of our errors (a database or runtime
+          // failure) keeps its details in the log, not in the customer's chat.
+          if (!(err instanceof AppError)) console.error("[chat] turn failed", err);
           const message =
-            err instanceof AppError
-              ? err.message
-              : err instanceof Error
-                ? err.message
-                : "AI request failed";
+            err instanceof AppError ? err.message : AI_UNAVAILABLE_USER_MESSAGE;
           send({
             type: "error",
             code,
