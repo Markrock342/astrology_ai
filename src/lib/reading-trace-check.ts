@@ -44,7 +44,7 @@ const SIGN_ALIASES: Record<string, string> = {
 };
 
 export type TraceCheckFlag = {
-  kind: "planet_sign" | "lagna" | "unknown_term" | "transit_only";
+  kind: "planet_sign" | "lagna" | "unknown_term" | "transit_only" | "timeline_year";
   detail: string;
   snippet: string;
 };
@@ -143,6 +143,41 @@ function unknownTerms(answer: string, sources: string): TraceCheckFlag[] {
   return flags;
 }
 
+function inventedYears(answer: string, userPrompt: string, createdAt: string): TraceCheckFlag[] {
+  const start = userPrompt.indexOf("[timeline]");
+  if (start < 0) return [];
+  const end = userPrompt.indexOf("\n\n", start);
+  const block = userPrompt.slice(start, end < 0 ? undefined : end);
+  const allowed = new Set(block.match(/25\d\d/g) ?? []);
+  // The year asked in, and the birth year, are fine to mention.
+  const asked = new Date(createdAt);
+  if (!Number.isNaN(asked.getTime())) allowed.add(String(asked.getUTCFullYear() + 543));
+  const birth = userPrompt.match(/วันเกิด:\s*(\d{4})/)?.[1];
+  if (birth) allowed.add(String(Number(birth) + 543));
+
+  const flags: TraceCheckFlag[] = [];
+  const seen = new Set<string>();
+  // Buddhist years as written, and Christian years converted.
+  const years = [
+    ...[...answer.matchAll(/(?<!\d)(25\d\d)(?!\d)/g)].map((m) => ({ be: m[1]!, raw: m[0] })),
+    ...[...answer.matchAll(/(?:ค\.ศ\.|ปี)\s*(20\d\d)(?!\d)/g)].map((m) => ({
+      be: String(Number(m[1]) + 543),
+      raw: m[0],
+    })),
+  ];
+  for (const y of years) {
+    if (allowed.has(y.be) || seen.has(y.be)) continue;
+    seen.add(y.be);
+    const at = answer.indexOf(y.raw);
+    flags.push({
+      kind: "timeline_year",
+      detail: `ปี ${y.be} ไม่มีอยู่ในไทม์ไลน์ที่คำนวณให้ AI — ปีนี้ AI ใส่เอง`,
+      snippet: answer.slice(Math.max(0, at - 30), at + 30),
+    });
+  }
+  return flags;
+}
+
 export function checkAnswerAgainstTrace(
   answer: string,
   trace: ReadingPromptTrace,
@@ -193,6 +228,10 @@ export function checkAnswerAgainstTrace(
   flags.push(
     ...unknownTerms(text, `${trace.systemPrompt ?? ""}\n${trace.userPrompt ?? ""}`),
   );
+
+  // A "when" answer may only use years the timeline computed. A year outside
+  // it was made up — the very thing the timeline exists to stop.
+  flags.push(...inventedYears(text, trace.userPrompt ?? "", trace.createdAt));
 
   // A period reading has to say where the moving planets land in THIS chart.
   // An answer that never refers back to the natal chart read transit alone —

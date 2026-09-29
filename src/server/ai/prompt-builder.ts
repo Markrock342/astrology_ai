@@ -127,6 +127,20 @@ export const READING_METHOD_RULE =
   "เชื่อมทุกจุดเป็นเรื่องเล่าเดียว และผูกทักษากับทักษาจรเข้าไปในเนื้อเรื่องอย่างเป็นธรรมชาติ เช่น ดาวดวงนี้เป็นศรีจรในปีนี้พอดี ทำให้... ไม่แยกอธิบายทักษาต่างหาก " +
   "ตรวจความถูกต้องของการตามดาวเจ้าเรือน การจับคู่ธาตุ และตำแหน่งทักษากับข้อมูลที่ให้ทุกครั้งก่อนตอบ";
 
+/**
+ * Appended only when a [timeline] was computed. The model used to answer
+ * "จุดเปลี่ยนตอนไหน" with "ต้องใช้ดาวจรในอนาคต ซึ่งไม่มีในข้อมูล" — now it
+ * has them, and must date things from them and nothing else.
+ */
+export const TIMELINE_RULE =
+  "กฎไทม์ไลน์ (บังคับ): คำถามนี้ถามว่าเมื่อไหร่ในชีวิต และมีบล็อก [timeline] ที่คำนวณดาวจรล่วงหน้าไว้แล้ว " +
+  "ห้ามบอกว่าไม่มีข้อมูลดาวจรหรือระบุเวลาไม่ได้ " +
+  "เลือกจุดเปลี่ยน 3–6 จุดที่ตรงกับคำถามที่สุด โดยให้น้ำหนักจุดที่คะแนนสูงก่อน " +
+  "บอกเดือน ปี พ.ศ. และอายุ ตามที่บล็อกระบุเท่านั้น ห้ามเดาหรือคำนวณปีเอง " +
+  "แต่ละจุดอธิบายตามวิธีพยากรณ์: ดาวจรเข้าภพไหนของพื้นดวง ทับหรือเล็งดาวเดิมดวงใด " +
+  "และทักษาจรปีนั้นชี้ว่าดีหรือต้องระวัง แล้วบอกว่าชีวิตด้านไหนจะเปลี่ยนอย่างไร " +
+  "ถ้าผู้ใช้ถามเลยปีสุดท้ายในบล็อก ให้บอกสุภาพว่าปฏิทินดาวที่ใช้คำนวณครอบคลุมถึงปีนั้น";
+
 /** Stops Gemini treating chart-memory blocks as a table of contents. */
 export const ANSWER_THE_QUESTION_RULE =
   "กฎตอบตรงคำถาม (บังคับ): ตอบเฉพาะสิ่งที่ผู้ใช้ถามในข้อความล่าสุด " +
@@ -233,6 +247,8 @@ export function buildSystemPrompt(parts: PromptParts): string {
 }
 
 export type BuildUserPromptOptions = {
+  /** A computed life timeline ([timeline] block) for "when will…" questions. */
+  timelineText?: string | null;
   /** Overview = all 17 topics; otherwise only the topics the question is about. */
   overview?: boolean;
   chartMemory?: UserChartMemoryJson | null;
@@ -418,6 +434,8 @@ export function buildUserPrompt(
       "",
     );
   }
+
+  if (opts.timelineText) lines.push(opts.timelineText, "");
 
   lines.push(
     "ข้อมูลผู้ถาม:",

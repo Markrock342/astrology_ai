@@ -521,3 +521,27 @@ const OVERVIEW_PATTERN =
 export function isOverviewQuestion(question: string): boolean {
   return OVERVIEW_PATTERN.test(question);
 }
+
+/**
+ * "When will my life turn?" — a question about WHEN, across a life, with no
+ * period named. It used to be read as a natal question and got no transit at
+ * all, so the model either refused to date anything or invented a year. A
+ * named period ("เดือนหน้า", "ปี 2570") stays a single-window question.
+ */
+const TIMELINE_PATTERN =
+  /ตอนไหน|เมื่อไหร่|เมื่อไร|อายุเท่าไ|ปีไหน|เดือนไหน|ช่วงไหน|จุดเปลี่ยน|พลิกล็อ|พลิกผัน|พลิกชีวิต|กลับด้าน|ทั้งชีวิต|ตลอดชีวิต|ช่วงชีวิต|ดวงจะขึ้น|ดวงขึ้นตอน|ดวงดีตอน|ปีทอง|ช่วงทอง/;
+
+export function isTimelineQuestion(question: string): boolean {
+  const q = question.trim();
+  if (!TIMELINE_PATTERN.test(q)) return false;
+  const named = resolveTimeKeyword(q);
+  if (named && named.days !== 0) return false;
+  if (parseRelativeSpan(q)) return false;
+  if (detectFutureDatePromptTrigger(q) === "explicit_date") return false;
+  return true;
+}
+
+/** Whether the timeline should also look back over the years already lived. */
+export function timelineIncludesPast(question: string): boolean {
+  return /ที่ผ่านมา|ย้อนหลัง|ย้อนไป|เคยผ่าน|ตอนเด็ก|ทั้งชีวิต|ตลอดชีวิต/.test(question);
+}
