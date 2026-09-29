@@ -367,6 +367,15 @@ describe("buildConversationHistory (M3 B1)", () => {
     expect(overview).toContain("วิเคราะห์ครบ 17 หัวข้อ");
   });
 
+  it("carries a computed timeline for 'when' questions", () => {
+    const { userPrompt } = buildConversationHistory([], profile, chart, "ชีวิตจะพลิกตอนไหน", {
+      chartMemory: memory,
+      timelineText: "[timeline] จุดเปลี่ยน…\n- ก.ค. 2575 · อายุ 56 · เสาร์จรเข้าราศีมิถุน",
+    });
+    expect(userPrompt).toContain("[timeline] จุดเปลี่ยน");
+    expect(userPrompt.indexOf("[timeline]")).toBeLessThan(userPrompt.indexOf("คำถาม:"));
+  });
+
   it("leaves a natal-only question without transit links", () => {
     const { userPrompt } = buildConversationHistory(
       [],

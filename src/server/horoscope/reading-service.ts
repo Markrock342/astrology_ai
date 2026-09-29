@@ -21,6 +21,7 @@ import {
 import {
   buildSystemPrompt,
   buildConversationHistory,
+  TIMELINE_RULE,
 } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
@@ -41,8 +42,10 @@ import { getOrRefreshChartMemory } from "@/server/horoscope/chart-memory-service
 import {
   bangkokTimeHm,
   isOverviewQuestion,
+  isTimelineQuestion,
   resolveTransitWindow,
 } from "@/lib/reading-intent";
+import { buildLifeTimelinePrompt } from "@/server/horoscope/life-timeline-service";
 import { getOrComputeDailyTransit } from "@/server/horoscope/daily-transit-service";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
 import {
@@ -484,11 +487,24 @@ async function runReading(
     .filter(Boolean)
     .join("\n\n") || undefined;
 
+  // "When will my life turn?" gets the slow planets walked over the years.
+  const timelineText = isTimelineQuestion(question)
+    ? buildLifeTimelinePrompt({
+        natal: natalChart,
+        memory: chartMemory,
+        question,
+        categorySlug,
+      })
+    : null;
+
   let systemPrompt = buildSystemPrompt({
     ...promptParts,
     knowledge,
   });
   systemPrompt = `${systemPrompt}\n\n${UNIFIED_CHAT_INSTRUCTION}`;
+  if (timelineText) {
+    systemPrompt = `${systemPrompt}\n\n${TIMELINE_RULE}`;
+  }
   const overview = isOverviewQuestion(question);
   if (answerMode === "brief") {
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
@@ -521,6 +537,7 @@ async function runReading(
         : null,
       readingIntent: transitWindow.intent,
       overview: isOverviewQuestion(question),
+      timelineText,
       intakeText: intakeAnswers ? formatIntakeForPrompt(intakeAnswers) : null,
       userContextText: formatUserAiMemoryForPrompt(userAiMemory),
     },
