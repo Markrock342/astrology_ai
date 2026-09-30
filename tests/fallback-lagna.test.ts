@@ -96,3 +96,20 @@ describe("formula Rahu", () => {
     expect(new Set(["06:00", "12:00", "18:00"].map(at))).toEqual(new Set(["พิจิก"]));
   });
 });
+
+describe("formula Ketu", () => {
+  it("is the Thai Ketu, not the node opposite Rahu", () => {
+    // 18 Nov 2001 02:08 — astro.meemodel.com: เกตุ มีน 23°28'.
+    const t = MakeTime(new Date(Date.UTC(2001, 10, 17, 19, 8)));
+    const ketu = computeSiderealPlanets(t).get("เกตุ")!;
+    expect(ketu.siderealSign).toBe("มีน");
+    expect(Math.abs(ketu.siderealLongitude - (330 + 23 + 28 / 60))).toBeLessThan(0.1);
+  });
+
+  it("moves backwards about 0.53° a day", () => {
+    const at = (iso: string) =>
+      computeSiderealPlanets(MakeTime(new Date(iso))).get("เกตุ")!.siderealLongitude;
+    const step = (at("1925-03-10T05:00:00Z") - at("1925-04-09T05:00:00Z") + 360) % 360;
+    expect(step).toBeCloseTo(15.9, 0);
+  });
+});
