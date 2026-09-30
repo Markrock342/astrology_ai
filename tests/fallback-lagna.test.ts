@@ -30,3 +30,29 @@ describe("local fallback lagna", () => {
     expect(lagnaAt("18:00")).toBe("กรกฎ");
   });
 });
+
+// Charts myhora itself produced. The antonathi walk this engine used before
+// put the first two in สิงห์ — a sign early.
+describe("local lagna against myhora", () => {
+  it.each([
+    [{ day: 18, month: 11, year: 2001, time: "02:08", province: "นครราชสีมา", district: "โชคชัย" }, "กันย์"],
+    [{ day: 21, month: 11, year: 2001, time: "02:00", province: "กรุงเทพมหานคร", district: "บางแค" }, "กันย์"],
+    [{ day: 21, month: 5, year: 2006, time: "18:31", province: "กรุงเทพมหานคร", district: "พระนคร" }, "พิจิก"],
+  ])("%o rises in %s", (birth, lagna) => {
+    const chart = computeNatalChartFormula({ ...birth, country: "ไทย" });
+    expect(chart.chart?.lagna).toBe(lagna);
+    expect(chart.meta.formulaLagna).toBe("sidereal-ascendant");
+  });
+});
+
+describe("formula Rahu", () => {
+  it("is the mean node, not shifted by the lagna", () => {
+    // Outside the 100-year table, so the formula alone decides.
+    const at = (time: string) =>
+      computeNatalChartFormula({
+        day: 15, month: 6, year: 1938, time, country: "ไทย",
+        province: "กรุงเทพมหานคร", district: "พระนคร",
+      }).planets.find((p) => p.planet === "ราหู")?.siderealSign;
+    expect(new Set(["06:00", "12:00", "18:00"].map(at))).toEqual(new Set(["พิจิก"]));
+  });
+});

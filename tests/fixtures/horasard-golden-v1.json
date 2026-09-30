@@ -80,7 +80,7 @@
       },
       "expect": {
         "source": "formula-pipeline",
-        "lagna": "สิงห์",
+        "lagna": "กรกฎ",
         "planets": {
           "อาทิตย์": "มิถุน",
           "จันทร์": "ธนู",
@@ -89,8 +89,8 @@
           "พฤหัสบดี": "กุมภ",
           "ศุกร์": "กรกฎ",
           "เสาร์": "มีน",
-          "ราหู": "ธนู",
-          "เกตุ": "ธนู",
+          "ราหู": "พิจิก",
+          "เกตุ": "พฤษภ",
           "มฤตยู": "เมษ"
         },
         "taksaCountMin": 6
@@ -120,8 +120,8 @@
           "พฤหัสบดี": "มกร",
           "ศุกร์": "พิจิก",
           "เสาร์": "พิจิก",
-          "ราหู": "เมษ",
-          "เกตุ": "มีน",
+          "ราหู": "กุมภ",
+          "เกตุ": "สิงห์",
           "มฤตยู": "สิงห์"
         },
         "taksaCountMin": 6
@@ -576,7 +576,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "มีน",
+        "lagna": "เมษ",
         "planets": {
           "อาทิตย์": "กุมภ์",
           "จันทร์": "ธนู",
@@ -607,7 +607,7 @@
       },
       "expect": {
         "source": "suryayat-100-year",
-        "lagna": "เมษ",
+        "lagna": "พฤษภ",
         "planets": {
           "อาทิตย์": "ธนู",
           "จันทร์": "กุมภ์",
@@ -624,6 +624,6 @@
       }
     }
   ],
-  "lagnaRelockedAt": "2026-09-24",
-  "lagnaRelockNote": "All 16 suryayat-year-locked cases had locked lagna 'เมษ' — the hard-coded default the pipeline returned when the 100-year table had no lagna for the day. Re-locked to the antonathi-computed lagna; four cases checked by hand against the Sun's sidereal degree and sunrise/sunset."
+  "lagnaRelockedAt": "2026-09-30",
+  "lagnaRelockNote": "All 16 suryayat-year-locked cases had locked lagna 'เมษ' — the hard-coded default the pipeline returned when the 100-year table had no lagna for the day. Re-locked to the antonathi-computed lagna; four cases checked by hand against the Sun's sidereal degree and sunrise/sunset. 2026-09-30: the local lagna moved from an unsourced antonathi walk to the sidereal ascendant, which matches all three myhora-verified charts (the walk missed two). Three locks sat within 3.4° of a sign edge and moved: formula-1938-bangkok สิงห์→กรกฎ, year-2015-nonthaburi มีน→เมษ, year-1987-mahasarakham เมษ→พฤษภ. Same day: the formula Rahu read astronomy-engine's J2000 day count as a Julian Day and was then shifted by the lagna to paper over it; fixed to the mean node (checked by hand: 1938-06-15 พิจิก 2.5°, 2045-03-01 กุมภ 7°; 91% sign agreement with the 100-year table). Ketu in formula-only years is still node+180, not the Thai เกตุ."
 }

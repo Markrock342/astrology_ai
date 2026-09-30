@@ -1,17 +1,14 @@
 /**
- * คำนวณครบวงจร: ปฏิทินร้อยปี → แคช (async) → สูตร (อันโตนาที + ลาหิรี + ราหู 8 + ทักษา)
+ * คำนวณครบวงจร: ปฏิทินร้อยปี → แคช (async) → สูตร (ลัคนาจากเวลาดาราคติ + ลาหิรี + ราหู 8 + ทักษา)
  */
 
-import { Body, Observer, SearchRiseSet } from 'astronomy-engine'
 import type { BirthInput, PlanetSignRow } from '../types/astrology'
 import type { PlaceCoords } from '../data/placeCoordinates'
 import { PLANETS } from '../data/astrologyConstants'
 import { birthAstroTime } from './birthMoment'
 import { computeSiderealPlanets } from './siderealPlanets'
-import { computeAntonathiSamrapLagna } from './antonathiSamrap'
-import { applyRahuEightSignsAquarius } from './rahuEightAquarius'
+import { computeSiderealAscendant } from './lagna'
 import { computeTaksaFromBirth, type TaksaSlot } from './taksa'
-import { birthLocalMinutes, localMinutesFromMidnight, sunriseLocalMinutes } from './sunrise'
 import { lookupSuryayatSync, lookupLagnaSync } from './suryayat/lookup'
 
 export type PipelineSource =
@@ -50,22 +47,14 @@ function fromFormulaPipeline(input: BirthInput, place: PlaceCoords): {
 } {
   const time = birthAstroTime(input, place)
   const placements = computeSiderealPlanets(time)
-  const birthMin = birthLocalMinutes(input.time)
 
-  let riseTime = time
-  let sunriseMin = sunriseLocalMinutes(time, place) ?? 6 * 60
-  try {
-    const observer = new Observer(place.lat, place.lon, 0)
-    const rise = SearchRiseSet(Body.Sun, observer, 1, time, 1)
-    if (rise) {
-      riseTime = rise
-      sunriseMin = localMinutesFromMidnight(rise, place.utcOffsetMinutes)
-    }
-  } catch {
-    /* ใช้ค่าโดยประมาณ 06:00 */
-  }
-
-  const lagnaResult = computeAntonathiSamrapLagna(riseTime, birthMin, sunriseMin)
+  // The rising sign, computed from sidereal time at the birthplace (Lahiri).
+  // It replaced an antonathi walk from sunrise whose per-sign table had no
+  // source: it strayed up to 5° from the sky, so a birth near a sign edge
+  // could land in the wrong sign — 18 Nov 2001 02:08 โคราช came out สิงห์
+  // where myhora has กันย์. This matches every myhora-verified chart we hold.
+  const lagnaResult = computeSiderealAscendant(time, place.lat, place.lon)
+  const lagnaDegreeInSign = lagnaResult.longitude % 30
 
   const planets = PLANETS.map((planet) => {
     const p = placements.get(planet)
@@ -77,7 +66,7 @@ function fromFormulaPipeline(input: BirthInput, place: PlaceCoords): {
     }
   })
 
-  return { planets, lagna: lagnaResult.sign, lagnaDegreeInSign: lagnaResult.degreeInSign }
+  return { planets, lagna: lagnaResult.sign, lagnaDegreeInSign }
 }
 
 /**
@@ -114,7 +103,7 @@ export function computeFullChartSync(
     // house in the reading was counted from it. The antonathi formula computes
     // the real one from sunrise and birth time; use it.
     const lagna = lookupLagnaSync(input, place) ?? formula.lagna
-    const verifiedFormulaRows = applyRahuEightSignsAquarius(formula.planets, formula.lagna)
+    const verifiedFormulaRows = formula.planets
     return {
       planets: mergeVerifiedFormulaDegrees(suryayatRows, verifiedFormulaRows),
       lagna,
@@ -127,7 +116,7 @@ export function computeFullChartSync(
   }
 
   const { planets: rawPlanets, lagna: rawLagna, lagnaDegreeInSign } = fromFormulaPipeline(input, place)
-  const planets = applyRahuEightSignsAquarius(rawPlanets, rawLagna)
+  const planets = rawPlanets
 
   return {
     planets,
