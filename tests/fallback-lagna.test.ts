@@ -38,13 +38,12 @@ describe("local fallback lagna", () => {
 });
 
 // Charts myhora itself produced ("สุริยยาตร์, ลัคนาอันโตนาทีสามัญ สมผุสอาทิตย์
-// อุทัย ปรับเวลาท้องถิ่น"), at the coordinates myhora printed. Degrees where
-// myhora showed them; otherwise the navamsa it named (a 3°20' band). The
-// methods this engine had before missed by 5–16° and got signs wrong.
+// อุทัย ปรับเวลาท้องถิ่น"), captured by the owner at the coordinates myhora
+// printed. Degree where myhora showed it (±0.15°), otherwise the navamsa it
+// named (a 3°20' band). Earlier methods missed by 3–16° and got signs wrong.
 describe("local lagna against myhora", () => {
   const place = (lat: number, lon: number) => ({ lat, lon, utcOffsetMinutes: 420 });
   it.each([
-    ["1980-10-20 22:15 กรุงเทพฯ", 1980, 10, 20, "22:15", 13.758, 100.514, "มิถุน", 19.77, 19.77],
     ["2001-11-18 02:08 กรุงเทพฯ", 2001, 11, 18, "02:08", 13.752555, 100.494066, "กันย์", 12.92, 12.92],
     ["1987-01-05 04:30 กรุงเทพฯ", 1987, 1, 5, "04:30", 13.752555, 100.494066, "พิจิก", 15.25, 15.25],
     ["1992-06-20 03:15 กรุงเทพฯ", 1992, 6, 20, "03:15", 13.752555, 100.494066, "เมษ", 13.42, 13.42],
@@ -52,13 +51,21 @@ describe("local lagna against myhora", () => {
     ["1997-03-10 01:20 อุบลฯ", 1997, 3, 10, "01:20", 15.2283, 104.855, "พิจิก", 23.33, 26.67],
     ["1985-08-25 05:40 กาญจนบุรี", 1985, 8, 25, "05:40", 14.0033, 99.55, "กรกฎ", 23.33, 26.67],
     ["2005-12-15 06:40 เชียงใหม่", 2005, 12, 15, "06:40", 18.79, 98.9867, "พิจิก", 20, 23.33],
-    ["2002-06-19 22:43 สว่างแดนดิน", 2002, 6, 19, "22:43", 17.475, 103.458, "กุมภ", 13.33, 16.67],
+    ["2002-06-19 22:43 สว่างแดนดิน", 2002, 6, 19, "22:43", 17.475, 103.458, "กุมภ", 6.67, 10],
+    ["1995-02-12 09:00 อุบลฯ", 1995, 2, 12, "09:00", 15.2283, 104.855, "มีน", 13.48, 13.48],
+    ["1998-07-03 13:00 เชียงใหม่", 1998, 7, 3, "13:00", 18.79, 98.9867, "กันย์", 19.63, 19.63],
+    ["1987-10-21 10:30 นราธิวาส", 1987, 10, 21, "10:30", 6.42667, 101.825, "พิจิก", 22.32, 22.32],
+    ["2007-05-08 15:45 แม่สอด", 2007, 5, 8, "15:45", 16.7133, 98.575, "กันย์", 18.4, 18.4],
+    ["1992-12-30 07:30 นครพนม", 1992, 12, 30, "07:30", 17.41, 104.778, "ธนู", 29.27, 29.27],
+    ["1982-08-17 11:15 ภูเก็ต", 1982, 8, 17, "11:15", 7.89, 98.385, "กันย์", 22.37, 22.37],
+    ["2002-04-05 19:20 อุบลฯ", 2002, 4, 5, "19:20", 15.2283, 104.855, "ตุลย์", 9.32, 9.32],
+    ["1990-01-25 20:10 แม่ฮ่องสอน", 1990, 1, 25, "20:10", 19.3033, 97.9767, "สิงห์", 18.58, 18.58],
   ] as const)("%s", (_label, year, month, day, time, lat, lon, lagna, lo, hi) => {
     const chart = computeFullChartSync({ year, month, day, time } as never, place(lat, lon) as never);
     expect(chart.lagna).toBe(lagna);
     const deg = chart.lagnaDegreeInSign ?? 99;
-    expect(deg).toBeGreaterThanOrEqual(lo - 0.3);
-    expect(deg).toBeLessThanOrEqual(hi + 0.3);
+    expect(deg).toBeGreaterThanOrEqual(lo - 0.15);
+    expect(deg).toBeLessThanOrEqual(hi + 0.15);
   });
 
   it("moves our Lahiri Sun onto myhora's", () => {

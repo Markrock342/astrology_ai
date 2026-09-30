@@ -90,9 +90,9 @@ export const CHART_EVIDENCE_VERSION = 5;
 /**
  * How the local engine places the lagna. Locally computed charts made with an
  * earlier method are rebuilt (the unsourced antonathi table, then briefly the
- * sidereal ascendant — both 5–16° from myhora; v2 used the Lahiri Sun, v3
- * missed myhora's local-time adjustment outside Bangkok). myhora charts are not: bumping
+ * sidereal ascendant — both 5–16° from myhora; v2–v4 had the Lahiri Sun or
+ * the wrong local-time adjustment, 3–4° off in daytime). myhora charts are not: bumping
  * CHART_EVIDENCE_VERSION would rebuild those too, and with myhora unreachable
  * they would fall back to the local engine.
  */
-export const FORMULA_LAGNA_METHOD = "antonathi-saman-v4";
+export const FORMULA_LAGNA_METHOD = "antonathi-saman-v5";
