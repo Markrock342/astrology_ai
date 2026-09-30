@@ -7,6 +7,7 @@ import {
   USD_TO_THB,
 } from "@/config/ai-pricing";
 import { bangkokBoundaries } from "@/server/credit/quota-service";
+import { computeUsageStats, type UsageStats } from "@/lib/usage-stats";
 
 /**
  * What each user actually costs to serve, against what they actually pay.
@@ -27,7 +28,9 @@ export type UserCostRow = {
   name: string | null;
   plan: "FREE" | "PRO";
   packageName: string | null;
-  /** Baht the user pays for the current period (0 for Free). */
+  /** Pro given by an admin rather than bought — earns nothing. */
+  proGifted: boolean;
+  /** Baht actually received: approved payments in the period. */
   revenueThb: number;
   /** Billable readings — what the user perceives as "ครั้ง". */
   readings: number;
@@ -57,7 +60,12 @@ export type CostSummary = {
     revenueThb: number;
     /** Users whose AI cost exceeds what they pay. */
     unprofitableUsers: number;
+    /** AI cost of users who paid nothing in the period. */
+    freeCostUsd: number;
   };
+  /** The Pro package, to read a user's cost against. */
+  pro: { priceThb: number; budgetUsd: number } | null;
+  usage: UsageStats;
   rows: UserCostRow[];
 };
 
@@ -91,7 +99,7 @@ export async function getCostSummary(months = 0): Promise<CostSummary> {
   const periodStart = new Date(monthStart);
   periodStart.setUTCMonth(periodStart.getUTCMonth() - months);
 
-  const [logs, users] = await Promise.all([
+  const [logs, users, payments, calls, proPkg] = await Promise.all([
     prisma.aIUsageLog.findMany({
       where: { status: "SUCCESS", createdAt: { gte: periodStart } },
       select: {
@@ -115,11 +123,33 @@ export async function getCostSummary(months = 0): Promise<CostSummary> {
           },
           orderBy: { createdAt: "desc" },
           take: 1,
-          select: { package: { select: { name: true, price: true, type: true } } },
+          select: {
+            activationSource: true,
+            package: { select: { name: true, price: true, type: true } },
+          },
         },
       },
     }),
+    // Revenue is money received, not the price tag of whatever plan is active:
+    // an admin-given Pro used to count as 199฿ earned.
+    prisma.payment.findMany({
+      where: { status: "APPROVED", reviewedAt: { gte: periodStart } },
+      select: { userId: true, amount: true },
+    }),
+    // Answered questions, for the usage and load figures. A failed answer
+    // leaves no row (its reservation is deleted), so failures are not here.
+    prisma.aIUsageLog.findMany({
+      where: { createdAt: { gte: periodStart }, status: "SUCCESS", readingId: { not: null } },
+      select: { userId: true, createdAt: true, latencyMs: true, firstTokenMs: true },
+    }),
+    prisma.package.findUnique({
+      where: { code: "PRO" },
+      select: { price: true, usageBudgetUnits: true },
+    }),
   ]);
+
+  const paidByUser = new Map<string, number>();
+  for (const p of payments) paidByUser.set(p.userId, (paidByUser.get(p.userId) ?? 0) + p.amount);
 
   const byUser = new Map<string, LogRow[]>();
   for (const log of logs) {
@@ -132,9 +162,10 @@ export async function getCostSummary(months = 0): Promise<CostSummary> {
 
   for (const user of users) {
     const userLogs = byUser.get(user.id) ?? [];
-    // Skip users with no activity this period — the table is about spend.
-    if (userLogs.length === 0) continue;
-    rows.push(buildRow(user, userLogs));
+    const paid = paidByUser.get(user.id) ?? 0;
+    // Skip users with no activity and no payment this period.
+    if (userLogs.length === 0 && paid === 0) continue;
+    rows.push(buildRow(user, userLogs, paid));
   }
 
   // Most expensive first — that is who threatens the margin.
@@ -149,7 +180,8 @@ export async function getCostSummary(months = 0): Promise<CostSummary> {
       acc.costUsd += r.costUsd;
       acc.revenueThb += r.revenueThb;
       if (r.revenueThb > 0) acc.payingUsers += 1;
-      if (usdToThb(r.costUsd) > r.revenueThb) acc.unprofitableUsers += 1;
+      if (r.revenueThb > 0 && usdToThb(r.costUsd) > r.revenueThb) acc.unprofitableUsers += 1;
+      if (r.revenueThb === 0) acc.freeCostUsd += r.costUsd;
       return acc;
     },
     {
@@ -162,7 +194,19 @@ export async function getCostSummary(months = 0): Promise<CostSummary> {
       costUsd: 0,
       revenueThb: 0,
       unprofitableUsers: 0,
+      freeCostUsd: 0,
     },
+  );
+
+  const periodDays = Math.max(1, Math.ceil((now.getTime() - periodStart.getTime()) / 86_400_000));
+  const usage = computeUsageStats(
+    calls.map((c) => ({
+      userId: c.userId,
+      createdAt: c.createdAt,
+      latencyMs: c.latencyMs,
+      firstTokenMs: c.firstTokenMs,
+    })),
+    periodDays,
   );
 
   return {
@@ -170,6 +214,10 @@ export async function getCostSummary(months = 0): Promise<CostSummary> {
     periodLabel: months === 0 ? "เดือนนี้" : `${months + 1} เดือนล่าสุด`,
     usdToThb: USD_TO_THB,
     totals,
+    pro: proPkg
+      ? { priceThb: proPkg.price, budgetUsd: proPkg.usageBudgetUnits / 1_000_000 }
+      : null,
+    usage,
     rows,
   };
 }
@@ -182,7 +230,7 @@ export async function getUserCost(userId: string): Promise<UserCostRow | null> {
   const now = new Date();
   const { monthStart } = bangkokBoundaries(now);
 
-  const [logs, user] = await Promise.all([
+  const [logs, user, payments] = await Promise.all([
     prisma.aIUsageLog.findMany({
       where: { userId, status: "SUCCESS", createdAt: { gte: monthStart } },
       select: {
@@ -207,14 +255,21 @@ export async function getUserCost(userId: string): Promise<UserCostRow | null> {
           },
           orderBy: { createdAt: "desc" },
           take: 1,
-          select: { package: { select: { name: true, price: true, type: true } } },
+          select: {
+            activationSource: true,
+            package: { select: { name: true, price: true, type: true } },
+          },
         },
       },
+    }),
+    prisma.payment.aggregate({
+      where: { userId, status: "APPROVED", reviewedAt: { gte: monthStart } },
+      _sum: { amount: true },
     }),
   ]);
 
   if (!user) return null;
-  return buildRow(user, logs);
+  return buildRow(user, logs, payments._sum.amount ?? 0);
 }
 
 function buildRow(
@@ -223,10 +278,12 @@ function buildRow(
     email: string;
     name: string | null;
     subscriptions: Array<{
+      activationSource: string;
       package: { name: string; price: number; type: string };
     }>;
   },
   userLogs: LogRow[],
+  paidThb: number,
 ): UserCostRow {
   const sub = user.subscriptions[0];
   const isPro = sub?.package.type === "PRO";
@@ -251,7 +308,8 @@ function buildRow(
     name: user.name,
     plan: isPro ? "PRO" : "FREE",
     packageName: sub?.package.name ?? null,
-    revenueThb: isPro ? (sub?.package.price ?? 0) : 0,
+    proGifted: isPro && sub?.activationSource !== "PAYMENT",
+    revenueThb: paidThb,
     readings,
     aiCalls: userLogs.length,
     inputTokens,
