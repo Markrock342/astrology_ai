@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
+import { companionsSchema } from "@/lib/companions";
 import { handle, ok } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { requireUser } from "@/server/auth/rbac";
@@ -23,6 +24,8 @@ const bodySchema = z.object({
   answerMode: z.enum(["brief", "detailed"]).optional().default("detailed"),
   purpose: z.enum(["category_intro"]).optional(),
   transitDate: z.string().optional(),
+  /** Other people to read with the user in this question (not stored). */
+  companions: companionsSchema.optional(),
 });
 
 function sseEncode(event: Record<string, unknown>): string {
@@ -77,6 +80,7 @@ export async function POST(
         answerMode,
         purpose,
         transitDate,
+        companions,
       } = bodySchema.parse(await req.json());
 
       const accepted = await acceptMessage({
@@ -89,6 +93,7 @@ export async function POST(
         answerMode,
         purpose,
         transitDate,
+        companions,
       });
 
       if (accepted.status === "ready") {
@@ -104,6 +109,7 @@ export async function POST(
           answerMode,
           purpose,
           transitDate,
+          companions,
         }).catch((err) => {
           console.error("[chat-after]", err);
         });
@@ -137,6 +143,7 @@ export async function POST(
       answerMode,
       purpose,
       transitDate,
+      companions,
     } = bodySchema.parse(await req.json());
 
     const encoder = new TextEncoder();
@@ -180,6 +187,7 @@ export async function POST(
             answerMode,
             purpose,
             transitDate,
+            companions,
           });
 
           if (accepted.status === "ready") {
@@ -233,6 +241,7 @@ export async function POST(
               answerMode,
               purpose,
               transitDate,
+              companions,
             },
             (chunk) => {
               emitDeltaChunks(send, chunk);

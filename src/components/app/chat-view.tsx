@@ -46,6 +46,8 @@ import {
 } from "@/lib/chat-navigation-links";
 import { formatTransitNowLabel } from "@/lib/transit-label";
 import { TransitDatePicker } from "./transit-date-picker";
+import { CompanionPicker } from "./companion-picker";
+import { COMPANION_QUESTION_PATTERN, type Companion } from "@/lib/companions";
 import {
   bangkokDateKey,
   CURRENT_PERIOD_PATTERN,
@@ -423,6 +425,32 @@ export function ChatView() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [answerMode, setAnswerMode] = useState<AnswerMode>("brief");
   const [transitDateInput, setTransitDateInput] = useState("");
+  // Who else is read in this thread's questions. Kept per thread for this tab
+  // only, so switching threads never carries someone into another reading.
+  const [companionsByThread, setCompanionsByThread] = useState<
+    Record<string, Companion[]>
+  >({});
+  const companionKey = threadId ?? `new:${catSlug ?? ""}`;
+  const companionsInput = companionsByThread[companionKey] ?? [];
+  const setCompanionsInput = useCallback(
+    (next: Companion[]) =>
+      setCompanionsByThread((prev) => ({ ...prev, [companionKey]: next })),
+    [companionKey],
+  );
+  // A new chat gets its thread id on the first send; the people picked
+  // before it follow the thread (adjusted during render, not in an effect).
+  const newChatKey = `new:${catSlug ?? ""}`;
+  const [companionThread, setCompanionThread] = useState(threadId);
+  if (companionThread !== threadId) {
+    setCompanionThread(threadId);
+    if (!companionThread && threadId && !companionsByThread[threadId] && companionsByThread[newChatKey]?.length) {
+      setCompanionsByThread((prev) => ({
+        ...prev,
+        [threadId]: prev[newChatKey]!,
+        [newChatKey]: [],
+      }));
+    }
+  }
   const [pendingFutureDate, setPendingFutureDate] =
     useState<PendingFutureDate | null>(null);
   const futureDateOutcomeHandledRef = useRef(false);
@@ -1581,6 +1609,8 @@ export function ChatView() {
             purpose: isIntro ? "category_intro" : undefined,
             transitDate:
               options.transitDateOverride || transitDateInput || undefined,
+            companions:
+              !isIntro && companionsInput.length ? companionsInput : undefined,
           }),
           signal: abort.signal,
         },
@@ -2590,6 +2620,8 @@ export function ChatView() {
               onAnswerModeChange={updateAnswerMode}
               transitDate={transitDateInput}
               onTransitDateChange={setTransitDateInput}
+              companions={companionsInput}
+              onCompanionsChange={setCompanionsInput}
             />
         </div>
       )}
@@ -2927,6 +2959,8 @@ const Composer = forwardRef<
     onAnswerModeChange: (mode: AnswerMode) => void;
     transitDate?: string;
     onTransitDateChange?: (value: string) => void;
+    companions?: Companion[];
+    onCompanionsChange?: (value: Companion[]) => void;
   }
 >(function Composer(
   {
@@ -2944,6 +2978,8 @@ const Composer = forwardRef<
     onAnswerModeChange,
     transitDate = "",
     onTransitDateChange,
+    companions = [],
+    onCompanionsChange,
   },
   ref,
 ) {
@@ -3058,6 +3094,12 @@ const Composer = forwardRef<
           </a>
         </div>
       ) : null}
+      {aiEnabled && !companions.length && COMPANION_QUESTION_PATTERN.test(value) ? (
+        <p className="mx-auto mb-1 max-w-3xl text-[11px] text-[var(--muted)]">
+          ถามเรื่องดวงคู่? กด <span className="text-[var(--primary)]">♡ ดูดวงคู่</span>{" "}
+          แล้วใส่วันเกิดอีกฝ่าย จะได้วิเคราะห์จากดวงของทั้งสองคนจริง ๆ
+        </p>
+      ) : null}
       {/* Wraps instead of clipping: with a large system font the three items do
           not fit one phone row, and the usage figure was cut off the screen. */}
       <div className="mx-auto mb-1 flex max-w-3xl flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
@@ -3105,6 +3147,11 @@ const Composer = forwardRef<
         <TransitDatePicker
           value={transitDate}
           onChange={(next) => onTransitDateChange?.(next)}
+          disabled={!aiEnabled || emailGate}
+        />
+        <CompanionPicker
+          value={companions}
+          onChange={(next) => onCompanionsChange?.(next)}
           disabled={!aiEnabled || emailGate}
         />
         {aiEnabled ? (
