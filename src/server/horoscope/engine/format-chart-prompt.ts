@@ -1,3 +1,4 @@
+import { fillSamrapRows } from "@/lib/samrap-derive";
 import { dignityLabel } from "@/lib/thai-dignity";
 import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet, MyhoraTriwaiCell } from "@/types/myhora";
@@ -136,7 +137,9 @@ export function formatChartForPrompt(
     : chart.myhora?.natalPlanets;
 
   if (samrap?.length) {
-    lines.push("", ...formatSamrapTable(samrap));
+    // The ดวงจร table from myhora has sign and degree only — derive the rest
+    // so the model sees ตรียางค์/นวางศ์/ฤกษ์/มาตรฐาน for transit planets too.
+    lines.push("", ...formatSamrapTable(fillSamrapRows(samrap, lagna === "—" ? null : lagna)));
   } else {
     lines.push(
       "",

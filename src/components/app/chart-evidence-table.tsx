@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useId, useMemo, useState } from "react";
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
 import { houseFromLagna, normalizeSignName, SIGNS } from "@/lib/chart-theme";
@@ -11,6 +11,7 @@ import {
   type StandardGlossaryItem,
 } from "@/lib/astrology-standard-glossary";
 import { ChartAspectList } from "./chart-aspect-list";
+import { fillSamrapRows } from "@/lib/samrap-derive";
 
 type Props = {
   chart: ChartJson;
@@ -47,11 +48,14 @@ function pickRows(
     // no scrape tables — build the rows from the engine planets instead of
     // showing nothing.
     if (!chart.planets.length) return null;
-    return chart.planets.map((planet) => {
+    const rows = chart.planets.map((planet) => {
       const sign = normalizeSignName(planet.siderealSign);
+      const deg = planet.degreeInSign;
       return {
         planet: planet.planet,
         zodiac: sign,
+        // Kept empty so the degree cell shows the engine's own text; the
+        // derived columns below still need the number.
         degree: "",
         minute: "",
         fallbackDegreeText: planet.degreeText,
@@ -59,11 +63,20 @@ function pickRows(
           lagna && (SIGNS as readonly string[]).includes(sign)
             ? String(houseFromLagna(lagna, sign))
             : undefined,
+        ...(deg != null
+          ? fillSamrapRows(
+              [{ planet: planet.planet, zodiac: sign, degree: String(Math.floor(deg)), minute: String(Math.floor((deg % 1) * 60)) } as MyhoraNatalPlanet],
+              lagna ?? null,
+            )[0]
+          : {}),
       };
     });
+    return rows.map((r) => ({ ...r, degree: "", minute: "" }));
   }
 
-  return source.map((row) => {
+  // myhora's ดวงจร table has sign and degree only; the other columns are
+  // derived (lib/samrap-derive) rather than left as "—".
+  return fillSamrapRows(source, lagna ?? null).map((row) => {
     const engineRow = chart.planets.find((planet) =>
       row.planet.includes(planet.planet),
     );
@@ -142,10 +155,12 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
     DEFAULT_STANDARD_GLOSSARY,
   );
   const [open, setOpen] = useState(defaultOpen);
+  // Natal and transit tables can share a page; the heading id must not clash.
+  const standardTitleId = useId();
   const stack = layout === "stack";
   const standards = useMemo(
-    () => (mode === "natal" ? collectAstrologyStandards(samrap, glossary) : []),
-    [mode, samrap, glossary],
+    () => collectAstrologyStandards(samrap, glossary),
+    [samrap, glossary],
   );
 
   useEffect(() => {
@@ -284,10 +299,10 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
               />
             ) : null}
             {standards.length ? (
-              <section className="border-t border-[var(--border)] p-3" aria-labelledby="chart-standard-title">
+              <section className="border-t border-[var(--border)] p-3" aria-labelledby={standardTitleId}>
                 <div className="max-w-3xl">
-                  <h3 id="chart-standard-title" className="text-sm font-semibold text-[var(--foreground)]">
-                    มาตรฐานและเกณฑ์ที่พบในดวงนี้
+                  <h3 id={standardTitleId} className="text-sm font-semibold text-[var(--foreground)]">
+                    {mode === "transit" ? "มาตรฐานและเกณฑ์ที่พบในดวงจร" : "มาตรฐานและเกณฑ์ที่พบในดวงนี้"}
                   </h3>
                   <p className="mt-1 text-[11px] leading-5 text-[var(--muted)]">
                     คำเหล่านี้บอกคุณภาพหรือเงื่อนไขของดาว ไม่ใช่คำตัดสินว่าดวงดีหรือร้ายทั้งดวง
