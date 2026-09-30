@@ -66,6 +66,8 @@ export type ChartJson = {
     evidenceVersion?: number;
     calculationSource?: CalculationSource;
     lagna?: string;
+    /** How a locally computed chart placed its lagna; see FORMULA_LAGNA_METHOD. */
+    formulaLagna?: string;
   };
   planets: PlanetSignRow[];
   chart?: ChartSnapshot;
@@ -84,3 +86,11 @@ export type ChartJson = {
  *    chart built while the myhora scrape was down could carry it.
  */
 export const CHART_EVIDENCE_VERSION = 5;
+
+/**
+ * Locally computed charts made before this method carry an antonathi lagna
+ * that could be a sign early near a sign edge. They are rebuilt; myhora charts
+ * are not — bumping CHART_EVIDENCE_VERSION would rebuild those too, and with
+ * myhora unreachable they would fall back to the local engine.
+ */
+export const FORMULA_LAGNA_METHOD = "sidereal-ascendant";

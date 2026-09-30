@@ -2,7 +2,12 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";
 import { isCurrentTaksaSlots } from "@/lib/taksa";
-import { CHART_EVIDENCE_VERSION, type BirthInputSnapshot, type ChartJson } from "@/types/chart";
+import {
+  CHART_EVIDENCE_VERSION,
+  FORMULA_LAGNA_METHOD,
+  type BirthInputSnapshot,
+  type ChartJson,
+} from "@/types/chart";
 import {
   birthProfileToChartInput,
   chartInputMatches,
@@ -32,6 +37,8 @@ function isAcceptableCachedChart(
   return (
     chartInputMatches(chart.input, input) &&
     chart.meta?.evidenceVersion === CHART_EVIDENCE_VERSION &&
+    (chart.meta.calculationSource === "myhora-scrape" ||
+      chart.meta.formulaLagna === FORMULA_LAGNA_METHOD) &&
     chart.settings?.taksaCountFrom === "birth-weekday" &&
     isCurrentTaksaSlots(chart.chart?.taksa) &&
     isUsableChart(chart)

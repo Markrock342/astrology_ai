@@ -63,9 +63,16 @@ function tropicalEclipticLongitude(body: Body, time: AstroTime): number {
   return ((ecl.elon % 360) + 360) % 360
 }
 
-/** ลูกหลุมจันทร์เฉลี่ย (ราหู) — องศาเชิงสุริยะ */
-export function meanRahuTropicalLongitude(julianUt: number): number {
-  const t = (julianUt - 2451545.0) / 36525.0
+/**
+ * ลูกหลุมจันทร์เฉลี่ย (ราหู) — องศาเชิงสุริยะ
+ *
+ * Takes astronomy-engine's `ut`: days since J2000, not a Julian Day. This used
+ * to subtract 2451545 again, which put Rahu signs away from the sky (มกร for a
+ * Nov 2001 birth myhora has in มิถุน), and a rule that shifted Rahu by the
+ * lagna was bolted on to hide it. Both are gone.
+ */
+export function meanRahuTropicalLongitude(daysSinceJ2000: number): number {
+  const t = daysSinceJ2000 / 36525.0
   const omega =
     125.04452 -
     1934.136261 * t +
@@ -74,8 +81,8 @@ export function meanRahuTropicalLongitude(julianUt: number): number {
   return ((omega % 360) + 360) % 360
 }
 
-export function meanKetuTropicalLongitude(julianUt: number): number {
-  return (meanRahuTropicalLongitude(julianUt) + 180) % 360
+export function meanKetuTropicalLongitude(daysSinceJ2000: number): number {
+  return (meanRahuTropicalLongitude(daysSinceJ2000) + 180) % 360
 }
 
 function placementFromTropical(

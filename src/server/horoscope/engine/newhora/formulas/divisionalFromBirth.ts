@@ -1,18 +1,15 @@
 /**
  * นวางศ์ (D9) / ตรียางศ์ (D3) — สูตรปรชายาจารี (Parashari)
- * ใช้องศาสถิตรลาหิรี + ลัคนาอันโตนาทีสมผุสอาทิตย์อุทัย + ราหู ๘ ราศีกุมภ์
+ * ใช้องศาสถิตรลาหิรี + ลัคนาจากเวลาดาราคติ ณ ที่เกิด + ราหู ๘ ราศีกุมภ์
  */
 
-import { Body, Observer, SearchRiseSet } from 'astronomy-engine'
 import type { BirthInput, PlanetSignRow } from '../types/astrology'
 import type { PlaceCoords } from '../data/placeCoordinates'
 import { PLANETS } from '../data/astrologyConstants'
 import { birthAstroTime } from './birthMoment'
-import { computeAntonathiSamrapLagna } from './antonathiSamrap'
+import { computeSiderealAscendant } from './lagna'
 import { computeDrekkanaSign, computeNavamsaSign } from './divisionalCharts'
-import { applyRahuEightSignsAquarius } from './rahuEightAquarius'
 import { computeSiderealPlanets } from './siderealPlanets'
-import { birthLocalMinutes, localMinutesFromMidnight, sunriseLocalMinutes } from './sunrise'
 
 export interface DivisionalChartRows {
   lagna: string
@@ -33,7 +30,7 @@ function mapDivisional(
   const lagna = mapSign(lagnaSign, lagnaDeg)
   return {
     lagna,
-    planets: applyRahuEightSignsAquarius(planets, lagna),
+    planets,
   }
 }
 
@@ -44,22 +41,9 @@ function natalRowsWithDegrees(input: BirthInput, place: PlaceCoords): {
 } {
   const time = birthAstroTime(input, place)
   const placements = computeSiderealPlanets(time)
-  const birthMin = birthLocalMinutes(input.time)
-
-  let riseTime = time
-  let sunriseMin = sunriseLocalMinutes(time, place) ?? 6 * 60
-  try {
-    const observer = new Observer(place.lat, place.lon, 0)
-    const rise = SearchRiseSet(Body.Sun, observer, 1, time, 1)
-    if (rise) {
-      riseTime = rise
-      sunriseMin = localMinutesFromMidnight(rise, place.utcOffsetMinutes)
-    }
-  } catch {
-    /* ค่าโดยประมาณ 06:00 */
-  }
-
-  const lagna = computeAntonathiSamrapLagna(riseTime, birthMin, sunriseMin)
+  // Same rising sign as the natal chart (see pipeline.ts fromFormulaPipeline).
+  const asc = computeSiderealAscendant(time, place.lat, place.lon)
+  const lagna = { sign: asc.sign, degreeInSign: asc.longitude % 30 }
   const planets = PLANETS.map((planet) => {
     const p = placements.get(planet)
     return {
@@ -70,8 +54,7 @@ function natalRowsWithDegrees(input: BirthInput, place: PlaceCoords): {
     }
   })
 
-  const adjusted = applyRahuEightSignsAquarius(planets, lagna.sign)
-  return { planets: adjusted, lagnaSign: lagna.sign, lagnaDeg: lagna.degreeInSign }
+  return { planets, lagnaSign: lagna.sign, lagnaDeg: lagna.degreeInSign }
 }
 
 /** เมื่อดึง myhora สำเร็จแต่ไม่มี embed — ใช้ราศี D1 จาก myhora + องศาลัคนาจากสูตร */
