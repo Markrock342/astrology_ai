@@ -1,13 +1,13 @@
 /**
  * นวางศ์ (D9) / ตรียางศ์ (D3) — สูตรปรชายาจารี (Parashari)
- * ใช้องศาสถิตรลาหิรี + ลัคนาจากเวลาดาราคติ ณ ที่เกิด + ราหู ๘ ราศีกุมภ์
+ * ใช้องศาสถิตรลาหิรี + ลัคนาอันโตนาทีสามัญ สมผุสอาทิตย์อุทัย
  */
 
 import type { BirthInput, PlanetSignRow } from '../types/astrology'
 import type { PlaceCoords } from '../data/placeCoordinates'
 import { PLANETS } from '../data/astrologyConstants'
 import { birthAstroTime } from './birthMoment'
-import { computeSiderealAscendant } from './lagna'
+import { computeAntonathiSamrapLagna } from './antonathiSamrap'
 import { computeDrekkanaSign, computeNavamsaSign } from './divisionalCharts'
 import { computeSiderealPlanets } from './siderealPlanets'
 
@@ -42,8 +42,12 @@ function natalRowsWithDegrees(input: BirthInput, place: PlaceCoords): {
   const time = birthAstroTime(input, place)
   const placements = computeSiderealPlanets(time)
   // Same rising sign as the natal chart (see pipeline.ts fromFormulaPipeline).
-  const asc = computeSiderealAscendant(time, place.lat, place.lon)
-  const lagna = { sign: asc.sign, degreeInSign: asc.longitude % 30 }
+  const lagna = computeAntonathiSamrapLagna(
+    time,
+    place.lat,
+    place.lon,
+    placements.get('อาทิตย์')?.siderealLongitude ?? 0,
+  )
   const planets = PLANETS.map((planet) => {
     const p = placements.get(planet)
     return {
