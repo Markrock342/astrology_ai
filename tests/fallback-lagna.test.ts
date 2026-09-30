@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";
 import { computeFullChartSync } from "@/server/horoscope/engine/newhora/formulas/pipeline";
 import { FORMULA_LAGNA_METHOD } from "@/types/chart";
+import { MakeTime } from "astronomy-engine";
+import { computeSiderealPlanets } from "@/server/horoscope/engine/newhora/formulas/siderealPlanets";
+import { suriyayatSunLongitude } from "@/server/horoscope/engine/newhora/formulas/antonathiSamrap";
 
 // A day the 100-year table has planets for but no lagna. The fallback used to
 // return 'เมษ' for every hour of it.
@@ -36,6 +39,7 @@ describe("local fallback lagna", () => {
 
 // Charts myhora itself produced, at the coordinates myhora used. The two
 // methods this engine had before missed by 5–16° and got signs wrong.
+// Degrees come from onehora's copies of live myhora charts.
 describe("local lagna against myhora", () => {
   const place = (lat: number, lon: number) => ({ lat, lon, utcOffsetMinutes: 420 });
   it.each([
@@ -45,17 +49,24 @@ describe("local lagna against myhora", () => {
   ])("%s rises in %s", (_label, birth, at, lagna, degree) => {
     const chart = computeFullChartSync(birth as never, at as never);
     expect(chart.lagna).toBe(lagna);
-    // Our Lahiri Sun sits ~0.5° from myhora's Suriyayat Sun; the walk carries it.
-    expect(Math.abs((chart.lagnaDegreeInSign ?? 99) - degree)).toBeLessThan(1.5);
+    expect(Math.abs((chart.lagnaDegreeInSign ?? 99) - degree)).toBeLessThan(0.5);
   });
 
   it("puts a birth before dawn on the previous sunrise's day", () => {
-    // myhora: กันย์ 12°55'. Before dawn we still read ~3.7° high — sign right.
+    // myhora: กันย์ 12°55'.
     const chart = computeFullChartSync(
       { year: 2001, month: 11, day: 18, time: "02:08" } as never,
       place(13.752555, 100.494066) as never,
     );
     expect(chart.lagna).toBe("กันย์");
+    expect(Math.abs((chart.lagnaDegreeInSign ?? 99) - 12.92)).toBeLessThan(0.5);
+  });
+
+  it("moves our Lahiri Sun onto myhora's", () => {
+    // 18 Nov 2001 02:08 — myhora and astro.meemodel.com: พิจิก 1°08'.
+    const t = MakeTime(new Date(Date.UTC(2001, 10, 17, 19, 8)));
+    const lahiri = computeSiderealPlanets(t).get("อาทิตย์")!.siderealLongitude;
+    expect(Math.abs(suriyayatSunLongitude(lahiri, t.ut) - (210 + 1 + 8 / 60))).toBeLessThan(0.05);
   });
 
   it("marks charts made with this method", () => {
