@@ -171,8 +171,14 @@ async function resolvePlaceIds(
   transit: TransitInput,
   vs: { viewState: string; generator: string },
   ascValue: string,
+  landing: string,
 ): Promise<{ ids: MyhoraPlaceIds; viewState: string; generator: string }> {
   const ids: MyhoraPlaceIds = {};
+  // The landing page already lists Bangkok's เขต with myhora's live ids. The
+  // bundled table had เขตพระนคร — the default — as 40, which myhora does not
+  // accept: every พระนคร birth came back as an empty form and fell back to
+  // the local engine. Read the ids off the page; the table is the fallback.
+  const bangkokLive = parseAmphurOptions(landing, "dd_amphur");
   let viewState = vs.viewState;
   let generator = vs.generator;
 
@@ -233,7 +239,8 @@ async function resolvePlaceIds(
     const provinceId = MYHORA_PROVINCE_IDS[place.province.trim()];
     if (!provinceId) continue;
     if (provinceId === MYHORA_BANGKOK_PROVINCE_ID) {
-      place.set(provinceId, bangkokDistrictId(place.district));
+      const live = bangkokLive ? findDistrictId(bangkokLive, place.district) : undefined;
+      place.set(provinceId, live ?? bangkokDistrictId(place.district));
       continue;
     }
     try {
@@ -275,7 +282,7 @@ export async function fetchMyhoraThaiChart(
   if (!vs) throw new Error("ไม่พบ __VIEWSTATE จาก myhora");
 
   const ascValue = parseAscendantOption(landing);
-  const resolved = await resolvePlaceIds(input, transit, vs, ascValue);
+  const resolved = await resolvePlaceIds(input, transit, vs, ascValue, landing);
   const body = buildMyhoraFormBody(
     input,
     resolved.viewState,
