@@ -148,3 +148,15 @@ describe("ดวงสมพงษ์", () => {
     expect(lines[2]).toContain("วันเกิด อาทิตย์–อังคาร");
   });
 });
+
+describe("ดวงสมพงษ์ cell cleanup", () => {
+  it("drops the stray bracket the site prints after the second animal year", () => {
+    const html =
+      "ได้คะแนนดังนี้ 0<table><tr><td>วันที่เกิด</td><td>อาทิตย์</td><td>อาทิตย์</td><td>เป็นกลาง</td></tr>" +
+      "<tr><td>เดือนที่เกิด</td><td>หนึ่ง(ตามจันทรคติ)</td><td>หนึ่ง(ตามจันทรคติ)</td><td>เป็นกลาง</td></tr>" +
+      "<tr><td>ปีที่เกิด</td><td>มะเส็ง</td><td>มะเส็ง)</td><td>ไม่ดี</td></tr></table>";
+    const r = parseSompongHtml(html)!;
+    expect(r.factors[2]).toMatchObject({ a: "มะเส็ง", b: "มะเส็ง" });
+    expect(r.factors[1]!.a).toBe("หนึ่ง(ตามจันทรคติ)");
+  });
+});

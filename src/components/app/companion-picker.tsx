@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { DISTRICTS, PROVINCES } from "@/lib/th-geo";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
@@ -106,7 +107,9 @@ export function CompanionPicker({
         {value.length ? `ดูดวงคู่กับ ${value.map((p) => p.nickname).join(", ")}` : "ดูดวงคู่"}
       </button>
 
-      {open ? (
+      {/* Portalled to <body>: inside the composer the dialog shared its stacking
+          context, and the chat's decorative wheel showed through the panel. */}
+      {open ? createPortal(
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
           <button
             type="button"
@@ -234,7 +237,8 @@ export function CompanionPicker({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   );
