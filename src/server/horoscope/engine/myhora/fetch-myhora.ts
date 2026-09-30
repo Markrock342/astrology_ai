@@ -321,7 +321,7 @@ export async function fetchMyhoraThaiChart(
       placeIds: resolved.ids,
     };
     if (!isValidMyhoraScrape(result)) {
-      throw new Error("myhora scrape incomplete (missing lagna/planets)");
+      throw new Error(`myhora scrape incomplete (missing lagna/planets) · ${describeResponse(resultHtml, resolved.ids)}`);
     }
     return result;
   }
@@ -378,8 +378,20 @@ export async function fetchMyhoraThaiChart(
   };
 
   if (!isValidMyhoraScrape(result)) {
-    throw new Error("myhora scrape incomplete (missing lagna/planets)");
+    throw new Error(`myhora scrape incomplete (missing lagna/planets) · ${describeResponse(resultHtml, resolved.ids)}`);
   }
 
   return result;
+}
+
+/**
+ * What myhora sent back instead of a chart — its page title, size and any
+ * ASP.NET error line, plus the place ids we posted. Production logs are out
+ * of reach, and every เขตพระนคร birth failed here while its neighbours did not.
+ */
+function describeResponse(html: string, ids: MyhoraPlaceIds): string {
+  const title = html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim().slice(0, 40) ?? "no title";
+  const error =
+    html.match(/(Invalid postback[^<.]*|Server Error[^<]*|Exception[^<]{0,60})/i)?.[1]?.slice(0, 50) ?? "";
+  return `${html.length}b "${title}"${error ? ` ${error}` : ""} ids ${ids.province ?? "-"}/${ids.amphur ?? "-"}/${ids.province2 ?? "-"}/${ids.amphur2 ?? "-"}`;
 }

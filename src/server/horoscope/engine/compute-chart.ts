@@ -81,7 +81,7 @@ export async function computeNatalChart(
       // Kept on the chart so a fallback can be diagnosed from the outside —
       // production logs are not reachable (e.g. every เขตพระนคร birth fell back).
       const chart = toChartJsonFromFormula(input);
-      chart.meta.fallbackReason = reason.slice(0, 160);
+      chart.meta.fallbackReason = reason.slice(0, 240);
       return chart;
     }
   }
