@@ -141,6 +141,23 @@ export const TIMELINE_RULE =
   "และทักษาจรปีนั้นชี้ว่าดีหรือต้องระวัง แล้วบอกว่าชีวิตด้านไหนจะเปลี่ยนอย่างไร " +
   "ถ้าผู้ใช้ถามเลยปีสุดท้ายในบล็อก ให้บอกสุภาพว่าปฏิทินดาวที่ใช้คำนวณครอบคลุมถึงปีนั้น";
 
+/**
+ * Appended only when other people's charts came with the question. The model
+ * had never been given anyone's chart but the user's; asked about a partner,
+ * it could only invent one.
+ */
+export const COMPANION_RULE =
+  "กฎดวงคู่ (บังคับ): คำถามนี้ให้ดูดวงผู้ถามคู่กับคนอื่น และมีดวงของอีกฝ่ายในบล็อก [companion_N] " +
+  "กับข้อเท็จจริงระหว่างสองดวงใน [synastry_N] ที่คำนวณแล้ว ใช้ข้อมูลจากสองบล็อกนี้กับพื้นดวงผู้ถามเท่านั้น " +
+  "ห้ามแต่งวันเกิด ลัคนา หรือตำแหน่งดาวของอีกฝ่ายเอง ถ้าบล็อกบอกว่าไม่ทราบเวลาเกิด ห้ามพูดถึงลัคนาและภพของคนนั้น " +
+  "วิเคราะห์ตามวิธีพยากรณ์: ดูภพที่ใช้ดูความสัมพันธ์นั้นในดวงผู้ถามและดาวเจ้าเรือนของภพนั้น " +
+  "ดาวของอีกฝ่ายที่ตกภพต่าง ๆ ของผู้ถาม ลัคนาสองคนทำมุมกันอย่างไร " +
+  "และดาวข้ามดวงที่กุม เล็ง ตรีโกณ จตุโกณกัน พร้อมคู่ธาตุตามตารางของระบบ " +
+  "ถ้ามีบล็อก [sompong_N] ให้บอกคะแนนสมพงษ์และผลตามตำราของวันเกิด เดือนเกิด ปีเกิด ตามที่บล็อกระบุ ห้ามคิดคะแนนเอง " +
+  "แล้วผูกเข้ากับการอ่านดวงสองดวงเป็นเรื่องเดียว " +
+  "สรุปให้ชัดว่าเข้ากันในเรื่องไหน ต้องระวังเรื่องไหน และคำแนะนำให้ทั้งคู่อยู่ร่วมกันได้ดี " +
+  "ถ้ามีหลายคน ให้แยกหัวข้อทีละคน แล้วสรุปภาพรวมท้ายคำตอบ";
+
 /** Stops Gemini treating chart-memory blocks as a table of contents. */
 export const ANSWER_THE_QUESTION_RULE =
   "กฎตอบตรงคำถาม (บังคับ): ตอบเฉพาะสิ่งที่ผู้ใช้ถามในข้อความล่าสุด " +
@@ -247,6 +264,8 @@ export function buildSystemPrompt(parts: PromptParts): string {
 }
 
 export type BuildUserPromptOptions = {
+  /** Other people's charts and the cross-chart facts ([companion_N], [synastry_N]). */
+  companionText?: string | null;
   /** A computed life timeline ([timeline] block) for "when will…" questions. */
   timelineText?: string | null;
   /** Overview = all 17 topics; otherwise only the topics the question is about. */
@@ -436,6 +455,7 @@ export function buildUserPrompt(
   }
 
   if (opts.timelineText) lines.push(opts.timelineText, "");
+  if (opts.companionText) lines.push(opts.companionText, "");
 
   lines.push(
     "ข้อมูลผู้ถาม:",

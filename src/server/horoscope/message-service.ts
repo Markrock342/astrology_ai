@@ -23,6 +23,7 @@ import { assertQuestionAllowedForPlan } from "@/server/horoscope/question-scope"
 import { bangkokTimeHm } from "@/server/horoscope/daily-transit-service";
 import { resolveTransitWindow } from "@/lib/reading-intent";
 import { formatTransitDateLabel, formatTransitNowLabel } from "@/lib/transit-label";
+import type { Companion } from "@/lib/companions";
 
 /**
  * Superseded turns (edited question / regenerated answer) are hidden, not
@@ -77,6 +78,8 @@ export type SendMessageInput = {
   purpose?: "category_intro";
   /** Explicit วันจร from the composer (YYYY-MM-DD or ISO). */
   transitDate?: string;
+  /** Other people read with the user in this question (not stored). */
+  companions?: Companion[];
 };
 
 export type AcceptMessageResult =
@@ -502,6 +505,7 @@ export async function completePendingMessage(
                 : undefined),
             onPhase,
             onCharts,
+            companions: input.companions,
           },
           onDelta,
           shouldStop,
@@ -521,6 +525,7 @@ export async function completePendingMessage(
               : undefined),
           onPhase,
           onCharts,
+          companions: input.companions,
           transit:
             conversation.mode === "TRANSIT"
               ? {

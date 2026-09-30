@@ -22,6 +22,7 @@ import {
   buildSystemPrompt,
   buildConversationHistory,
   TIMELINE_RULE,
+  COMPANION_RULE,
 } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
 import { logUsage } from "@/server/ai/usage-logger";
@@ -46,6 +47,8 @@ import {
   resolveTransitWindow,
 } from "@/lib/reading-intent";
 import { buildLifeTimelinePrompt } from "@/server/horoscope/life-timeline-service";
+import { buildCompanionsPrompt } from "@/server/horoscope/companion-service";
+import type { Companion } from "@/lib/companions";
 import { getOrComputeDailyTransit } from "@/server/horoscope/daily-transit-service";
 import { resolvePromptParts } from "@/server/horoscope/prompt-resolver";
 import {
@@ -201,6 +204,8 @@ export type CreateReadingInput = {
   onCharts?: (charts: ChatChartSnapshots) => void;
   /** Natal category briefing — no credit, no quota slot. */
   purpose?: "category_intro";
+  /** Other people read alongside the user (partner, parent…), this answer only. */
+  companions?: Companion[];
 };
 
 export async function createReading(input: CreateReadingInput) {
@@ -487,6 +492,11 @@ async function runReading(
     .filter(Boolean)
     .join("\n\n") || undefined;
 
+  // Other people in the question: their charts and what ties them to the user.
+  const companionText = input.companions?.length
+    ? await buildCompanionsPrompt(natalChart, input.companions)
+    : null;
+
   // "When will my life turn?" gets the slow planets walked over the years.
   const timelineText = isTimelineQuestion(question)
     ? buildLifeTimelinePrompt({
@@ -504,6 +514,9 @@ async function runReading(
   systemPrompt = `${systemPrompt}\n\n${UNIFIED_CHAT_INSTRUCTION}`;
   if (timelineText) {
     systemPrompt = `${systemPrompt}\n\n${TIMELINE_RULE}`;
+  }
+  if (companionText) {
+    systemPrompt = `${systemPrompt}\n\n${COMPANION_RULE}`;
   }
   const overview = isOverviewQuestion(question);
   if (answerMode === "brief") {
@@ -538,6 +551,7 @@ async function runReading(
       readingIntent: transitWindow.intent,
       overview: isOverviewQuestion(question),
       timelineText,
+      companionText,
       intakeText: intakeAnswers ? formatIntakeForPrompt(intakeAnswers) : null,
       userContextText: formatUserAiMemoryForPrompt(userAiMemory),
     },
