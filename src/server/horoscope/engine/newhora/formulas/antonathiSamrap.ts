@@ -7,10 +7,9 @@
  * minutes, for the clock time since that sunrise. A birth before dawn belongs
  * to the Thai day that began at the previous sunrise.
  *
- * Checked against nine myhora charts (tests/fallback-lagna.test.ts). Two
- * daytime charts copied from myhora's calendar-ascendant page (1992-09-18
- * 07:23 at 102.74°E, 1963-04-23 09:15 at 99.41°E) fit only without the
- * local-time adjustment — that page likely runs without it.
+ * Checked against sixteen myhora charts (tests/fallback-lagna.test.ts). Three
+ * charts copied from myhora's calendar-ascendant page fit only without the
+ * local-time adjustment — that page runs without it.
  * The Sun is taken at birth, as myhora's dial does, and moved onto the
  * Suriyayat ephemeris first (see suriyayatSunLongitude).
  */
@@ -34,31 +33,22 @@ export function walkAntonathi(startLon: number, minutes: number): number {
 }
 
 const BANGKOK_MS = 7 * 3_600_000
-/** Bangkok mean time is UTC+06:42 — the meridian myhora's day tables use. */
-const BANGKOK_MEAN_LON = 100.5
+/** Thai standard time's meridian (UTC+07:00). */
+const STANDARD_MERIDIAN = 105
 /**
- * "ปรับเวลาท้องถิ่น" as myhora applies it, read off nine of its charts
- * (2026-09-30, the user's own myhora captures across โคราช อุบล กาญจนบุรี
- * เชียงใหม่ สกลนคร กรุงเทพฯ):
- *  - the birth time moves by 4 minutes per degree of longitude from 100.5°E
- *    (Bangkok mean time), so the east reads later and the west earlier;
- *  - a birth between midnight and sunrise counts from the previous sunrise,
- *    which myhora reads 18 minutes later (UTC+07:00 against UTC+06:42).
- * Every one of those charts lands in myhora's sign and navamsa with this.
+ * "ปรับเวลาท้องถิ่น": the birth time becomes local mean time, 4 minutes per
+ * degree of longitude from 105°E — so กรุงเทพฯ (100.5°E) counts 18 minutes
+ * less, แม่ฮ่องสอน 28. Read off sixteen of myhora's charts captured by the
+ * owner (2026-09-30 and 10-01): every one lands within 1 minute of this
+ * shift, day, night and before dawn alike.
  */
-const PRE_DAWN_SHIFT_MIN = 18
 
 /** Minutes since the sunrise that began this birth's Thai day, as myhora counts them. */
 export function minutesSinceThaiSunrise(time: AstroTime, lat: number, lon: number): number {
-  const localShift = (lon - BANGKOK_MEAN_LON) * 4
+  const localShift = (lon - STANDARD_MERIDIAN) * 4
   try {
     const rise = SearchRiseSet(Body.Sun, new Observer(lat, lon, 0), 1, time, -1.5)
-    if (rise) {
-      const minutes = (time.date.getTime() - rise.date.getTime()) / 60_000 + localShift
-      const day = (d: Date) => new Date(d.getTime() + BANGKOK_MS).toISOString().slice(0, 10)
-      const preDawn = day(rise.date) !== day(time.date)
-      return preDawn ? minutes - PRE_DAWN_SHIFT_MIN : minutes
-    }
+    if (rise) return (time.date.getTime() - rise.date.getTime()) / 60_000 + localShift
   } catch {
     /* polar or search failure — fall through */
   }
