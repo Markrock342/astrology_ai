@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";
+import { computeFullChartSync } from "@/server/horoscope/engine/newhora/formulas/pipeline";
+import { FORMULA_LAGNA_METHOD } from "@/types/chart";
 
 // A day the 100-year table has planets for but no lagna. The fallback used to
 // return 'เมษ' for every hour of it.
@@ -26,22 +28,43 @@ describe("local fallback lagna", () => {
   it("rises in the Sun's sign at sunrise and advances through the day", () => {
     // Sun is in มกร on 1 Feb 1976.
     expect(lagnaAt("07:00")).toBe("มกร");
-    expect(lagnaAt("16:00")).toBe("มิถุน");
-    expect(lagnaAt("18:00")).toBe("กรกฎ");
+    // มิถุน rises in 72 minutes in the antonathi table, so 16:00 is already กรกฎ.
+    expect(lagnaAt("16:00")).toBe("กรกฎ");
+    expect(lagnaAt("18:00")).toBe("สิงห์");
   });
 });
 
-// Charts myhora itself produced. The antonathi walk this engine used before
-// put the first two in สิงห์ — a sign early.
+// Charts myhora itself produced, at the coordinates myhora used. The two
+// methods this engine had before missed by 5–16° and got signs wrong.
 describe("local lagna against myhora", () => {
+  const place = (lat: number, lon: number) => ({ lat, lon, utcOffsetMinutes: 420 });
   it.each([
-    [{ day: 18, month: 11, year: 2001, time: "02:08", province: "นครราชสีมา", district: "โชคชัย" }, "กันย์"],
-    [{ day: 21, month: 11, year: 2001, time: "02:00", province: "กรุงเทพมหานคร", district: "บางแค" }, "กันย์"],
-    [{ day: 21, month: 5, year: 2006, time: "18:31", province: "กรุงเทพมหานคร", district: "พระนคร" }, "พิจิก"],
-  ])("%o rises in %s", (birth, lagna) => {
-    const chart = computeNatalChartFormula({ ...birth, country: "ไทย" });
-    expect(chart.chart?.lagna).toBe(lagna);
-    expect(chart.meta.formulaLagna).toBe("sidereal-ascendant");
+    ["1980-10-20 22:15", { year: 1980, month: 10, day: 20, time: "22:15" }, place(13.758, 100.514), "มิถุน", 19.77],
+    ["1992-09-18 07:23", { year: 1992, month: 9, day: 18, time: "07:23" }, place(17.88, 102.742), "กันย์", 16.42],
+    ["1963-04-23 09:15", { year: 1963, month: 4, day: 23, time: "09:15" }, place(13.853, 99.41), "มิถุน", 4.17],
+  ])("%s rises in %s", (_label, birth, at, lagna, degree) => {
+    const chart = computeFullChartSync(birth as never, at as never);
+    expect(chart.lagna).toBe(lagna);
+    // Our Lahiri Sun sits ~0.5° from myhora's Suriyayat Sun; the walk carries it.
+    expect(Math.abs((chart.lagnaDegreeInSign ?? 99) - degree)).toBeLessThan(1.5);
+  });
+
+  it("puts a birth before dawn on the previous sunrise's day", () => {
+    // myhora: กันย์ 12°55'. Before dawn we still read ~3.7° high — sign right.
+    const chart = computeFullChartSync(
+      { year: 2001, month: 11, day: 18, time: "02:08" } as never,
+      place(13.752555, 100.494066) as never,
+    );
+    expect(chart.lagna).toBe("กันย์");
+  });
+
+  it("marks charts made with this method", () => {
+    const chart = computeNatalChartFormula({
+      day: 18, month: 11, year: 2001, time: "02:08", country: "ไทย",
+      province: "นครราชสีมา", district: "โชคชัย",
+    });
+    expect(chart.chart?.lagna).toBe("กันย์");
+    expect(chart.meta.formulaLagna).toBe(FORMULA_LAGNA_METHOD);
   });
 });
 

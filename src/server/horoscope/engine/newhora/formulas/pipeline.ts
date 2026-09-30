@@ -1,5 +1,5 @@
 /**
- * คำนวณครบวงจร: ปฏิทินร้อยปี → แคช (async) → สูตร (ลัคนาจากเวลาดาราคติ + ลาหิรี + ราหู 8 + ทักษา)
+ * คำนวณครบวงจร: ปฏิทินร้อยปี → แคช (async) → สูตร (ลัคนาอันโตนาทีสามัญ + ลาหิรี + ทักษา)
  */
 
 import type { BirthInput, PlanetSignRow } from '../types/astrology'
@@ -7,7 +7,7 @@ import type { PlaceCoords } from '../data/placeCoordinates'
 import { PLANETS } from '../data/astrologyConstants'
 import { birthAstroTime } from './birthMoment'
 import { computeSiderealPlanets } from './siderealPlanets'
-import { computeSiderealAscendant } from './lagna'
+import { computeAntonathiSamrapLagna } from './antonathiSamrap'
 import { computeTaksaFromBirth, type TaksaSlot } from './taksa'
 import { lookupSuryayatSync, lookupLagnaSync } from './suryayat/lookup'
 
@@ -48,13 +48,10 @@ function fromFormulaPipeline(input: BirthInput, place: PlaceCoords): {
   const time = birthAstroTime(input, place)
   const placements = computeSiderealPlanets(time)
 
-  // The rising sign, computed from sidereal time at the birthplace (Lahiri).
-  // It replaced an antonathi walk from sunrise whose per-sign table had no
-  // source: it strayed up to 5° from the sky, so a birth near a sign edge
-  // could land in the wrong sign — 18 Nov 2001 02:08 โคราช came out สิงห์
-  // where myhora has กันย์. This matches every myhora-verified chart we hold.
-  const lagnaResult = computeSiderealAscendant(time, place.lat, place.lon)
-  const lagnaDegreeInSign = lagnaResult.longitude % 30
+  // ลัคนาอันโตนาทีสามัญ สมผุสอาทิตย์อุทัย — myhora's method; see antonathiSamrap.ts.
+  const sun = placements.get('อาทิตย์')
+  const lagnaResult = computeAntonathiSamrapLagna(time, place.lat, place.lon, sun?.siderealLongitude ?? 0)
+  const lagnaDegreeInSign = lagnaResult.degreeInSign
 
   const planets = PLANETS.map((planet) => {
     const p = placements.get(planet)

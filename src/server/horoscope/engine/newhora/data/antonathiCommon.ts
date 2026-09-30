@@ -1,21 +1,20 @@
 /**
- * อันโตนาทีสามัญ — นาทีต่อราศี (รวม 2450 → สเกลเป็น 1440 นาทีจริง/วัน)
- * อ้างอิงตำราโหรไทยทั่วไป / จานหมุนลัคนาสำเร็จ myhora
+ * อันโตนาทีสามัญ — นาทีที่แต่ละราศีใช้ขึ้นขอบฟ้า (ลำดับเมษ→มีน รวม 1440 นาที/วัน)
+ *
+ * The table myhora's "ลัคนาอันโตนาทีสามัญ สมผุสอาทิตย์อุทัย" dial uses, and
+ * the classical one (4ZSuriya, duangmongkoncheewit). It replaced an unsourced
+ * table (197, 215, 208…) that put lagnas 7–16° away from myhora.
  */
 
 import { SIGNS } from './astrologyConstants'
 
-/** นาทีอันโตนาทีดั้งเดิมต่อราศี (ลำดับเมษ→มีน) */
-export const ANTONATHI_RAW_MINUTES: readonly number[] = [
-  197, 215, 208, 213, 219, 198, 197, 207, 209, 209, 198, 180,
+export const ANTONATHI_SAMAN_MINUTES: readonly number[] = [
+  120, 96, 72, 120, 144, 168, 168, 144, 120, 72, 96, 120,
 ] as const
 
-const ANTONATHI_TOTAL = ANTONATHI_RAW_MINUTES.reduce((a, b) => a + b, 0)
-
-/** นาทีนาฬิกาจริงที่ใช้ข้าม 30° ของแต่ละราศี (รวม 1440 นาที/วัน) */
+/** นาทีนาฬิกาที่ใช้ข้าม 30° ของแต่ละราศี */
 export function antonathiClockMinutesForSign(signIndex: number): number {
-  const raw = ANTONATHI_RAW_MINUTES[signIndex % 12] ?? 120
-  return (raw / ANTONATHI_TOTAL) * 1440
+  return ANTONATHI_SAMAN_MINUTES[((signIndex % 12) + 12) % 12]!
 }
 
 export function signIndexFromName(sign: string): number {

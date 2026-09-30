@@ -88,9 +88,10 @@ export type ChartJson = {
 export const CHART_EVIDENCE_VERSION = 5;
 
 /**
- * Locally computed charts made before this method carry an antonathi lagna
- * that could be a sign early near a sign edge. They are rebuilt; myhora charts
- * are not — bumping CHART_EVIDENCE_VERSION would rebuild those too, and with
- * myhora unreachable they would fall back to the local engine.
+ * How the local engine places the lagna. Locally computed charts made with an
+ * earlier method are rebuilt (the unsourced antonathi table, then briefly the
+ * sidereal ascendant — both 5–16° from myhora). myhora charts are not: bumping
+ * CHART_EVIDENCE_VERSION would rebuild those too, and with myhora unreachable
+ * they would fall back to the local engine.
  */
-export const FORMULA_LAGNA_METHOD = "sidereal-ascendant";
+export const FORMULA_LAGNA_METHOD = "antonathi-saman-v2";
