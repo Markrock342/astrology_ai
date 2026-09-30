@@ -17,6 +17,7 @@ import {
 import {
   bangkokDistrictId,
   findDistrictId,
+  normalizeDistrictLabel,
   MYHORA_BANGKOK_PROVINCE_ID,
   MYHORA_PROVINCE_IDS,
   parseAmphurOptions,
@@ -174,10 +175,8 @@ async function resolvePlaceIds(
   landing: string,
 ): Promise<{ ids: MyhoraPlaceIds; viewState: string; generator: string }> {
   const ids: MyhoraPlaceIds = {};
-  // The landing page already lists Bangkok's เขต with myhora's live ids. The
-  // bundled table had เขตพระนคร — the default — as 40, which myhora does not
-  // accept: every พระนคร birth came back as an empty form and fell back to
-  // the local engine. Read the ids off the page; the table is the fallback.
+  // The landing page already lists Bangkok's เขต with myhora's live ids; read
+  // them there, with the bundled table as the fallback.
   const bangkokLive = parseAmphurOptions(landing, "dd_amphur");
   let viewState = vs.viewState;
   let generator = vs.generator;
@@ -239,6 +238,14 @@ async function resolvePlaceIds(
     const provinceId = MYHORA_PROVINCE_IDS[place.province.trim()];
     if (!provinceId) continue;
     if (provinceId === MYHORA_BANGKOK_PROVINCE_ID) {
+      // เขตพระนคร is the form's default. Posting its id (40, which the live
+      // page also lists) gets the empty form back on production; posting the
+      // name — what this did before ids — leaves the default selected and
+      // computes. So the default is left alone.
+      if (normalizeDistrictLabel(place.district) === "พระนคร") {
+        place.set(provinceId, undefined);
+        continue;
+      }
       const live = bangkokLive ? findDistrictId(bangkokLive, place.district) : undefined;
       place.set(provinceId, live ?? bangkokDistrictId(place.district));
       continue;
