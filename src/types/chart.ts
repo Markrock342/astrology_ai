@@ -68,6 +68,8 @@ export type ChartJson = {
     lagna?: string;
     /** How a locally computed chart placed its lagna; see FORMULA_LAGNA_METHOD. */
     formulaLagna?: string;
+    /** Why the myhora scrape was not used (short), when this chart fell back. */
+    fallbackReason?: string;
   };
   planets: PlanetSignRow[];
   chart?: ChartSnapshot;

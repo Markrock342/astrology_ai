@@ -2,6 +2,7 @@
  * คำนวณครบวงจร: ปฏิทินร้อยปี → แคช (async) → สูตร (ลัคนาอันโตนาทีสามัญ + ลาหิรี + ทักษา)
  */
 
+import { MakeTime } from 'astronomy-engine'
 import type { BirthInput, PlanetSignRow } from '../types/astrology'
 import type { PlaceCoords } from '../data/placeCoordinates'
 import { PLANETS } from '../data/astrologyConstants'
@@ -116,25 +117,45 @@ export function mergeVerifiedFormulaDegrees(
  * found by checking 20 production charts against myhora (Moon กันย์ at 09:16
  * on 10 Aug 2006 was read as ตุลย์).
  */
+/**
+ * The table's rows sit at 24:00 UTC+06:42, so the day a planet changes sign
+ * runs from the previous row to this one; its middle is 12:00 of that clock.
+ */
+function tableDayMidpointUt(input: BirthInput): number {
+  const ms = Date.UTC(input.year, input.month - 1, input.day, 12, 0) - (6 * 60 + 42) * 60_000
+  return MakeTime(new Date(ms)).ut
+}
+
+const JUDGED_BY_POSITION = new Set(['อาทิตย์', 'จันทร์', 'ราหู', 'เกตุ'])
+
 function settleSignChangesOnTheDay(
   lookup: NonNullable<ReturnType<typeof lookupSuryayatSync>>,
   formulaRows: PlanetSignRow[],
+  birthUt: number,
+  midpointUt: number,
 ): typeof lookup.signs {
   const prev = lookup.previousDay
   if (!prev) return lookup.signs
   const out = { ...lookup.signs }
-  // Only the Sun and Moon: their computed positions are on myhora's
-  // ephemeris (see antonathiSamrap.ts). Our Lahiri Mercury can sit 20° from
-  // the Suriyayat one, so it cannot judge its own sign change.
-  for (const planet of ['อาทิตย์', 'จันทร์']) {
+  // The table spells กุมภ์, the formula กุมภ — compare without the mark and
+  // keep the table's spelling.
+  const bare = (sign: string) => sign.replace(/์/g, '')
+  for (const planet of PLANETS) {
     const today = lookup.signs[planet]
     const before = prev[planet]
     if (!today || !before || today === before) continue
-    const now = formulaRows.find((r) => r.planet === planet)?.siderealSign
-    // The table spells กุมภ์, the formula กุมภ — compare without the mark and
-    // keep the table's spelling.
-    const bare = (sign: string) => sign.replace(/์/g, '')
-    if (now && bare(now) === bare(before)) out[planet] = before
+    if (JUDGED_BY_POSITION.has(planet)) {
+      // Sun and Moon are on myhora's ephemeris (antonathiSamrap.ts); Rahu and
+      // Thai Ketu match it (siderealPlanets.ts). Their birth-moment position
+      // decides.
+      const now = formulaRows.find((r) => r.planet === planet)?.siderealSign
+      if (now && bare(now) === bare(before)) out[planet] = before
+    } else if (birthUt < midpointUt) {
+      // Our Lahiri Mercury can sit 20° from the Suriyayat one, so it cannot
+      // judge. Not knowing the hour of the change, split the day at its
+      // middle: wrong a quarter of the time instead of half.
+      out[planet] = before
+    }
   }
   return out
 }
@@ -146,7 +167,12 @@ export function computeFullChartSync(
   const lookup = lookupSuryayatSync(input, place)
   if (lookup) {
     const formula = fromFormulaPipeline(input, place)
-    const suryayatRows = signsToRows(settleSignChangesOnTheDay(lookup, formula.planets))
+    const suryayatRows = signsToRows(settleSignChangesOnTheDay(
+        lookup,
+        formula.planets,
+        birthAstroTime(input, place).ut,
+        tableDayMidpointUt(input),
+      ))
     // The 100-year table carries planet signs for most days but a lagna for
     // few of them. The fallback here used to be a hard-coded 'เมษ', so every
     // birth on such a day got an Aries ascendant whatever the time — and every
