@@ -37,29 +37,28 @@ describe("local fallback lagna", () => {
   });
 });
 
-// Charts myhora itself produced, at the coordinates myhora used. The two
+// Charts myhora itself produced ("สุริยยาตร์, ลัคนาอันโตนาทีสามัญ สมผุสอาทิตย์
+// อุทัย ปรับเวลาท้องถิ่น"), at the coordinates myhora printed. Degrees where
+// myhora showed them; otherwise the navamsa it named (a 3°20' band). The
 // methods this engine had before missed by 5–16° and got signs wrong.
-// Degrees come from onehora's copies of live myhora charts.
 describe("local lagna against myhora", () => {
   const place = (lat: number, lon: number) => ({ lat, lon, utcOffsetMinutes: 420 });
   it.each([
-    ["1980-10-20 22:15", { year: 1980, month: 10, day: 20, time: "22:15" }, place(13.758, 100.514), "มิถุน", 19.77],
-    ["1992-09-18 07:23", { year: 1992, month: 9, day: 18, time: "07:23" }, place(17.88, 102.742), "กันย์", 16.42],
-    ["1963-04-23 09:15", { year: 1963, month: 4, day: 23, time: "09:15" }, place(13.853, 99.41), "มิถุน", 4.17],
-  ])("%s rises in %s", (_label, birth, at, lagna, degree) => {
-    const chart = computeFullChartSync(birth as never, at as never);
+    ["1980-10-20 22:15 กรุงเทพฯ", 1980, 10, 20, "22:15", 13.758, 100.514, "มิถุน", 19.77, 19.77],
+    ["2001-11-18 02:08 กรุงเทพฯ", 2001, 11, 18, "02:08", 13.752555, 100.494066, "กันย์", 12.92, 12.92],
+    ["1987-01-05 04:30 กรุงเทพฯ", 1987, 1, 5, "04:30", 13.752555, 100.494066, "พิจิก", 15.25, 15.25],
+    ["1992-06-20 03:15 กรุงเทพฯ", 1992, 6, 20, "03:15", 13.752555, 100.494066, "เมษ", 13.42, 13.42],
+    ["2001-11-18 02:08 โชคชัย", 2001, 11, 18, "02:08", 14.7317, 102.163, "กันย์", 13.33, 16.67],
+    ["1997-03-10 01:20 อุบลฯ", 1997, 3, 10, "01:20", 15.2283, 104.855, "พิจิก", 23.33, 26.67],
+    ["1985-08-25 05:40 กาญจนบุรี", 1985, 8, 25, "05:40", 14.0033, 99.55, "กรกฎ", 23.33, 26.67],
+    ["2005-12-15 06:40 เชียงใหม่", 2005, 12, 15, "06:40", 18.79, 98.9867, "พิจิก", 20, 23.33],
+    ["2002-06-19 22:43 สว่างแดนดิน", 2002, 6, 19, "22:43", 17.475, 103.458, "กุมภ", 13.33, 16.67],
+  ] as const)("%s", (_label, year, month, day, time, lat, lon, lagna, lo, hi) => {
+    const chart = computeFullChartSync({ year, month, day, time } as never, place(lat, lon) as never);
     expect(chart.lagna).toBe(lagna);
-    expect(Math.abs((chart.lagnaDegreeInSign ?? 99) - degree)).toBeLessThan(0.5);
-  });
-
-  it("puts a birth before dawn on the previous sunrise's day", () => {
-    // myhora: กันย์ 12°55'.
-    const chart = computeFullChartSync(
-      { year: 2001, month: 11, day: 18, time: "02:08" } as never,
-      place(13.752555, 100.494066) as never,
-    );
-    expect(chart.lagna).toBe("กันย์");
-    expect(Math.abs((chart.lagnaDegreeInSign ?? 99) - 12.92)).toBeLessThan(0.5);
+    const deg = chart.lagnaDegreeInSign ?? 99;
+    expect(deg).toBeGreaterThanOrEqual(lo - 0.3);
+    expect(deg).toBeLessThanOrEqual(hi + 0.3);
   });
 
   it("moves our Lahiri Sun onto myhora's", () => {
