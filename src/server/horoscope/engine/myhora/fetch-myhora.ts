@@ -106,6 +106,23 @@ export function buildMyhoraFormBody(
   return body;
 }
 
+/**
+ * myhora sits behind a Cloudflare bot challenge (403, "cf-mitigated:
+ * challenge"), which a browser passes and a server cannot — so every scrape
+ * from a server fell back to the local engine. The owner lets our server
+ * through with a WAF rule keyed on a secret header; MYHORA_ACCESS_HEADER holds
+ * it as "Header-Name: value". Unset, nothing is added.
+ */
+export function myhoraAccessHeader(
+  raw = process.env.MYHORA_ACCESS_HEADER,
+): Record<string, string> {
+  const at = raw?.indexOf(":") ?? -1;
+  if (!raw || at <= 0) return {};
+  const name = raw.slice(0, at).trim();
+  const value = raw.slice(at + 1).trim();
+  return name && value ? { [name]: value } : {};
+}
+
 async function fetchText(path: string, init?: RequestInit): Promise<string> {
   const origin = myhoraOrigin();
   const url = path.startsWith("http") ? path : `${origin}${path}`;
@@ -119,10 +136,16 @@ async function fetchText(path: string, init?: RequestInit): Promise<string> {
       headers: {
         "User-Agent": USER_AGENT,
         Accept: "text/html,application/xhtml+xml",
+        ...myhoraAccessHeader(),
         ...(init?.headers ?? {}),
       },
     });
-    if (!res.ok) throw new Error(`myhora HTTP ${res.status}`);
+    if (!res.ok) {
+      const challenged = res.headers.get("cf-mitigated") === "challenge";
+      throw new Error(
+        `myhora HTTP ${res.status}${challenged ? " (Cloudflare bot challenge — see MYHORA_ACCESS_HEADER)" : ""}`,
+      );
+    }
     return res.text();
   } finally {
     clearTimeout(timer);
