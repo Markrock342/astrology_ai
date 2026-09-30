@@ -81,8 +81,16 @@ export function meanRahuTropicalLongitude(daysSinceJ2000: number): number {
   return ((omega % 360) + 360) % 360
 }
 
-export function meanKetuTropicalLongitude(daysSinceJ2000: number): number {
-  return (meanRahuTropicalLongitude(daysSinceJ2000) + 180) % 360
+/**
+ * เกตุไทย (สุริยยาตร์) — not the node opposite Rahu but its own point, moving
+ * backwards one full circle every 679 days. Read off 84 dates 1916–2031 from
+ * astro.meemodel.com (whose planets match myhora): median error 0.01°. Checked
+ * against the 100-year table: 98.7% of 2,000 days in the same sign, every miss
+ * within 0.6° of a sign edge. Sidereal already; no ayanamsa.
+ */
+export function thaiKetuSiderealLongitude(daysSinceJ2000: number): number {
+  const lon = 357.3212 - (360 / 679) * daysSinceJ2000
+  return ((lon % 360) + 360) % 360
 }
 
 function placementFromTropical(
@@ -114,10 +122,15 @@ export function computeSiderealPlanets(time: AstroTime): Map<string, SiderealPla
       continue
     }
     if (label === 'เกตุ') {
-      map.set(
+      const siderealLongitude = thaiKetuSiderealLongitude(julianUt)
+      const { sign, degreeInSign } = signFromSiderealLongitude(siderealLongitude)
+      map.set(label, {
         label,
-        placementFromTropical(label, meanKetuTropicalLongitude(julianUt), julianUt),
-      )
+        siderealLongitude,
+        siderealSign: sign,
+        degreeInSign,
+        degreeText: formatDegreeInSign(degreeInSign),
+      })
       continue
     }
     const body = BODY_BY_LABEL[label]

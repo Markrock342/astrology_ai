@@ -15,6 +15,7 @@ import {
   isAllowedAiSecretRef,
 } from "@/lib/ai-config-guards";
 import { invalidateKeyCache } from "@/server/ai/secret-resolver";
+import { ensureEngineFormulaDoc } from "@/server/knowledge/engine-formula-doc";
 
 /**
  * Guard the AI CMS behind the current phase (defense in depth — the UI is also
@@ -627,6 +628,8 @@ const knowledgeSummarySelect = {
 
 /** List metadata only — omit large content bodies. */
 export async function listKnowledgeDocsSummary() {
+  // The engine's formula notes live here for the team; created on first view.
+  await ensureEngineFormulaDoc();
   // Every enabled doc is concatenated into the system prompt on each AI call, so
   // the admin needs the size. Measure it in the database rather than shipping the
   // bodies over the wire just to call .length on them.
