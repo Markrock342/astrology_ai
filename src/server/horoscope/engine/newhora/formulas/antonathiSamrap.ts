@@ -99,3 +99,32 @@ export function suriyayatSunLongitude(lahiriSunLon: number, daysSinceJ2000: numb
     0.003366 * Math.cos(2 * l)
   return (((lahiriSunLon + correction) % 360) + 360) % 360
 }
+
+/**
+ * The Moon as the Suriyayat ephemeris has it, from our Lahiri Moon. The old
+ * text's Moon has one equation where modern theory has several (evection,
+ * variation, the annual term), so the two differ by up to 4°. Fitted on 70
+ * dates 1941–2031 from astro.meemodel.com (matches myhora); held-out error
+ * ≤ 18′, median 6′.
+ */
+export function suriyayatMoonLongitude(lahiriMoonLon: number, daysSinceJ2000: number): number {
+  const t = daysSinceJ2000 / 36525
+  const rad = Math.PI / 180
+  const d = (297.8501921 + 445267.1114034 * t) * rad
+  const m = (357.5291092 + 35999.0502909 * t) * rad
+  const mp = (134.9633964 + 477198.8675055 * t) * rad
+  const correction =
+    1.491934 -
+    0.207758 * t -
+    1.531331 * Math.sin(mp) -
+    0.901228 * Math.cos(mp) -
+    1.299969 * Math.sin(2 * d - mp) +
+    0.041928 * Math.cos(2 * d - mp) -
+    0.676864 * Math.sin(2 * d) +
+    0.05169 * Math.cos(2 * d) +
+    0.199607 * Math.sin(m) +
+    0.010909 * Math.cos(m) -
+    0.263474 * Math.sin(2 * mp) -
+    0.007561 * Math.cos(2 * mp)
+  return (((lahiriMoonLon + correction) % 360) + 360) % 360
+}

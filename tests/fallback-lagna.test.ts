@@ -113,3 +113,17 @@ describe("formula Ketu", () => {
     expect(step).toBeCloseTo(15.9, 0);
   });
 });
+
+describe("a sign change during the birth day", () => {
+  // The 100-year table holds each day's END; myhora (production) had these
+  // at the birth moment.
+  it("keeps the Moon in the sign it was in at birth", () => {
+    const c = computeNatalChartFormula({ year: 1974, month: 1, day: 15, time: "03:27", country: "ไทย", province: "บุรีรัมย์", district: "พลับพลาชัย" });
+    expect(c.planets.find((p) => p.planet === "จันทร์")?.siderealSign).toBe("กันย์"); // myhora กันย์ 23°47'
+  });
+
+  it("keeps the Sun in the sign it was in at birth", () => {
+    const c = computeNatalChartFormula({ year: 1950, month: 12, day: 16, time: "02:59", country: "ไทย", province: "น่าน", district: "บ้านหลวง" });
+    expect(c.planets.find((p) => p.planet === "อาทิตย์")?.siderealSign).toBe("พิจิก"); // myhora พิจิก 29°51'
+  });
+});

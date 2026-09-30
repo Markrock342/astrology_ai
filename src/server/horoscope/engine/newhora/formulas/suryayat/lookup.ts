@@ -13,6 +13,13 @@ import { buddhistYear, suryayatCalendarKey, suryayatDayKey } from "./calendarKey
 
 export type SuryayatLookupResult = {
   signs: SuryayatPlanetSigns;
+  /**
+   * The previous day's row. The table is taken at 24:00 (UTC+06:42), the END
+   * of each day, so a planet that changed sign during the birth day shows its
+   * new sign for births before the change; comparing with the previous day's
+   * row tells the caller which planets moved that day.
+   */
+  previousDay?: SuryayatPlanetSigns | null;
   source: "reference" | "year";
 } | null;
 
@@ -90,7 +97,7 @@ export function lookupSuryayatSync(
     const entry = yearFile.days[withTime] ?? yearFile.days[dayOnly];
     if (entry) {
       const signs = entryToSigns(entry);
-      if (signs) return { signs, source: "year" };
+      if (signs) return { signs, previousDay: previousDaySigns(input), source: "year" };
     }
   }
 
@@ -112,4 +119,12 @@ export function lookupLagnaSync(
   const dayOnly = suryayatDayKey(input, false);
   const entry = yearFile.days[withTime] ?? yearFile.days[dayOnly];
   return entry?.lagna ?? null;
+}
+
+function previousDaySigns(input: BirthInput): SuryayatPlanetSigns | null {
+  const prev = new Date(Date.UTC(input.year, input.month - 1, input.day - 1));
+  const y = prev.getUTCFullYear();
+  const key = `${String(prev.getUTCMonth() + 1).padStart(2, "0")}-${String(prev.getUTCDate()).padStart(2, "0")}`;
+  const entry = yearByBe.get(buddhistYear(y))?.days?.[key];
+  return entry ? entryToSigns(entry) : null;
 }
