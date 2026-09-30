@@ -40,7 +40,9 @@ export function sompongBand(score: number): string {
 }
 
 function cellText(html: string): string {
-  return html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+  const text = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+  // The site prints the second animal year as "มะเส็ง)" — drop a ")" with no "(".
+  return text.includes("(") ? text : text.replace(/\)+$/, "").trim();
 }
 
 /** Read the score and the three factor rows out of the site's HTML. */
