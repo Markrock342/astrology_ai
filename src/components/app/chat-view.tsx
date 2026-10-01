@@ -2450,7 +2450,7 @@ export function ChatView() {
                             Asking someone to type what a button should do is a
                             button that doesn't exist yet — here it is. The
                             notice text the server appends IS the signal. */}
-                        {m.content.includes("เพดานของโหมดคำตอบ") ? (
+                        {m.content.includes("เพดานของโหมดคำตอบ") || m.content.includes("ขาดกลางคำตอบ") ? (
                           <button
                             type="button"
                             disabled={emailGate}
