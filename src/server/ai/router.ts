@@ -203,15 +203,39 @@ export async function generateWithFallback(
   const config = await prisma.aIProviderConfig.findUnique({ where: { id: configId } });
   if (!config) throw new AppError("AI_PROVIDER_ERROR", "AI config not found");
 
-  const primary = await generateOnce(configId, base);
-  if (primary.ok || !config.fallbackConfigId) return primary;
+  let result = await generateOnce(configId, base);
+  for (const next of await fallbackChain(config)) {
+    if (result.ok) break;
+    result = await generateOnce(next.id, base);
+  }
+  return result;
+}
 
-  const fallback = await prisma.aIProviderConfig.findUnique({
-    where: { id: config.fallbackConfigId },
+/**
+ * What to try when a config fails: its own fallback if one is set, then
+ * the other enabled models — Lite first, being the least overloaded. Only an
+ * explicitly set fallback used to be tried, and none was, so when Gemini was
+ * overloaded on 1 Oct 2026 every answer failed while Flash Lite sat enabled
+ * and unused. At most two extra attempts, never the same model twice.
+ */
+async function fallbackChain(config: { id: string; modelId: string; fallbackConfigId: string | null }) {
+  const enabled = await prisma.aIProviderConfig.findMany({
+    where: { enabled: true, id: { not: config.id } },
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
   });
-  if (!fallback || !fallback.enabled) return primary;
-
-  return generateOnce(fallback.id, base);
+  const explicit = enabled.filter((c) => c.id === config.fallbackConfigId);
+  const others = enabled
+    .filter((c) => c.id !== config.fallbackConfigId)
+    .sort((a, b) => Number(isGeminiLiteModel(b.modelId)) - Number(isGeminiLiteModel(a.modelId)));
+  const seen = new Set([config.modelId]);
+  const chain: typeof enabled = [];
+  for (const c of [...explicit, ...others]) {
+    if (seen.has(c.modelId)) continue;
+    seen.add(c.modelId);
+    chain.push(c);
+    if (chain.length === 2) break;
+  }
+  return chain;
 }
 
 /**
@@ -261,17 +285,14 @@ export async function streamWithFallback(
     }
   };
 
-  const primary = await attempt(config);
-  // A stop is the user's decision, not a provider failure — retrying it on the
-  // fallback would restart the answer they just cancelled, and bill them for it.
-  if (primary.ok || primary.stopped || !config.fallbackConfigId) return primary;
-  // Primary already painted a partial answer — don't double it with a fallback.
-  if (emittedChars > 0) return primary;
-
-  const fallback = await prisma.aIProviderConfig.findUnique({
-    where: { id: config.fallbackConfigId },
-  });
-  if (!fallback || !fallback.enabled) return primary;
-
-  return attempt(fallback);
+  let result = await attempt(config);
+  for (const next of await fallbackChain(config)) {
+    // A stop is the user's decision, not a provider failure — retrying it on
+    // the fallback would restart the answer they just cancelled, and bill them.
+    if (result.ok || result.stopped) break;
+    // An attempt already painted a partial answer — don't double it.
+    if (emittedChars > 0) break;
+    result = await attempt(next);
+  }
+  return result;
 }

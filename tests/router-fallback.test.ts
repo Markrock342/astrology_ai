@@ -251,6 +251,8 @@ describe("generateWithFallback (M3 B2)", () => {
       if (where.id === "fallback") return fallbackRow;
       return null;
     });
+    // The other enabled configs, as fallbackChain queries them.
+    mocks.findMany.mockResolvedValue([fallbackRow]);
     mocks.primaryGenerate.mockResolvedValue({
       ok: false,
       provider: "GEMINI",
@@ -277,6 +279,27 @@ describe("generateWithFallback (M3 B2)", () => {
     expect(result.rawText).toBe("fallback answer");
     expect(mocks.primaryGenerate).toHaveBeenCalledOnce();
     expect(mocks.fallbackGenerate).toHaveBeenCalledOnce();
+  });
+
+  it("tries another enabled model when none is set as the fallback", async () => {
+    // 1 Oct 2026: Gemini overloaded, no row had a fallback set, Flash Lite sat
+    // enabled and unused, and every answer failed.
+    mocks.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
+      where.id === "primary" ? { ...primaryRow, fallbackConfigId: null } : where.id === "fallback" ? fallbackRow : null,
+    );
+    const result = await generateWithFallback("primary", { systemPrompt: "sys", userPrompt: "user" });
+    expect(result.ok).toBe(true);
+    expect(result.rawText).toBe("fallback answer");
+  });
+
+  it("never retries the same model", async () => {
+    mocks.findMany.mockResolvedValue([{ ...fallbackRow, id: "twin", modelId: "gemini-primary" }]);
+    mocks.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
+      where.id === "primary" ? { ...primaryRow, fallbackConfigId: null } : null,
+    );
+    const result = await generateWithFallback("primary", { systemPrompt: "sys", userPrompt: "user" });
+    expect(result.ok).toBe(false);
+    expect(mocks.fallbackGenerate).not.toHaveBeenCalled();
   });
 });
 
