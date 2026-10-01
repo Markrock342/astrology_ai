@@ -278,7 +278,11 @@ export function formatLifeTimelineForPrompt(t: LifeTimeline): string[] {
       e.transitTaksa ? `ทักษาจรปีนั้น: ${e.planet}เป็น${e.transitTaksa}` : null,
       `น้ำหนัก ${e.score}`,
     ].filter(Boolean);
-    lines.push(`- ${thaiMonthYear(e.at)} · อายุ ${e.age} · ${facts.join(" · ")}`);
+    const outside = e.at.getUTCFullYear() < 1941 || e.at.getUTCFullYear() > 2040;
+    lines.push(
+      `- ${thaiMonthYear(e.at)} · อายุ ${e.age} · ${facts.join(" · ")}` +
+        (outside ? " · (นอกปฏิทินดาว 100 ปี เดือนอาจคลาดได้ไม่กี่เดือน)" : ""),
+    );
   }
   return lines;
 }

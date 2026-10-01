@@ -10,14 +10,15 @@ import {
 } from "@/lib/life-timeline";
 
 /**
- * The Thai 100-year ephemeris in the engine covers พ.ศ. 2484–2583
- * (1941–2040). Past it the engine falls back to a modern Lahiri formula, which
- * is a different system: checked across the overlap, it agrees with the Thai
- * table on Saturn 89% of the time, Rahu 0% and Ketu 8%. A timeline built on it
- * would date turning points in the wrong year, so the window stops here.
+ * How far a life timeline reaches: to age 90. It used to stop at 2583 (2040),
+ * where the Thai 100-year table ends, because the formula behind it had Rahu
+ * wrong in every month. With Rahu and Ketu fixed, the formula's slow planets
+ * agree with the table month by month — ราหู 98%, พฤหัส 95%, เสาร์ 87%,
+ * มฤตยู 84% over 1,200 months — the misses being the month a planet changes
+ * sign. Events outside the table are marked so the answer can say a date
+ * there may shift by a few months.
  */
-const EPHEMERIS_FIRST = new Date(Date.UTC(1941, 0, 1));
-const EPHEMERIS_LAST = new Date(Date.UTC(2040, 11, 1));
+const LAST_AGE = 90;
 const DEFAULT_YEARS_AHEAD = 20;
 
 /** When the question names no life area, the houses that shape a life. */
@@ -45,11 +46,17 @@ export function buildLifeTimelinePrompt(input: {
     ...new Set(keys.flatMap((k) => input.memory?.categories[k]?.houses ?? [])),
   ];
 
+  // A whole-life question walks to age 90; others the next 20 years.
+  const wholeLife = timelineIncludesPast(input.question) || /ทั้งชีวิต|ตลอดชีวิต|ชั่วชีวิต|บั้นปลาย|แก่ตัว/.test(input.question);
+  const lastDay = new Date(Date.UTC(birth.year + LAST_AGE, birth.month - 1, 1));
   const ahead = new Date(Date.UTC(now.getUTCFullYear() + DEFAULT_YEARS_AHEAD, now.getUTCMonth(), 1));
-  const to = ahead.getTime() < EPHEMERIS_LAST.getTime() ? ahead : EPHEMERIS_LAST;
+  const to = wholeLife || ahead.getTime() > lastDay.getTime() ? lastDay : ahead;
   const born = new Date(Date.UTC(birth.year, birth.month - 1, 1));
-  const from = timelineIncludesPast(input.question)
-    ? new Date(Math.max(born.getTime(), EPHEMERIS_FIRST.getTime()))
+  // "ทั้งชีวิต" asks how a life goes on, not what happened at age one; only an
+  // explicit look back (ที่ผ่านมา / ย้อนหลัง / ตอนเด็ก …) starts at birth.
+  const lookBack = /ที่ผ่านมา|ย้อนหลัง|ย้อนไป|เคยผ่าน|ตอนเด็ก|วัยเด็ก/.test(input.question);
+  const from = lookBack
+    ? born
     : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   if (from.getTime() >= to.getTime()) return null;
 
@@ -61,6 +68,8 @@ export function buildLifeTimelinePrompt(input: {
     to,
     now,
     topicHouses: topicHouses.length ? topicHouses : WHOLE_LIFE_HOUSES,
+    // A lifetime has more turning points than twenty years.
+    limit: wholeLife ? 20 : 12,
     // Mid-month, noon: the slow planets' sign for that month.
     positionsAt: (at) =>
       computeNatalChartFormula({
