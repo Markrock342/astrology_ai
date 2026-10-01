@@ -545,3 +545,76 @@ export function isTimelineQuestion(question: string): boolean {
 export function timelineIncludesPast(question: string): boolean {
   return /ที่ผ่านมา|ย้อนหลัง|ย้อนไป|เคยผ่าน|ตอนเด็ก|ทั้งชีวิต|ตลอดชีวิต/.test(question);
 }
+
+/**
+ * "Which day is good for …?" — the model is asked to choose a date. Any
+ * question naming a day to pick, or asking ช่วงไหน/เมื่อไหร่ดี within a named
+ * short period, gets the days of that period walked (lib/day-scan). Without
+ * this a period resolved to one sampled day and there was nothing to choose.
+ */
+const DAY_PICK_PATTERN =
+  /วันไหน|วันใด|วันอะไรดี|วันดี|ฤกษ์|หาวัน|เลือกวัน|วันที่เหมาะ|วันที่ดี|ดีวันไหน|ควรเป็นวัน/;
+const PERIOD_PICK_PATTERN = /ช่วงไหน|ช่วงใด|เมื่อไหร่ดี|เมื่อไรดี|ตอนไหนดี|ช่วงที่เหมาะ|ช่วงที่ดี/;
+const SHORT_PERIOD_PATTERN = /เดือนนี้|เดือนหน้า|สัปดาห์|อาทิตย์นี้|อาทิตย์หน้า|อีก\s*\d+\s*(วัน|เดือน)|\d+\s*เดือน|ปีนี้|ปีหน้า/;
+
+export function isDayPickQuestion(question: string): boolean {
+  const q = question.trim();
+  if (DAY_PICK_PATTERN.test(q)) return true;
+  return PERIOD_PICK_PATTERN.test(q) && SHORT_PERIOD_PATTERN.test(q);
+}
+
+/** Longest window walked day by day; a longer ask is cut and says so. */
+export const DAY_SCAN_MAX_DAYS = 400;
+const DAY_SCAN_DEFAULT_DAYS = 30;
+
+/**
+ * The days to walk for a day-pick question, each at 09:00 Bangkok. `pinned` is
+ * a วันจร the user picked; the walk starts there.
+ */
+export function dayScanDates(
+  question: string,
+  now = new Date(),
+  pinned?: string | Date | null,
+): { days: Date[]; truncated: boolean } {
+  const q = question.trim();
+  const p = partsOf(now);
+  const at9 = (y: number, m: number, d: number) => bangkokCivilDate(y, m, d, "09:00");
+  const pinnedAt = parseOverride(pinned);
+
+  let start = at9(p.y, p.m, p.d);
+  let end: Date;
+  if (pinnedAt) {
+    const pp = partsOf(pinnedAt);
+    start = at9(pp.y, pp.m, pp.d);
+    end = addCalendarDays(start, DAY_SCAN_DEFAULT_DAYS - 1);
+  } else if (/เดือนหน้า/.test(q)) {
+    const first = addCalendarMonths(at9(p.y, p.m, 1), 1);
+    start = first;
+    end = addCalendarDays(addCalendarMonths(first, 1), -1);
+  } else if (/เดือนนี้/.test(q)) {
+    end = addCalendarDays(addCalendarMonths(at9(p.y, p.m, 1), 1), -1);
+  } else if (/สัปดาห์หน้า|อาทิตย์หน้า/.test(q)) {
+    start = addCalendarDays(start, 7);
+    end = addCalendarDays(start, 6);
+  } else if (/สัปดาห์นี้|อาทิตย์นี้/.test(q)) {
+    end = addCalendarDays(start, 6);
+  } else if (/ปีหน้า/.test(q)) {
+    start = at9(p.y + 1, 1, 1);
+    end = at9(p.y + 1, 12, 31);
+  } else if (/ปีนี้/.test(q)) {
+    end = at9(p.y, 12, 31);
+  } else {
+    const window = resolveTransitWindow(q, now);
+    end =
+      window.horizonAt && window.horizonAt.getTime() > start.getTime()
+        ? window.horizonAt
+        : addCalendarDays(start, DAY_SCAN_DEFAULT_DAYS - 1);
+  }
+
+  const days: Date[] = [];
+  for (let d = start; d.getTime() <= end.getTime(); d = addCalendarDays(d, 1)) {
+    if (days.length >= DAY_SCAN_MAX_DAYS) return { days, truncated: true };
+    days.push(d);
+  }
+  return { days, truncated: false };
+}

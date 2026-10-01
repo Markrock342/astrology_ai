@@ -142,6 +142,17 @@ export const TIMELINE_RULE =
   "ถ้าผู้ใช้ถามเลยปีสุดท้ายในบล็อก ให้บอกสุภาพว่าปฏิทินดาวที่ใช้คำนวณครอบคลุมถึงปีนั้น";
 
 /**
+ * Appended only when a [day_scan] was computed: the question asks the model to
+ * pick a day, and it now has every day of the period to pick from.
+ */
+export const DAY_SCAN_RULE =
+  "กฎเลือกวัน (บังคับ): คำถามนี้ให้เลือกวันหรือช่วงเวลา และมีบล็อก [day_scan] ที่ไล่ดาวจรทีละวันไว้แล้ว " +
+  "ห้ามบอกว่าต้องให้ผู้ใช้เลือกวันเองหรือไม่มีข้อมูลวันอื่น " +
+  "แนะนำ 2–4 วันจาก 'วันเด่น' ที่เหมาะกับเรื่องที่ถามที่สุด บอกวัน วันที่ และเดือน พ.ศ. ตามบล็อกเท่านั้น " +
+  "แต่ละวันอธิบายเหตุผลตามบล็อก (วันทักษาของเจ้าชะตา จันทร์จรเดินภพไหน กุมหรือเล็งดาวเดิมใด ดาวจรในภพของเรื่อง) " +
+  "แล้วบอกวันที่ควรเลี่ยงพร้อมเหตุผลสั้น ๆ ห้ามแต่งวันหรือเหตุผลที่ไม่มีในบล็อก";
+
+/**
  * Appended only when other people's charts came with the question. The model
  * had never been given anyone's chart but the user's; asked about a partner,
  * it could only invent one.
@@ -268,6 +279,7 @@ export type BuildUserPromptOptions = {
   companionText?: string | null;
   /** A computed life timeline ([timeline] block) for "when will…" questions. */
   timelineText?: string | null;
+  dayScanText?: string | null;
   /** Overview = all 17 topics; otherwise only the topics the question is about. */
   overview?: boolean;
   chartMemory?: UserChartMemoryJson | null;
@@ -455,6 +467,7 @@ export function buildUserPrompt(
   }
 
   if (opts.timelineText) lines.push(opts.timelineText, "");
+  if (opts.dayScanText) lines.push(opts.dayScanText, "");
   if (opts.companionText) lines.push(opts.companionText, "");
 
   lines.push(
