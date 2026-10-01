@@ -35,7 +35,7 @@ describe("the days walked", () => {
   it("starts at a pinned day", () => {
     const { days } = dayScanDates("วันไหนดี", NOW, "2026-12-20");
     expect(thaiDayLabel(days[0]!)).toBe("20 ธ.ค. 2569");
-    expect(days).toHaveLength(30);
+    expect(days).toHaveLength(60);
   });
 });
 
@@ -73,5 +73,26 @@ describe("scanDays", () => {
     const text = formatDayScanForPrompt(scan).join("\n");
     expect(text).toMatch(/^\[day_scan\]/);
     expect(text).toContain("วันกาลกิณีของเจ้าชะตา");
+  });
+});
+
+describe("the owner's own wordings", () => {
+  it.each([
+    "จากนี้ไปวันไหนดวงจรดี",
+    "ดวงผมมีเกณฑ์ได้คุยงานไหม",
+    "มีเกณฑ์ได้เงินเข้ามาเมื่อไหร่",
+    "ช่วงนี้มีเกณฑ์ได้เงินไหม",
+    "เมื่อไหร่จะได้เงินก้อน",
+    "ต่อจากนี้ดวงจรดีช่วงไหน",
+    "จะได้คุยงานใหญ่เมื่อไหร่",
+  ])("%s walks the coming days", (q) => expect(isDayPickQuestion(q)).toBe(true));
+
+  it.each(["ชีวิตจะพลิกตอนไหน", "เมื่อไหร่จะแต่งงาน", "ดวงจะขึ้นตอนอายุเท่าไหร่"])(
+    "%s stays a life timeline",
+    (q) => expect(isDayPickQuestion(q)).toBe(false),
+  );
+
+  it("looks 60 days ahead when no period is named", () => {
+    expect(dayScanDates("มีเกณฑ์ได้เงินไหม", NOW).days).toHaveLength(60);
   });
 });
