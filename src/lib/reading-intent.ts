@@ -557,15 +557,33 @@ const DAY_PICK_PATTERN =
 const PERIOD_PICK_PATTERN = /ช่วงไหน|ช่วงใด|เมื่อไหร่ดี|เมื่อไรดี|ตอนไหนดี|ช่วงที่เหมาะ|ช่วงที่ดี/;
 const SHORT_PERIOD_PATTERN = /เดือนนี้|เดือนหน้า|สัปดาห์|อาทิตย์นี้|อาทิตย์หน้า|อีก\s*\d+\s*(วัน|เดือน)|\d+\s*เดือน|ปีนี้|ปีหน้า/;
 
+/**
+ * Life-scale timing — years, ages, turning points, milestones a day-by-day
+ * walk cannot place. These stay with the life timeline (lib/life-timeline).
+ */
+const LIFE_SCALE_PATTERN =
+  /ชีวิต|อายุเท่า|อายุกี่|ปีไหน|ปีอะไร|ปี\s*พ\.?ศ|จุดเปลี่ยน|พลิก|ดวงจะขึ้น|ดวงขึ้นตอน|ปีทอง|ช่วงทอง|แต่งงาน|มีลูก|มีบ้าน|รวยตอน|เกษียณ/;
+/** "เกณฑ์" (a sign of an event) or a "when" asked about the coming days. */
+const EVENT_SIGN_PATTERN = /เกณฑ์|ดวงจรดี|ดวงดี(วัน|ช่วง)|ได้เงิน|เงินเข้า|เงินก้อน|คุยงาน|เจรจา|ได้งาน|โชคลาภ|ลาภลอย/;
+const WHEN_PATTERN = /เมื่อไหร่|เมื่อไร|ตอนไหน|ช่วงไหน|ช่วงใด|วันไหน|จากนี้|ต่อจากนี้|ข้างหน้า|เร็ว\s*ๆ\s*นี้|ช่วงนี้/;
+
+/**
+ * Whether to walk the coming days. The owner asks things like "ดวงผมมีเกณฑ์
+ * ได้คุยงานไหม", "มีเกณฑ์ได้เงินเข้ามาเมื่อไหร่", "จากนี้วันไหนดวงจรดี" — they
+ * used to get today's sky alone, or a years-long timeline.
+ */
 export function isDayPickQuestion(question: string): boolean {
   const q = question.trim();
   if (DAY_PICK_PATTERN.test(q)) return true;
-  return PERIOD_PICK_PATTERN.test(q) && SHORT_PERIOD_PATTERN.test(q);
+  if (LIFE_SCALE_PATTERN.test(q)) return false;
+  if (PERIOD_PICK_PATTERN.test(q) && SHORT_PERIOD_PATTERN.test(q)) return true;
+  if (/เกณฑ์/.test(q)) return true;
+  return EVENT_SIGN_PATTERN.test(q) && WHEN_PATTERN.test(q);
 }
 
 /** Longest window walked day by day; a longer ask is cut and says so. */
 export const DAY_SCAN_MAX_DAYS = 400;
-const DAY_SCAN_DEFAULT_DAYS = 30;
+const DAY_SCAN_DEFAULT_DAYS = 60;
 
 /**
  * The days to walk for a day-pick question, each at 09:00 Bangkok. `pinned` is
