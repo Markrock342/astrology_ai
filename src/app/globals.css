@@ -5,6 +5,13 @@
   Tailwind v4 otherwise collapses `:root, [data-theme=…]` into a single
   `:root { …dark… }` and drops the light overrides — toggle appears broken.
 */
+
+/* Self-hosted fonts (layout.tsx imports @fontsource-variable/*); these were
+   set by next/font/google classes on <html> before. */
+html {
+  --font-thai: "Noto Sans Thai Variable";
+  --font-geist-mono: "Geist Mono Variable", ui-monospace, monospace;
+}
 @layer theme {
   /* HoraSard — near-black + gold + turquoise (confirmed design). No violet. */
   :root,
