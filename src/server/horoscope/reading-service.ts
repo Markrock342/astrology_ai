@@ -22,6 +22,7 @@ import {
   buildSystemPrompt,
   buildConversationHistory,
   TIMELINE_RULE,
+  DAY_SCAN_RULE,
   COMPANION_RULE,
 } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
@@ -43,10 +44,12 @@ import { getOrRefreshChartMemory } from "@/server/horoscope/chart-memory-service
 import {
   bangkokTimeHm,
   isOverviewQuestion,
+  isDayPickQuestion,
   isTimelineQuestion,
   resolveTransitWindow,
 } from "@/lib/reading-intent";
 import { buildLifeTimelinePrompt } from "@/server/horoscope/life-timeline-service";
+import { buildDayScanPrompt } from "@/server/horoscope/day-scan-service";
 import { buildCompanionsPrompt } from "@/server/horoscope/companion-service";
 import type { Companion } from "@/lib/companions";
 import { getOrComputeDailyTransit } from "@/server/horoscope/daily-transit-service";
@@ -497,8 +500,20 @@ async function runReading(
     ? await buildCompanionsPrompt(natalChart, input.companions)
     : null;
 
+  // "Which day is good for …?" gets every day of the period walked; it takes
+  // precedence over the life timeline, which also matches ช่วงไหน/เมื่อไหร่.
+  const dayScanText = isDayPickQuestion(question)
+    ? buildDayScanPrompt({
+        natal: natalChart,
+        memory: chartMemory,
+        question,
+        categorySlug,
+        pinnedDate: input.transit?.explicitDate ?? null,
+      })
+    : null;
+
   // "When will my life turn?" gets the slow planets walked over the years.
-  const timelineText = isTimelineQuestion(question)
+  const timelineText = !dayScanText && isTimelineQuestion(question)
     ? buildLifeTimelinePrompt({
         natal: natalChart,
         memory: chartMemory,
@@ -514,6 +529,9 @@ async function runReading(
   systemPrompt = `${systemPrompt}\n\n${UNIFIED_CHAT_INSTRUCTION}`;
   if (timelineText) {
     systemPrompt = `${systemPrompt}\n\n${TIMELINE_RULE}`;
+  }
+  if (dayScanText) {
+    systemPrompt = `${systemPrompt}\n\n${DAY_SCAN_RULE}`;
   }
   if (companionText) {
     systemPrompt = `${systemPrompt}\n\n${COMPANION_RULE}`;
@@ -551,6 +569,7 @@ async function runReading(
       readingIntent: transitWindow.intent,
       overview: isOverviewQuestion(question),
       timelineText,
+      dayScanText,
       companionText,
       intakeText: intakeAnswers ? formatIntakeForPrompt(intakeAnswers) : null,
       userContextText: formatUserAiMemoryForPrompt(userAiMemory),
