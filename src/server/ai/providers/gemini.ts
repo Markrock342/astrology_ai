@@ -378,6 +378,14 @@ export class GeminiAdapter implements AIProviderAdapter {
         };
       }
 
+      const cutByBudget =
+        finishReason === "MAX_TOKENS" ||
+        (finishReason !== "STOP" &&
+          (outputTokens ?? 0) + (thoughtTokens ?? 0) >= input.maxOutputTokens - 8);
+      // The stream ended with text but no finish reason at all: Gemini closed
+      // the connection mid-answer. Seen on 1 Oct 2026 while it was overloaded —
+      // a ละเอียด answer stopped mid-word and was saved as complete.
+      const cutByConnection = !stopped && !cutByBudget && finishReason === undefined;
       return {
         ok: true,
         stopped,
@@ -394,11 +402,8 @@ export class GeminiAdapter implements AIProviderAdapter {
         // the budget math is the reliable tell — BUT only when the model did not
         // report a clean stop. A `STOP` answer that merely used most of the
         // budget is complete; without this guard it got a false "เล่าต่อ" footer.
-        truncated:
-          finishReason === "MAX_TOKENS" ||
-          (finishReason !== "STOP" &&
-            (outputTokens ?? 0) + (thoughtTokens ?? 0) >=
-              input.maxOutputTokens - 8),
+        truncated: cutByBudget || cutByConnection,
+        truncatedBy: cutByBudget ? "budget" : cutByConnection ? "connection" : undefined,
         firstTokenMs: firstTokenAt !== undefined ? firstTokenAt - start : undefined,
       };
     } catch (err) {
@@ -428,6 +433,7 @@ export class GeminiAdapter implements AIProviderAdapter {
           usage: { inputTokens, outputTokens, cachedTokens },
           latencyMs: Date.now() - start,
           truncated: true,
+          truncatedBy: "connection",
         };
       }
       return {

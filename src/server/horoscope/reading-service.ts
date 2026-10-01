@@ -745,9 +745,13 @@ async function runReading(
     // the user knows to ask for the rest, instead of a silently missing ending.
     // Not when the user STOPPED it themselves — they cut it on purpose, so
     // "ran out of room, type เล่าต่อ" would be a lie.
+    // A cut connection gets its own wording: "ran out of room" would blame
+    // the answer mode for what was a dropped stream.
     const responseText =
       result.truncated && !result.stopped
-        ? `${result.rawText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
+        ? result.truncatedBy === "connection"
+          ? `${result.rawText.trimEnd()}\n\n*การเชื่อมต่อกับระบบ AI ขาดกลางคำตอบ — กด “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
+          : `${result.rawText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
         : result.rawText;
 
     const creditCost = 0;

@@ -80,6 +80,11 @@ export type GenerateAIResult = {
    * mid-sentence. Callers should surface this instead of a silent cut.
    */
   truncated?: boolean;
+  /**
+   * Why a truncated answer ended: the output budget ran out, or the provider
+   * closed the stream with no finish reason (seen when Gemini is overloaded).
+   */
+  truncatedBy?: "budget" | "connection";
   /** Ms from the request to the FIRST text token (streaming only). The gap to
    *  latencyMs is pure generation time — the split that says whether a slow
    *  turn was slow to start or just a long answer. */
