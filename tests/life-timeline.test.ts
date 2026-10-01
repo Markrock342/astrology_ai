@@ -138,3 +138,22 @@ describe("years the answer may use", () => {
     ]);
   });
 });
+
+describe("a whole-life timeline", () => {
+  it("runs from now to age 90, marking months outside the 100-year table", async () => {
+    const { computeNatalChartFormula } = await import("@/server/horoscope/engine/compute-chart");
+    const { buildLifeTimelinePrompt } = await import("@/server/horoscope/life-timeline-service");
+    const natal = computeNatalChartFormula({ day: 18, month: 11, year: 2001, time: "02:08", country: "ไทย", province: "นครราชสีมา", district: "โชคชัย" });
+    const text = buildLifeTimelinePrompt({
+      natal,
+      memory: null,
+      question: "ทั้งชีวิตมีเกณฑ์ได้เงินก้อนช่วงไหนบ้าง",
+      categorySlug: "finance",
+      now: new Date("2026-10-01T03:00:00Z"),
+    })!;
+    expect(text).toContain("ช่วง ต.ค. 2569 ถึง พ.ย. 2634");
+    expect(text).toContain("นอกปฏิทินดาว 100 ปี");
+    expect(text).not.toMatch(/อายุ 0 ·/);
+    expect(text.split("\n").filter((l) => l.startsWith("- "))).toHaveLength(20);
+  });
+});
