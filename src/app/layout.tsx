@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Script from "next/script";
-import { Geist_Mono, Noto_Sans_Thai } from "next/font/google";
+// Self-hosted (OFL): next/font/google downloads the fonts at build time, and a
+// bad answer from Google Fonts failed a production build on 1 Oct 2026.
+import "@fontsource-variable/noto-sans-thai";
+import "@fontsource-variable/geist-mono";
 import "./globals.css";
 import { APP_NAME_TH, APP_TAGLINE_TH } from "@/config/constants";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -11,19 +14,6 @@ import { NavProgress } from "@/components/app/nav-progress";
 import { CMS_KEYS, type CmsSiteTheme } from "@/lib/cms-keys";
 import { buildSiteBrandBootPayload } from "@/lib/theme-colors";
 import { getPublishedSetting } from "@/server/settings/settings-service";
-
-const notoThai = Noto_Sans_Thai({
-  variable: "--font-thai",
-  subsets: ["thai", "latin"],
-  // font-bold is unused; 300 (display) → 600 (labels) covers the whole UI.
-  weight: ["300", "400", "500", "600"],
-  display: "swap",
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: `${APP_NAME_TH} — ${APP_TAGLINE_TH}`,
@@ -69,7 +59,7 @@ export default async function RootLayout({
       lang="th"
       data-theme="dark"
       suppressHydrationWarning
-      className={`${notoThai.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <head>
         <Script id="hora-theme-boot" strategy="beforeInteractive">
@@ -78,7 +68,7 @@ export default async function RootLayout({
         <meta name="theme-color" content={siteTheme.primary} />
         <link rel="manifest" href="/manifest.webmanifest" />
       </head>
-      <body className={`${notoThai.className} min-h-full flex flex-col`}>
+      <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <TextSizeProvider>
           <SiteBrandProvider initialTheme={siteTheme}>
