@@ -43,6 +43,9 @@ export function bangkokBoundaries(now = new Date()) {
   return { dayStart, monthStart };
 }
 
+/** Message-count caps per package; off since usage became the only limit. */
+const ENFORCE_MESSAGE_COUNTS = false;
+
 export type PackageLimits = {
   dailyLimit: number | null;
   monthlyLimit: number | null;
@@ -155,6 +158,11 @@ export async function assertWithinUsageLimitsInTx(
   tx: Prisma.TransactionClient,
 ): Promise<void> {
   const now = new Date();
+  // Usage (the AI-cost budget, shown as %) is the only limit now. Packages
+  // still carry a per-day / per-month message count — the Free row had
+  // dailyLimit 3 — and enforcing it on top of the budget stopped Free users at
+  // three messages a day whatever their usage. Counts are no longer enforced.
+  if (!ENFORCE_MESSAGE_COUNTS) return;
   const limits = await getActivePackageLimits(userId, now, tx);
   if (limits.dailyLimit == null && limits.monthlyLimit == null) return;
 
@@ -195,9 +203,10 @@ export async function getUsageCounts(userId: string): Promise<UsageSnapshot> {
     monthStart,
   );
 
+  // Not enforced, so not reported: the UI would show a cap that isn't there.
   return {
-    dailyLimit: limits.dailyLimit,
-    monthlyLimit: limits.monthlyLimit,
+    dailyLimit: ENFORCE_MESSAGE_COUNTS ? limits.dailyLimit : null,
+    monthlyLimit: ENFORCE_MESSAGE_COUNTS ? limits.monthlyLimit : null,
     usedToday,
     usedThisMonth,
   };
