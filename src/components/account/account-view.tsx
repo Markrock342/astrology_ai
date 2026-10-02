@@ -137,8 +137,9 @@ export function AccountView({
   const usageLimits: UsageLimitsFallback = {
     remainingPercent: myPackage.usageRemainingPercent,
     periodEndsAt: myPackage.usagePeriodEndsAt ?? expiresAt,
-    dailyLimit: myPackage.subscription?.package.dailyLimit ?? null,
-    monthlyLimit: myPackage.subscription?.package.monthlyLimit ?? null,
+    // Usage % is the only limit; per-day message counts are no longer enforced.
+    dailyLimit: null,
+    monthlyLimit: null,
   };
 
   return (

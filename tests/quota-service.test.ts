@@ -46,11 +46,11 @@ describe("assertWithinUsageLimits (Wave E)", () => {
     await expect(assertWithinUsageLimits("user-1")).resolves.toBeUndefined();
   });
 
-  it("throws QUOTA_EXCEEDED when daily limit is reached", async () => {
+  it("no longer stops a Free user at the package's message count", async () => {
+    // The Free row still says dailyLimit 3; usage (the AI budget) is the only
+    // limit now, so a fourth message the same day goes through.
     mocks.count.mockResolvedValue(3);
-    await expect(assertWithinUsageLimits("user-1")).rejects.toMatchObject({
-      code: "QUOTA_EXCEEDED",
-    });
+    await expect(assertWithinUsageLimits("user-1")).resolves.toBeUndefined();
   });
 
   it("skips checks when package has no limits", async () => {
@@ -61,19 +61,14 @@ describe("assertWithinUsageLimits (Wave E)", () => {
     expect(mocks.count).not.toHaveBeenCalled();
   });
 
-  it("assertWithinUsageLimitsInTx uses the transaction client", async () => {
-    mocks.count.mockResolvedValue(1);
-    // The gate now purges stale RESERVED rows before counting — a leaked
-    // reservation used to hold shut the very door that would have freed it.
-    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
+  it("assertWithinUsageLimitsInTx counts nothing now that counts are retired", async () => {
     const tx = {
       userSubscription: { findFirst: mocks.findFirstSub },
       package: { findFirst: mocks.findFirstPkg },
-      aIUsageLog: { count: mocks.count, deleteMany },
+      aIUsageLog: { count: mocks.count, deleteMany: vi.fn() },
     };
     await assertWithinUsageLimitsInTx("user-1", tx as never);
-    expect(deleteMany).toHaveBeenCalled();
-    expect(mocks.count).toHaveBeenCalled();
+    expect(mocks.count).not.toHaveBeenCalled();
   });
 });
 

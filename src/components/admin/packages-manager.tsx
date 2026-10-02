@@ -73,11 +73,6 @@ function linesToArray(text: string): string[] {
     .filter(Boolean);
 }
 
-function limitToNumber(v: string): number | null {
-  const n = Number(v);
-  return v.trim() === "" || Number.isNaN(n) ? null : n;
-}
-
 export function PackagesManager({
   initialPackages,
 }: {
@@ -144,8 +139,10 @@ export function PackagesManager({
       billingLabel: form.billingLabel || undefined,
       creditQuota: Number(form.creditQuota),
       usageBudgetUnits: Number(form.usageBudgetUnits),
-      dailyLimit: limitToNumber(form.dailyLimit),
-      monthlyLimit: limitToNumber(form.monthlyLimit),
+      // Message-count caps are retired (usage is the only limit); saving a
+      // package clears any left over, such as the Free row's old 3/day.
+      dailyLimit: null,
+      monthlyLimit: null,
       enabled: form.enabled,
       description: form.description || undefined,
       features: linesToArray(form.featuresText),
@@ -260,22 +257,6 @@ export function PackagesManager({
                 }
               />
             </Field>
-            <Field label="จำกัดต่อวัน (ครั้ง)" hint="เว้นว่าง = ไม่จำกัด">
-              <TextInput
-                type="number"
-                min={0}
-                value={form.dailyLimit}
-                onChange={(e) => setForm({ ...form, dailyLimit: e.target.value })}
-              />
-            </Field>
-            <Field label="จำกัดต่อเดือน (ครั้ง)" hint="เว้นว่าง = ไม่จำกัด">
-              <TextInput
-                type="number"
-                min={0}
-                value={form.monthlyLimit}
-                onChange={(e) => setForm({ ...form, monthlyLimit: e.target.value })}
-              />
-            </Field>
             <Field label="คำอธิบายสั้น">
               <TextInput
                 value={form.description}
@@ -338,8 +319,6 @@ export function PackagesManager({
               <Badge tone="gold">{pkg.type === "PRO" ? "Pro" : "ฟรี"}</Badge>
               <Badge>฿{pkg.price}</Badge>
               <Badge>{pkg.usageBudgetUnits.toLocaleString("th-TH")} usage units</Badge>
-              {pkg.dailyLimit != null && <Badge>{pkg.dailyLimit}/วัน</Badge>}
-              {pkg.monthlyLimit != null && <Badge>{pkg.monthlyLimit}/เดือน</Badge>}
               {!pkg.enabled && <Badge tone="red">ปิดอยู่</Badge>}
               <div className="ml-auto flex gap-2">
                 <Button variant="ghost" onClick={() => startEdit(pkg)}>
