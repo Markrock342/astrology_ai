@@ -274,8 +274,10 @@ export async function reviewPayment(
         // renewed with 20 days remaining lost them. Base the new expiry on the
         // latest active expiry (or now, whichever is later); a never-expiring
         // grant (expiresAt = null) is preserved, never shortened to 30 days.
+        // Pro rows only: the Free row every account holds has no expiry, and
+        // counting it made any paid month a lifetime Pro.
         const actives = await tx.userSubscription.findMany({
-          where: { userId: payment.userId, status: "ACTIVE" },
+          where: { userId: payment.userId, status: "ACTIVE", package: { type: "PRO" } },
           select: { expiresAt: true },
         });
         const hasLifetime = actives.some((s) => s.expiresAt === null);
