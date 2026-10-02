@@ -83,6 +83,13 @@ type UserDetail = {
     package: { code: string; name: string; type: string };
     expiresAt: string | null;
   }>;
+  planHistory?: Array<{
+    action: string;
+    at: string;
+    by: string;
+    packageCode: string | null;
+    expiresAt: string | null;
+  }>;
 };
 
 type RevealedBirth = {
@@ -589,6 +596,26 @@ export function UserDetailManager({
               <p role="status" className="mt-3 text-xs text-[var(--primary)]">
                 {saved}
               </p>
+            ) : null}
+            {user.planHistory?.length ? (
+              <div className="mt-4 border-t border-[var(--border)] pt-3">
+                <p className="text-xs font-semibold text-[var(--foreground)]">ประวัติการเปลี่ยนแพ็กเกจ</p>
+                <ul className="mt-2 space-y-1.5">
+                  {user.planHistory.map((e, i) => (
+                    <li key={`${e.at}-${i}`} className="text-[11px] leading-5 text-[var(--muted)]">
+                      <span className="tabular-nums text-[var(--muted-2)]">
+                        {new Date(e.at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                      </span>{" "}
+                      {e.action === "user.subscription.self_cancel"
+                        ? <>ผู้ใช้<b className="text-[var(--danger)]">ยกเลิก Pro เอง</b></>
+                        : e.action === "payment.approve"
+                          ? <>อนุมัติสลิป {e.packageCode ?? ""} โดย {e.by}</>
+                          : <>ตั้งเป็น <b className="text-[var(--foreground)]">{e.packageCode ?? "?"}</b>{" "}
+                              {e.expiresAt ? `ถึง ${thaiDay(e.expiresAt)}` : "ไม่มีวันหมดอายุ"} โดย {e.by}</>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
           </Card>
 

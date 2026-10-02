@@ -1,3 +1,4 @@
+import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 import { Prisma } from "@prisma/client";
 import type { Role, UserStatus, CreditTxnType } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -194,7 +195,7 @@ export async function getUserDetail(userId: string) {
   // There is no last-login column (adding one needs a migration, and the host
   // does not run them). The last thing the person asked is the honest signal
   // of use we do have: their latest chat message or reading.
-  const [usage, cost, lastMessage, lastReading] = await Promise.all([
+  const [usage, cost, lastMessage, lastReading, planEvents] = await Promise.all([
     getMyUsage(userId),
     getUserCost(userId),
     prisma.message.findFirst({
@@ -207,7 +208,39 @@ export async function getUserDetail(userId: string) {
       orderBy: { createdAt: "desc" },
       select: { createdAt: true },
     }),
+    // Who changed this account's plan, and when: admin sets, the user's own
+    // cancel, payment approvals.
+    prisma.adminAuditLog.findMany({
+      where: {
+        OR: [
+          { action: { in: ["user.subscription.set", "user.subscription.self_cancel"] }, entityId: userId },
+          { action: "payment.approve", afterJson: { path: ["userId"], equals: userId } },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+      select: {
+        action: true,
+        createdAt: true,
+        afterJson: true,
+        admin: { select: { name: true, email: true } },
+      },
+    }),
   ]);
+  const planHistory = planEvents.map((e) => {
+    const after = (e.afterJson ?? {}) as {
+      package?: { code?: string };
+      packageCode?: string;
+      expiresAt?: string | null;
+    };
+    return {
+      action: e.action,
+      at: e.createdAt,
+      by: e.admin.name ?? e.admin.email,
+      packageCode: after.package?.code ?? after.packageCode ?? null,
+      expiresAt: after.expiresAt ?? null,
+    };
+  });
   const lastActiveAt =
     [lastMessage?.createdAt, lastReading?.createdAt]
       .filter((d): d is Date => Boolean(d))
@@ -241,6 +274,7 @@ export async function getUserDetail(userId: string) {
       : null,
     usage,
     cost,
+    planHistory,
   };
 }
 
@@ -543,7 +577,7 @@ export async function setUserSubscription(
   const pkg = await prisma.package.findUnique({ where: { code: input.packageCode } });
   if (!pkg) throw new AppError("NOT_FOUND", "Package not found");
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const before = await tx.userSubscription.findMany({
       where: { userId, status: "ACTIVE" },
       select: { id: true, packageId: true, status: true },
@@ -619,6 +653,10 @@ export async function setUserSubscription(
     );
     return { ...created, grantedCredits };
   });
+  // The app shell caches the plan; without this the user kept seeing the old
+  // plan until the cache expired.
+  invalidateUserBootstrap(userId);
+  return result;
 }
 
 /** Create a new staff login. SUPER_ADMIN only — never promote via this path. */

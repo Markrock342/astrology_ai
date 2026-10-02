@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   findUser: vi.fn(),
   lastMessage: vi.fn(),
   lastReading: vi.fn(),
+  auditLogs: vi.fn(async () => [] as unknown[]),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -11,6 +12,7 @@ vi.mock("@/server/db", () => ({
     user: { findUnique: mocks.findUser },
     message: { findFirst: mocks.lastMessage },
     horoscopeReading: { findFirst: mocks.lastReading },
+    adminAuditLog: { findMany: mocks.auditLogs },
   },
 }));
 vi.mock("@/server/account/usage-service", () => ({ getMyUsage: vi.fn(async () => null) }));
@@ -112,5 +114,22 @@ describe("full-size avatar", () => {
     );
     const upload = "https://blob.example.com/avatars/u1.webp";
     expect(largeAvatarUrl(upload)).toBe(upload);
+  });
+});
+
+describe("plan history", () => {
+  it("says who changed the plan and when, including the user's own cancel", async () => {
+    mocks.findUser.mockResolvedValue(row);
+    mocks.lastMessage.mockResolvedValue(null);
+    mocks.lastReading.mockResolvedValue(null);
+    mocks.auditLogs.mockResolvedValue([
+      { action: "user.subscription.self_cancel", createdAt: new Date("2026-10-02T05:00:00Z"), afterJson: null, admin: { name: "Mark", email: "m@x" } },
+      { action: "user.subscription.set", createdAt: new Date("2026-10-01T05:00:00Z"), afterJson: { package: { code: "PRO" }, expiresAt: null }, admin: { name: null, email: "admin@x" } },
+    ]);
+    const d = await getUserDetail("u1");
+    expect(d.planHistory).toEqual([
+      expect.objectContaining({ action: "user.subscription.self_cancel", by: "Mark" }),
+      expect.objectContaining({ action: "user.subscription.set", by: "admin@x", packageCode: "PRO", expiresAt: null }),
+    ]);
   });
 });

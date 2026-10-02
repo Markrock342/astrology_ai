@@ -1,3 +1,5 @@
+import { writeAudit } from "@/server/audit/audit-service";
+import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
@@ -56,11 +58,31 @@ export async function cancelActiveSubscription(userId: string) {
   if (!sub) {
     throw new AppError("VALIDATION", "ไม่มีแพ็กเกจ Pro ที่ใช้งานอยู่");
   }
+  // A plan an admin gave is the admin's to take back. A user-side cancel used
+  // to drop it silently, with no record — the owner saw an account set to
+  // "Pro forever" turn Free "เฉยๆ".
+  if (sub.activationSource === "ADMIN_MANUAL") {
+    throw new AppError("VALIDATION", "แพ็กเกจนี้ได้รับจากแอดมิน — ติดต่อแอดมินหากต้องการยกเลิก");
+  }
 
-  await prisma.userSubscription.update({
-    where: { id: sub.id },
-    data: { status: "CANCELLED" },
+  await prisma.$transaction(async (tx) => {
+    await tx.userSubscription.update({
+      where: { id: sub.id },
+      data: { status: "CANCELLED" },
+    });
+    // Recorded with the user as the actor, so the plan history shows who did it.
+    await writeAudit(
+      {
+        adminUserId: userId,
+        action: "user.subscription.self_cancel",
+        entityType: "user_subscription",
+        entityId: userId,
+        before: { id: sub.id, expiresAt: sub.expiresAt, activationSource: sub.activationSource },
+      },
+      tx,
+    );
   });
+  invalidateUserBootstrap(userId);
 
   return { cancelled: true };
 }
