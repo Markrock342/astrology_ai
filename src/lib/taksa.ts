@@ -77,21 +77,47 @@ export const TAKSA_TRANSIT_WEEKDAY_TABLE = {
   เสาร์: slotsForWeekday("เสาร์", "transit"),
 } satisfies Record<TaksaBirthDay, TaksaSlot[]>;
 
+/** Minutes after local midnight when the astrological day turns. */
+export type TaksaDayBoundaries = { sunriseMin: number; sunsetMin: number };
+
 /**
- * Resolve the traditional birth day. The astrological day changes at 06:00;
- * Wednesday 18:00 through Thursday 05:59 is Wednesday-night (Rahu).
+ * The server registers a resolver for the real sunrise and sunset at the
+ * birthplace (engine/taksa-boundaries.ts); the browser, without the place
+ * table, falls back to 06:00 / 18:00.
+ */
+let boundaryResolver: ((input: BirthInputSnapshot) => TaksaDayBoundaries | null) | null = null;
+
+export function registerTaksaBoundaryResolver(
+  fn: (input: BirthInputSnapshot) => TaksaDayBoundaries | null,
+): void {
+  boundaryResolver = fn;
+}
+
+/**
+ * Resolve the traditional birth day: it changes at sunrise, and Wednesday
+ * from sunset to the next sunrise is Wednesday-night (Rahu). Fixed 06:00 /
+ * 18:00 gave myhora's answer only when the sun kept to them — births near
+ * dawn or dusk got the wrong day (QA, 4 Oct 2026: 4 of 4).
  */
 export function resolveTaksaBirthDay(input: BirthInputSnapshot): TaksaBirthDay {
-  const hour = Number.parseInt(input.time.split(":")[0] ?? "12", 10);
-  const safeHour = Number.isFinite(hour) ? hour : 12;
+  const [h, m] = input.time.split(":").map((x) => Number.parseInt(x, 10));
+  const minutes = (Number.isFinite(h) ? h! : 12) * 60 + (Number.isFinite(m) ? m! : 0);
+  let bounds: TaksaDayBoundaries | null = null;
+  try {
+    bounds = boundaryResolver?.(input) ?? null;
+  } catch {
+    bounds = null;
+  }
+  const sunrise = bounds?.sunriseMin ?? 6 * 60;
+  const sunset = bounds?.sunsetMin ?? 18 * 60;
   const civil = new Date(Date.UTC(input.year, input.month - 1, input.day));
   const civilWeekday = civil.getUTCDay();
 
-  if (civilWeekday === 3 && safeHour >= 18) return "พุธกลางคืน";
-  if (civilWeekday === 4 && safeHour < 6) return "พุธกลางคืน";
+  if (civilWeekday === 3 && minutes >= sunset) return "พุธกลางคืน";
+  if (civilWeekday === 4 && minutes < sunrise) return "พุธกลางคืน";
 
   const effective = new Date(civil);
-  if (safeHour < 6) effective.setUTCDate(effective.getUTCDate() - 1);
+  if (minutes < sunrise) effective.setUTCDate(effective.getUTCDate() - 1);
   const labels: Record<number, TaksaBirthDay> = {
     0: "อาทิตย์", 1: "จันทร์", 2: "อังคาร", 3: "พุธกลางวัน",
     4: "พฤหัสบดี", 5: "ศุกร์", 6: "เสาร์",

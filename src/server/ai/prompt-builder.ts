@@ -319,6 +319,18 @@ function truncateAssistantHistory(content: string): string {
   return `${body.slice(0, head)}\n…\n${body.slice(-(HISTORY_ASSISTANT_MAX_CHARS - head))}`;
 }
 
+/**
+ * Appended when the person does not know their birth time. The chart, house
+ * chains, transit houses, day scan and timeline are all computed for 12:00,
+ * and several blocks say "ห้ามเดา" — the model stated a noon lagna as fact.
+ * (A companion with no birth time already had their lagna withheld.)
+ */
+export const UNKNOWN_TIME_RULE =
+  "กฎไม่ทราบเวลาเกิด (บังคับ): ผู้ถามไม่ทราบเวลาเกิด ลัคนา ภพ เรือน เจ้าเรือน และการนับภพทุกบล็อก " +
+  "คำนวณจากเวลาเที่ยงวันเป็นค่าสมมติเท่านั้น ห้ามบอกว่าลัคนาของผู้ถามคือราศีใด ห้ามอ้างภพหรือเรือนเป็นข้อเท็จจริง " +
+  "ให้อ่านจากดาวในราศี มาตรฐานดาว มุมระหว่างดาว ทักษา และดาวจรเทียบดาวเดิมแทน " +
+  "ถ้าจำเป็นต้องพูดถึงเรื่องที่ต้องใช้ลัคนา ให้บอกสุภาพว่าต้องทราบเวลาเกิดจึงจะบอกได้แม่น";
+
 /** "เล่าต่อ" and friends: carry on with the previous answer, not a new question. */
 export function isContinueRequest(question: string): boolean {
   return /^\s*(?:เล่า)?ต่อ(?:เลย|สิ|หน่อย|ให้จบ)?\s*(?:ครับ|ค่ะ|คะ|นะ|จ้า)?\s*[▸.!]*\s*$/.test(question);

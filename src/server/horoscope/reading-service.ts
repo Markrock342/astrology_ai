@@ -24,6 +24,7 @@ import {
   TIMELINE_RULE,
   DAY_SCAN_RULE,
   CONTINUE_RULE,
+  UNKNOWN_TIME_RULE,
   isContinueRequest,
   COMPANION_RULE,
 } from "@/server/ai/prompt-builder";
@@ -546,6 +547,9 @@ async function runReading(
   }
   if (continuing) {
     systemPrompt = `${systemPrompt}\n\n${CONTINUE_RULE}`;
+  }
+  if (!profile.birthTimeKnown) {
+    systemPrompt = `${systemPrompt}\n\n${UNKNOWN_TIME_RULE}`;
   }
   if (companionText) {
     systemPrompt = `${systemPrompt}\n\n${COMPANION_RULE}`;

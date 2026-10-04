@@ -1,3 +1,4 @@
+import "@/server/horoscope/engine/taksa-boundaries";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";

@@ -1,3 +1,4 @@
+import "@/server/horoscope/engine/taksa-boundaries";
 import { fillSamrapRows } from "@/lib/samrap-derive";
 import { dignityLabel } from "@/lib/thai-dignity";
 import type { BirthInputSnapshot, ChartJson } from "@/types/chart";

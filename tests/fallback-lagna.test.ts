@@ -127,3 +127,17 @@ describe("a sign change during the birth day", () => {
     expect(c.planets.find((p) => p.planet === "อาทิตย์")?.siderealSign).toBe("พิจิก"); // myhora พิจิก 29°51'
   });
 });
+
+describe("taksa birth day turns at the real sunrise and sunset", () => {
+  // myhora's answers (QA, 4 Oct 2026); fixed 06:00/18:00 got all four wrong.
+  it.each([
+    [2000, 1, 12, "06:20", "กรุงเทพมหานคร", "พระนคร", "อังคาร"],
+    [2000, 6, 14, "05:56", "กรุงเทพมหานคร", "พระนคร", "พุธกลางวัน"],
+    [2000, 6, 14, "18:20", "กรุงเทพมหานคร", "พระนคร", "พุธกลางวัน"],
+    [1996, 3, 3, "06:10", "สุราษฎร์ธานี", "เมืองสุราษฎร์ธานี", "เสาร์"],
+  ] as const)("%i-%i-%i %s %s", async (year, month, day, time, province, district, want) => {
+    await import("@/server/horoscope/engine/taksa-boundaries");
+    const { resolveTaksaBirthDay } = await import("@/lib/taksa");
+    expect(resolveTaksaBirthDay({ year, month, day, time, country: "ไทย", province, district })).toBe(want);
+  });
+});

@@ -1,3 +1,4 @@
+import "@/server/horoscope/engine/taksa-boundaries";
 import {
   CHART_EVIDENCE_VERSION,
   FORMULA_LAGNA_METHOD,

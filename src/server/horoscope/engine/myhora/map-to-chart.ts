@@ -1,3 +1,4 @@
+import "@/server/horoscope/engine/taksa-boundaries";
 import { CHART_EVIDENCE_VERSION, type BirthInputSnapshot, type ChartJson, type PlanetSignRow } from "@/types/chart";
 import type { MyhoraNatalPlanet, MyhoraTables } from "@/types/myhora";
 import { CALCULATION_SETTINGS } from "@/server/horoscope/engine/newhora/data/calculationSettings";
