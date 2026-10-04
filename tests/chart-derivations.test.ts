@@ -69,6 +69,15 @@ describe("chart derivations for HoraSard SVG charts", () => {
     );
   });
 
+  // QA 2026-10-04: fixed and dual signs started from the 9th / 5th sign.
+  it("puts each third of a sign in the sign, its 5th, then its 9th", () => {
+    expect(computeDrekkanaSign("พฤษภ", 5)).toBe("พฤษภ");
+    expect(computeDrekkanaSign("สิงห์", 15)).toBe("ธนู");
+    expect(computeDrekkanaSign("มิถุน", 25)).toBe("กุมภ");
+    expect(computeDrekkanaSign("มีน", 29.9)).toBe("พิจิก");
+    expect(computeDrekkanaSign("เมษ", 12)).toBe("สิงห์");
+  });
+
   it("uses the same D9/D3 functions for client charts and engine formulas", async () => {
     const engine = await import(
       "@/server/horoscope/engine/newhora/formulas/divisionalCharts"
