@@ -205,7 +205,72 @@ export default function CalendarPage() {
         ) : (
           <p className="mt-6 text-sm text-[var(--muted-2)]">แตะวันในปฏิทินเพื่อดูว่าเพราะอะไรถึงดีหรือควรระวัง</p>
         )}
+
+        <WeeklyEmailSwitch />
       </div>
+    </div>
+  );
+}
+
+/** Opt-in for the Monday email of the week's good days. */
+function WeeklyEmailSwitch() {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me/notifications")
+      .then((r) => r.json())
+      .then((json) => setOn(Boolean(json?.data?.weeklyDaysEmail)))
+      .catch(() => setOn(false));
+  }, []);
+
+  async function toggle() {
+    if (on === null || saving) return;
+    const next = !on;
+    setSaving(true);
+    setNote(null);
+    try {
+      const res = await fetch("/api/me/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weeklyDaysEmail: next }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error?.message);
+      setOn(next);
+      setNote(next ? "เปิดแล้ว — จะส่งให้ทุกเช้าวันจันทร์" : "ปิดแล้ว");
+    } catch {
+      setNote("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-8 flex items-center justify-between gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4">
+      <div>
+        <p className="text-sm font-medium text-[var(--foreground)]">อีเมลวันดีประจำสัปดาห์</p>
+        <p className="mt-0.5 text-xs text-[var(--muted)]">
+          ทุกเช้าวันจันทร์ ส่งวันเด่น 3 วันของสัปดาห์และวันที่ควรระวัง {note ? `· ${note}` : ""}
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={Boolean(on)}
+        aria-label="อีเมลวันดีประจำสัปดาห์"
+        disabled={on === null || saving}
+        onClick={() => void toggle()}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50 ${
+          on ? "bg-[var(--primary)]" : "bg-[var(--surface-2)] ring-1 ring-[var(--border)]"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`}
+          aria-hidden
+        />
+      </button>
     </div>
   );
 }

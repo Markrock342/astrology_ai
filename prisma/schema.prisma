@@ -184,6 +184,10 @@ model User {
   /// memory boundary forward without deleting their chat history.
   aiMemoryEnabled     Boolean    @default(true)
   aiMemoryResetAt     DateTime?
+  /// Opted in to the Monday email of the week's good days (off until asked for).
+  weeklyDaysEmail     Boolean    @default(false)
+  /// Last weekly-days email sent — a re-run of the job skips this week's.
+  weeklyDaysSentAt    DateTime?
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 

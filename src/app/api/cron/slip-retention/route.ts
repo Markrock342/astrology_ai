@@ -1,24 +1,9 @@
-import { timingSafeEqual } from "node:crypto";
 import { handle, ok } from "@/lib/http";
-import { AppError } from "@/lib/errors";
+import { assertCronAuth } from "@/server/cron-auth";
 import {
   countOverduePendingPayments,
   runSlipRetentionSweep,
 } from "@/server/payment/slip-retention-service";
-
-function assertCronAuth(req: Request): void {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) {
-    throw new AppError("FORBIDDEN", "CRON_SECRET is not configured");
-  }
-  const header = req.headers.get("authorization") ?? "";
-  const expected = `Bearer ${secret}`;
-  const a = Buffer.from(header);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) {
-    throw new AppError("UNAUTHENTICATED", "Invalid cron authorization");
-  }
-}
 
 /**
  * GET/POST /api/cron/slip-retention — Vercel Cron + manual trigger.
