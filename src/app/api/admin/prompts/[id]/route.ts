@@ -8,6 +8,7 @@ import {
   assertAiAdminEnabled,
 } from "@/server/admin/ai-admin-service";
 import { AppError } from "@/lib/errors";
+import { clientIp } from "@/lib/rate-limit";
 
 /** GET /api/admin/prompts/:id — full body for editor. */
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -28,7 +29,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const admin = await requireAdmin();
     const { id } = await ctx.params;
     const data = promptUpdateSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await updatePrompt(id, data, { id: admin.id, ip }));
   });
 }
@@ -39,7 +40,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
     assertAiAdminEnabled();
     const admin = await requireAdmin();
     const { id } = await ctx.params;
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await deletePrompt(id, { id: admin.id, ip }));
   });
 }

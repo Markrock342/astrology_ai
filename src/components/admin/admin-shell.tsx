@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/brand-logo";
 import { APP_NAME_TH } from "@/config/constants";
 import { FEATURES } from "@/config/features";
@@ -25,6 +25,16 @@ export function AdminShell({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const groups = groupedAdminNav(FEATURES.aiAdmin);
+
+  // Esc closes the mobile drawer, as it does every other dialog.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
 
   function isActive(href: string) {
     if (href === "/admin/dashboard") return pathname === href;

@@ -1,6 +1,6 @@
 import { handle, ok } from "@/lib/http";
 import { AppError } from "@/lib/errors";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { requireAdmin } from "@/server/auth/rbac";
 import {
   beginTotpEnrollment,
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     const admin = await requireAdmin({ skip2fa: true });
     const body = (await req.json()) as { action?: string; code?: string };
     const action = body.action ?? "verify";
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
 
     if (action === "begin") {
       return ok(await beginTotpEnrollment(admin.id));

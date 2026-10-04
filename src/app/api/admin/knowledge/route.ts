@@ -6,6 +6,7 @@ import {
   createKnowledgeDoc,
   assertAiAdminEnabled,
 } from "@/server/admin/ai-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** GET /api/admin/knowledge — list all knowledge docs. */
 export async function GET() {
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     assertAiAdminEnabled();
     const admin = await requireAdmin();
     const data = knowledgeCreateSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await createKnowledgeDoc(data, { id: admin.id, ip }), { status: 201 });
   });
 }

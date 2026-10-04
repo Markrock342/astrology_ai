@@ -5,6 +5,7 @@ import {
   createAnnouncement,
   listAnnouncements,
 } from "@/server/admin/cms-content-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** GET /api/admin/announcements */
 export async function GET() {
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
   return handle(async () => {
     const admin = await requireAdmin();
     const data = announcementSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     const created = await createAnnouncement(
       {
         ...data,

@@ -5,6 +5,7 @@ import {
   deleteAstrologyStandard,
   updateAstrologyStandard,
 } from "@/server/admin/astrology-standard-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** PUT /api/admin/astrology-standards/:id */
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -12,7 +13,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     const admin = await requireAdmin();
     const { id } = await ctx.params;
     const data = astrologyStandardTermSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await updateAstrologyStandard(id, data, { id: admin.id, ip }));
   });
 }
@@ -22,7 +23,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   return handle(async () => {
     const admin = await requireAdmin();
     const { id } = await ctx.params;
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await deleteAstrologyStandard(id, { id: admin.id, ip }));
   });
 }

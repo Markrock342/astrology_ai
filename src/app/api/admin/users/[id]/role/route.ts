@@ -2,6 +2,7 @@ import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
 import { userRoleSchema } from "@/lib/admin-schemas";
 import { setUserRole } from "@/server/admin/user-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /**
  * PATCH /api/admin/users/:id/role — grant / revoke admin roles (audited).
@@ -15,7 +16,7 @@ export async function PATCH(
     const admin = await requireAdmin();
     const { id } = await ctx.params;
     const { role } = userRoleSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(
       await setUserRole(id, role, { id: admin.id, role: admin.role, ip }),
     );

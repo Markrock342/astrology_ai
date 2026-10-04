@@ -39,3 +39,11 @@ describe("admin set plan", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 });
+
+// QA 2026-10-04: "_" in the user search matched every user.
+describe("user search", () => {
+  it("searches for _ and % literally", async () => {
+    const { likeLiteral } = await import("@/server/admin/user-admin-service");
+    expect(likeLiteral("a_b%c\\d")).toBe("a\\_b\\%c\\\\d");
+  });
+});

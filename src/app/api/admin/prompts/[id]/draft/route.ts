@@ -3,6 +3,7 @@ import { AppError } from "@/lib/errors";
 import { requireAdmin } from "@/server/auth/rbac";
 import { promptUpdateSchema } from "@/lib/admin-schemas";
 import { savePromptDraft, assertAiAdminEnabled } from "@/server/admin/ai-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** PUT /api/admin/prompts/:id/draft */
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -12,7 +13,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     const { id } = await ctx.params;
     const data = promptUpdateSchema.parse(await req.json());
     if (!data.content) throw new AppError("VALIDATION", "content required");
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(
       await savePromptDraft(
         id,

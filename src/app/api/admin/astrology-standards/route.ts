@@ -6,6 +6,7 @@ import {
   listAstrologyStandardsAdmin,
   seedDefaultAstrologyStandardsIfEmpty,
 } from "@/server/admin/astrology-standard-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** GET /api/admin/astrology-standards */
 export async function GET() {
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
   return handle(async () => {
     const admin = await requireAdmin();
     const data = astrologyStandardTermSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await createAstrologyStandard(data, { id: admin.id, ip }), { status: 201 });
   });
 }

@@ -1,6 +1,7 @@
 import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
 import { revealUserBirthProfile } from "@/server/admin/user-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** POST /api/admin/users/:id/birth-reveal — audited full birth PII. */
 export async function POST(
@@ -10,7 +11,7 @@ export async function POST(
   return handle(async () => {
     const admin = await requireAdmin();
     const { id } = await ctx.params;
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(
       await revealUserBirthProfile(id, {
         id: admin.id,
