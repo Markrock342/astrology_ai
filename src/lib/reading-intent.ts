@@ -615,7 +615,9 @@ const OVERVIEW_PATTERN =
   /ภาพรวม|ดูดวงทั้งหมด|ทุกด้าน|ทุกเรื่อง|ทุกหัวข้อ|ครบทุก|ดวงชะตาโดยรวม|ดวงโดยรวม|ดูดวงทั่วไป|พยากรณ์ทั้งหมด|ทั้งชีวิต/;
 
 export function isOverviewQuestion(question: string): boolean {
-  return OVERVIEW_PATTERN.test(question);
+  // "ทั้งชีวิต จุดเปลี่ยนที่ดีสุดอายุเท่าไหร่" asks WHEN, not for all 17
+  // topics; read as an overview it got the 17-topic walk and no ages.
+  return OVERVIEW_PATTERN.test(question) && !isTimelineQuestion(question);
 }
 
 /**

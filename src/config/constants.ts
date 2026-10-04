@@ -165,6 +165,12 @@ export const DIRECT_ANSWER_HINT =
   "จากนั้นให้เหตุผลสั้น ๆ 2–3 ข้อจากข้อมูลดวงจริง (บรรทัดละประโยค) " +
   "รวมทั้งหมดไม่เกินประมาณ 120 คำ ถ้ามีเรื่องควรระวังให้บอกหนึ่งประโยค แล้วจบ";
 
+/** A pinpoint "when in my life" question: the period first, then the turning points. */
+export const TIMELINE_DIRECT_HINT =
+  "ตอบตรงคำถาม (สำคัญ ทับกติการูปแบบก่อนหน้าทั้งหมด): ประโยคแรกบอกช่วงที่ถามเลย เช่น 'ช่วงที่ดีที่สุดคืออายุ 34–36 ปี (พ.ศ. 2569–2571)' " +
+  "จากนั้นไล่จุดเปลี่ยนสำคัญ 3–5 จุดจาก [timeline] จุดละ 1–2 ประโยค ขึ้นต้นด้วย อายุ · เดือน ปี พ.ศ. แล้วบอกว่าเกิดอะไรเพราะดาวใด " +
+  "ห้ามหัวข้อใหญ่ ห้ามตาราง ห้ามเกริ่นทบทวนพื้นดวง รวมไม่เกินประมาณ 300 คำ";
+
 /**
  * How a detailed single-topic answer is laid out. Depth comes from the story,
  * not from padding: the topic is split into a few ## sections, each prose,

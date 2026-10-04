@@ -71,6 +71,7 @@ import {
 import {
   BRIEF_ANSWER_HINT,
   DIRECT_ANSWER_HINT,
+  TIMELINE_DIRECT_HINT,
   BRIEF_MAX_OUTPUT_TOKENS_FREE,
   BRIEF_MAX_OUTPUT_TOKENS_PRO,
   DETAILED_ANSWER_HINT_FREE,
@@ -106,6 +107,8 @@ import {
 } from "@/server/user/ai-memory-service";
 import { buildKnowledgePromptWithTrace } from "@/server/horoscope/knowledge-retrieval";
 import type { ReadingPromptTrace, TracePlanet } from "@/types/reading-trace";
+import { findWrongLordClaims } from "@/lib/answer-facts";
+import { buildHouseChains } from "@/lib/house-chains";
 
 export { buildKnowledgePrompt } from "@/server/horoscope/knowledge-retrieval";
 
@@ -601,7 +604,7 @@ async function runReading(
   }
   const overview = isOverviewQuestion(intentQuestion);
   if (pinpoint) {
-    systemPrompt = `${systemPrompt}\n\n${DIRECT_ANSWER_HINT}`;
+    systemPrompt = `${systemPrompt}\n\n${timelineText ? TIMELINE_DIRECT_HINT : DIRECT_ANSWER_HINT}`;
   } else if (answerMode === "brief") {
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
   } else if (overview) {
@@ -843,6 +846,19 @@ async function runReading(
         : result.rawText;
 
     const creditCost = 0;
+    // The answer's "เจ้าเรือน…" claims against the chart, kept on the trace so
+    // the admin reading review can show them.
+    const factIssues = findWrongLordClaims(
+      result.rawText,
+      buildHouseChains({
+        lagna: natalChart.chart?.lagna ?? natalChart.meta.lagna,
+        planets: natalChart.planets,
+        taksa: natalChart.chart?.taksa,
+      }),
+    );
+    if (factIssues.length) {
+      console.warn(`[answer-facts] ${factIssues.map((i) => `${i.claimed}≠เจ้าเรือน${i.houseName}(${i.actual})`).join(", ")}`);
+    }
     // Providers normally return authoritative counts. If a compatible endpoint
     // omits them, meter conservatively from text length instead of making that
     // model accidentally unlimited. The pricingVersion marks the fallback.
@@ -903,6 +919,7 @@ async function runReading(
           promptTraceJson: {
             ...promptTrace,
             model: { provider: result.provider, modelId: result.modelId },
+            factIssues,
           } as object,
           status: "SUCCESS",
           creditCost,
