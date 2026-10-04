@@ -330,6 +330,15 @@ export async function setUserStatus(userId: string, status: UserStatus, actor: A
   ) {
     throw new AppError("FORBIDDEN", "ADMIN ไม่สามารถแก้บัญชี SUPER_ADMIN ได้");
   }
+  // Disabling yourself locked you out on the next request — and could take
+  // the last SUPER_ADMIN with it. Role change and delete already refuse this.
+  if (userId === actor.id && status !== "ACTIVE") {
+    throw new AppError("VALIDATION", "ไม่สามารถปิดบัญชีของตัวเองได้");
+  }
+  if (before.role === "SUPER_ADMIN" && status !== "ACTIVE") {
+    const activeSupers = await prisma.user.count({ where: { role: "SUPER_ADMIN", status: "ACTIVE" } });
+    if (activeSupers <= 1) throw new AppError("VALIDATION", "ไม่สามารถปิด Super Admin คนสุดท้ายได้");
+  }
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.user.update({

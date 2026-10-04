@@ -12,6 +12,11 @@ function appBaseUrl(): string {
 }
 
 /** Fire-and-forget admin alerts when a user submits a payment slip. */
+
+/** User-supplied text (display name, review note) goes into admin inboxes. */
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
 export async function notifyAdminsNewPayment(input: {
   paymentId: string;
   amount: number;
@@ -47,7 +52,7 @@ export async function notifyAdminsNewPayment(input: {
         to,
         subject: `[HoraSard] ${title}`,
         text,
-        html: `<p>${body}</p><p><a href="${link}">เปิดหน้าตรวจการโอนเงิน</a></p>`,
+        html: `<p>${escapeHtml(body)}</p><p><a href="${link}">เปิดหน้าตรวจการโอนเงิน</a></p>`,
       }),
     ),
     sendWebPushToAdmins({
@@ -82,7 +87,7 @@ export async function notifyUserPaymentReviewed(input: {
     to: input.userEmail,
     subject: `[HoraSard] ${title}`,
     text,
-    html: `<p>${title}</p>${input.note ? `<p>หมายเหตุ: ${input.note}</p>` : ""}<p><a href="${link}">เปิดหน้าบัญชี</a></p>`,
+    html: `<p>${escapeHtml(title)}</p>${input.note ? `<p>หมายเหตุ: ${escapeHtml(input.note)}</p>` : ""}<p><a href="${link}">เปิดหน้าบัญชี</a></p>`,
   });
 }
 

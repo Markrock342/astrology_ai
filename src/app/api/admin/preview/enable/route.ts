@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
+import { AppError } from "@/lib/errors";
+import { mintPreviewToken } from "@/server/cms/preview-token";
 import {
   PREVIEW_COOKIE,
   PREVIEW_MAX_AGE_SEC,
@@ -10,8 +12,10 @@ import {
 export async function POST() {
   return handle(async () => {
     await requireAdmin();
+    const token = mintPreviewToken(PREVIEW_MAX_AGE_SEC);
+    if (!token) throw new AppError("INTERNAL", "AUTH_SECRET missing");
     const jar = await cookies();
-    jar.set(PREVIEW_COOKIE, "1", {
+    jar.set(PREVIEW_COOKIE, token, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
