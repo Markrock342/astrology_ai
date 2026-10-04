@@ -51,6 +51,8 @@ export async function cancelActiveSubscription(userId: string) {
       userId,
       status: "ACTIVE",
       package: { type: "PRO" },
+      // An expired row (e.g. the ended promotion) is not a plan to cancel.
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     },
     orderBy: { createdAt: "desc" },
   });
