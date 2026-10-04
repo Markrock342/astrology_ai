@@ -19,6 +19,7 @@ import {
 } from './antonathiSamrap'
 import { computeTaksaFromBirth, type TaksaSlot } from './taksa'
 import { lookupSuryayatSync, lookupLagnaSync } from './suryayat/lookup'
+import { hasSuriyayatPlanetFit, suriyayatPlanetLongitude } from './suriyayatPlanets'
 
 export type PipelineSource =
   | 'suryayat-100-reference'
@@ -76,6 +77,12 @@ function fromFormulaPipeline(input: BirthInput, place: PlaceCoords): {
       const { sign, degreeInSign } = signFromSiderealLongitude(fix(p.siderealLongitude, time.ut))
       return { planet, siderealSign: sign, degreeInSign, degreeText: formatDegreeInSign(degreeInSign) }
     }
+    // Mercury … Saturn: the fitted Suriyayat correction (suriyayatPlanets.ts).
+    if (p && sun && hasSuriyayatPlanetFit(planet)) {
+      const lon = suriyayatPlanetLongitude(planet, p.siderealLongitude, sun.siderealLongitude, time.ut)
+      const { sign, degreeInSign } = signFromSiderealLongitude(lon)
+      return { planet, siderealSign: sign, degreeInSign, degreeText: formatDegreeInSign(degreeInSign) }
+    }
     return {
       planet,
       siderealSign: p?.siderealSign ?? '—',
@@ -126,7 +133,10 @@ function tableDayMidpointUt(input: BirthInput): number {
   return MakeTime(new Date(ms)).ut
 }
 
-const JUDGED_BY_POSITION = new Set(['อาทิตย์', 'จันทร์', 'ราหู', 'เกตุ'])
+// Mercury … Saturn joined 2026-10-04 with the fitted Suriyayat correction:
+// on 59 sign-change days checked against astro.meemodel.com, position got
+// 50 right, the midday split 42.
+const JUDGED_BY_POSITION = new Set(['อาทิตย์', 'จันทร์', 'ราหู', 'เกตุ', 'พุธ', 'ศุกร์', 'อังคาร', 'พฤหัสบดี', 'เสาร์'])
 
 function settleSignChangesOnTheDay(
   lookup: NonNullable<ReturnType<typeof lookupSuryayatSync>>,
@@ -157,15 +167,15 @@ function settleSignChangesOnTheDay(
     const before = prev[planet]
     if (!today || !before || today === before) continue
     if (JUDGED_BY_POSITION.has(planet)) {
-      // Sun and Moon are on myhora's ephemeris (antonathiSamrap.ts); Rahu and
-      // Thai Ketu match it (siderealPlanets.ts). Their birth-moment position
+      // Sun and Moon are on myhora's ephemeris (antonathiSamrap.ts), Rahu and
+      // Thai Ketu match it (siderealPlanets.ts), Mercury … Saturn carry the
+      // fitted correction (suriyayatPlanets.ts). Their birth-moment position
       // decides.
       const now = formulaRows.find((r) => r.planet === planet)?.siderealSign
       if (now && bare(now) === bare(before)) out[planet] = before
     } else if (birthUt < midpointUt) {
-      // Our Lahiri Mercury can sit 20° from the Suriyayat one, so it cannot
-      // judge. Not knowing the hour of the change, split the day at its
-      // middle: wrong a quarter of the time instead of half.
+      // Uranus has no Suriyayat fit. Not knowing the hour of the change,
+      // split the day at its middle.
       out[planet] = before
     }
   }
