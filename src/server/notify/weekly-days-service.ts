@@ -115,12 +115,23 @@ export async function runWeeklyDaysEmails(opts: { limit?: number; now?: Date } =
       skipped += 1;
       continue;
     }
+    // Claim the week before sending: two server instances running the job
+    // at once must not both mail the same person.
+    const claim = await prisma.user.updateMany({
+      where: { id: u.id, OR: [{ weeklyDaysSentAt: null }, { weeklyDaysSentAt: { lt: fiveDaysAgo } }] },
+      data: { weeklyDaysSentAt: now },
+    });
+    if (!claim.count) {
+      skipped += 1;
+      continue;
+    }
     const result = await sendEmail({ to: u.email, ...mail });
     if (result.ok) {
       sent += 1;
-      await prisma.user.update({ where: { id: u.id }, data: { weeklyDaysSentAt: now } });
     } else {
       failed += 1;
+      // Give the week back so the next run tries again.
+      await prisma.user.update({ where: { id: u.id }, data: { weeklyDaysSentAt: null } });
       console.error(`[weekly-days] send failed for ${u.id}: ${result.error}`);
     }
   }
