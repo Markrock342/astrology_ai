@@ -55,6 +55,7 @@ import {
   isFollowUpQuestion,
   previousTimedQuestion,
   detectReadingIntent,
+  detectFutureDatePromptTrigger,
   isTimelineQuestion,
   resolveTransitWindow,
 } from "@/lib/reading-intent";
@@ -554,6 +555,11 @@ async function runReading(
   // "Which day is good for …?" gets every day of the period walked; it takes
   // precedence over the life timeline, which also matches ช่วงไหน/เมื่อไหร่.
   const dayPick = isDayPickQuestion(intentQuestion);
+  // One day to check: picked, named by number, or written out ("14 ต.ค. 2569",
+  // as the calendar's "ถามเรื่องวันนี้" sends it).
+  const checkDay =
+    explicitDate ??
+    (detectFutureDatePromptTrigger(intentQuestion) === "explicit_date" ? transitWindow.sampleAt : null);
   const dayScanText = dayPick
     ? buildDayScanPrompt({
         natal: natalChart,
@@ -562,13 +568,13 @@ async function runReading(
         categorySlug,
         pinnedDate: explicitDate ?? null,
       })
-    : explicitDate && !continuing
+    : checkDay && !continuing
       ? buildDayScanPrompt({
           natal: natalChart,
           memory: chartMemory,
           question: intentQuestion,
           categorySlug,
-          checkDay: explicitDate,
+          checkDay,
         })
       : null;
 
@@ -838,7 +844,7 @@ async function runReading(
     // "ran out of room, type เล่าต่อ" would be a lie.
     // A cut connection gets its own wording: "ran out of room" would blame
     // the answer mode for what was a dropped stream.
-    const responseText =
+    const answerText =
       result.truncated && !result.stopped
         ? result.truncatedBy === "connection"
           ? `${result.rawText.trimEnd()}\n\n*การเชื่อมต่อกับระบบ AI ขาดกลางคำตอบ — กด “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
@@ -859,6 +865,13 @@ async function runReading(
     if (factIssues.length) {
       console.warn(`[answer-facts] ${factIssues.map((i) => `${i.claimed}≠เจ้าเรือน${i.houseName}(${i.actual})`).join(", ")}`);
     }
+    // The answer has streamed; a wrong lord cannot be unsaid, but it is
+    // corrected in the same message instead of left standing.
+    const responseText = factIssues.length
+      ? `${answerText.trimEnd()}\n\n*แก้ไข: ${factIssues
+          .map((i) => `เจ้าเรือน${i.houseName}ในดวงของคุณคือ${i.actual} ไม่ใช่${i.claimed}`)
+          .join(" · ")}*`
+      : answerText;
     // Providers normally return authoritative counts. If a compatible endpoint
     // omits them, meter conservatively from text length instead of making that
     // model accidentally unlimited. The pricingVersion marks the fallback.

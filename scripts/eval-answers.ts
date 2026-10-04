@@ -53,6 +53,11 @@ const SCENARIOS: Scenario[] = [
       { q: "แล้วเรื่องเงินล่ะ", checks: [short(1200), noSections, notMentions(/พื้นดวงเดิม[\s\S]*ไล่ดาวเจ้าเรือน/, "การเล่าพื้นดวงยาว")] },
     ],
   },
+  {
+    // The calendar's "ถามหมอดูเรื่องวันนี้" writes the date out in full.
+    id: "day-calendar-ask",
+    turns: [{ q: "วันจันทร์ที่ 12 ต.ค. 2569 ดวงผมเป็นยังไง", checks: [mentions(/12\s*(?:ต\.ค\.|ตุลาคม)/, "12 ต.ค."), short(1000), noSections, lordsRight] }],
+  },
   { id: "yesno-promotion", turns: [{ q: "ปีนี้ผมจะได้เลื่อนตำแหน่งไหม", checks: [answersYesNo, short(900), noSections, lordsRight] }] },
   { id: "open-career-year", turns: [{ q: "การงานปีนี้เป็นยังไงบ้าง", checks: [lordsRight, notMentions(/ศรีจร.*ของคุณ|วันกาลกิณีจร/, "คำว่า จร ต่อทักษากำเนิด")] }] },
   { id: "natal-personality", turns: [{ q: "นิสัยผมเป็นคนยังไง จุดแข็งคืออะไร", checks: [lordsRight] }] },
@@ -87,7 +92,7 @@ async function main() {
           })) as { id?: string; responseText?: string };
           const row = r.id ? await prisma.horoscopeReading.findUnique({ where: { id: r.id }, select: { promptTraceJson: true } }) : null;
           const issues = ((row?.promptTraceJson as { factIssues?: Array<{ claimed: string; houseName: string; actual: string }> } | null)?.factIssues ?? [])
-            .map((x) => `${x.claimed}≠เจ้าเรือน${x.houseName}(${x.actual})`);
+            .map((x) => `${x.claimed}≠เจ้าเรือน${x.houseName}(${x.actual}) «${(x as { excerpt?: string }).excerpt ?? ""}»`);
           answer = { text: r.responseText ?? "", issues };
         } catch (err) {
           failures.push(`${sc.id}#${i + 1} error: ${(err as Error).message}`);
@@ -98,6 +103,7 @@ async function main() {
         const secs = ((Date.now() - t0) / 1000).toFixed(1);
         console.log(`${problems.length ? "✗" : "✓"} ${sc.id}#${i + 1} (${secs}s, ${answer.text.length} ตัวอักษร) "${turn.q}"`);
         console.log(`    ↳ ${firstLine(answer.text).slice(0, 110)}`);
+        if (problems.length && process.env.EVAL_VERBOSE) console.log(answer.text.replace(/^/gm, "      | "));
         for (const p of problems) {
           console.log(`    ! ${p}`);
           failures.push(`${sc.id}#${i + 1}: ${p}`);
