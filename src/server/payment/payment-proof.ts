@@ -132,15 +132,18 @@ export async function streamPaymentProof(
   return new Response(result.stream, { status: 200, headers });
 }
 
+/** True once nothing is left to delete; false when the blob may still exist. */
 export async function deletePaymentProofBlob(
   proofUrl: string | null | undefined,
-): Promise<void> {
-  if (!proofUrl) return;
+): Promise<boolean> {
+  if (!proofUrl) return true;
   const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) return;
+  if (!token) return false;
   try {
     await del(proofUrl, { token });
+    return true;
   } catch (err) {
     console.error("[payment-proof] blob delete failed:", err);
+    return false;
   }
 }

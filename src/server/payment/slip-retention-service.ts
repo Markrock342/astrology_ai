@@ -26,7 +26,10 @@ export async function runSlipRetentionSweep(now = new Date()): Promise<{
 
   let deleted = 0;
   for (const payment of due) {
-    await deletePaymentProofBlob(payment.proofUrl);
+    // Forget the slip only once it is really gone: clearing the link after a
+    // failed delete left the image in storage with nothing pointing at it,
+    // so no later sweep could remove it (PDPA).
+    if (!(await deletePaymentProofBlob(payment.proofUrl))) continue;
     await prisma.payment.update({
       where: { id: payment.id },
       data: { proofUrl: null },
