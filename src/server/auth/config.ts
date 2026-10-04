@@ -1,3 +1,4 @@
+import { credentialVersion } from "@/server/auth/credential-version";
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -73,9 +74,11 @@ export const authConfig: NextAuthConfig = {
      * On OAuth (Google) sign-in, auto-create the user on first login and block
      * disabled accounts. Credentials sign-in is already validated in authorize.
      */
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
         if (!user.email) return false;
+        // Linking is by email, so the email must be one Google has verified.
+        if ((profile as { email_verified?: boolean } | undefined)?.email_verified === false) return false;
         const result = await ensureOAuthUser({ email: user.email, name: user.name });
         if (result !== "ok") return false;
         await syncGoogleProfile({
@@ -107,12 +110,17 @@ export const authConfig: NextAuthConfig = {
             token.sub = dbUser.id;
             token.role = dbUser.role;
             token.status = dbUser.status;
+            token.cv = credentialVersion(dbUser.passwordHash);
           }
         } else {
           // Credentials authorize already returns our DB id/role/status.
           if (user.id) token.sub = user.id;
           if (u.role) token.role = u.role;
           if (u.status) token.status = u.status;
+          if (user.id) {
+            const row = await prisma.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
+            token.cv = credentialVersion(row?.passwordHash);
+          }
         }
       }
       return token;
@@ -122,6 +130,7 @@ export const authConfig: NextAuthConfig = {
         session.user.id = token.sub as string;
         session.user.role = token.role as string;
         session.user.status = token.status as string;
+        (session.user as { cv?: string }).cv = token.cv as string | undefined;
       }
       return session;
     },

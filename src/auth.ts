@@ -2,6 +2,8 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { authConfig } from "@/server/auth/config";
 import { env } from "@/config/env";
+import { cookies } from "next/headers";
+import { ADMIN_2FA_COOKIE } from "@/server/auth/admin-2fa-cookie";
 
 /**
  * Root NextAuth instance. Import { auth } anywhere on the server to read the
@@ -28,4 +30,15 @@ if (env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET) {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers,
+  events: {
+    // The admin 2FA pass outlived the session: the next person to sign in on
+    // the same browser walked into /admin without a code.
+    async signOut() {
+      try {
+        (await cookies()).delete(ADMIN_2FA_COOKIE);
+      } catch {
+        /* outside a request */
+      }
+    },
+  },
 });

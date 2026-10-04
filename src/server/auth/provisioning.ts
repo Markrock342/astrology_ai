@@ -150,7 +150,19 @@ export async function ensureOAuthUser(input: {
 }): Promise<EnsureOAuthResult> {
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) {
-    return existing.status === "DISABLED" ? "disabled" : "ok";
+    if (existing.status === "DISABLED") return "disabled";
+    // Anyone could register this email with a password and, never verifying
+    // it, keep logging in after the real owner arrived through Google. Google
+    // has proved who owns the address: an unverified password goes (which also
+    // ends the squatter's sessions — see credentialVersion) and the email is
+    // marked verified.
+    if (!existing.emailVerifiedAt) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { emailVerifiedAt: new Date(), ...(existing.passwordHash ? { passwordHash: null } : {}) },
+      });
+    }
+    return "ok";
   }
   await provisionUser({ email: input.email, name: input.name, emailVerified: true });
   return "ok";

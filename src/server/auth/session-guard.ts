@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/server/db";
+import { credentialVersion } from "@/server/auth/credential-version";
 import { getMe } from "@/server/user/account-service";
 import { getMaintenanceMode } from "@/server/settings/settings-service";
 
@@ -40,19 +41,24 @@ export type SessionShell = {
  * Cuts 2–3 DB round-trips on every navigation vs full getMe().
  */
 export async function requireSessionShell(): Promise<SessionShell> {
-  const userId = await requireSessionUserId();
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) redirect("/login");
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
       role: true,
       status: true,
+      passwordHash: true,
       birthProfile: { select: { id: true } },
       intake: { select: { id: true } },
     },
   });
   if (!user) redirect("/login");
   if (user.status === "DISABLED") redirect("/login");
+  const cv = (session?.user as { cv?: string } | undefined)?.cv;
+  if (cv && cv !== credentialVersion(user.passwordHash)) redirect("/login");
   return {
     id: user.id,
     role: user.role,
