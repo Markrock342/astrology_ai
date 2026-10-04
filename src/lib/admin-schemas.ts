@@ -13,6 +13,26 @@ import {
  * `schemas.ts` (the FE contract) — these are admin-only inputs.
  */
 
+
+/**
+ * `.partial()` for update (PATCH) schemas WITHOUT the create schema's
+ * defaults. Zod 4's `.partial()` still fills `.default()` values for keys the
+ * request left out, so saving a package from the admin form (which sends no
+ * `type`) turned PRO into FREE — and every Pro subscriber Free with it. An
+ * update must touch only the fields it was sent.
+ */
+export function partialNoDefaults<T extends z.ZodRawShape>(schema: z.ZodObject<T>) {
+  const shape: Record<string, z.ZodType> = {};
+  for (const [key, field] of Object.entries(schema.shape)) {
+    let inner = field as z.ZodType;
+    while (inner instanceof z.ZodDefault) inner = inner.unwrap() as z.ZodType;
+    shape[key] = inner.optional();
+  }
+  return z.object(shape) as unknown as z.ZodObject<{
+    [K in keyof T]: z.ZodOptional<T[K]>;
+  }>;
+}
+
 export const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -359,7 +379,7 @@ export const categoryCreateSchema = z.object({
   promptTemplateId: z.string().nullish(),
 });
 
-export const categoryUpdateSchema = categoryCreateSchema.partial();
+export const categoryUpdateSchema = partialNoDefaults(categoryCreateSchema);
 
 export const packageCreateSchema = z.object({
   code: z.string().min(1).max(40),
@@ -378,7 +398,7 @@ export const packageCreateSchema = z.object({
   creditOnly: z.boolean().default(false),
 });
 
-export const packageUpdateSchema = packageCreateSchema.partial();
+export const packageUpdateSchema = partialNoDefaults(packageCreateSchema);
 
 export const promptCreateSchema = z.object({
   code: z
@@ -392,7 +412,7 @@ export const promptCreateSchema = z.object({
   enabled: z.boolean().default(true),
 });
 
-export const promptUpdateSchema = promptCreateSchema.omit({ code: true }).partial();
+export const promptUpdateSchema = partialNoDefaults(promptCreateSchema.omit({ code: true }));
 
 const aiSecretReferenceSchema = z
   .string()
@@ -561,4 +581,4 @@ export const knowledgeCreateSchema = z.object({
   sortOrder: z.number().int().default(0),
 });
 
-export const knowledgeUpdateSchema = knowledgeCreateSchema.partial();
+export const knowledgeUpdateSchema = partialNoDefaults(knowledgeCreateSchema);
