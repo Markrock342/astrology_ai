@@ -23,6 +23,8 @@ import {
   buildConversationHistory,
   TIMELINE_RULE,
   DAY_SCAN_RULE,
+  CONTINUE_RULE,
+  isContinueRequest,
   COMPANION_RULE,
 } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
@@ -238,6 +240,15 @@ async function runReading(
     onPhase,
     onCharts,
   } = input;
+  // "เล่าต่อ" continues the previous answer: what to compute comes from the
+  // question that answer was for. Read on its own, "เล่าต่อ" got no day scan,
+  // no transit window, and a new natal reading instead of the rest.
+  const continuing = isContinueRequest(question);
+  const intentQuestion = continuing
+    ? ([...(priorMessages ?? [])]
+        .reverse()
+        .find((m) => m.role === "USER" && !isContinueRequest(m.content))?.content ?? question)
+    : question;
   const mode = input.mode ?? "NATAL";
   const skipCredits = input.purpose === "category_intro";
 
@@ -320,7 +331,7 @@ async function runReading(
   };
 
   const transitWindow = resolveTransitWindow(
-    question,
+    intentQuestion,
     new Date(),
     input.transit?.explicitDate ?? null,
   );
@@ -463,7 +474,7 @@ async function runReading(
     .join("\n");
   const knowledgeBudget = plan === "FREE" ? FREE_KNOWLEDGE_MAX_CHARS : KNOWLEDGE_MAX_CHARS;
   const doctrineTrace = buildKnowledgePromptWithTrace(scopedKnowledge, {
-    query: question,
+    query: intentQuestion,
     context: retrievalContext,
     categoryId: category.id,
     // Trial depth: Free gets the best-ranked doctrine only (see FREE_TRIAL_DEPTH_PERCENT).
@@ -502,22 +513,22 @@ async function runReading(
 
   // "Which day is good for …?" gets every day of the period walked; it takes
   // precedence over the life timeline, which also matches ช่วงไหน/เมื่อไหร่.
-  const dayScanText = isDayPickQuestion(question)
+  const dayScanText = isDayPickQuestion(intentQuestion)
     ? buildDayScanPrompt({
         natal: natalChart,
         memory: chartMemory,
-        question,
+        question: intentQuestion,
         categorySlug,
         pinnedDate: input.transit?.explicitDate ?? null,
       })
     : null;
 
   // "When will my life turn?" gets the slow planets walked over the years.
-  const timelineText = !dayScanText && isTimelineQuestion(question)
+  const timelineText = !dayScanText && isTimelineQuestion(intentQuestion)
     ? buildLifeTimelinePrompt({
         natal: natalChart,
         memory: chartMemory,
-        question,
+        question: intentQuestion,
         categorySlug,
       })
     : null;
@@ -533,10 +544,13 @@ async function runReading(
   if (dayScanText) {
     systemPrompt = `${systemPrompt}\n\n${DAY_SCAN_RULE}`;
   }
+  if (continuing) {
+    systemPrompt = `${systemPrompt}\n\n${CONTINUE_RULE}`;
+  }
   if (companionText) {
     systemPrompt = `${systemPrompt}\n\n${COMPANION_RULE}`;
   }
-  const overview = isOverviewQuestion(question);
+  const overview = isOverviewQuestion(intentQuestion);
   if (answerMode === "brief") {
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
   } else if (overview) {
@@ -567,7 +581,7 @@ async function runReading(
         ? transitWindow.sampleAt
         : null,
       readingIntent: transitWindow.intent,
-      overview: isOverviewQuestion(question),
+      overview: isOverviewQuestion(intentQuestion),
       timelineText,
       dayScanText,
       companionText,

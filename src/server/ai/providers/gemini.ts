@@ -187,10 +187,58 @@ export class GeminiAdapter implements AIProviderAdapter {
   }
 
   /**
-   * Stream tokens via Gemini streamGenerateContent (SSE).
-   * Calls onDelta for each text chunk; returns the final assembled result.
+   * Stream tokens via Gemini streamGenerateContent (SSE), resuming when
+   * Gemini drops the connection mid-answer.
+   *
+   * While overloaded (Oct 2026) Gemini closed streams mid-sentence on most
+   * long answers; the user got half an answer and a เล่าต่อ button. A dropped
+   * stream is now picked up where it stopped — the text so far goes back as the
+   * model's turn with "continue" — up to MAX_RESUMES times, streaming into the
+   * same answer. A budget cut or a user stop is not resumed.
    */
   async streamGenerate(
+    input: GenerateAIInput,
+    onDelta: (chunk: string) => void,
+    shouldStop?: () => Promise<boolean>,
+  ): Promise<GenerateAIResult> {
+    const MAX_RESUMES = 2;
+    let result = await this.streamOnce(input, onDelta, shouldStop);
+    let text = result.ok ? (result.rawText ?? "") : "";
+    for (let i = 0; i < MAX_RESUMES; i++) {
+      if (!result.ok || result.stopped || result.truncatedBy !== "connection" || !text) break;
+      const resumed = await this.streamOnce(
+        {
+          ...input,
+          conversationHistory: [
+            ...(input.conversationHistory ?? []),
+            { role: "user", content: input.userPrompt },
+            { role: "assistant", content: text },
+          ],
+          userPrompt:
+            "เขียนต่อจากตัวอักษรสุดท้ายของคำตอบก่อนหน้าทันที ห้ามทวนข้อความที่เขียนไปแล้ว ห้ามขึ้นต้นใหม่ ห้ามขึ้นหัวข้อหรือสรุปใหม่",
+          maxOutputTokens: Math.max(512, input.maxOutputTokens - (result.usage?.outputTokens ?? 0)),
+        },
+        onDelta,
+        shouldStop,
+      );
+      if (!resumed.ok) break; // keep what we have; it is still flagged as cut
+      text += resumed.rawText ?? "";
+      result = {
+        ...resumed,
+        rawText: text,
+        parsed: parseHoroscopeText(text),
+        usage: {
+          inputTokens: (result.usage?.inputTokens ?? 0) + (resumed.usage?.inputTokens ?? 0),
+          outputTokens: (result.usage?.outputTokens ?? 0) + (resumed.usage?.outputTokens ?? 0),
+          cachedTokens: (result.usage?.cachedTokens ?? 0) + (resumed.usage?.cachedTokens ?? 0),
+        },
+        firstTokenMs: result.firstTokenMs,
+      };
+    }
+    return result;
+  }
+
+  private async streamOnce(
     input: GenerateAIInput,
     onDelta: (chunk: string) => void,
     shouldStop?: () => Promise<boolean>,
@@ -311,10 +359,11 @@ export class GeminiAdapter implements AIProviderAdapter {
           break;
         }
         const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        // The last frame may arrive without a trailing newline; it often
+        // carries finishReason, and dropping it made a finished answer look cut.
+        if (!done) buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
+        buffer = done ? "" : (lines.pop() ?? "");
 
         for (const line of lines) {
           const trimmed = line.trim();
@@ -350,6 +399,7 @@ export class GeminiAdapter implements AIProviderAdapter {
             /* ignore malformed SSE lines */
           }
         }
+        if (done) break;
       }
 
       const latencyMs = Date.now() - start;
