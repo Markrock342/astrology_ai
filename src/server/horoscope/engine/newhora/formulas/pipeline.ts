@@ -139,6 +139,8 @@ function settleSignChangesOnTheDay(
   // The table spells กุมภ์, the formula กุมภ — compare without the mark and
   // keep the table's spelling.
   const bare = (sign: string) => sign.replace(/์/g, '')
+  // A pinned reference chart is myhora's own answer for that moment: as is.
+  if (lookup.source === 'reference') return lookup.signs
   if (!prev) {
     // The table's first day (1 Jan 1941) has no row before it to tell whether
     // a sign changed that day; the birth-moment position of the planets that
