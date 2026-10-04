@@ -349,3 +349,24 @@ describe("soft delete (edit / regenerate must not destroy history)", () => {
     expect(args.data.deletedAt).toBeInstanceOf(Date);
   });
 });
+
+describe("history sent to the model", () => {
+  it("drops failed answers and the questions they failed on", async () => {
+    const { dropFailedTurns } = await import("@/server/horoscope/thread-service");
+    expect(
+      dropFailedTurns([
+        { role: "USER", content: "งานปีนี้", status: "SUCCESS" },
+        { role: "ASSISTANT", content: "ปีนี้ดี", status: "SUCCESS" },
+        { role: "USER", content: "แล้วเงินล่ะ", status: "SUCCESS" },
+        { role: "ASSISTANT", content: "ระบบทำนายขัดข้องชั่วคราว (ไม่ถูกหัก usage)", status: "FAILED" },
+        { role: "USER", content: "แล้วเงินล่ะ", status: "SUCCESS" },
+        { role: "ASSISTANT", content: "เงินเข้า", status: "SUCCESS" },
+      ]),
+    ).toEqual([
+      { role: "USER", content: "งานปีนี้" },
+      { role: "ASSISTANT", content: "ปีนี้ดี" },
+      { role: "USER", content: "แล้วเงินล่ะ" },
+      { role: "ASSISTANT", content: "เงินเข้า" },
+    ]);
+  });
+});

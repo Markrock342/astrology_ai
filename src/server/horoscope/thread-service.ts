@@ -664,7 +664,7 @@ export async function loadPriorMessages(conversationId: string, userId: string) 
     },
     orderBy: { createdAt: "desc" },
     take: MAX_PRIOR_MESSAGES_LOAD,
-    select: { role: true, content: true },
+    select: { role: true, content: true, status: true },
   });
 
   // The most recent USER row is THIS turn's question — already appended before
@@ -673,7 +673,29 @@ export async function loadPriorMessages(conversationId: string, userId: string) 
   // wasted input tokens and a confusing doubled prompt. Drop it.
   if (recent[0]?.role === "USER") recent.shift();
 
-  return recent.reverse();
+  return dropFailedTurns(recent.reverse());
+}
+
+/**
+ * A failed or cancelled answer holds our own error text ("ระบบทำนายขัดข้อง…
+ * ไม่ถูกหัก usage"); sent as history, the model read it as something it had
+ * said. Drop it, and the question it failed to answer — the user asks again,
+ * and a stray unanswered question would be answered twice.
+ */
+export function dropFailedTurns(
+  rows: { role: string; content: string; status?: string | null }[],
+): { role: "USER" | "ASSISTANT"; content: string }[] {
+  const kept: { role: "USER" | "ASSISTANT"; content: string }[] = [];
+  rows.forEach((row, i) => {
+    if (row.role === "ASSISTANT") {
+      if (row.status && row.status !== "SUCCESS") return;
+    } else {
+      const next = rows[i + 1];
+      if (next?.role === "ASSISTANT" && next.status && next.status !== "SUCCESS") return;
+    }
+    kept.push({ role: row.role as "USER" | "ASSISTANT", content: row.content });
+  });
+  return kept;
 }
 
 /**
