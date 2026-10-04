@@ -154,6 +154,18 @@ export const BRIEF_ANSWER_HINT =
   "ห้ามปิดท้ายด้วยคำถามคนละเรื่อง ถ้าจะชวนต่อได้เพียงประโยคที่เจาะคำถามเดิมให้ชัดขึ้น";
 
 /**
+ * A pinpoint question (a day, a yes/no, the best one) is answered first, then
+ * explained in a few lines — in either answer mode. The detailed layout made
+ * the owner hunt through sections for the date he asked for.
+ */
+export const DIRECT_ANSWER_HINT =
+  "ตอบตรงคำถาม (สำคัญ ทับกติการูปแบบก่อนหน้าทั้งหมด): คำถามนี้ถามหาคำตอบเจาะจง " +
+  "ประโยคแรกต้องเป็นคำตอบเลย เช่น 'วันที่ดีที่สุดคือวันศุกร์ที่ 9 ต.ค. 2569' หรือ 'มีครับ' / 'ไม่ค่อยเด่นครับ' " +
+  "ห้ามเกริ่น ห้ามทบทวนพื้นดวงก่อนตอบ ห้ามใช้หัวข้อ ห้ามตาราง " +
+  "จากนั้นให้เหตุผลสั้น ๆ 2–3 ข้อจากข้อมูลดวงจริง (บรรทัดละประโยค) " +
+  "รวมทั้งหมดไม่เกินประมาณ 120 คำ ถ้ามีเรื่องควรระวังให้บอกหนึ่งประโยค แล้วจบ";
+
+/**
  * How a detailed single-topic answer is laid out. Depth comes from the story,
  * not from padding: the topic is split into a few ## sections, each prose,
  * and one summary table closes it — the table the team missed. It stays

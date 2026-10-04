@@ -48,6 +48,7 @@ import {
   bangkokTimeHm,
   isOverviewQuestion,
   isDayPickQuestion,
+  isPinpointQuestion,
   isTimelineQuestion,
   resolveTransitWindow,
 } from "@/lib/reading-intent";
@@ -63,6 +64,7 @@ import {
 } from "@/server/horoscope/follow-up-suggestions";
 import {
   BRIEF_ANSWER_HINT,
+  DIRECT_ANSWER_HINT,
   BRIEF_MAX_OUTPUT_TOKENS_FREE,
   BRIEF_MAX_OUTPUT_TOKENS_PRO,
   DETAILED_ANSWER_HINT_FREE,
@@ -406,8 +408,11 @@ async function runReading(
 
   // Memory phase — chart memory, config, knowledge, prompt assembly.
   onPhase?.("memory");
+  // A pinpoint question ("วันไหนดีสุด") is answered short whatever the mode;
+  // "เล่าต่อ" asks for more, so it keeps the mode it was given.
+  const pinpoint = !continuing && isPinpointQuestion(intentQuestion);
   // Brief mode prefers 3.5 Flash (lite only if nothing smarter is enabled).
-  const answerMode = input.answerMode ?? "detailed";
+  const answerMode = pinpoint ? "brief" : (input.answerMode ?? "detailed");
   const [chartMemory, userAiMemory, config, knowledgeDocs, standardRows] = await Promise.all([
     getOrRefreshChartMemory(userId, natalChart),
     getUserAiMemory(userId, {
@@ -561,7 +566,9 @@ async function runReading(
     systemPrompt = `${systemPrompt}\n\n${COMPANION_RULE}`;
   }
   const overview = isOverviewQuestion(intentQuestion);
-  if (answerMode === "brief") {
+  if (pinpoint) {
+    systemPrompt = `${systemPrompt}\n\n${DIRECT_ANSWER_HINT}`;
+  } else if (answerMode === "brief") {
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
   } else if (overview) {
     systemPrompt = `${systemPrompt}\n\n${plan === "FREE" ? OVERVIEW_ANSWER_HINT_FREE : OVERVIEW_ANSWER_HINT_PRO}`;
