@@ -132,9 +132,27 @@ export const cmsSeoSchema = z.object({
   ogImageUrl: z.string().url().max(2000).optional().or(z.literal("")),
 });
 
+/**
+ * Links an admin types into the site. `javascript:` used to pass (React 19
+ * blocks it at render, but nothing should depend on that).
+ */
+const siteHref = z
+  .string()
+  .trim()
+  .min(1)
+  .max(500)
+  .refine((v) => /^(?:\/(?!\/)|#|https?:\/\/|mailto:|tel:)/i.test(v), {
+    message: "ลิงก์ต้องขึ้นต้นด้วย / หรือ https://",
+  });
+const webUrl = z
+  .string()
+  .url()
+  .max(2000)
+  .refine((v) => /^https?:\/\//i.test(v), { message: "ลิงก์ต้องขึ้นต้นด้วย https://" });
+
 const cmsCtaSchema = z.object({
   text: z.string().min(1).max(80),
-  href: z.string().min(1).max(500),
+  href: siteHref,
 });
 
 const cmsHeroMediaRef = z
@@ -253,7 +271,7 @@ export const cmsSiteFooterSchema = z.object({
     .array(
       z.object({
         label: z.string().min(1).max(80),
-        href: z.string().min(1).max(500),
+        href: siteHref,
       }),
     )
     .max(20),
@@ -261,7 +279,7 @@ export const cmsSiteFooterSchema = z.object({
     .array(
       z.object({
         label: z.string().min(1).max(80),
-        href: z.string().url().max(2000),
+        href: webUrl,
       }),
     )
     .max(10),
@@ -315,7 +333,7 @@ export const announcementSchema = z.object({
   message: z.string().min(1).max(500),
   tone: z.enum(["INFO", "WARNING", "PROMO", "DANGER"]).default("INFO"),
   enabled: z.boolean().default(false),
-  linkUrl: z.string().url().max(2000).optional().or(z.literal("")).nullable(),
+  linkUrl: z.union([siteHref, z.literal("")]).optional().nullable(),
   linkLabel: z.string().max(80).optional().nullable(),
   startsAt: z.coerce.date().nullish(),
   endsAt: z.coerce.date().nullish(),
