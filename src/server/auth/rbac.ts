@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { assertAdmin2faVerified } from "@/server/auth/admin-2fa-service";
+import { credentialVersion } from "@/server/auth/credential-version";
 
 export type SessionUser = {
   id: string;
@@ -28,10 +29,15 @@ export async function requireUser(): Promise<SessionUser> {
 
   const fresh = await prisma.user.findUnique({
     where: { id: token.id },
-    select: { id: true, role: true, status: true, email: true, name: true },
+    select: { id: true, role: true, status: true, email: true, name: true, passwordHash: true },
   });
   // Deleted mid-session → treat as signed out.
   if (!fresh) throw new AppError("UNAUTHENTICATED", "Please sign in");
+  // The password changed since this session signed in → it is over.
+  const cv = (token as { cv?: string }).cv;
+  if (cv && cv !== credentialVersion(fresh.passwordHash)) {
+    throw new AppError("UNAUTHENTICATED", "Please sign in");
+  }
   if (fresh.status === "DISABLED") {
     throw new AppError("USER_DISABLED", "This account is disabled");
   }

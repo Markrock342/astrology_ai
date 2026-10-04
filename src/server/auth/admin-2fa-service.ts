@@ -1,3 +1,4 @@
+import { ADMIN_2FA_COOKIE } from "@/server/auth/admin-2fa-cookie";
 import { Prisma } from "@prisma/client";
 import {
   createHmac,
@@ -19,7 +20,7 @@ import {
 } from "@/lib/crypto/secret-box";
 import { writeAudit } from "@/server/audit/audit-service";
 
-const COOKIE_NAME = "horasard_admin_2fa";
+const COOKIE_NAME = ADMIN_2FA_COOKIE;
 const PENDING_COOKIE = "horasard_admin_2fa_pending";
 
 function authDerivedKeyB64(): string {
@@ -294,10 +295,15 @@ export async function verifyTotpLogin(
     if (await bcrypt.compare(token, hashes[i]!)) {
       const next = [...hashes];
       next.splice(i, 1);
-      await prisma.user.update({
-        where: { id: userId },
+      // Spend the code only if the list is still the one we read: three
+      // parallel requests with the same code all succeeded before.
+      const spent = await prisma.user.updateMany({
+        where: { id: userId, totpBackupCodesJson: { equals: hashes } },
         data: { totpBackupCodesJson: next },
       });
+      if (spent.count === 0) {
+        throw new AppError("VALIDATION", "รหัสสำรองนี้ถูกใช้ไปแล้ว");
+      }
       await setAdmin2faCookie(userId);
       return;
     }
