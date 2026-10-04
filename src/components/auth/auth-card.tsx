@@ -29,6 +29,7 @@ export function AuthCard({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaRound, setCaptchaRound] = useState(0);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(
     turnstileRequired() ? null : "",
   );
@@ -134,6 +135,9 @@ export function AuthCard({
 
       if (!json.ok) {
         setError(json.error?.message ?? "สมัครสมาชิกไม่สำเร็จ");
+        // The server spent this token; the next try needs a fresh one.
+        setTurnstileToken(turnstileRequired() ? null : "");
+        setCaptchaRound((n) => n + 1);
         return;
       }
 
@@ -335,6 +339,7 @@ export function AuthCard({
           <TurnstileField
             onToken={setTurnstileToken}
             onExpire={() => setTurnstileToken(null)}
+            resetKey={captchaRound}
           />
 
           {error ? (
