@@ -26,7 +26,15 @@ export function listAnnouncements() {
   });
 }
 
+/** An end before the start never shows — and looked saved and live to the admin. */
+function assertAnnouncementWindow(startsAt?: Date | null, endsAt?: Date | null) {
+  if (startsAt && endsAt && endsAt.getTime() <= startsAt.getTime()) {
+    throw new AppError("VALIDATION", "วันสิ้นสุดต้องอยู่หลังวันเริ่มแสดง");
+  }
+}
+
 export async function createAnnouncement(input: AnnouncementInput, actor: Actor) {
+  assertAnnouncementWindow(input.startsAt, input.endsAt);
   return prisma.$transaction(async (tx) => {
     const created = await tx.siteAnnouncement.create({
       data: input as Prisma.SiteAnnouncementUncheckedCreateInput,
@@ -49,6 +57,10 @@ export async function createAnnouncement(input: AnnouncementInput, actor: Actor)
 export async function updateAnnouncement(id: string, input: Partial<AnnouncementInput>, actor: Actor) {
   const before = await prisma.siteAnnouncement.findUnique({ where: { id } });
   if (!before) throw new AppError("NOT_FOUND", "Announcement not found");
+  assertAnnouncementWindow(
+    input.startsAt !== undefined ? input.startsAt : before.startsAt,
+    input.endsAt !== undefined ? input.endsAt : before.endsAt,
+  );
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.siteAnnouncement.update({
