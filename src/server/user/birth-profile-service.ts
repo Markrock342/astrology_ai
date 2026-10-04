@@ -118,12 +118,23 @@ export async function upsertBirthProfile(
   }
 
   // Staff re-edits do not burn the one-time quota used by normal users.
-  const profile = await prisma.birthProfile.update({
-    where: { userId },
-    data: unlimited
-      ? { ...data }
-      : { ...data, editCount: { increment: 1 } },
-  });
+  // For users the count is checked in the same statement that spends it:
+  // five parallel saves used to pass the check above and all succeed.
+  if (!unlimited) {
+    const spent = await prisma.birthProfile.updateMany({
+      where: { userId, editCount: { lt: MAX_BIRTH_EDITS } },
+      data: { ...data, editCount: { increment: 1 } },
+    });
+    if (spent.count === 0) {
+      throw new AppError(
+        "EDIT_LIMIT_REACHED",
+        "แก้ไขข้อมูลวันเกิดได้เพียงครั้งเดียว ไม่สามารถแก้ไขเพิ่มได้",
+      );
+    }
+  }
+  const profile = unlimited
+    ? await prisma.birthProfile.update({ where: { userId }, data: { ...data } })
+    : await prisma.birthProfile.findUniqueOrThrow({ where: { userId } });
   await queueNatalChart(userId, profile.id);
   return profile;
 }

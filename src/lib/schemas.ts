@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { toGregorianYear } from "@/lib/date";
 
 /**
  * Shared Zod schemas used by API route handlers and services. Every request is
@@ -60,7 +61,16 @@ export const birthProfileSchema = z
   .refine((v) => !v.birthTimeKnown || (v.hour !== undefined && v.minute !== undefined), {
     message: "ต้องระบุเวลาเกิด (ชั่วโมงและนาที) เมื่อทราบเวลาเกิด",
     path: ["hour"],
-  });
+  })
+  // 31 Feb used to be accepted and silently saved as 3 March.
+  .refine(
+    (v) => {
+      const year = toGregorianYear(v.year, v.yearEra);
+      const d = new Date(Date.UTC(year, v.month - 1, v.day));
+      return d.getUTCMonth() === v.month - 1 && d.getUTCDate() === v.day && year >= 1900 && d.getTime() <= Date.now();
+    },
+    { message: "วันเกิดไม่ถูกต้อง หรือเป็นวันที่ยังมาไม่ถึง", path: ["day"] },
+  );
 
 export const createReadingSchema = z.object({
   categorySlug: z.string().min(1),

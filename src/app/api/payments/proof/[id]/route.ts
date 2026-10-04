@@ -2,6 +2,7 @@ import { handle } from "@/lib/http";
 import { AppError } from "@/lib/errors";
 import { requireUser } from "@/server/auth/rbac";
 import { prisma } from "@/server/db";
+import { assertAdmin2faVerified } from "@/server/auth/admin-2fa-service";
 import { streamPaymentProof } from "@/server/payment/payment-proof";
 
 /**
@@ -27,6 +28,8 @@ export async function GET(
     if (!isOwner && !isAdmin) {
       throw new AppError("FORBIDDEN", "ไม่มีสิทธิ์ดูสลิปนี้");
     }
+    // Someone else's slip is an admin read like any other: 2FA first.
+    if (!isOwner) await assertAdmin2faVerified(user.id);
 
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token && !/^https?:\/\//i.test(payment.proofUrl)) {
