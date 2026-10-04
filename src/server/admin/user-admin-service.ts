@@ -588,6 +588,14 @@ export async function setUserSubscription(
 
   const pkg = await prisma.package.findUnique({ where: { code: input.packageCode } });
   if (!pkg) throw new AppError("NOT_FOUND", "Package not found");
+  // A top-up is usage, not a plan: set as the subscription it made the user Pro
+  // with no Pro package behind it. A past expiry made a plan already expired.
+  if (pkg.creditOnly) {
+    throw new AppError("VALIDATION", "แพ็กเกจเติม usage ไม่ใช่แผนสมาชิก — ใช้การเติม usage แทน");
+  }
+  if (input.expiresAt && input.expiresAt.getTime() <= Date.now()) {
+    throw new AppError("VALIDATION", "วันหมดอายุต้องเป็นวันในอนาคต (เว้นว่าง = ไม่มีวันหมดอายุ)");
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     // Serialised with payment approvals for the same user (see payment-service).

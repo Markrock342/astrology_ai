@@ -13,6 +13,7 @@ import {
   notifyUserPaymentReviewed,
   persistPaymentNotifyResult,
 } from "@/server/payment/payment-notify";
+import { getEffectivePlan } from "@/server/user/account-service";
 import {
   assertOwnedProofPath,
   deletePaymentProofBlob,
@@ -64,9 +65,15 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
   if (input.packageCode) {
     const pkg = await prisma.package.findFirst({
       where: { code: input.packageCode, enabled: true },
-      select: { id: true, price: true },
+      select: { id: true, price: true, creditOnly: true },
     });
     if (!pkg) throw new AppError("NOT_FOUND", "ไม่พบแพ็กเกจที่เลือก");
+    // The page only offers a top-up to Pro, but the API took it from anyone —
+    // and a Free wallet is capped back to the Free budget when its period
+    // ends, so a paid top-up on Free could simply vanish.
+    if (pkg.creditOnly && (await getEffectivePlan(userId)) !== "PRO") {
+      throw new AppError("VALIDATION", "เติม usage ได้เฉพาะสมาชิก Pro — สมัคร Pro ก่อนนะครับ");
+    }
     if (input.amount !== pkg.price) {
       throw new AppError(
         "VALIDATION",
