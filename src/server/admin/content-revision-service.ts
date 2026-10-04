@@ -46,6 +46,29 @@ export async function recordRevision(input: {
   });
 }
 
+/**
+ * The content as it stood before the first publish through the admin, kept
+ * as its own revision. History used to start at the first edit (create saved
+ * no revision, and publish stores the new content), so the original could
+ * never be restored.
+ */
+export async function recordBaselineIfFirstPublish(input: {
+  entityType: ContentEntityType;
+  entityId: string;
+  snapshotJson: unknown;
+  actor: Actor;
+}) {
+  const published = await prisma.contentRevision.count({
+    where: {
+      entityType: input.entityType,
+      entityId: input.entityId,
+      action: { in: ["PUBLISH", "RESTORE"] },
+    },
+  });
+  if (published > 0) return null;
+  return recordRevision({ ...input, action: "PUBLISH", note: "ฉบับก่อนแก้ไขครั้งแรก" });
+}
+
 export async function listRevisions(
   entityType: ContentEntityType,
   entityId: string,

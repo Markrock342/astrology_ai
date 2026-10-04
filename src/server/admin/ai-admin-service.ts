@@ -3,7 +3,7 @@ import { prisma } from "@/server/db";
 import { PROMPT_CODES } from "@/server/horoscope/prompt-resolver";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/server/audit/audit-service";
-import { recordRevision } from "@/server/admin/content-revision-service";
+import { recordBaselineIfFirstPublish, recordRevision } from "@/server/admin/content-revision-service";
 import { FEATURES } from "@/config/features";
 import {
   encryptSecret,
@@ -239,6 +239,18 @@ export async function publishPrompt(
   if (!before) throw new AppError("NOT_FOUND", "Prompt template not found");
 
   const contentChanged = input.content !== before.content;
+  await recordBaselineIfFirstPublish({
+    entityType: "PROMPT_TEMPLATE",
+    entityId: id,
+    snapshotJson: {
+      content: before.content,
+      name: before.name,
+      type: before.type,
+      enabled: before.enabled,
+      version: before.version,
+    },
+    actor,
+  });
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.promptTemplate.update({
@@ -758,6 +770,12 @@ export async function saveKnowledgeDraft(
 export async function publishKnowledgeDoc(id: string, input: KnowledgeCreateInput, actor: Actor) {
   const before = await prisma.knowledgeDoc.findUnique({ where: { id } });
   if (!before) throw new AppError("NOT_FOUND", "Knowledge doc not found");
+  await recordBaselineIfFirstPublish({
+    entityType: "KNOWLEDGE_DOC",
+    entityId: id,
+    snapshotJson: { title: before.title, content: before.content },
+    actor,
+  });
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.knowledgeDoc.update({
