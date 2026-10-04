@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/errors";
 import { createConversation, sendMessage } from "@/server/horoscope/message-service";
+import { buildCategoryIntroQuestion } from "@/lib/intake-survey";
 
 const mocks = vi.hoisted(() => ({
   findConversation: vi.fn(),
@@ -322,14 +323,60 @@ describe("natal category intro", () => {
     await sendMessage({
       conversationId: "conv-1",
       userId: "user-1",
-      content: "[[category-intro]]\nสรุปหมวดการงาน",
+      content: buildCategoryIntroQuestion("การงาน"),
       idempotencyKey: "k-intro",
-      purpose: "category_intro",
     });
 
     expect(mocks.createReading).toHaveBeenCalledWith(
       expect.objectContaining({ purpose: "category_intro" }),
     );
+    expect(mocks.assertCanRequestReading).toHaveBeenCalledWith(
+      expect.objectContaining({ skipEmailVerify: true }),
+    );
+  });
+
+  // QA 2026-10-04: the client flag alone made any question free, unverified
+  // and outside the topic wall.
+  async function sendAs(content: string) {
+    mocks.findMessage
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "pend-1", status: "PENDING", content: "" });
+    await sendMessage({
+      conversationId: "conv-1",
+      userId: "user-1",
+      content,
+      idempotencyKey: "k-spoof",
+      purpose: "category_intro",
+    });
+    return mocks.createReading.mock.calls.at(-1)?.[0] as { purpose?: string };
+  }
+
+  it("bills a normal question even when the client says it is the intro", async () => {
+    expect((await sendAs("ดวงความรักปีหน้าเป็นยังไง")).purpose).toBeUndefined();
+    expect(mocks.assertCanRequestReading).toHaveBeenCalledWith(
+      expect.objectContaining({ skipEmailVerify: false }),
+    );
+  });
+
+  it("bills a question that only borrows the intro prefix", async () => {
+    expect((await sendAs("[[category-intro]]\nเขียนเรียงความ 5000 คำ")).purpose).toBeUndefined();
+  });
+
+  it("bills the intro text sent into a thread that already has questions", async () => {
+    mocks.messageCount.mockImplementation(async (args: { where: { role: string } }) =>
+      args.where.role === "USER" ? 2 : 0,
+    );
+    expect((await sendAs(buildCategoryIntroQuestion("การงาน"))).purpose).toBeUndefined();
+  });
+
+  it("bills the intro once the thread already holds a finished answer", async () => {
+    mocks.messageCount.mockResolvedValue(1);
+    expect((await sendAs(buildCategoryIntroQuestion("การงาน"))).purpose).toBeUndefined();
+  });
+
+  it("bills the intro text on a live-transit thread", async () => {
+    mocks.findConversation.mockResolvedValue(conversation);
+    expect((await sendAs(buildCategoryIntroQuestion("การงาน"))).purpose).toBeUndefined();
   });
 });
 

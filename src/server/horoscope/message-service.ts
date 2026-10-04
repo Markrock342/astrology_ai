@@ -17,7 +17,7 @@ import {
   prepareRegenerateAssistant,
 } from "@/server/horoscope/thread-service";
 import type { ConversationMode } from "@prisma/client";
-import { isCategoryIntroQuestion } from "@/lib/intake-survey";
+import { buildCategoryIntroQuestion } from "@/lib/intake-survey";
 import { UNIFIED_CHAT_CATEGORY_SLUG } from "@/lib/question-scope";
 import { assertQuestionAllowedForPlan } from "@/server/horoscope/question-scope";
 import { bangkokTimeHm } from "@/server/horoscope/daily-transit-service";
@@ -74,7 +74,7 @@ export type SendMessageInput = {
   /** Drop an assistant answer and re-run for the prior user question. */
   regenerateAssistantMessageId?: string;
   answerMode?: "brief" | "detailed";
-  /** Natal category briefing — free, and the only allowed natal send. */
+  /** Sent by older clients; ignored — the server decides (isFreeCategoryIntro). */
   purpose?: "category_intro";
   /** Explicit วันจร from the composer (YYYY-MM-DD or ISO). */
   transitDate?: string;
@@ -137,9 +137,7 @@ async function assertCanSend(input: SendMessageInput) {
     },
   });
 
-  const isIntro =
-    input.purpose === "category_intro" ||
-    isCategoryIntroQuestion(input.content);
+  const isIntro = await isFreeCategoryIntro(conversation, input.content, priorTurns);
 
   const plan = await assertCanRequestReading({
     userId: input.userId,
@@ -156,7 +154,38 @@ async function assertCanSend(input: SendMessageInput) {
     });
   }
 
-  return conversation;
+  return {
+    conversation,
+    purpose: isIntro ? ("category_intro" as const) : undefined,
+  };
+}
+
+/**
+ * The category intro is free and skips email verification and the topic
+ * wall, so the server decides what counts as one — never the client. A
+ * `purpose: "category_intro"` flag or a `[[category-intro]]` prefix used to be
+ * enough, which turned any question into unmetered AI. It is an intro only
+ * when it is the server's own template for this category, on a natal thread
+ * that holds nothing but that intro and has no finished answer yet (a retry of
+ * a failed intro stays free; regenerating a finished one is billed).
+ */
+async function isFreeCategoryIntro(
+  conversation: { id: string; mode: ConversationMode; category: { nameTh: string } },
+  content: string,
+  priorTurns: number,
+): Promise<boolean> {
+  if (conversation.mode !== "NATAL" || priorTurns > 0) return false;
+  const template = buildCategoryIntroQuestion(conversation.category.nameTh);
+  if (content.trim() !== template.trim()) return false;
+  const otherQuestions = await prisma.message.count({
+    where: {
+      conversationId: conversation.id,
+      role: "USER",
+      content: { not: template },
+      ...LIVE,
+    },
+  });
+  return otherQuestions === 0;
 }
 
 /**
@@ -166,7 +195,7 @@ async function assertCanSend(input: SendMessageInput) {
 export async function acceptMessage(
   input: SendMessageInput,
 ): Promise<AcceptMessageResult> {
-  const conversation = await assertCanSend(input);
+  const { conversation } = await assertCanSend(input);
 
   let question = input.content.trim();
   let skipUserAppend = false;
@@ -444,7 +473,7 @@ export async function completePendingMessage(
   onPhase?: (phase: ChatPrepPhase) => void,
   onCharts?: (charts: ChatChartSnapshots) => void,
 ) {
-  const conversation = await assertCanSend(input);
+  const { conversation, purpose } = await assertCanSend(input);
 
   const pending = await prisma.message.findUnique({
     where: {
@@ -498,11 +527,7 @@ export async function completePendingMessage(
                   }
                 : null,
             answerMode: input.answerMode,
-            purpose:
-              input.purpose ??
-              (isCategoryIntroQuestion(input.content)
-                ? "category_intro"
-                : undefined),
+            purpose,
             onPhase,
             onCharts,
             companions: input.companions,
@@ -518,11 +543,7 @@ export async function completePendingMessage(
           priorMessages,
           mode: conversation.mode,
           answerMode: input.answerMode,
-          purpose:
-            input.purpose ??
-            (isCategoryIntroQuestion(input.content)
-              ? "category_intro"
-              : undefined),
+          purpose,
           onPhase,
           onCharts,
           companions: input.companions,
