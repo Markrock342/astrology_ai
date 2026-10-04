@@ -499,6 +499,12 @@ export async function completePendingMessage(
   }
 
   const priorMessages = await loadPriorMessages(conversation.id, input.userId);
+  // Same test as isStopRequested's "gone": the live keyed row no longer exists.
+  const isAbandoned = async () =>
+    !(await prisma.message.findFirst({
+      where: { conversationId: conversation.id, idempotencyKey: input.idempotencyKey, ...LIVE },
+      select: { id: true },
+    }));
   const transitWindow = resolveTransitWindow(
     input.content,
     new Date(),
@@ -531,6 +537,7 @@ export async function completePendingMessage(
             onPhase,
             onCharts,
             companions: input.companions,
+            isAbandoned,
           },
           onDelta,
           shouldStop,
@@ -547,6 +554,7 @@ export async function completePendingMessage(
           onPhase,
           onCharts,
           companions: input.companions,
+          isAbandoned,
           transit:
             conversation.mode === "TRANSIT"
               ? {

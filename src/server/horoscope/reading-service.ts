@@ -212,6 +212,12 @@ export type CreateReadingInput = {
   purpose?: "category_intro";
   /** Other people read alongside the user (partner, parent…), this answer only. */
   companions?: Companion[];
+  /**
+   * True when the turn this reading answers is gone — superseded by a newer
+   * question, edited, regenerated or deleted. Its row already tells the user
+   * "ไม่ถูกหัก usage", so a reading stopped for that reason must not charge.
+   */
+  isAbandoned?: () => Promise<boolean>;
 };
 
 export async function createReading(input: CreateReadingInput) {
@@ -712,6 +718,29 @@ async function runReading(
       return {
         id: "",
         responseText: "หยุดการทำนายแล้ว (ไม่ถูกหัก usage เพราะยังไม่มีคำตอบ)",
+        provider: result.provider,
+        modelId: result.modelId,
+        creditCost: 0,
+        status: "FAILED" as const,
+        chartSnapshot: null,
+        transitSnapshot: null,
+      };
+    }
+
+    if (result.rawText?.trim() && input.isAbandoned && (await input.isAbandoned())) {
+      if (reservationId) await releaseUsageReservation(reservationId);
+      await logUsage({
+        userId,
+        provider: result.provider,
+        modelId: result.modelId,
+        status: "FAILED",
+        latencyMs: result.latencyMs,
+        errorCode: "SUPERSEDED",
+        errorMessage: "Turn superseded or deleted while streaming",
+      });
+      return {
+        id: "",
+        responseText: "ถูกยกเลิกเพราะมีคำถามใหม่ (ไม่ถูกหัก usage)",
         provider: result.provider,
         modelId: result.modelId,
         creditCost: 0,
