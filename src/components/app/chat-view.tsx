@@ -439,17 +439,22 @@ export function ChatView() {
   );
   // A new chat gets its thread id on the first send; the people picked
   // before it follow the thread (adjusted during render, not in an effect).
-  const newChatKey = `new:${catSlug ?? ""}`;
-  const [companionThread, setCompanionThread] = useState(threadId);
-  if (companionThread !== threadId) {
-    setCompanionThread(threadId);
-    if (!companionThread && threadId && !companionsByThread[threadId] && companionsByThread[newChatKey]?.length) {
+  // Move them from the key they were picked under: the same navigation can
+  // also change the category (home page "new:" → "?thread=X&cat=self"), and
+  // looking under the new category's key found nothing.
+  const [companionFrom, setCompanionFrom] = useState({ threadId, key: companionKey });
+  if (companionFrom.threadId !== threadId) {
+    const pickedKey = companionFrom.key;
+    setCompanionFrom({ threadId, key: companionKey });
+    if (!companionFrom.threadId && threadId && !companionsByThread[threadId] && companionsByThread[pickedKey]?.length) {
       setCompanionsByThread((prev) => ({
         ...prev,
-        [threadId]: prev[newChatKey]!,
-        [newChatKey]: [],
+        [threadId]: prev[pickedKey]!,
+        [pickedKey]: [],
       }));
     }
+  } else if (companionFrom.key !== companionKey) {
+    setCompanionFrom({ threadId, key: companionKey });
   }
   const [pendingFutureDate, setPendingFutureDate] =
     useState<PendingFutureDate | null>(null);
@@ -2450,7 +2455,11 @@ export function ChatView() {
                             Asking someone to type what a button should do is a
                             button that doesn't exist yet — here it is. The
                             notice text the server appends IS the signal. */}
-                        {m.content.includes("เพดานของโหมดคำตอบ") || m.content.includes("ขาดกลางคำตอบ") ? (
+                        {/* Only on the newest answer: "เล่าต่อ" continues the
+                            latest question, so on an older cut answer it
+                            continued the wrong one. */}
+                        {idx === messages.length - 1 &&
+                        (m.content.includes("เพดานของโหมดคำตอบ") || m.content.includes("ขาดกลางคำตอบ")) ? (
                           <button
                             type="button"
                             disabled={emailGate}
