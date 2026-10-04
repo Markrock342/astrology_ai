@@ -135,11 +135,21 @@ function settleSignChangesOnTheDay(
   midpointUt: number,
 ): typeof lookup.signs {
   const prev = lookup.previousDay
-  if (!prev) return lookup.signs
   const out = { ...lookup.signs }
   // The table spells กุมภ์, the formula กุมภ — compare without the mark and
   // keep the table's spelling.
   const bare = (sign: string) => sign.replace(/์/g, '')
+  if (!prev) {
+    // The table's first day (1 Jan 1941) has no row before it to tell whether
+    // a sign changed that day; the birth-moment position of the planets that
+    // match myhora decides alone. Its Moon used to take the end-of-day sign.
+    for (const planet of JUDGED_BY_POSITION) {
+      const now = formulaRows.find((r) => r.planet === planet)?.siderealSign
+      const today = lookup.signs[planet]
+      if (now && today && bare(now) !== bare(today)) out[planet] = bare(now) === 'กุมภ' ? 'กุมภ์' : now
+    }
+    return out
+  }
   for (const planet of PLANETS) {
     const today = lookup.signs[planet]
     const before = prev[planet]

@@ -141,3 +141,14 @@ describe("taksa birth day turns at the real sunrise and sunset", () => {
     expect(resolveTaksaBirthDay({ year, month, day, time, country: "ไทย", province, district })).toBe(want);
   });
 });
+
+// QA 2026-10-04 (B11): the table's first day has no row before it.
+describe("the 100-year table's first day", () => {
+  it("places the Moon by its birth-moment position", async () => {
+    const { computeFullChartSync } = await import("@/server/horoscope/engine/newhora/formulas/pipeline");
+    const { resolvePlaceCoords } = await import("@/server/horoscope/engine/newhora/data/placeCoordinates");
+    const input = { day: 1, month: 1, year: 1941, time: "01:00", country: "ไทย", province: "กรุงเทพมหานคร", district: "พระนคร" };
+    const r = computeFullChartSync(input as never, resolvePlaceCoords("ไทย", "กรุงเทพมหานคร", "พระนคร", input));
+    expect(r.planets.find((p) => p.planet === "จันทร์")?.siderealSign).toBe("มกร");
+  });
+});
