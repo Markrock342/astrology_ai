@@ -198,22 +198,12 @@ export function computeDrekkanaSign(
   sign: string,
   degreeInSign: number,
 ): string {
+  // ตรียางค์: 0–10° the sign itself, 10–20° the 5th from it, 20–30° the 9th —
+  // for every sign (same as samrap-derive). Fixed and dual signs used to start
+  // from the 9th / 5th, so two thirds of all placements landed wrong.
   const normalized = normalizeMyhoraSign(sign);
-  const index = signIndex(normalized);
-  const segment = Math.min(2, Math.floor(degreeInSign / 10));
-  const movable = [0, 3, 6, 9].includes(index);
-  const fixed = [1, 4, 7, 10].includes(index);
-  const start = movable
-    ? normalized
-    : fixed
-      ? offsetSign(normalized, 8)
-      : offsetSign(normalized, 4);
-  const sequence = movable
-    ? [0, 4, 8]
-    : fixed
-      ? [8, 4, 0]
-      : [4, 8, 0];
-  return offsetSign(start, sequence[segment] ?? 0);
+  const segment = Math.min(2, Math.max(0, Math.floor(degreeInSign / 10)));
+  return offsetSign(normalized, [0, 4, 8][segment]!);
 }
 
 /** Build D9/D3 directly from MyHora degrees, with stored engine degrees as fallback. */
