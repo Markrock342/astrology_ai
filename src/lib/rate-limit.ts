@@ -86,7 +86,7 @@ export function memoryRateLimit(key: string, limit: number, windowMs: number): v
 
   bucket.count += 1;
   if (bucket.count > limit) {
-    throw new AppError("RATE_LIMITED", "Too many requests, please slow down");
+    throw new AppError("RATE_LIMITED", "ส่งคำขอถี่เกินไป กรุณารอสักครู่แล้วลองใหม่");
   }
 }
 
@@ -152,7 +152,7 @@ export async function rateLimit(
   try {
     const { success } = await getUpstashLimiter(limit, windowMs).limit(key);
     if (!success) {
-      throw new AppError("RATE_LIMITED", "Too many requests, please slow down");
+      throw new AppError("RATE_LIMITED", "ส่งคำขอถี่เกินไป กรุณารอสักครู่แล้วลองใหม่");
     }
   } catch (err) {
     if (err instanceof AppError) throw err;

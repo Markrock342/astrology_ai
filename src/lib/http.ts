@@ -59,8 +59,20 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
       return fail(err.code, err.message, err.status, err.details);
     }
     if (err instanceof ZodError) {
-      return fail("VALIDATION", "Invalid input", 422, err.flatten());
+      // Our own refinements speak Thai; Zod's built-ins are English. Users saw
+      // "Invalid input" in the login and settings forms.
+      const own = err.issues.map((i) => i.message).find((m) => /[\u0E00-\u0E7F]/.test(m));
+      return fail("VALIDATION", own ?? "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบแล้วลองใหม่", 422, err.flatten());
     }
+    // A body that is not JSON / form data is the client's mistake, not a
+    // server error — it used to be a 500 and a row in the error log.
+    if (err instanceof SyntaxError || (err instanceof TypeError && /form ?data|content-type/i.test(err.message))) {
+      return fail("VALIDATION", "รูปแบบข้อมูลที่ส่งมาไม่ถูกต้อง", 422);
+    }
+    const prismaCode = (err as { code?: unknown } | null)?.code;
+    if (prismaCode === "P2002") return fail("VALIDATION", "ข้อมูลนี้มีอยู่แล้ว (ซ้ำ)", 409);
+    if (prismaCode === "P2003") return fail("VALIDATION", "อ้างถึงข้อมูลที่ไม่มีอยู่", 422);
+    if (prismaCode === "P2025") return fail("NOT_FOUND", "ไม่พบข้อมูล", 404);
     console.error("Unhandled error:", err);
     recordError(err);
     const message = isPrismaPoolError(err)
