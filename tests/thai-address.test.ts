@@ -81,6 +81,16 @@ describe("matchThaiReverseAddress", () => {
 });
 
 describe("formatThaiLocationLine", () => {
+  // QA 2026-10-04: "อำเภอWestminster จังหวัดLondon อื่น ๆ".
+  it("names a place abroad without อำเภอ/จังหวัด", () => {
+    expect(formatThaiLocationLine({ district: "Westminster", province: "London", country: "อื่น ๆ" })).toBe(
+      "Westminster, London",
+    );
+    expect(formatThaiLocationLine({ district: "Yangon", province: "Yangon", country: "เมียนมา" })).toBe(
+      "Yangon, เมียนมา",
+    );
+  });
+
   it("labels Bangkok as เขต and other provinces as อำเภอ", () => {
     expect(
       formatThaiLocationLine({
