@@ -471,9 +471,11 @@ export class GeminiAdapter implements AIProviderAdapter {
           latencyMs: Date.now() - start,
         };
       }
-      // An idle-timeout that already streamed text is a cut answer, not a lost
-      // one — keep what arrived and flag it truncated instead of erroring out.
-      if (isTimeout && rawText.trim()) {
+      // A stream that already sent text and then died — idle timeout, or the
+      // socket reset under us (undici's TypeError "terminated") — is a cut
+      // answer, not a lost one: the user has already read it. Keep what
+      // arrived and flag it cut by the connection so the resume picks it up.
+      if (rawText.trim()) {
         return {
           ok: true,
           provider: "GEMINI",
