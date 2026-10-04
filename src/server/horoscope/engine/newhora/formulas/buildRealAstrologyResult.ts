@@ -33,7 +33,7 @@ function toResult(
 
 /** สูตรท้องถิ่น (สุริยยาตร์ / อันโตนาที / ลาหิรี) — ไม่ scrape */
 export function buildRealAstrologyResult(input: BirthInput): AstrologyResult {
-  const place = resolvePlaceCoords(input.country, input.province, input.district)
+  const place = resolvePlaceCoords(input.country, input.province, input.district, input)
   return toResult(input, computeFullChartSync(input, place))
 }
 

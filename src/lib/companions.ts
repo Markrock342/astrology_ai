@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveForeignPlace } from "@/lib/foreign-places";
 
 /**
  * Another person read alongside the user in one question — a partner, a
@@ -65,7 +66,10 @@ export const companionSchema = z.object({
   country: z.string().trim().min(1).max(60).default("ไทย"),
   province: z.string().trim().min(1).max(80),
   district: z.string().trim().max(80).default(""),
-});
+}).refine(
+  (c) => c.country === "ไทย" || resolveForeignPlace(c.country, c.province, c.district) !== null,
+  { message: "ระบบยังไม่รู้จักสถานที่เกิดนี้ — พิมพ์ชื่อเมืองใหญ่ที่ใกล้ที่สุดเป็นภาษาอังกฤษ", path: ["district"] },
+);
 
 export type Companion = z.infer<typeof companionSchema>;
 

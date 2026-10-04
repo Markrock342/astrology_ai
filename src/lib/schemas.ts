@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { toGregorianYear } from "@/lib/date";
+import { resolveForeignPlace } from "@/lib/foreign-places";
 
 /**
  * Shared Zod schemas used by API route handlers and services. Every request is
@@ -70,6 +71,19 @@ export const birthProfileSchema = z
       return d.getUTCMonth() === v.month - 1 && d.getUTCDate() === v.day && year >= 1900 && d.getTime() <= Date.now();
     },
     { message: "วันเกิดไม่ถูกต้อง หรือเป็นวันที่ยังมาไม่ถึง", path: ["day"] },
+  )
+  // A foreign birthplace the engine does not know used to be computed at
+  // Bangkok, silently. Ask for a place it can place instead.
+  .refine(
+    (v) =>
+      v.birthCountry === "ไทย" ||
+      v.birthCountry.trim() === "" ||
+      resolveForeignPlace(v.birthCountry, v.birthProvince, v.birthDistrict) !== null,
+    {
+      message:
+        "ระบบยังไม่รู้จักสถานที่เกิดนี้ — พิมพ์ชื่อเมืองใหญ่ที่ใกล้ที่เกิดที่สุดเป็นภาษาอังกฤษ เช่น Los Angeles, Tokyo, Sydney",
+      path: ["birthDistrict"],
+    },
   );
 
 export const createReadingSchema = z.object({
