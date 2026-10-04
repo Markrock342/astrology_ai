@@ -136,7 +136,7 @@ function tableDayMidpointUt(input: BirthInput): number {
 // Mercury … Saturn joined 2026-10-04 with the fitted Suriyayat correction:
 // on 59 sign-change days checked against astro.meemodel.com, position got
 // 50 right, the midday split 42.
-const JUDGED_BY_POSITION = new Set(['อาทิตย์', 'จันทร์', 'ราหู', 'เกตุ', 'พุธ', 'ศุกร์', 'อังคาร', 'พฤหัสบดี', 'เสาร์'])
+const JUDGED_BY_POSITION = new Set(['อาทิตย์', 'จันทร์', 'ราหู', 'เกตุ', 'พุธ', 'ศุกร์', 'อังคาร', 'พฤหัสบดี', 'เสาร์', 'มฤตยู'])
 
 function settleSignChangesOnTheDay(
   lookup: NonNullable<ReturnType<typeof lookupSuryayatSync>>,
@@ -174,8 +174,8 @@ function settleSignChangesOnTheDay(
       const now = formulaRows.find((r) => r.planet === planet)?.siderealSign
       if (now && bare(now) === bare(before)) out[planet] = before
     } else if (birthUt < midpointUt) {
-      // Uranus has no Suriyayat fit. Not knowing the hour of the change,
-      // split the day at its middle.
+      // Every planet now has a Suriyayat position; kept for a planet added
+      // without one. Not knowing the hour of the change, split the day.
       out[planet] = before
     }
   }
