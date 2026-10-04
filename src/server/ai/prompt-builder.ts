@@ -308,10 +308,30 @@ export type BuildUserPromptOptions = {
   priorUserTexts?: string[];
 };
 
+/** The italic footer a cut answer carries — a note to the user, not the answer. */
+const CUT_FOOTER = /\n*\*(?:การเชื่อมต่อกับระบบ AI ขาดกลางคำตอบ|คำตอบยาวถึงเพดานของโหมดคำตอบ)[^*]*\*\s*$/;
+
 function truncateAssistantHistory(content: string): string {
-  if (content.length <= HISTORY_ASSISTANT_MAX_CHARS) return content;
-  return `${content.slice(0, HISTORY_ASSISTANT_MAX_CHARS)}…`;
+  const body = content.replace(CUT_FOOTER, "");
+  if (body.length <= HISTORY_ASSISTANT_MAX_CHARS) return body;
+  // Keep the END of a long answer too: "เล่าต่อ" has to see where it stopped.
+  const head = Math.floor(HISTORY_ASSISTANT_MAX_CHARS * 0.6);
+  return `${body.slice(0, head)}\n…\n${body.slice(-(HISTORY_ASSISTANT_MAX_CHARS - head))}`;
 }
+
+/** "เล่าต่อ" and friends: carry on with the previous answer, not a new question. */
+export function isContinueRequest(question: string): boolean {
+  return /^\s*(?:เล่า)?ต่อ(?:เลย|สิ|หน่อย|ให้จบ)?\s*(?:ครับ|ค่ะ|คะ|นะ|จ้า)?\s*[▸.!]*\s*$/.test(question);
+}
+
+/**
+ * Appended when the user asks to continue. The model used to treat "เล่าต่อ"
+ * as a fresh, vague question and wrote a new natal reading instead.
+ */
+export const CONTINUE_RULE =
+  "กฎเล่าต่อ (บังคับ): ผู้ใช้กด 'เล่าต่อ' เพราะคำตอบก่อนหน้าขาดกลางทาง ให้เขียนต่อจากประโยคสุดท้ายของคำตอบก่อนหน้าทันที " +
+  "ตอบคำถามเดิมของผู้ใช้ (ข้อความผู้ใช้ก่อนหน้านี้) ให้จบ ไม่ต้องขึ้นสรุปหรือหัวข้อใหม่ ไม่ต้องทวนสิ่งที่เขียนไปแล้ว " +
+  "และห้ามเปลี่ยนไปพูดเรื่องอื่น";
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");

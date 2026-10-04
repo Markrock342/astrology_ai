@@ -51,3 +51,41 @@ describe("a Gemini stream that ends early", () => {
     expect(r.truncatedBy).toBe("budget");
   });
 });
+
+describe("resuming a dropped stream", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("picks up where Gemini stopped and finishes the answer", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(sse([text("ในเดือนตุลาคมนี้ มีเกณฑ์ชัดเจนที่จะได้ข้อสรุปเรื่อง")]))
+      .mockResolvedValueOnce(
+        sse([text("งานใหม่ในวันศุกร์ที่ 9"), { candidates: [{ content: { parts: [] }, finishReason: "STOP" }] }]),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const seen: string[] = [];
+    const r = await new GeminiAdapter().streamGenerate(input, (c) => seen.push(c));
+    expect(r.truncated).toBe(false);
+    expect(r.rawText).toBe("ในเดือนตุลาคมนี้ มีเกณฑ์ชัดเจนที่จะได้ข้อสรุปเรื่องงานใหม่ในวันศุกร์ที่ 9");
+    expect(seen.join("")).toBe(r.rawText);
+    // The resume carries the text so far as the model's turn.
+    const body = JSON.parse((fetchMock.mock.calls[1] as [string, RequestInit])[1].body as string);
+    expect(body.contents.at(-2)).toEqual({ role: "model", parts: [{ text: "ในเดือนตุลาคมนี้ มีเกณฑ์ชัดเจนที่จะได้ข้อสรุปเรื่อง" }] });
+  });
+
+  it("does not resume an answer cut by the output budget", async () => {
+    const fetchMock = vi.fn(async () =>
+      sse([text("ยาว"), { candidates: [{ content: { parts: [] }, finishReason: "MAX_TOKENS" }] }]),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await new GeminiAdapter().streamGenerate(input, () => {});
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a final frame that has no trailing newline", async () => {
+    const raw = `data: ${JSON.stringify(text("ครบ"))}\n\ndata: ${JSON.stringify({ candidates: [{ content: { parts: [] }, finishReason: "STOP" }] })}`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(raw)));
+    const r = await new GeminiAdapter().streamGenerate(input, () => {});
+    expect(r.truncated).toBe(false);
+  });
+});

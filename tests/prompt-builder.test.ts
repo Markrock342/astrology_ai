@@ -504,7 +504,7 @@ describe("buildConversationHistory (M3 B1)", () => {
   });
 
   it("truncates long assistant history to save tokens", () => {
-    const longReply = "ค".repeat(HISTORY_ASSISTANT_MAX_CHARS + 300);
+    const longReply = "ค".repeat(HISTORY_ASSISTANT_MAX_CHARS + 300) + "จบตรงนี้";
     const { conversationHistory } = buildConversationHistory(
       [
         { role: "USER", content: "คำถามแรก" },
@@ -515,10 +515,10 @@ describe("buildConversationHistory (M3 B1)", () => {
       "คำถามถัดไป",
       { chartMemory: memory },
     );
-    expect(conversationHistory[1]?.content).toHaveLength(
-      HISTORY_ASSISTANT_MAX_CHARS + 1,
-    );
-    expect(conversationHistory[1]?.content.endsWith("…")).toBe(true);
+    // Head and tail are kept: "เล่าต่อ" has to see where the answer stopped.
+    expect(conversationHistory[1]!.content.length).toBeLessThanOrEqual(HISTORY_ASSISTANT_MAX_CHARS + 3);
+    expect(conversationHistory[1]!.content).toContain("\n…\n");
+    expect(conversationHistory[1]!.content.endsWith("จบตรงนี้")).toBe(true);
   });
 
   it("sends only the asked category in [memory] when the question stays on-topic", () => {

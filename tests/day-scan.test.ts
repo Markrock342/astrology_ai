@@ -96,3 +96,11 @@ describe("the owner's own wordings", () => {
     expect(dayScanDates("มีเกณฑ์ได้เงินไหม", NOW).days).toHaveLength(60);
   });
 });
+
+describe("เล่าต่อ", () => {
+  it("is recognised as a request to continue", async () => {
+    const { isContinueRequest } = await import("@/server/ai/prompt-builder");
+    for (const q of ["เล่าต่อ", "เล่าต่อ ▸", "ต่อเลยครับ", " เล่าต่อหน่อย "]) expect(isContinueRequest(q)).toBe(true);
+    for (const q of ["เล่าต่อเรื่องงาน", "จะดีวันไหน", "ต่อสัญญาดีไหม"]) expect(isContinueRequest(q)).toBe(false);
+  });
+});
