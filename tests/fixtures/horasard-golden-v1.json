@@ -68,7 +68,7 @@
     {
       "id": "formula-1938-bangkok",
       "authority": "formula-locked",
-      "notes": "นอกช่วง suryayat100 → formula-pipeline (ล็อก regression)",
+      "notes": "นอกช่วง suryayat100 → formula-pipeline (ล็อก regression) · 2026-10-04: พุธ มิถุน ตาม astro.meemodel.com (มิถุน 1°35′; Lahiri เดิมให้ พฤษภ). ศุกร์จริง มิถุน 29°47′ — สูตรได้ กรกฎ 0°15′ (ห่างเส้น 13′ เกินความแม่นของสูตร)",
       "input": {
         "day": 15,
         "month": 6,
@@ -85,7 +85,7 @@
           "อาทิตย์": "มิถุน",
           "จันทร์": "ธนู",
           "อังคาร": "มิถุน",
-          "พุธ": "พฤษภ",
+          "พุธ": "มิถุน",
           "พฤหัสบดี": "กุมภ",
           "ศุกร์": "กรกฎ",
           "เสาร์": "มีน",
@@ -99,7 +99,7 @@
     {
       "id": "formula-2045-chiangmai",
       "authority": "formula-locked",
-      "notes": "นอกช่วง suryayat100 → formula-pipeline",
+      "notes": "นอกช่วง suryayat100 → formula-pipeline · 2026-10-04: พุธ ธนู ตาม astro.meemodel.com (ธนู 1°19′; Lahiri เดิมให้ พิจิก)",
       "input": {
         "day": 1,
         "month": 1,
@@ -116,7 +116,7 @@
           "อาทิตย์": "ธนู",
           "จันทร์": "พฤษภ",
           "อังคาร": "มกร",
-          "พุธ": "พิจิก",
+          "พุธ": "ธนู",
           "พฤหัสบดี": "มกร",
           "ศุกร์": "พิจิก",
           "เสาร์": "พิจิก",
