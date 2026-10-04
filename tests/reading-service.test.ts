@@ -472,6 +472,34 @@ describe("createReading (M3 B2)", () => {
     expect(failure.message).not.toContain("streamGenerateContent");
   });
 
+  // QA 2026-10-04: a newer question (or a delete) cancels the turn and its row
+  // says "ไม่ถูกหัก usage" — the partial answer used to be charged anyway.
+  it("does not charge an answer whose turn was superseded or deleted", async () => {
+    const result = await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "เรื่องงานเป็นอย่างไร",
+      idempotencyKey: "key-gone",
+      isAbandoned: async () => true,
+    });
+
+    expect(result.status).toBe("FAILED");
+    expect(mocks.releaseUsageReservation).toHaveBeenCalledWith("reservation-1");
+    expect(mocks.deductUsageCost).not.toHaveBeenCalled();
+  });
+
+  it("charges as usual while the turn is still live", async () => {
+    await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "เรื่องงานเป็นอย่างไร",
+      idempotencyKey: "key-live",
+      isAbandoned: async () => false,
+    });
+
+    expect(mocks.deductUsageCost).toHaveBeenCalled();
+  });
+
   it("deducts cost-weighted usage on successful AI response", async () => {
     const result = await createReading({
       userId: "user-1",
