@@ -500,6 +500,20 @@ describe("createReading (M3 B2)", () => {
     expect(mocks.deductUsageCost).toHaveBeenCalled();
   });
 
+  // 2026-10-04 owner: a "which day" question got the detailed layout.
+  it("answers a pinpoint question first and short, even in detailed mode", async () => {
+    await createReading({
+      userId: "user-1",
+      categorySlug: "career",
+      question: "งานใหม่จะได้ไหมครับ",
+      idempotencyKey: "key-pin",
+      answerMode: "detailed",
+    });
+    const aiCall = mocks.generateWithFallback.mock.calls[0]?.[1] as { systemPrompt: string };
+    expect(aiCall.systemPrompt).toContain("ประโยคแรกต้องเป็นคำตอบเลย");
+    expect(aiCall.systemPrompt).not.toContain("โหมดละเอียด");
+  });
+
   it("deducts cost-weighted usage on successful AI response", async () => {
     const result = await createReading({
       userId: "user-1",

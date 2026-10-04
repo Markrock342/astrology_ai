@@ -137,3 +137,27 @@ describe("periods the chat QA found misread", () => {
     expect(isDayPickQuestion("จะได้แต่งงานตอนอายุเท่าไหร่")).toBe(false);
   });
 });
+
+// 2026-10-04 owner: "วันไหนในเดือนนี้ผมจะดวงดีสุด" got sections and a table
+// instead of the date.
+describe("pinpoint questions get the answer first", () => {
+  it.each([
+    "วันไหนในเดือนนี้ผมจะดวงดีสุด",
+    "เดือนหน้ามีเกณฑ์ได้งานใหม่ไหมครับ",
+    "ปีนี้จะได้เลื่อนตำแหน่งไหม",
+    "เมื่อไหร่จะเจอเนื้อคู่",
+    "งานไหนดีที่สุดสำหรับผม",
+  ])("%s", async (q) => {
+    const { isPinpointQuestion } = await import("@/lib/reading-intent");
+    expect(isPinpointQuestion(q)).toBe(true);
+  });
+
+  it.each([
+    "อธิบายละเอียดหน่อยว่าทำไมวันศุกร์ดี",
+    "ดูดวงภาพรวมให้หน่อย",
+    "การงานปีนี้เป็นยังไงบ้าง",
+  ])("keeps the full answer for %s", async (q) => {
+    const { isPinpointQuestion } = await import("@/lib/reading-intent");
+    expect(isPinpointQuestion(q)).toBe(false);
+  });
+});

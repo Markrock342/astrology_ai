@@ -535,6 +535,22 @@ export function isOverviewQuestion(question: string): boolean {
 }
 
 /**
+ * A question that wants one thing back — a day, a yes/no, the best option.
+ * "วันไหนในเดือนนี้ผมจะดวงดีสุด" got the detailed layout (350–500 words,
+ * ## sections, a closing table) and buried the date the owner asked for.
+ * Asking to explain keeps the long answer.
+ */
+const PINPOINT_PATTERN =
+  /วันไหน|วันใด|ช่วงไหน|เดือนไหน|ปีไหน|เมื่อไหร่|เมื่อไร|ตอนไหน|ดีสุด|ดีที่สุด|ที่สุด|อันไหน|แบบไหนดี|ทางไหนดี|ใช่ไหม|ใช่มั้ย|หรือเปล่า|รึเปล่า|หรือไม่|ไหม\s*(?:ครับ|คะ|ค่ะ|คับ|จ้า|นะ)?\s*[?？]?\s*$|มั้ย\s*(?:ครับ|คะ|ค่ะ|คับ)?\s*[?？]?\s*$/;
+const EXPLAIN_PATTERN = /อธิบาย|ละเอียด|ทำไม|เพราะอะไร|วิเคราะห์|เจาะลึก|ทุกด้าน|ทุกเรื่อง|ทั้งหมด|เล่าให้ฟัง|ขยายความ/;
+
+export function isPinpointQuestion(question: string): boolean {
+  const q = question.trim();
+  if (EXPLAIN_PATTERN.test(q) || isOverviewQuestion(q)) return false;
+  return isDayPickQuestion(q) || PINPOINT_PATTERN.test(q);
+}
+
+/**
  * "When will my life turn?" — a question about WHEN, across a life, with no
  * period named. It used to be read as a natal question and got no transit at
  * all, so the model either refused to date anything or invented a year. A
