@@ -36,6 +36,7 @@ export type DayScan = {
   topicHouses: number[];
   best: DayFacts[];
   avoid: DayFacts[];
+  all?: DayFacts[];
 };
 
 export type DayPositionsAt = (date: Date) => PlanetSignRow[];
@@ -80,6 +81,8 @@ export function scanDays(input: {
   days: Date[];
   positionsAt: DayPositionsAt;
   truncated?: boolean;
+  /** Keep every day's facts (for checking one named day against its week). */
+  keepAll?: boolean;
 }): DayScan | null {
   if (!input.days.length) return null;
   const roleOf = new Map(
@@ -149,6 +152,17 @@ export function scanDays(input: {
   });
 
   const byScore = [...facts].sort((a, b) => b.score - a.score || a.date.getTime() - b.date.getTime());
+  if (input.keepAll) {
+    return {
+      from: input.days[0]!,
+      to: input.days[input.days.length - 1]!,
+      truncated: false,
+      topicHouses: input.topicHouses,
+      best: byScore.filter((d) => d.dayRole !== "กาลกิณี").slice(0, 5),
+      avoid: [],
+      all: facts,
+    };
+  }
   const best = byScore.filter((d) => d.dayRole !== "กาลกิณี").slice(0, 5);
   const avoid = [...facts]
     .sort((a, b) => a.score - b.score || a.date.getTime() - b.date.getTime())
@@ -192,3 +206,27 @@ export function formatDayScanForPrompt(scan: DayScan): string[] {
   }
   return lines;
 }
+
+/**
+ * One named day ("14 ผมมีนัดคุยงาน") with the facts of that day, and the
+ * better days around it in case the plan can move.
+ */
+export function formatDayCheckForPrompt(scan: DayScan, asked: Date): string[] {
+  const key = thaiDayLabel(asked);
+  const day = scan.all?.find((d) => thaiDayLabel(d.date) === key);
+  if (!day) return [];
+  const lines = [
+    `[day_check] วันที่ผู้ถามพูดถึง: วัน${day.weekday}ที่ ${key} ` +
+      "(ตำแหน่งดาวเวลา 09:00 คำนวณกับพื้นดวงของผู้ถามแล้ว ห้ามเดาเอง):",
+    `- เกณฑ์ของวันนั้น [${day.score >= 0 ? "+" : ""}${day.score}] ${day.reasons.join(" · ") || "ไม่มีเกณฑ์เด่น"}`,
+  ];
+  const better = scan.best.filter((d) => d.score > day.score && thaiDayLabel(d.date) !== key).slice(0, 2);
+  if (better.length) {
+    lines.push("- วันใกล้ ๆ ที่เกณฑ์ดีกว่า (ถ้าเลื่อนได้):");
+    for (const d of better) {
+      lines.push(`  · วัน${d.weekday}ที่ ${thaiDayLabel(d.date)} [${d.score >= 0 ? "+" : ""}${d.score}] ${d.reasons.join(" · ")}`);
+    }
+  }
+  return lines;
+}
+

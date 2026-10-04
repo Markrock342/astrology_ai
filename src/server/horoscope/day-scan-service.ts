@@ -5,7 +5,7 @@ import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-char
 import { resolveMemoryFocusKeys } from "@/server/horoscope/engine/derive-chart-memory";
 import { computeTaksaFromBirth } from "@/lib/taksa";
 import { dayScanDates } from "@/lib/reading-intent";
-import { formatDayScanForPrompt, scanDays } from "@/lib/day-scan";
+import { formatDayCheckForPrompt, formatDayScanForPrompt, scanDays } from "@/lib/day-scan";
 
 /** When the question names no life area, the houses most day-picks are about. */
 const GENERAL_HOUSES = [1, 10, 11];
@@ -22,6 +22,8 @@ export function buildDayScanPrompt(input: {
   categorySlug: string;
   pinnedDate?: string | Date | null;
   now?: Date;
+  /** Check this one day (09:00 Bangkok) against the week around it instead. */
+  checkDay?: string | Date | null;
 }): string | null {
   const birth = input.natal.input;
   const place = { country: birth.country, province: birth.province, district: birth.district };
@@ -30,7 +32,10 @@ export function buildDayScanPrompt(input: {
     : [];
   const topicHouses = [...new Set(keys.flatMap((k) => input.memory?.categories[k]?.houses ?? []))];
 
-  const { days, truncated } = dayScanDates(input.question, input.now, input.pinnedDate);
+  const checkDay = input.checkDay ? new Date(input.checkDay) : null;
+  const { days, truncated } = checkDay
+    ? { days: [-3, -2, -1, 0, 1, 2, 3].map((k) => new Date(checkDay.getTime() + k * 86_400_000)), truncated: false }
+    : dayScanDates(input.question, input.now, input.pinnedDate);
   const bkk = (d: Date) => new Date(d.getTime() + 7 * 3_600_000);
   const scan = scanDays({
     natalLagna: input.natal.chart?.lagna ?? input.natal.meta.lagna,
@@ -39,6 +44,7 @@ export function buildDayScanPrompt(input: {
     topicHouses: topicHouses.length ? topicHouses : GENERAL_HOUSES,
     days,
     truncated,
+    keepAll: Boolean(checkDay),
     positionsAt: (at) =>
       computeNatalChartFormula({
         ...place,
@@ -48,5 +54,10 @@ export function buildDayScanPrompt(input: {
         time: "09:00",
       }).planets,
   });
-  return scan ? formatDayScanForPrompt(scan).join("\n") : null;
+  if (!scan) return null;
+  if (checkDay) {
+    const lines = formatDayCheckForPrompt(scan, checkDay);
+    return lines.length ? lines.join("\n") : null;
+  }
+  return formatDayScanForPrompt(scan).join("\n");
 }

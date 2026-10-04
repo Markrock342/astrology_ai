@@ -23,6 +23,7 @@ import {
   buildConversationHistory,
   TIMELINE_RULE,
   DAY_SCAN_RULE,
+  DAY_CHECK_RULE,
   CONTINUE_RULE,
   UNKNOWN_TIME_RULE,
   isContinueRequest,
@@ -49,6 +50,11 @@ import {
   isOverviewQuestion,
   isDayPickQuestion,
   isPinpointQuestion,
+  questionInContext,
+  resolveMentionedDay,
+  isFollowUpQuestion,
+  previousTimedQuestion,
+  detectReadingIntent,
   isTimelineQuestion,
   resolveTransitWindow,
 } from "@/lib/reading-intent";
@@ -253,11 +259,30 @@ async function runReading(
   // question that answer was for. Read on its own, "เล่าต่อ" got no day scan,
   // no transit window, and a new natal reading instead of the rest.
   const continuing = isContinueRequest(question);
+  const newestFirst = [...(priorMessages ?? [])].reverse();
+  const priorUser = newestFirst
+    .filter((m) => m.role === "USER" && !isContinueRequest(m.content))
+    .map((m) => m.content);
+  // Time comes from the thread too: "14 ผมมีนัดคุยงาน" after an answer about
+  // 14 ต.ค. is that day; "แล้วเรื่องเงินล่ะ" keeps the period asked before.
+  const priorAssistant = newestFirst.filter((m) => m.role === "ASSISTANT").map((m) => m.content);
+  // A day this question names is the whole of its time: "14 ผมมีนัด" after
+  // "วันไหนจะมีคนจ้าง" is about the 14th, not another day-pick.
+  const ownDay = continuing ? null : resolveMentionedDay(question, priorAssistant);
   const intentQuestion = continuing
-    ? ([...(priorMessages ?? [])]
-        .reverse()
-        .find((m) => m.role === "USER" && !isContinueRequest(m.content))?.content ?? question)
-    : question;
+    ? (priorUser[0] ?? question)
+    : ownDay
+      ? question
+      : questionInContext(question, priorUser);
+  // For "แล้วเรื่องเงินล่ะ": the day the thread is on.
+  const timedBefore =
+    !continuing && !ownDay && isFollowUpQuestion(question) ? previousTimedQuestion(question, priorUser) : null;
+  const mentionedDay =
+    ownDay ??
+    (timedBefore && detectReadingIntent(question) === "natal"
+      ? resolveMentionedDay(timedBefore, priorAssistant)
+      : null);
+  const explicitDate = input.transit?.explicitDate ?? mentionedDay;
   const mode = input.mode ?? "NATAL";
   const skipCredits = input.purpose === "category_intro";
 
@@ -342,7 +367,7 @@ async function runReading(
   const transitWindow = resolveTransitWindow(
     intentQuestion,
     new Date(),
-    input.transit?.explicitDate ?? null,
+    explicitDate ?? null,
   );
   const transitPlace = {
     country: input.transit?.country ?? natalChart.input.country,
@@ -410,7 +435,7 @@ async function runReading(
   onPhase?.("memory");
   // A pinpoint question ("วันไหนดีสุด") is answered short whatever the mode;
   // "เล่าต่อ" asks for more, so it keeps the mode it was given.
-  const pinpoint = !continuing && isPinpointQuestion(intentQuestion);
+  const pinpoint = !continuing && (isPinpointQuestion(intentQuestion) || Boolean(mentionedDay));
   // Brief mode prefers 3.5 Flash (lite only if nothing smarter is enabled).
   const answerMode = pinpoint ? "brief" : (input.answerMode ?? "detailed");
   const [chartMemory, userAiMemory, config, knowledgeDocs, standardRows] = await Promise.all([
@@ -525,15 +550,24 @@ async function runReading(
 
   // "Which day is good for …?" gets every day of the period walked; it takes
   // precedence over the life timeline, which also matches ช่วงไหน/เมื่อไหร่.
-  const dayScanText = isDayPickQuestion(intentQuestion)
+  const dayPick = isDayPickQuestion(intentQuestion);
+  const dayScanText = dayPick
     ? buildDayScanPrompt({
         natal: natalChart,
         memory: chartMemory,
         question: intentQuestion,
         categorySlug,
-        pinnedDate: input.transit?.explicitDate ?? null,
+        pinnedDate: explicitDate ?? null,
       })
-    : null;
+    : explicitDate && !continuing
+      ? buildDayScanPrompt({
+          natal: natalChart,
+          memory: chartMemory,
+          question: intentQuestion,
+          categorySlug,
+          checkDay: explicitDate,
+        })
+      : null;
 
   // "When will my life turn?" gets the slow planets walked over the years.
   const timelineText = !dayScanText && isTimelineQuestion(intentQuestion)
@@ -554,7 +588,7 @@ async function runReading(
     systemPrompt = `${systemPrompt}\n\n${TIMELINE_RULE}`;
   }
   if (dayScanText) {
-    systemPrompt = `${systemPrompt}\n\n${DAY_SCAN_RULE}`;
+    systemPrompt = `${systemPrompt}\n\n${dayPick ? DAY_SCAN_RULE : DAY_CHECK_RULE}`;
   }
   if (continuing) {
     systemPrompt = `${systemPrompt}\n\n${CONTINUE_RULE}`;
@@ -594,7 +628,7 @@ async function runReading(
       transitWindowLabel: transitWindow.label,
       // The date the user confirmed in the modal outranks relative words in
       // the question ("เดือนหน้า" + picked 1 Oct means October, not November).
-      transitPickedAt: input.transit?.explicitDate
+      transitPickedAt: explicitDate
         ? transitWindow.sampleAt
         : null,
       readingIntent: transitWindow.intent,
@@ -639,7 +673,7 @@ async function runReading(
       label: transitWindow.label,
       sampleAt: transitWindow.sampleAt.toISOString(),
       horizonAt: transitWindow.horizonAt?.toISOString() ?? null,
-      pickedByUser: Boolean(input.transit?.explicitDate),
+      pickedByUser: Boolean(explicitDate),
     },
     natal: {
       lagna: natalChart.chart?.lagna ?? natalChart.meta.lagna ?? "—",

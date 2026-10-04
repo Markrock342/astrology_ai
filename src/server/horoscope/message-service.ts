@@ -21,7 +21,14 @@ import { buildCategoryIntroQuestion } from "@/lib/intake-survey";
 import { UNIFIED_CHAT_CATEGORY_SLUG } from "@/lib/question-scope";
 import { assertQuestionAllowedForPlan } from "@/server/horoscope/question-scope";
 import { bangkokTimeHm } from "@/server/horoscope/daily-transit-service";
-import { resolveTransitWindow } from "@/lib/reading-intent";
+import {
+  detectReadingIntent,
+  isFollowUpQuestion,
+  previousTimedQuestion,
+  questionInContext,
+  resolveMentionedDay,
+  resolveTransitWindow,
+} from "@/lib/reading-intent";
 import { formatTransitDateLabel, formatTransitNowLabel } from "@/lib/transit-label";
 import type { Companion } from "@/lib/companions";
 
@@ -32,9 +39,32 @@ import type { Companion } from "@/lib/companions";
  */
 const LIVE = { deletedAt: null } as const;
 
-function transitStampWhen(input: SendMessageInput): Date {
-  return resolveTransitWindow(input.content, new Date(), input.transitDate)
-    .sampleAt;
+/** The moment the thread is stamped with — read in context, as the reading is. */
+async function transitStampWhen(input: SendMessageInput): Promise<Date> {
+  if (input.transitDate) {
+    return resolveTransitWindow(input.content, new Date(), input.transitDate).sampleAt;
+  }
+  const recent = await prisma.message.findMany({
+    where: { conversationId: input.conversationId, ...LIVE, NOT: { content: "" } },
+    orderBy: { createdAt: "desc" },
+    take: 8,
+    select: { role: true, content: true, status: true },
+  });
+  const question = input.content.trim();
+  const priorUser = recent
+    .filter((m) => m.role === "USER" && m.content.trim() !== question)
+    .map((m) => m.content);
+  const priorAssistant = recent
+    .filter((m) => m.role === "ASSISTANT" && m.status === "SUCCESS")
+    .map((m) => m.content);
+  const ownDay = resolveMentionedDay(question, priorAssistant);
+  if (ownDay) return resolveTransitWindow(question, new Date(), ownDay).sampleAt;
+  const timedBefore = isFollowUpQuestion(question) ? previousTimedQuestion(question, priorUser) : null;
+  const day =
+    timedBefore && detectReadingIntent(question) === "natal"
+      ? resolveMentionedDay(timedBefore, priorAssistant)
+      : null;
+  return resolveTransitWindow(questionInContext(question, priorUser), new Date(), day).sampleAt;
 }
 
 export async function stampConversationTransitNow(
@@ -280,7 +310,7 @@ export async function acceptMessage(
         ? await stampConversationTransitNow(
             conversation.id,
             conversation.title,
-            transitStampWhen(input),
+            await transitStampWhen(input),
           )
         : undefined;
     if (existingAssistant.status === "PENDING") {
@@ -385,7 +415,7 @@ export async function acceptMessage(
       ? await stampConversationTransitNow(
           conversation.id,
           conversation.title,
-          transitStampWhen(input),
+          await transitStampWhen(input),
         )
       : undefined;
 

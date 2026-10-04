@@ -43,7 +43,7 @@ export const MAX_CONVERSATION_TURNS = 10;
 export const MAX_PRIOR_MESSAGES_LOAD = MAX_CONVERSATION_TURNS * 3;
 
 /** Assistant replies in history are truncated to this many chars to save input tokens. */
-export const HISTORY_ASSISTANT_MAX_CHARS = 1_200;
+export const HISTORY_ASSISTANT_MAX_CHARS = 3_000;
 
 /** Character ceiling across prior chat turns so longer memory stays affordable. */
 export const CONVERSATION_HISTORY_MAX_CHARS = 16_000;
