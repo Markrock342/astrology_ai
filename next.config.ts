@@ -33,6 +33,21 @@ const nextConfig: NextConfig = {
     // /api/version reports.
     BUILD_SOURCE: sourceFingerprint(),
   },
+  // No page is meant to be framed; /admin especially (clickjacking).
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       {
