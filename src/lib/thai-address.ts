@@ -115,6 +115,12 @@ export function formatThaiLocationLine(input: {
   const province = compactThaiPlace(input.province ?? "");
   const rawDistrict = compactThaiPlace(input.district ?? "");
   const district = rawDistrict === "_default" ? "" : rawDistrict;
+  const country = compactThaiPlace(input.country ?? "");
+  // Abroad there is no อำเภอ/จังหวัด: "อำเภอWestminster จังหวัดLondon".
+  if (country && country !== "ไทย" && country !== "Thailand") {
+    const names = [district, province].filter((x, i, all) => x && all.indexOf(x) === i);
+    return [...names, country === "อื่น ๆ" ? "" : country].filter(Boolean).join(", ");
+  }
   const bangkok = /กรุงเทพ/.test(province);
   const parts: string[] = [];
   if (district) {
@@ -122,10 +128,6 @@ export function formatThaiLocationLine(input: {
   }
   if (province) {
     parts.push(bangkok ? "กรุงเทพมหานคร" : `จังหวัด${province}`);
-  }
-  const country = compactThaiPlace(input.country ?? "");
-  if (country && country !== "ไทย" && country !== "Thailand") {
-    parts.push(country);
   }
   return parts.join(" ");
 }
