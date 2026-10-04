@@ -2,6 +2,7 @@ import type { AccessLevel, ConversationMode } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getEffectivePlan } from "@/server/user/account-service";
+import { getMaintenanceMode } from "@/server/settings/settings-service";
 
 /**
  * Who may ask the AI for a reading.
@@ -26,6 +27,22 @@ export async function assertCanRequestReading(input: {
   /** Natal category briefing is free — do not require email verification. */
   skipEmailVerify?: boolean;
 }): Promise<"FREE" | "PRO"> {
+  // Maintenance only swapped the app pages for a notice; the API still took
+  // questions and spent AI. Settings unreadable → carry on (fail open).
+  const maintenance = await getMaintenanceMode().catch(() => null);
+  if (maintenance?.enabled) {
+    const who = await prisma.user.findUnique({
+      where: { id: input.userId },
+      select: { role: true },
+    });
+    if (who?.role !== "ADMIN" && who?.role !== "SUPER_ADMIN") {
+      throw new AppError(
+        "MAINTENANCE",
+        maintenance.message?.trim() || "ระบบปิดปรับปรุงชั่วคราว กรุณากลับมาใหม่อีกครั้ง",
+      );
+    }
+  }
+
   const plan = await getEffectivePlan(input.userId);
   if (plan === "PRO") return plan;
 

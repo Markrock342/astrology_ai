@@ -255,6 +255,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   FEATURE_DISABLED: "ระบบดูดวงด้วย AI กำลังอยู่ระหว่างพัฒนา",
   NATAL_QA_DISABLED:
     "ถามต่อในแชทนี้ได้เลย",
+  MAINTENANCE: "ไม่ถูกหัก usage · ลองใหม่เมื่อระบบเปิดอีกครั้ง",
 };
 
 
