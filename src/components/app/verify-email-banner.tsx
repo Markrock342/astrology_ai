@@ -8,6 +8,7 @@ import { TurnstileField, turnstileRequired } from "@/components/auth/turnstile-f
 export function VerifyEmailBanner() {
   const { user, refresh } = useAppData();
   const [showCaptcha, setShowCaptcha] = useState(false);
+  const [captchaRound, setCaptchaRound] = useState(0);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(
     turnstileRequired() ? null : "",
   );
@@ -39,6 +40,8 @@ export function VerifyEmailBanner() {
       };
       if (!json.ok) {
         setMessage(json.error?.message ?? "ส่งอีเมลไม่สำเร็จ");
+        setTurnstileToken(null);
+        setCaptchaRound((n) => n + 1);
         return;
       }
       setMessage(
@@ -82,6 +85,7 @@ export function VerifyEmailBanner() {
               void resend(token);
             }}
             onExpire={() => setTurnstileToken(null)}
+            resetKey={captchaRound}
           />
         </div>
       )}
