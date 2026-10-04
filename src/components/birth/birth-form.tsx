@@ -407,7 +407,8 @@ export function BirthForm({
           ) : (
             <>
               {/* Non-Thai birth: free text, since the dropdowns are Thai-only.
-                  Stored as-is; the engine can't yet geocode outside Thailand. */}
+                  Matched against lib/foreign-places; an unknown place is
+                  refused at save rather than computed at Bangkok. */}
               <Field label="รัฐ / จังหวัด ที่เกิด" required>
                 <TextInput
                   value={province}

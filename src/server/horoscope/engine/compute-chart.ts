@@ -8,7 +8,7 @@ import {
 import type { TransitInput } from "@/types/transit";
 import { defaultTransitInput } from "@/types/transit";
 import { CALCULATION_SETTINGS } from "./newhora/data/calculationSettings";
-import { resolvePlaceCoords } from "./newhora/data/placeCoordinates";
+import { isThaiBirthplace, resolvePlaceCoords } from "./newhora/data/placeCoordinates";
 import {
   formatBirthDisplay,
   formatLocationDisplay,
@@ -35,6 +35,11 @@ export function assertMyhoraUsedBirthplace(
   input: BirthInputSnapshot,
   scrape: Awaited<ReturnType<typeof fetchMyhoraThaiChart>>,
 ): void {
+  // myhora's form only knows Thai provinces: a foreign birth posted there is
+  // computed somewhere in Thailand, whether or not the page prints where.
+  if (!isThaiBirthplace(input.country)) {
+    throw new Error(`birthplace outside Thailand (${input.country}) — myhora form is Thai-only`);
+  }
   const raw = scrape.tables.dateDetailNatal?.raw ?? scrape.tables.summaryNatal ?? "";
   const lat = Number(raw.match(/ละติจูด\s*(-?[\d.]+)/)?.[1]);
   const lon = Number(raw.match(/ลองจิจูด\s*(-?[\d.]+)/)?.[1]);
@@ -48,7 +53,7 @@ export function assertMyhoraUsedBirthplace(
 }
 
 function toChartJsonFromFormula(input: BirthInputSnapshot): ChartJson {
-  const place = resolvePlaceCoords(input.country, input.province, input.district);
+  const place = resolvePlaceCoords(input.country, input.province, input.district, input);
   const chart = computeFullChartSync(input, place);
 
   return {

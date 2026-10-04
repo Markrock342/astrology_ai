@@ -1,6 +1,7 @@
 /** พิกัดสถานที่เกิด — อ้างอิง myhora + จังหวัดหลักของไทย (สำหรับ engine) */
 
 import districtCoords from "./thai-district-coords.json";
+import { resolveForeignPlace, utcOffsetMinutesAt } from "@/lib/foreign-places";
 
 export interface PlaceCoords {
   lat: number;
@@ -166,12 +167,21 @@ const DISTRICT_COORDS = districtCoords as unknown as Record<
   Record<string, [number, number]>
 >;
 
+export function isThaiBirthplace(country: string): boolean {
+  return country === "ไทย" || country.trim() === "";
+}
+
+/**
+ * `when` is the local birth date and time; outside Thailand it picks the UTC
+ * offset in force then (daylight saving, historical zone changes).
+ */
 export function resolvePlaceCoords(
   country: string,
   province: string,
   district: string,
+  when?: { year: number; month: number; day: number; time?: string },
 ): PlaceCoords {
-  if (country === "ไทย" || country.trim() === "") {
+  if (isThaiBirthplace(country)) {
     const prov = province.trim();
     const dist = district.trim();
     const byDistrict = THAI_DISTRICTS[prov];
@@ -187,5 +197,16 @@ export function resolvePlaceCoords(
     if (prov && THAI_PROVINCE_DEFAULTS[prov]) return THAI_PROVINCE_DEFAULTS[prov];
     return DEFAULT_THAILAND;
   }
-  return DEFAULT_THAILAND;
+  const foreign = resolveForeignPlace(country, province, district);
+  // Unrecognised places can no longer be saved (birthProfileSchema); a profile
+  // saved before that keeps the Bangkok stand-in it was computed with.
+  if (!foreign) return DEFAULT_THAILAND;
+  const [hh, mm] = (when?.time ?? "12:00").split(":").map(Number);
+  return {
+    lat: foreign.lat,
+    lon: foreign.lon,
+    utcOffsetMinutes: when
+      ? utcOffsetMinutesAt(foreign.tz, when.year, when.month, when.day, hh || 0, mm || 0)
+      : utcOffsetMinutesAt(foreign.tz, 2000, 1, 1),
+  };
 }

@@ -13,7 +13,7 @@ function localMinutes(date: Date, offsetMin: number): number {
 }
 
 registerTaksaBoundaryResolver((input) => {
-  const place = resolvePlaceCoords(input.country, input.province, input.district);
+  const place = resolvePlaceCoords(input.country, input.province, input.district, input);
   const observer = new Observer(place.lat, place.lon, 0);
   // Local midnight of the civil birth date.
   const midnight = MakeTime(new Date(Date.UTC(input.year, input.month - 1, input.day) - place.utcOffsetMinutes * 60_000));
