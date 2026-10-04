@@ -29,6 +29,19 @@ describe("derived สมผุส columns", () => {
     expect(deriveSamrapColumns("ศุกร์", 180 + 15 + 21 / 60, "กันย์").nawamang).toBe("5 : 8 : กภ");
   });
 
+  // QA 2026-10-04, against 231 myhora rows.
+  it("numbers and spells ฤกษ์ as myhora prints them", () => {
+    expect(deriveSamrapColumns("จันทร์", 5, "กันย์").rerk).toBe("27 : 22");
+    expect(deriveSamrapColumns("จันทร์", 84, "กันย์").rerk).toBe("06 : 18");
+    expect(deriveSamrapColumns("จันทร์", 125, "กันย์").rerkName).toBe("มาฆะ");
+    expect(deriveSamrapColumns("จันทร์", 325, "กันย์").rerkName).toBe("บุรพภัทร");
+  });
+
+  it("prints มูลเกษตร for เสาร์ in กุมภ์ and no เรือนเกณฑ์ for มฤตยู", () => {
+    expect(deriveSamrapColumns("เสาร์", 305, "สิงห์").rerkStandard).toBe("มูลเกษตร เรือนเกณฑ์");
+    expect(deriveSamrapColumns("๐ มฤตยู", 245, "กันย์").rerkStandard).toBe("");
+  });
+
   it("marks standards the glossary knows", () => {
     expect(deriveSamrapColumns("อังคาร", 290.9, "กันย์").rerkStandard).toBe("มหาอุจจ์");
     expect(deriveSamrapColumns("จันทร์", 243.6, "กันย์").rerkStandard).toBe("เรือนเกณฑ์");

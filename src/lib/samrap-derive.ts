@@ -27,9 +27,10 @@ const LORD_NAME: Record<number, string> = {
 };
 
 const NAKSHATRA = [
-  "อัศวินี", "ภรณี", "กฤตติกา", "โรหิณี", "มฤคศิระ", "อารทรา", "ปุนัพสุ", "ปุษยะ", "อาศเลษา",
-  "มฆะ", "บุรพผลคุนี", "อุตรผลคุนี", "หัสตะ", "จิตรา", "สวาตี", "วิสาขะ", "อนุราธะ", "เชษฐา",
-  "มูละ", "ปุรพษาฒ", "อุตราษาฒ", "ศรวณะ", "ธนิษฐา", "ศตภิษัช", "ปุรพภัทรบท", "อุตรภัทรบท", "เรวดี",
+  // Spelled as myhora prints them (checked against 231 of its rows).
+  "อัศวินี", "ภรณี", "กฤติกา", "โรหิณี", "มฤคศิระ", "อารทรา", "ปุนัพสุ", "ปุษยะ", "อาศเลษะ",
+  "มาฆะ", "บุรพผลคุนี", "อุตรผลคุนี", "หัสตะ", "จิตรา", "สวาตี", "วิสาขะ", "อนุราธะ", "เชษฐา",
+  "มูละ", "ปุรพษาฒ", "อุตราษาฒ", "ศรวณะ", "ธนิษฐา", "ศตภิษัช", "บุรพภัทร", "อุตตรภัทร", "เรวดี",
 ];
 /** ฤกษ์ 9 หมู่, repeating every nine นักษัตร. */
 const RERK_BIG = ["ทลิทโท", "มหัทธโน", "โจโร", "ภูมิปาโล", "เทศาตรี", "เทวี", "เพชฌฆาต", "ราชา", "สมโณ"];
@@ -78,9 +79,11 @@ export function deriveSamrapColumns(
   const navStart = [0, 9, 6, 3][sign % 4]!;
   const navamsa = (navStart + nNo) % 12;
 
-  const naks = lon / (40 / 3);
-  const naksNo = Math.floor(naks);
-  const frac = naks - naksNo;
+  // Whole arc-minutes: 84°00′ as a float floored to the previous นักษัตร.
+  // A นักษัตร is 13°20′ = 800′.
+  const arcMin = Math.round(lon * 60) % 21_600;
+  const naksNo = Math.floor(arcMin / 800);
+  const within = arcMin % 800;
 
   const name = planetName(planet);
   const lagnaIdx = lagna ? (SIGNS as readonly string[]).indexOf(normalizeSignName(lagna)) : -1;
@@ -96,16 +99,20 @@ export function deriveSamrapColumns(
   const standard: string[] = [];
   const dignity = dignityLabel(name, SIGNS[sign]!);
   if (dignity === "อุจจ์") standard.push("มหาอุจจ์");
+  // กุมภ์ is ราหู's house in Thai reckoning; เสาร์ there is its original
+  // (มูล) เกษตร, as myhora prints it.
+  else if (dignity === "เกษตร" && name === "เสาร์" && sign === 10) standard.push("มูลเกษตร");
   else if (dignity === "นิจ" || dignity === "เกษตร" || dignity === "ประ") standard.push(dignity);
-  // myhora marks เรือนเกณฑ์ on planets, not on the lagna itself or เกตุ.
-  if (house && [1, 4, 7, 10].includes(house) && !/ลัคนา|เกตุ/.test(planet)) standard.push("เรือนเกณฑ์");
+  // myhora marks เรือนเกณฑ์ on planets, not on the lagna itself, เกตุ or มฤตยู.
+  if (house && [1, 4, 7, 10].includes(house) && !/ลัคนา|เกตุ|มฤตยู/.test(planet)) standard.push("เรือนเกณฑ์");
 
   return {
     triyang: part(dNo + 1, drekkana, TRIYANG_LORD),
     nawamang: part(nNo + 1, navamsa, LORD_NUMBER),
-    rerk: `${String(naksNo).padStart(2, "0")} : ${String(Math.floor(frac * 60)).padStart(2, "0")}`,
+    // myhora numbers อัศวินี 27, not 00.
+    rerk: `${String(naksNo === 0 ? 27 : naksNo).padStart(2, "0")} : ${String(Math.floor((within * 60) / 800)).padStart(2, "0")}`,
     rerkName: NAKSHATRA[naksNo] ?? "",
-    baht: BAHT[Math.min(3, Math.floor(frac * 4))]!,
+    baht: BAHT[Math.min(3, Math.floor(within / 200))]!,
     rerkBig: RERK_BIG[naksNo % 9]!,
     rerkOwner: owned.join(" "),
     rerkStandard: standard.join(" "),
