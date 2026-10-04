@@ -72,7 +72,7 @@ describe("scanDays", () => {
   it("formats a block the answer must pick from", () => {
     const text = formatDayScanForPrompt(scan).join("\n");
     expect(text).toMatch(/^\[day_scan\]/);
-    expect(text).toContain("วันกาลกิณีของเจ้าชะตา");
+    expect(text).toContain("วันกาลกิณีของคุณ ตามทักษากำเนิด");
   });
 });
 
