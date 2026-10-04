@@ -18,7 +18,15 @@ import { createConversation, sendMessage } from "@/server/horoscope/message-serv
 
 type Answer = { text: string; issues: string[] };
 type Check = (a: Answer, ctx: { now: Date }) => string | null;
-type Scenario = { id: string; turns: Array<{ q: string; checks: Check[] }> };
+type Turn = {
+  q: string;
+  checks: Check[];
+  /** Start a new chat for this turn (memory across chats). */
+  newChat?: boolean;
+  /** Let the background memory jobs finish first. */
+  pauseMs?: number;
+};
+type Scenario = { id: string; turns: Turn[] };
 
 const THAI_MONTH = "(?:ม\\.ค\\.|ก\\.พ\\.|มี\\.ค\\.|เม\\.ย\\.|พ\\.ค\\.|มิ\\.ย\\.|ก\\.ค\\.|ส\\.ค\\.|ก\\.ย\\.|ต\\.ค\\.|พ\\.ย\\.|ธ\\.ค\\.|มกราคม|กุมภาพันธ์|มีนาคม|เมษายน|พฤษภาคม|มิถุนายน|กรกฎาคม|สิงหาคม|กันยายน|ตุลาคม|พฤศจิกายน|ธันวาคม)";
 const firstLine = (t: string) => t.trim().split("\n").find((l) => l.trim())?.trim() ?? "";
@@ -58,6 +66,36 @@ const SCENARIOS: Scenario[] = [
     id: "day-calendar-ask",
     turns: [{ q: "วันจันทร์ที่ 12 ต.ค. 2569 ดวงผมเป็นยังไง", checks: [mentions(/12\s*(?:ต\.ค\.|ตุลาคม)/, "12 ต.ค."), short(1000), noSections, lordsRight] }],
   },
+  {
+    // Saved memories: told in one chat, used in another.
+    id: "memory-across-chats",
+    turns: [
+      { q: "ผมทำงานฟรีแลนซ์ออกแบบกราฟิกอยู่ เดือนหน้างานจะเข้าเยอะไหม", checks: [] },
+      {
+        q: "ปีหน้าผมควรเปลี่ยนไปทำงานประจำดีไหม",
+        newChat: true,
+        pauseMs: 15_000,
+        checks: [mentions(/ฟรีแลนซ์|กราฟิก|ออกแบบ/, "งานฟรีแลนซ์ที่เคยเล่า")],
+      },
+    ],
+  },
+  {
+    // The running summary: the first question is long out of the history window.
+    id: "memory-long-thread",
+    turns: [
+      { q: "วันที่ 20 ต.ค. 2569 ไปสัมภาษณ์งานดีไหม", checks: [] },
+      ...[
+        "แล้วเรื่องเงินช่วงนี้ล่ะ", "ความรักเป็นยังไงบ้าง", "สุขภาพต้องระวังอะไร", "ครอบครัวช่วงนี้", "เพื่อนร่วมงานล่ะ",
+        "ควรลงทุนไหม", "เดินทางไกลได้ไหม", "ซื้อรถช่วงนี้ดีไหม", "เรียนต่อดีไหม", "ย้ายบ้านดีไหม", "เริ่มออกกำลังกายวันไหนดี",
+        "สีมงคลของผมคือสีอะไร",
+      ].map((q) => ({ q, checks: [] as Check[] })),
+      {
+        q: "ตอนแรกสุดที่ผมถามในแชทนี้ ผมถามถึงวันไหน แล้วหมอดูตอบว่ายังไง",
+        pauseMs: 20_000,
+        checks: [mentions(/20\s*(?:ต\.ค\.|ตุลาคม)/, "วันที่ 20 ต.ค. ที่ถามตอนแรก")],
+      },
+    ],
+  },
   { id: "yesno-promotion", turns: [{ q: "ปีนี้ผมจะได้เลื่อนตำแหน่งไหม", checks: [answersYesNo, short(900), noSections, lordsRight] }] },
   { id: "open-career-year", turns: [{ q: "การงานปีนี้เป็นยังไงบ้าง", checks: [lordsRight, notMentions(/ศรีจร.*ของคุณ|วันกาลกิณีจร/, "คำว่า จร ต่อทักษากำเนิด")] }] },
   { id: "natal-personality", turns: [{ q: "นิสัยผมเป็นคนยังไง จุดแข็งคืออะไร", checks: [lordsRight] }] },
@@ -81,8 +119,10 @@ async function main() {
     await grantIncludedUsage(user.id, 500_000, { type: "INITIAL_GRANT", referenceType: "user", referenceId: `eval:${user.id}`, note: "eval" }, { startsAt: now, endsAt: null });
 
     for (const sc of scenarios) {
-      const conv = (await createConversation({ userId: user.id, mode: "TRANSIT" } as never)) as { id: string };
+      let conv = (await createConversation({ userId: user.id, mode: "TRANSIT" } as never)) as { id: string };
       for (const [i, turn] of sc.turns.entries()) {
+        if (turn.pauseMs) await new Promise((r) => setTimeout(r, turn.pauseMs));
+        if (turn.newChat) conv = (await createConversation({ userId: user.id, mode: "TRANSIT" } as never)) as { id: string };
         const t0 = Date.now();
         let answer: Answer = { text: "", issues: [] };
         try {
@@ -100,6 +140,10 @@ async function main() {
           continue;
         }
         const problems = turn.checks.map((c) => c(answer, { now })).filter((x): x is string => Boolean(x));
+        if (!turn.checks.length) {
+          process.stdout.write(".");
+          continue;
+        }
         const secs = ((Date.now() - t0) / 1000).toFixed(1);
         console.log(`${problems.length ? "✗" : "✓"} ${sc.id}#${i + 1} (${secs}s, ${answer.text.length} ตัวอักษร) "${turn.q}"`);
         console.log(`    ↳ ${firstLine(answer.text).slice(0, 110)}`);
@@ -110,7 +154,15 @@ async function main() {
         }
       }
     }
+    if (process.env.EVAL_VERBOSE) {
+      const convs = await prisma.conversation.findMany({ where: { userId: user.id }, select: { summary: true, summaryCovers: true } });
+      for (const c of convs) if (c.summary) console.log(`  [summary covers ${c.summaryCovers}]\n${c.summary.replace(/^/gm, "    ")}`);
+      const facts = await prisma.userMemoryFact.findMany({ where: { userId: user.id }, select: { text: true } });
+      if (facts.length) console.log(`  [facts] ${facts.map((f) => f.text).join(" | ")}`);
+    }
   } finally {
+    // Background memory jobs from the last turn may still be writing.
+    await new Promise((r) => setTimeout(r, 8_000));
     await prisma.aIUsageLog.deleteMany({ where: { userId: user.id } });
     await prisma.horoscopeReading.deleteMany({ where: { userId: user.id } });
     await prisma.usageTransaction.deleteMany({ where: { userId: user.id } }).catch(() => {});

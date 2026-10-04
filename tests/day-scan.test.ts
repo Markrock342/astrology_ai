@@ -202,3 +202,14 @@ describe("a follow-up keeps the time asked before", () => {
     expect(questionInContext("แล้วนิสัยผมล่ะ", ["เดือนหน้าการงานเป็นยังไง"])).toBe("แล้วนิสัยผมล่ะ");
   });
 });
+
+describe("questions about the chat itself", () => {
+  it("are not day-picks", async () => {
+    const { isDayPickQuestion, isRecallQuestion } = await import("@/lib/reading-intent");
+    const q = "ตอนแรกสุดที่ผมถามในแชทนี้ ผมถามถึงวันไหน แล้วหมอดูตอบว่ายังไง";
+    expect(isRecallQuestion(q)).toBe(true);
+    expect(isDayPickQuestion(q)).toBe(false);
+    expect(isDayPickQuestion("วันไหนในเดือนนี้ผมจะดวงดีสุด")).toBe(true);
+    expect(isRecallQuestion("วันไหนในเดือนนี้ผมจะดวงดีสุด")).toBe(false);
+  });
+});

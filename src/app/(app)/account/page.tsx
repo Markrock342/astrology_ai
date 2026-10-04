@@ -52,6 +52,7 @@ export default async function AccountPage() {
           resetAt: null,
           commonTopics: [],
           recentQuestions: [],
+          facts: [],
         };
 
   return (

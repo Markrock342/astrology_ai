@@ -97,6 +97,7 @@ vi.mock("@/server/horoscope/chart-memory-service", () => ({
 vi.mock("@/server/user/ai-memory-service", () => ({
   getUserAiMemory: mocks.getUserAiMemory,
   formatUserAiMemoryForPrompt: vi.fn(() => null),
+  formatUserFactsForPrompt: vi.fn(() => null),
 }));
 
 vi.mock("@/server/horoscope/daily-transit-service", () => ({

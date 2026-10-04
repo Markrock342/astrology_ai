@@ -31,6 +31,8 @@ import {
 } from "@/lib/reading-intent";
 import { formatTransitDateLabel, formatTransitNowLabel } from "@/lib/transit-label";
 import type { Companion } from "@/lib/companions";
+import { rememberFromTurn } from "@/server/memory/fact-memory-service";
+import { foldThreadSummary, getThreadSummary } from "@/server/memory/thread-summary-service";
 
 /**
  * Superseded turns (edited question / regenerated answer) are hidden, not
@@ -528,7 +530,10 @@ export async function completePendingMessage(
     };
   }
 
-  const priorMessages = await loadPriorMessages(conversation.id, input.userId);
+  const [priorMessages, threadSummary] = await Promise.all([
+    loadPriorMessages(conversation.id, input.userId),
+    getThreadSummary(conversation.id),
+  ]);
   // Same test as isStopRequested's "gone": the live keyed row no longer exists.
   const isAbandoned = async () =>
     !(await prisma.message.findFirst({
@@ -568,6 +573,7 @@ export async function completePendingMessage(
             onCharts,
             companions: input.companions,
             isAbandoned,
+            threadSummary,
           },
           onDelta,
           shouldStop,
@@ -585,6 +591,7 @@ export async function completePendingMessage(
           onCharts,
           companions: input.companions,
           isAbandoned,
+          threadSummary,
           transit:
             conversation.mode === "TRANSIT"
               ? {
@@ -607,6 +614,15 @@ export async function completePendingMessage(
       modelId: reading.modelId,
       creditCost: reading.creditCost,
     });
+
+    // Memory, off the answer's path: what the user said about themselves,
+    // and the chat's running summary once it outgrows the history window.
+    if (reading.status === "SUCCESS" && !purpose) {
+      void Promise.allSettled([
+        rememberFromTurn({ userId: input.userId, conversationId: conversation.id, userMessage: input.content }),
+        foldThreadSummary({ conversationId: conversation.id, userId: input.userId }),
+      ]);
+    }
 
     return reading;
   } catch (err) {
