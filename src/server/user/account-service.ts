@@ -1,3 +1,4 @@
+import { repairBuiltInPackages } from "@/server/catalog/builtin-package-repair";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getBalance } from "@/server/credit/credit-service";
@@ -15,6 +16,7 @@ import { ensurePromotionUsageGrant } from "@/server/user/promotion-grant-service
 
 /** Effective plan = an ACTIVE, non-expired Pro subscription, else FREE. */
 export async function getEffectivePlan(userId: string): Promise<"FREE" | "PRO"> {
+  await repairBuiltInPackages();
   // The database migration/provisioner also creates a timed Pro subscription.
   // This override keeps access correct during a rolling deploy before every
   // app instance has observed the migrated row.
@@ -32,6 +34,7 @@ export async function getEffectivePlan(userId: string): Promise<"FREE" | "PRO"> 
 
 /** Current user profile + plan + wallet snapshot for GET /api/me. */
 export async function getMe(userId: string) {
+  await repairBuiltInPackages();
   const now = new Date();
   // A promotion opened after launch has to reach accounts that already exist,
   // and this is the call every session makes first. No-op outside the window

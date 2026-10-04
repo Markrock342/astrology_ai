@@ -1,6 +1,6 @@
 import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
-import { faqItemSchema } from "@/lib/admin-schemas";
+import { faqItemSchema, partialNoDefaults } from "@/lib/admin-schemas";
 import {
   deleteFaqItem,
   getFaqItemById,
@@ -23,7 +23,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   return handle(async () => {
     const admin = await requireAdmin();
     const { id } = await ctx.params;
-    const data = faqItemSchema.partial().pick({ category: true, enabled: true, sortOrder: true }).parse(
+    const data = partialNoDefaults(faqItemSchema).pick({ category: true, enabled: true, sortOrder: true }).parse(
       await req.json(),
     );
     const ip = req.headers.get("x-forwarded-for") ?? undefined;

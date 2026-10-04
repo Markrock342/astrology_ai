@@ -1,6 +1,6 @@
 import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
-import { announcementSchema } from "@/lib/admin-schemas";
+import { announcementSchema, partialNoDefaults } from "@/lib/admin-schemas";
 import {
   deleteAnnouncement,
   updateAnnouncement,
@@ -11,7 +11,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   return handle(async () => {
     const admin = await requireAdmin();
     const { id } = await ctx.params;
-    const data = announcementSchema.partial().parse(await req.json());
+    const data = partialNoDefaults(announcementSchema).parse(await req.json());
     const ip = req.headers.get("x-forwarded-for") ?? undefined;
     return ok(
       await updateAnnouncement(
