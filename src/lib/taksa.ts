@@ -94,6 +94,25 @@ export function registerTaksaBoundaryResolver(
 }
 
 /**
+ * The date a Thai reckoning counts the birth on: the day changes at sunrise,
+ * so a birth at 04:00 belongs to the day before. Sent to ดวงสมพงษ์, which
+ * takes a civil date and read a pre-dawn birth as the next weekday.
+ */
+export function thaiReckoningDate(input: BirthInputSnapshot): { year: number; month: number; day: number } {
+  const [h, m] = input.time.split(":").map((x) => Number.parseInt(x, 10));
+  const minutes = (Number.isFinite(h) ? h! : 12) * 60 + (Number.isFinite(m) ? m! : 0);
+  let sunrise = 6 * 60;
+  try {
+    sunrise = boundaryResolver?.(input)?.sunriseMin ?? sunrise;
+  } catch {
+    /* keep 06:00 */
+  }
+  if (minutes >= sunrise) return { year: input.year, month: input.month, day: input.day };
+  const d = new Date(Date.UTC(input.year, input.month - 1, input.day - 1));
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+}
+
+/**
  * Resolve the traditional birth day: it changes at sunrise, and Wednesday
  * from sunset to the next sunrise is Wednesday-night (Rahu). Fixed 06:00 /
  * 18:00 gave myhora's answer only when the sun kept to them — births near
