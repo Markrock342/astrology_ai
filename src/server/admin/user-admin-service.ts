@@ -17,6 +17,8 @@ import { getMyUsage } from "@/server/account/usage-service";
 import { getUserCost } from "@/server/admin/cost-admin-service";
 import { provisionUser } from "@/server/auth/provisioning";
 import { normalizeEmail } from "@/server/auth/account-lookup";
+import { getEffectivePlan } from "@/server/user/account-service";
+import { repairBuiltInPackages } from "@/server/catalog/builtin-package-repair";
 
 /**
  * Admin user-management service. Every mutation writes an audit log with the
@@ -190,7 +192,8 @@ export async function getUserDetail(userId: string) {
           startsAt: true,
           expiresAt: true,
           activationSource: true,
-          package: { select: { code: true, name: true, type: true } },
+          createdAt: true,
+          package: { select: { code: true, name: true, type: true, creditOnly: true } },
         },
       },
       creditTxns: {
@@ -284,6 +287,10 @@ export async function getUserDetail(userId: string) {
     usage,
     cost,
     planHistory,
+    // What the app actually grants — the same rule the chat and /api/me use
+    // (any ACTIVE, unexpired subscription on a PRO-type package). The row
+    // label alone could read "Pro" while the package itself was FREE-typed.
+    effectivePlan: await getEffectivePlan(userId),
   };
 }
 
@@ -592,6 +599,8 @@ export async function setUserSubscription(
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
 
+  // Setting a plan must not land on a package the form bug flipped to FREE.
+  await repairBuiltInPackages({ force: true });
   const pkg = await prisma.package.findUnique({ where: { code: input.packageCode } });
   if (!pkg) throw new AppError("NOT_FOUND", "Package not found");
   // A top-up is usage, not a plan: set as the subscription it made the user Pro
@@ -684,7 +693,9 @@ export async function setUserSubscription(
   // The app shell caches the plan; without this the user kept seeing the old
   // plan until the cache expired.
   invalidateUserBootstrap(userId);
-  return result;
+  // Say what the app now grants, so a plan that did not take shows at once
+  // instead of when the customer logs in.
+  return { ...result, effectivePlan: await getEffectivePlan(userId) };
 }
 
 /** Create a new staff login. SUPER_ADMIN only — never promote via this path. */

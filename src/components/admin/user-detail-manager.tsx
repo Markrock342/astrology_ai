@@ -80,9 +80,13 @@ type UserDetail = {
   } | null;
   subscriptions: Array<{
     status: string;
-    package: { code: string; name: string; type: string };
+    package: { code: string; name: string; type: string; creditOnly?: boolean };
     expiresAt: string | null;
+    startsAt?: string | null;
+    createdAt?: string;
+    activationSource?: string;
   }>;
+  effectivePlan?: "FREE" | "PRO";
   planHistory?: Array<{
     action: string;
     at: string;
@@ -184,7 +188,9 @@ export function UserDetailManager({
       // that looks like "ไม่มีวันหมด" when a date is in fact set.
       const active = fresh.subscriptions.find((sub) => sub.status === "ACTIVE");
       if (active) {
-        setPackageCode(active.package.type === "PRO" ? "PRO" : "FREE");
+        // By code: a PRO package the form bug had flipped to FREE-type made
+        // this preselect Free, and saving "ตลอดไป" then set Free forever.
+        setPackageCode(active.package.code === "FREE" ? "FREE" : "PRO");
         setExpiryMode(active.expiresAt ? "date" : "forever");
         setExpiresAt(active.expiresAt ? active.expiresAt.slice(0, 10) : "");
       }
@@ -293,11 +299,15 @@ export function UserDetailManager({
     setSaved(null);
     try {
       const until = subscriptionExpiryPayload(expiryMode, expiresAt);
-      await adminFetch(`/api/admin/users/${userId}/subscription`, {
+      const res = await adminFetch<{ effectivePlan?: "FREE" | "PRO" }>(`/api/admin/users/${userId}/subscription`, {
         method: "PATCH",
         body: JSON.stringify({ packageCode, expiresAt: until, grantCredits }),
       });
       await load();
+      if (res?.effectivePlan && res.effectivePlan !== (packageCode === "FREE" ? "FREE" : "PRO")) {
+        setError(`บันทึกแล้ว แต่ระบบยังให้สิทธิ์ ${res.effectivePlan} — ดู «การสมัครสมาชิกล่าสุด» ด้านล่างแล้วแจ้งทีม`);
+        return;
+      }
       setError(null);
       setSaved(
         expiryMode === "forever"
@@ -447,6 +457,16 @@ export function UserDetailManager({
               <Row
                 label="แพ็กเกจ"
                 value={activeSub?.package.name ?? "Free (ไม่มี subscription)"}
+              />
+              <Row
+                label="สิทธิ์ที่ระบบให้จริง"
+                value={
+                  user.effectivePlan === "PRO" ? (
+                    <b className="text-[var(--primary)]">PRO</b>
+                  ) : (
+                    <b className="text-[var(--danger)]">FREE</b>
+                  )
+                }
               />
               {user.birthProfile ? (
                 <>
@@ -612,6 +632,29 @@ export function UserDetailManager({
                           ? <>อนุมัติสลิป {e.packageCode ?? ""} โดย {e.by}</>
                           : <>ตั้งเป็น <b className="text-[var(--foreground)]">{e.packageCode ?? "?"}</b>{" "}
                               {e.expiresAt ? `ถึง ${thaiDay(e.expiresAt)}` : "ไม่มีวันหมดอายุ"} โดย {e.by}</>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {user.subscriptions.length ? (
+              <div className="mt-4 border-t border-[var(--border)] pt-3">
+                <p className="text-[11px] font-semibold text-[var(--muted)]">การสมัครสมาชิกล่าสุด</p>
+                <ul className="mt-1.5 flex flex-col gap-1">
+                  {user.subscriptions.map((sub, i) => (
+                    <li key={`${sub.createdAt ?? i}-${i}`} className="text-[11px] leading-5 text-[var(--muted)]">
+                      <span className={sub.status === "ACTIVE" ? "font-semibold text-[var(--foreground)]" : ""}>
+                        {sub.status}
+                      </span>{" "}
+                      · {sub.package.name} ({sub.package.code} · ชนิด{" "}
+                      <b className={sub.package.type === "PRO" ? "text-[var(--primary)]" : "text-[var(--danger)]"}>
+                        {sub.package.type}
+                      </b>
+                      {sub.package.creditOnly ? " · เติม usage" : ""})
+                      {" · "}
+                      {sub.expiresAt ? `ถึง ${thaiDay(sub.expiresAt)}` : "ไม่มีวันหมดอายุ"}
+                      {sub.activationSource ? ` · ${sub.activationSource}` : ""}
+                      {sub.createdAt ? ` · สร้าง ${thaiDay(sub.createdAt)}` : ""}
                     </li>
                   ))}
                 </ul>
