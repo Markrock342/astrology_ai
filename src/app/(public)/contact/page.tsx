@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const seo =
     (await getSeoForPath("/contact")) ??
     ((await getPublishedSetting(CMS_KEYS.seoContact)) as CmsSeo);
-  return metadataFromSeo(seo);
+  return metadataFromSeo(seo, { path: "/contact" });
 }
 
 export default async function ContactPage() {

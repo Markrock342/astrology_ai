@@ -21,7 +21,7 @@ export function absoluteAssetUrl(url: string | undefined): string | undefined {
 /** Build Next.js metadata from CMS SEO settings. */
 export function metadataFromSeo(
   seo: CmsSeo,
-  opts?: { fallbackImageUrl?: string },
+  opts?: { fallbackImageUrl?: string; path?: string },
 ): Metadata {
   const title = seo.title;
   const description = seo.description;
@@ -42,7 +42,9 @@ export function metadataFromSeo(
       type: "website",
       locale: "th_TH",
       siteName: "HoraSard",
-      url: siteBaseUrl(),
+      // Each page's own address — every page used to share the site root, so
+      // a shared /pricing link previewed as the home page.
+      url: opts?.path ? new URL(opts.path, siteBaseUrl()).toString() : siteBaseUrl(),
       ...(image
         ? {
             images: [

@@ -6,6 +6,7 @@ import {
   CMS_MAX_BYTES,
   uploadCmsImage,
 } from "@/server/storage/cms-upload";
+import { sniffImageType } from "@/server/payment/payment-proof";
 
 /**
  * POST /api/admin/upload — admin image upload stored in Postgres (media_assets).
@@ -28,9 +29,15 @@ export async function POST(req: Request) {
     }
 
     const bytes = await file.arrayBuffer();
+    // The browser-declared type is the client's word; the bytes are the file.
+    // Store what the bytes are, and refuse anything that is not an image.
+    const realType = sniffImageType(new Uint8Array(bytes.slice(0, 16)));
+    if (!realType || !CMS_ALLOWED_MIME.has(realType)) {
+      throw new AppError("VALIDATION", "ไฟล์นี้ไม่ใช่รูป JPG, PNG หรือ WebP จริง");
+    }
     const { url } = await uploadCmsImage({
       bytes,
-      contentType: file.type,
+      contentType: realType,
       uploadedById: admin.id,
     });
 

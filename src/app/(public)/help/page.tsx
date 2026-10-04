@@ -15,7 +15,7 @@ export async function generateMetadata() {
   const seo =
     (await getSeoForPath("/help")) ??
     ((await getPublishedSetting(CMS_KEYS.seoFaq)) as CmsSeo);
-  return metadataFromSeo(seo);
+  return metadataFromSeo(seo, { path: "/help" });
 }
 
 export default async function HelpPage() {
