@@ -21,6 +21,11 @@ const mocks = vi.hoisted(() => ({
   addPurchasedUsage: vi.fn(),
   writeAudit: vi.fn(),
   userFindUnique: vi.fn(),
+  getEffectivePlan: vi.fn(),
+}));
+
+vi.mock("@/server/user/account-service", () => ({
+  getEffectivePlan: mocks.getEffectivePlan,
 }));
 
 vi.mock("@/server/db", () => ({
@@ -101,6 +106,32 @@ describe("payment-service (M4)", () => {
         proofPath: "payment-slips/user-1/1.jpg",
       }),
     ).rejects.toMatchObject({ code: "DUPLICATE_REQUEST" });
+  });
+
+  // QA 2026-10-04: the page offers a top-up to Pro only; the API took it from
+  // Free, whose wallet is capped back to the Free budget at period end.
+  it("submitManualPayment refuses a usage top-up from a Free member", async () => {
+    mocks.findFirstPackage.mockResolvedValue({ id: "pkg-top", price: 99, creditOnly: true });
+    mocks.getEffectivePlan.mockResolvedValue("FREE");
+    await expect(
+      submitManualPayment("user-1", {
+        amount: 99,
+        packageCode: "CREDIT_TOPUP",
+        proofPath: "payment-slips/user-1/1.jpg",
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION" });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("submitManualPayment takes a usage top-up from Pro", async () => {
+    mocks.findFirstPackage.mockResolvedValue({ id: "pkg-top", price: 99, creditOnly: true });
+    mocks.getEffectivePlan.mockResolvedValue("PRO");
+    await submitManualPayment("user-1", {
+      amount: 99,
+      packageCode: "CREDIT_TOPUP",
+      proofPath: "payment-slips/user-1/1.jpg",
+    });
+    expect(mocks.create).toHaveBeenCalled();
   });
 
   it("submitManualPayment requires proofPath", async () => {
