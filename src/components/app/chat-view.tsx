@@ -2773,8 +2773,18 @@ function EmptyState({
   onPick: (q: string) => void;
   emailGate?: boolean;
 }) {
-  const suggestions = categories
-    .flatMap((item) => item.suggestedQuestions ?? [])
+  // Timing questions first: the ones the reading answers best (each day of
+  // the period is walked), and the kind new users did not know they could ask.
+  const timing =
+    plan === "PRO"
+      ? [
+          "วันไหนในเดือนนี้ดวงดีสุด",
+          "สัปดาห์หน้าเรื่องงานเป็นยังไง",
+          "เดือนหน้ามีเกณฑ์ได้เงินไหม",
+          "ทั้งชีวิตจุดเปลี่ยนที่ดีสุดอายุเท่าไหร่",
+        ]
+      : ["วันไหนในเดือนนี้ดวงดีสุด", "สัปดาห์หน้าเรื่องงานเป็นยังไง"];
+  const suggestions = [...timing, ...categories.flatMap((item) => item.suggestedQuestions ?? [])]
     .filter((q, i, all) => all.indexOf(q) === i)
     .slice(0, 6);
 
