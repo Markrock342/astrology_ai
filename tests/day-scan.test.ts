@@ -161,3 +161,44 @@ describe("pinpoint questions get the answer first", () => {
     expect(isPinpointQuestion(q)).toBe(false);
   });
 });
+
+// 2026-10-04 owner: "14 ผมมีนัดคุยงานกับลูกค้าด้วยอะดิ", after an answer that
+// warned about 14 ต.ค., got a birth-chart essay.
+describe("a day named by its number in a follow-up", () => {
+  it("takes the month from the answer before", async () => {
+    const { resolveMentionedDay } = await import("@/lib/reading-intent");
+    const prior = ["มีเกณฑ์ได้รับงานช่วง 9-13 ต.ค. 69 แต่ให้ระวังวันที่ 7 และ 14 ต.ค. ที่อาจล่าช้า"];
+    expect(resolveMentionedDay("14 ผมมีนัดคุยงานกับลูกค้าด้วยอะดิ", prior, NOW)).toBe("2026-10-14");
+    expect(resolveMentionedDay("วันที่ 3 ล่ะ", ["ช่วง 3 พ.ย. ดีครับ"], NOW)).toBe("2026-11-03");
+  });
+
+  it("falls back to the next such day", async () => {
+    const { resolveMentionedDay } = await import("@/lib/reading-intent");
+    expect(resolveMentionedDay("วันที่ 14 ผมมีนัดคุยงาน", [], NOW)).toBe("2026-10-14");
+  });
+
+  it("leaves counts, spans and full dates alone", async () => {
+    const { resolveMentionedDay } = await import("@/lib/reading-intent");
+    for (const q of ["3 เดือนนี้เป็นยังไง", "อีก 2 วันดีไหม", "14 ต.ค. ดีไหม", "ดวงความรักเป็นยังไง", "30 ปีแล้วยังโสด"]) {
+      expect(resolveMentionedDay(q, ["14 ต.ค."], NOW)).toBeNull();
+    }
+  });
+
+  it("answers about that day, short", async () => {
+    const { isPinpointQuestion } = await import("@/lib/reading-intent");
+    expect(isPinpointQuestion("14 ผมมีนัดคุยงานกับลูกค้าด้วยอะดิ")).toBe(true);
+  });
+});
+
+describe("a follow-up keeps the time asked before", () => {
+  it("reads แล้วเรื่องเงินล่ะ in the period of the question before", async () => {
+    const { questionInContext, resolveTransitWindow } = await import("@/lib/reading-intent");
+    const q = questionInContext("แล้วเรื่องเงินล่ะ", ["เดือนหน้าการงานเป็นยังไง"]);
+    expect(resolveTransitWindow(q, NOW).label).toContain("เดือนหน้า");
+  });
+
+  it("leaves a birth-chart question as one", async () => {
+    const { questionInContext } = await import("@/lib/reading-intent");
+    expect(questionInContext("แล้วนิสัยผมล่ะ", ["เดือนหน้าการงานเป็นยังไง"])).toBe("แล้วนิสัยผมล่ะ");
+  });
+});

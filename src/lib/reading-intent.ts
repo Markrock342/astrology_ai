@@ -311,6 +311,90 @@ function parseExplicitDate(question: string, now: Date): Date | null {
   return null;
 }
 
+/**
+ * A day named by its number alone — "วันที่ 14", or "14 ผมมีนัดคุยงาน" in reply
+ * to an answer that warned about 14 ต.ค. It used to be read as a natal
+ * question (a long birth-chart essay) or as today. The month comes from the
+ * last answer that named that day with a month; otherwise the next 14th.
+ * Returns YYYY-MM-DD (Bangkok), or null when no bare day is named.
+ */
+const BARE_DAY =
+  /(?:วันที่|วัน)\s*(\d{1,2})(?!\s*(?:\d|[/\-.]|เดือน|ปี|วัน|ชั่วโมง|ชม|นาที|โมง|ทุ่ม|ครั้ง|คน|บาท|%))|^\s*(\d{1,2})(?=\s*[ก-๙])(?!\s*(?:เดือน|ปี|วัน|ชั่วโมง|ชม|นาที|โมง|ทุ่ม|ครั้ง|คน|บาท|อัน|ข้อ|ดาว|ราศี|ภพ|เรือน|ม\.ค|ก\.พ|มี\.ค|เม\.ย|พ\.ค|มิ\.ย|ก\.ค|ส\.ค|ก\.ย|ต\.ค|พ\.ย|ธ\.ค|มกรา|กุมภา|มีนา|เมษา|พฤษภา|มิถุนา|กรกฎา|สิงหา|กันยา|ตุลา|พฤศจิกา|ธันวา))/;
+
+export function resolveMentionedDay(
+  question: string,
+  priorAssistant: string[] = [],
+  now = new Date(),
+): string | null {
+  const q = question.trim();
+  if (parseExplicitDate(q, now)) return null; // has its month already
+  const hit = q.match(BARE_DAY);
+  const day = hit ? Number(hit[1] ?? hit[2]) : NaN;
+  if (!Number.isInteger(day) || day < 1 || day > 31) return null;
+
+  const iso = (y: number, m: number, d: number) =>
+    `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  for (const text of priorAssistant) {
+    for (const row of THAI_MONTHS) {
+      for (const key of row.keys) {
+        const re = new RegExp(`(?<![\\d])${day}\\s*${key.replace(".", "\\.")}\\s*(\\d{4})?`);
+        const m = text.match(re);
+        if (m) {
+          const year = m[1] ? toCeYear(Number(m[1])) : partsOf(now).y;
+          return iso(year, row.month, day);
+        }
+      }
+    }
+  }
+  const p = partsOf(now);
+  let y = p.y;
+  let m = p.m;
+  if (day < p.d) {
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  const probe = new Date(Date.UTC(y, m - 1, day));
+  if (probe.getUTCMonth() !== m - 1) return null; // no 31st this month
+  return iso(y, m, day);
+}
+
+/**
+ * A follow-up carries the time of the question before it. "แล้วเรื่องเงินล่ะ"
+ * after "เดือนหน้าดวงเป็นยังไง" was read on its own as a natal question, so
+ * the model got the birth chart and nothing about next month — the chat
+ * history was there, the computed data was not. Returns the text to resolve
+ * the time from; the question itself is unchanged.
+ */
+const FOLLOW_UP_PATTERN = /^\s*(?:แล้ว|ส่วน|งั้น|ถ้า|และ|ก็|อย่าง)|(?:ล่ะ|หละ|ละ|อะดิ|อะ|ด้วย)\s*(?:ครับ|คะ|ค่ะ|คับ)?\s*[?？]?\s*$/;
+const NATAL_ASK = /พื้นดวง|ดวงกำเนิด|ดวงเดิม|นิสัย|ลัคนา|ตัวตน|ชาตะ/;
+
+/** A short or "แล้ว…ล่ะ" question that leans on the one before it. */
+export function isFollowUpQuestion(question: string): boolean {
+  const q = question.trim();
+  if (NATAL_ASK.test(q)) return false;
+  return FOLLOW_UP_PATTERN.test(q) || q.length <= 40;
+}
+
+/** The latest earlier question that set a time — a period, or a named day. */
+export function previousTimedQuestion(question: string, priorUserNewestFirst: string[]): string | null {
+  const q = question.trim();
+  return (
+    priorUserNewestFirst.find(
+      (u) => u.trim() && u.trim() !== q && (detectReadingIntent(u) !== "natal" || BARE_DAY.test(u.trim())),
+    ) ?? null
+  );
+}
+
+export function questionInContext(question: string, priorUserNewestFirst: string[] = []): string {
+  const q = question.trim();
+  if (detectReadingIntent(q) !== "natal" || !isFollowUpQuestion(q)) return q;
+  const previous = previousTimedQuestion(q, priorUserNewestFirst);
+  return previous ? `${previous} · ${q}` : q;
+}
+
 function parseOverride(raw?: string | Date | null): Date | null {
   if (!raw) return null;
   const d = typeof raw === "string" ? new Date(raw) : raw;
@@ -547,7 +631,9 @@ const EXPLAIN_PATTERN = /อธิบาย|ละเอียด|ทำไม|�
 export function isPinpointQuestion(question: string): boolean {
   const q = question.trim();
   if (EXPLAIN_PATTERN.test(q) || isOverviewQuestion(q)) return false;
-  return isDayPickQuestion(q) || PINPOINT_PATTERN.test(q);
+  // "14 ผมมีนัดคุยงาน" asks about that day — answer about that day.
+  const namesADay = BARE_DAY.test(q) || detectFutureDatePromptTrigger(q) === "explicit_date";
+  return isDayPickQuestion(q) || PINPOINT_PATTERN.test(q) || namesADay;
 }
 
 /**
