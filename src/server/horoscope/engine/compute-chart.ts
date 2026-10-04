@@ -20,6 +20,32 @@ import {
 import { mapScrapeToChartJson } from "./myhora/map-to-chart";
 import { chartFromMyhoraRows } from "@/lib/chart-derivations";
 
+/**
+ * myhora prints the coordinates it computed for. For births outside an
+ * amphoe เมือง it was computing at the provincial capital (its district
+ * dropdown did not take our id), which moves the lagna by up to ~1.6° and
+ * changed the sign in QA. When the printed place is not the birthplace, the
+ * scrape is refused and the local engine — 0.14° from myhora at the right
+ * coordinates — takes over, with the reason recorded.
+ */
+const PLACE_TOLERANCE_DEG = 0.05;
+
+export function assertMyhoraUsedBirthplace(
+  input: BirthInputSnapshot,
+  scrape: Awaited<ReturnType<typeof fetchMyhoraThaiChart>>,
+): void {
+  const raw = scrape.tables.dateDetailNatal?.raw ?? scrape.tables.summaryNatal ?? "";
+  const lat = Number(raw.match(/ละติจูด\s*(-?[\d.]+)/)?.[1]);
+  const lon = Number(raw.match(/ลองจิจูด\s*(-?[\d.]+)/)?.[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return; // nothing printed to check
+  const want = resolvePlaceCoords(input.country, input.province, input.district);
+  if (Math.abs(lat - want.lat) > PLACE_TOLERANCE_DEG || Math.abs(lon - want.lon) > PLACE_TOLERANCE_DEG) {
+    throw new Error(
+      `myhora computed at ${lat.toFixed(3)},${lon.toFixed(3)} not ${want.lat.toFixed(3)},${want.lon.toFixed(3)} (ids ${JSON.stringify(scrape.placeIds ?? {})})`,
+    );
+  }
+}
+
 function toChartJsonFromFormula(input: BirthInputSnapshot): ChartJson {
   const place = resolvePlaceCoords(input.country, input.province, input.district);
   const chart = computeFullChartSync(input, place);
@@ -74,6 +100,7 @@ export async function computeNatalChart(
           );
         }),
       ]);
+      assertMyhoraUsedBirthplace(input, scrape);
       return mapScrapeToChartJson(input, scrape);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
@@ -135,6 +162,7 @@ export async function computeTransitChart(
           );
         }),
       ]);
+      assertMyhoraUsedBirthplace(birth, scrape);
       // The scrape is keyed on the BIRTH data, so its planet table is the natal
       // chart. Only the transit table describes the day being asked about — if
       // it is missing, returning `chart` would hand the natal positions to the
