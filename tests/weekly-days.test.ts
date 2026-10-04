@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ findMany: vi.fn(), update: vi.fn(), sendEmail: vi.fn() }));
-vi.mock("@/server/db", () => ({ prisma: { user: { findMany: mocks.findMany, update: mocks.update } } }));
+const mocks = vi.hoisted(() => ({ findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn(), sendEmail: vi.fn() }));
+vi.mock("@/server/db", () => ({
+  prisma: { user: { findMany: mocks.findMany, update: mocks.update, updateMany: mocks.updateMany } },
+}));
 vi.mock("@/server/email/mailer", () => ({ sendEmail: mocks.sendEmail }));
 
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";
@@ -22,6 +24,7 @@ describe("weekly good-days email", () => {
     vi.clearAllMocks();
     process.env.AUTH_SECRET = "test-secret";
     mocks.sendEmail.mockResolvedValue({ ok: true, via: "dev" });
+    mocks.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it("lists the week's best days and how to stop it", () => {
@@ -40,16 +43,21 @@ describe("weekly good-days email", () => {
     expect(isValidUnsubscribe("u1", "forged")).toBe(false);
   });
 
-  it("marks a sent week, and leaves a failed send to be tried again", async () => {
+  it("claims the week before sending, and gives it back when the send fails", async () => {
     mocks.findMany.mockResolvedValue([
       { id: "ok", email: "a@x.co", name: null, natalChart: { chartJson: natal } },
       { id: "bad", email: "b@x.co", name: null, natalChart: { chartJson: natal } },
+      { id: "taken", email: "c@x.co", name: null, natalChart: { chartJson: natal } },
     ]);
+    mocks.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 }); // another instance got there first
     mocks.sendEmail.mockResolvedValueOnce({ ok: true, via: "dev" }).mockResolvedValueOnce({ ok: false, error: "x" });
     const r = await runWeeklyDaysEmails({ now: NOW });
-    expect(r).toMatchObject({ candidates: 2, sent: 1, failed: 1 });
-    expect(mocks.update).toHaveBeenCalledTimes(1);
-    expect(mocks.update).toHaveBeenCalledWith({ where: { id: "ok" }, data: { weeklyDaysSentAt: NOW } });
+    expect(r).toMatchObject({ candidates: 3, sent: 1, failed: 1, skipped: 1 });
+    expect(mocks.sendEmail).toHaveBeenCalledTimes(2);
+    expect(mocks.update).toHaveBeenCalledWith({ where: { id: "bad" }, data: { weeklyDaysSentAt: null } });
   });
 
   it("asks only for opted-in, verified people not sent this week", async () => {
