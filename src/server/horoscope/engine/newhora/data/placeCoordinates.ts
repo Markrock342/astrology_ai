@@ -167,6 +167,21 @@ const DISTRICT_COORDS = districtCoords as unknown as Record<
   Record<string, [number, number]>
 >;
 
+/**
+ * Typed names carry prefixes the tables do not ("จ.นครราชสีมา", "อ.โชคชัย",
+ * "เขตบางรัก", "กทม") — and each one fell back to the province centre, or to
+ * Bangkok, without a word.
+ */
+export function normalizeThaiProvince(province: string): string {
+  const p = province.trim().replace(/^(?:จังหวัด|จ\.)\s*/, "");
+  return /^(?:กทม\.?|กรุงเทพ(?:ฯ|มหานคร)?|bangkok)$/i.test(p) ? "กรุงเทพมหานคร" : p;
+}
+
+export function normalizeThaiDistrict(district: string, province: string): string {
+  const d = district.trim().replace(/^(?:กิ่งอำเภอ|อำเภอ|อ\.|เขต|ข\.)\s*/, "");
+  return d === "เมือง" ? `เมือง${province}` : d;
+}
+
 export function isThaiBirthplace(country: string): boolean {
   return country === "ไทย" || country.trim() === "";
 }
@@ -182,8 +197,8 @@ export function resolvePlaceCoords(
   when?: { year: number; month: number; day: number; time?: string },
 ): PlaceCoords {
   if (isThaiBirthplace(country)) {
-    const prov = province.trim();
-    const dist = district.trim();
+    const prov = normalizeThaiProvince(province);
+    const dist = normalizeThaiDistrict(district, prov);
     const byDistrict = THAI_DISTRICTS[prov];
     if (byDistrict && dist && byDistrict[dist]) return byDistrict[dist];
     // Every อำเภอ/เขต (928) — the province centre used to stand in for the
