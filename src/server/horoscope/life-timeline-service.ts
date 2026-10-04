@@ -1,3 +1,4 @@
+import "@/server/horoscope/engine/taksa-boundaries";
 import type { ChartJson } from "@/types/chart";
 import type { UserChartMemoryJson } from "@/types/chart-memory";
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";

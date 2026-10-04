@@ -1,3 +1,4 @@
+import "@/server/horoscope/engine/taksa-boundaries";
 /** Single source of truth shared by engine, prompt and chart UI. */
 export {
   computeTaksaFromBirth,

@@ -1,3 +1,4 @@
+import "@/server/horoscope/engine/taksa-boundaries";
 import type { ChartJson } from "@/types/chart";
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";
 import { resolveTaksaBirthDay } from "@/lib/taksa";

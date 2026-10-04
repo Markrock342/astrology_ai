@@ -1,3 +1,4 @@
+import "@/server/horoscope/engine/taksa-boundaries";
 import { createHash } from "crypto";
 import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
 import type {
