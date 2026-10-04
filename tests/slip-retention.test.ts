@@ -30,8 +30,17 @@ import { SLIP_RETENTION_DAYS } from "@/config/constants";
 describe("slip retention", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.delBlob.mockResolvedValue(undefined);
+    mocks.delBlob.mockResolvedValue(true);
     mocks.update.mockResolvedValue({});
+  });
+
+  // QA 2026-10-04: a failed delete still cleared the link — an orphaned slip.
+  it("keeps the link when the slip could not be deleted, for the next sweep", async () => {
+    mocks.findMany.mockResolvedValue([{ id: "p1", proofUrl: "payment-slips/u1/1.jpg" }]);
+    mocks.delBlob.mockResolvedValue(false);
+    const result = await runSlipRetentionSweep(new Date("2026-07-26T00:00:00Z"));
+    expect(result).toEqual({ scanned: 1, deleted: 0 });
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 
   it("deletes reviewed slip blobs past retention window", async () => {
