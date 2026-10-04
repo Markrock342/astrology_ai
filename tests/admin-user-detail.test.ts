@@ -17,6 +17,7 @@ vi.mock("@/server/db", () => ({
 }));
 vi.mock("@/server/account/usage-service", () => ({ getMyUsage: vi.fn(async () => null) }));
 vi.mock("@/server/admin/cost-admin-service", () => ({ getUserCost: vi.fn(async () => null) }));
+vi.mock("@/server/user/account-service", () => ({ getEffectivePlan: vi.fn(async () => "FREE") }));
 
 import { getUserDetail } from "@/server/admin/user-admin-service";
 
