@@ -1,7 +1,7 @@
 import "@/server/horoscope/engine/taksa-boundaries";
 import type { ChartJson } from "@/types/chart";
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";
-import { resolveTaksaBirthDay } from "@/lib/taksa";
+import { resolveTaksaBirthDay, thaiReckoningDate } from "@/lib/taksa";
 import {
   COMPANION_RELATION_LABEL,
   RELATION_HOUSES,
@@ -60,10 +60,7 @@ export async function buildCompanionsPrompt(
     const weekday = timeKnown ? resolveTaksaBirthDay(input) : null;
     const synastry = computeSynastry(userSide, side, RELATION_HOUSES[c.relation]);
     const sompong = SOMPONG_RELATIONS.has(c.relation)
-      ? await fetchSompong(
-          { year: user.input.year, month: user.input.month, day: user.input.day },
-          { year, month, day },
-        )
+      ? await fetchSompong(thaiReckoningDate(user.input), thaiReckoningDate(input))
       : null;
     return [
       ...formatCompanionChart(index, label, weekday, side),

@@ -152,3 +152,16 @@ describe("the 100-year table's first day", () => {
     expect(r.planets.find((p) => p.planet === "จันทร์")?.siderealSign).toBe("มกร");
   });
 });
+
+// QA 2026-10-04 (suspected, confirmed in code): ดวงสมพงษ์ took the civil date,
+// so a pre-dawn birth was scored on the next weekday.
+describe("the date a Thai reckoning counts a birth on", () => {
+  it("is the day before for a birth before sunrise", async () => {
+    await import("@/server/horoscope/engine/taksa-boundaries");
+    const { thaiReckoningDate } = await import("@/lib/taksa");
+    const at = (time: string) =>
+      thaiReckoningDate({ day: 1, month: 3, year: 2000, time, country: "ไทย", province: "กรุงเทพมหานคร", district: "พระนคร" });
+    expect(at("04:30")).toEqual({ year: 2000, month: 2, day: 29 });
+    expect(at("09:00")).toEqual({ year: 2000, month: 3, day: 1 });
+  });
+});
