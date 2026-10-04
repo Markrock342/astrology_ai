@@ -189,3 +189,21 @@ export function formatHouseChainsForPrompt(chains: HouseChain[]): string[] {
   }
   return lines;
 }
+
+/**
+ * Who rules each house, on one line. The lords were only inside the long
+ * chains, and an answer still named the wrong one; this is the line the
+ * answer is told to check its every "เจ้าเรือน…" against.
+ */
+export function formatHouseLordsForPrompt(chains: HouseChain[]): string[] {
+  const cells = chains
+    .map((c) => c.steps[0])
+    .filter((s): s is ChainStep => Boolean(s))
+    .map((s) => `ภพ ${s.house} ${houseName(s.house)} (${normalizeSignName(s.sign)}) = ${s.lord}`);
+  if (!cells.length) return [];
+  return [
+    "[house_lords] เจ้าเรือนของแต่ละภพในดวงนี้ (คำนวณแล้ว — ทุกครั้งที่เขียนว่าดาวใดเป็นเจ้าเรือนใด ต้องตรงกับบรรทัดนี้):",
+    cells.join(" · "),
+  ];
+}
+

@@ -18,6 +18,7 @@
     "ci:e2e": "playwright test",
     "hooks:install": "git config core.hooksPath .githooks",
     "smoke:public": "node scripts/smoke-public-api.mjs",
+    "eval:answers": "tsx --env-file=.env scripts/eval-answers.ts",
     "scrape:suryayat": "node scripts/scrape-myhora-suryayat-calendar.mjs",
     "deploy:env": "node scripts/sync-vercel-env.mjs",
     "db:generate": "prisma generate",

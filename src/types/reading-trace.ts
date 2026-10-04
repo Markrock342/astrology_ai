@@ -53,6 +53,8 @@ export type ReadingPromptTrace = {
     format: TraceTemplate;
   };
   model: { provider: string; modelId: string } | null;
+  /** House-lord claims in the answer that contradict the chart (lib/answer-facts). */
+  factIssues?: Array<{ house: number; houseName: string; claimed: string; actual: string; excerpt: string }>;
   systemPrompt: string;
   userPrompt: string;
 };

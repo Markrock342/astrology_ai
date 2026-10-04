@@ -21,6 +21,7 @@ import {
 import {
   buildHouseChains,
   formatHouseChainsForPrompt,
+  formatHouseLordsForPrompt,
   formatPlanetFactsForPrompt,
 } from "@/lib/house-chains";
 
@@ -125,7 +126,8 @@ export const READING_METHOD_RULE =
   "ห้ามใช้คำเชิงระบบประมวลผล เช่น ไล่สาย กระทบชิ่ง และห้ามเอ่ยชื่อบล็อกข้อมูล ให้ใช้คำพูดธรรมชาติ เช่น ตามดาวเจ้าเรือนไปดู ดาวไปสถิตที่ ดาวจรมาทับ " +
   "ห้ามตัดตอน ห้ามข้ามขั้น ห้ามละเลยดาวร่วมเรือน มุมสัมพันธ์ มาตรฐานดาว ฤกษ์ และทักษา ห้ามสรุปลัด " +
   "เชื่อมทุกจุดเป็นเรื่องเล่าเดียว และผูกทักษากับทักษาจรเข้าไปในเนื้อเรื่องอย่างเป็นธรรมชาติ เช่น ดาวดวงนี้เป็นศรีจรในปีนี้พอดี ทำให้... ไม่แยกอธิบายทักษาต่างหาก " +
-  "ตรวจความถูกต้องของการตามดาวเจ้าเรือน การจับคู่ธาตุ และตำแหน่งทักษากับข้อมูลที่ให้ทุกครั้งก่อนตอบ";
+  "ตรวจความถูกต้องของการตามดาวเจ้าเรือน การจับคู่ธาตุ และตำแหน่งทักษากับข้อมูลที่ให้ทุกครั้งก่อนตอบ " +
+  "ทุกครั้งที่บอกว่าดาวใดเป็นเจ้าเรือนใด ต้องตรงกับบรรทัด [house_lords] ห้ามเดาจากความรู้ทั่วไป";
 
 /**
  * Appended only when a [timeline] was computed. The model used to answer
@@ -443,6 +445,8 @@ export function buildUserPrompt(
   });
   if (chains.length) {
     lines.push(
+      ...formatHouseLordsForPrompt(chains),
+      "",
       ...formatPlanetFactsForPrompt(chains),
       "",
       ...formatHouseChainsForPrompt(chains),
