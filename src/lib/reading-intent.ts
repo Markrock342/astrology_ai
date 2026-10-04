@@ -688,8 +688,20 @@ const WHEN_PATTERN = /เมื่อไหร่|เมื่อไร|ตอ�
  * ได้คุยงานไหม", "มีเกณฑ์ได้เงินเข้ามาเมื่อไหร่", "จากนี้วันไหนดวงจรดี" — they
  * used to get today's sky alone, or a years-long timeline.
  */
+/**
+ * "ตอนแรกที่ผมถาม ผมถามถึงวันไหน" asks about this chat, not for a new day:
+ * read as a day-pick it walked the month and named a different date.
+ */
+const RECALL_PATTERN =
+  /(?:ที่|เมื่อกี้|ตอนแรก|ก่อนหน้า|เคย)\s*(?:ผม|ฉัน|หนู|เรา|เค้า|เขา)?\s*(?:ถาม|บอก|เล่า|คุย|พิมพ์)|ที่คุยกัน|ที่หมอดู(?:ตอบ|บอก|ว่า)|คุณ(?:ตอบ|บอก)ว่า|ตอนแรกสุด/;
+
+export function isRecallQuestion(question: string): boolean {
+  return RECALL_PATTERN.test(question.trim());
+}
+
 export function isDayPickQuestion(question: string): boolean {
   const q = question.trim();
+  if (isRecallQuestion(q)) return false;
   if (DAY_PICK_PATTERN.test(q)) return true;
   // "ปีหน้าเดือนไหนเหมาะแต่งงาน": a milestone, but inside a named year — walk
   // that year. Checked before LIFE_SCALE, which used to drop it to one day.

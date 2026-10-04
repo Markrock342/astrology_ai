@@ -26,6 +26,11 @@ const mocks = vi.hoisted(() => ({
   assertCanRequestReading: vi.fn(),
 }));
 
+vi.mock("@/server/memory/fact-memory-service", () => ({ rememberFromTurn: vi.fn(async () => null) }));
+vi.mock("@/server/memory/thread-summary-service", () => ({
+  getThreadSummary: vi.fn(async () => null),
+  foldThreadSummary: vi.fn(async () => false),
+}));
 vi.mock("@/server/db", () => ({
   prisma: {
     conversation: {

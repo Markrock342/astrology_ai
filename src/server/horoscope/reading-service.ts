@@ -104,6 +104,7 @@ import {
 import { assertQuestionAllowedForPlan } from "@/server/horoscope/question-scope";
 import {
   formatUserAiMemoryForPrompt,
+  formatUserFactsForPrompt,
   getUserAiMemory,
 } from "@/server/user/ai-memory-service";
 import { buildKnowledgePromptWithTrace } from "@/server/horoscope/knowledge-retrieval";
@@ -230,6 +231,8 @@ export type CreateReadingInput = {
    * "ไม่ถูกหัก usage", so a reading stopped for that reason must not charge.
    */
   isAbandoned?: () => Promise<boolean>;
+  /** Rolling summary of the chat beyond the history sent (memory/thread-summary-service). */
+  threadSummary?: string | null;
 };
 
 export async function createReading(input: CreateReadingInput) {
@@ -647,6 +650,8 @@ async function runReading(
       companionText,
       intakeText: intakeAnswers ? formatIntakeForPrompt(intakeAnswers) : null,
       userContextText: formatUserAiMemoryForPrompt(userAiMemory),
+      userFactsText: formatUserFactsForPrompt(userAiMemory),
+      threadSummaryText: input.threadSummary ?? null,
     },
   );
 

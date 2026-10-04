@@ -11,7 +11,7 @@ type ApiResponse = {
 
 export function AiMemoryCard({ initialMemory }: { initialMemory: UserAiMemory }) {
   const [memory, setMemory] = useState(initialMemory);
-  const [busy, setBusy] = useState<"toggle" | "reset" | null>(null);
+  const [busy, setBusy] = useState<"toggle" | "reset" | "fact" | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -62,11 +62,30 @@ export function AiMemoryCard({ initialMemory }: { initialMemory: UserAiMemory })
     }
   }
 
+  async function forgetFact(id: string) {
+    setBusy("fact");
+    setMessage(null);
+    try {
+      const response = await fetch(`/api/me/ai-memory/facts/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const body = (await response.json()) as ApiResponse;
+      if (!response.ok || !body.ok || !body.data) {
+        setMessage(body.error?.message ?? "ลบไม่สำเร็จ");
+        return;
+      }
+      setMemory(body.data);
+    } catch {
+      setMessage("เชื่อมต่อระบบไม่ได้ กรุณาลองอีกครั้ง");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   // The card no longer lists old questions — that is chat history, and the
   // sidebar already owns deleting it. What stays is one honest line about how
   // much context exists, so "ล้างความจำจากแชทเก่า" has a visible effect.
   const rememberedCount = memory.recentQuestions.length;
-  const hasChatMemory = rememberedCount > 0 || memory.commonTopics.length > 0;
+  const facts = memory.facts ?? [];
+  const hasChatMemory = rememberedCount > 0 || memory.commonTopics.length > 0 || facts.length > 0;
 
   return (
     <section
@@ -81,7 +100,7 @@ export function AiMemoryCard({ initialMemory }: { initialMemory: UserAiMemory })
             ความจำของ AI
           </h2>
           <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">
-            ช่วยให้คำตอบทุกหมวดต่อเนื่องกัน โดยจำชื่อเล่น หมวดที่ถามบ่อย และคำถามก่อนหน้า
+            ช่วยให้คำตอบทุกแชทต่อเนื่องกัน โดยจำเรื่องที่คุณเล่า (งาน แผน นัดสำคัญ) หมวดที่ถามบ่อย และคำถามก่อนหน้า
           </p>
         </div>
         <label className="relative inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2">
@@ -106,6 +125,31 @@ export function AiMemoryCard({ initialMemory }: { initialMemory: UserAiMemory })
         ) : (
           <p className="text-sm text-[var(--muted)]">ยังไม่มีชื่อเล่นในข้อมูลวันเกิด</p>
         )}
+
+        {facts.length > 0 ? (
+          <div className="mt-4">
+            <p className="text-sm font-medium text-[var(--foreground)]">สิ่งที่ AI จำเกี่ยวกับคุณ</p>
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {facts.map((fact) => (
+                <li
+                  key={fact.id}
+                  className="flex items-start justify-between gap-3 rounded-xl bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--foreground)]"
+                >
+                  <span className="min-w-0">{fact.text}</span>
+                  <button
+                    type="button"
+                    onClick={() => void forgetFact(fact.id)}
+                    disabled={busy !== null}
+                    aria-label={`ลืมเรื่องนี้: ${fact.text}`}
+                    className="shrink-0 text-xs text-[var(--muted)] underline underline-offset-2 hover:text-[var(--danger)] disabled:opacity-50"
+                  >
+                    ลืม
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         <p className="mt-4 text-sm text-[var(--muted)]">
           {rememberedCount > 0
@@ -151,7 +195,7 @@ export function AiMemoryCard({ initialMemory }: { initialMemory: UserAiMemory })
         )}
         {message ? <p role="status" className="mt-2 text-xs text-[var(--muted)]">{message}</p> : null}
         <p className="mt-2 text-xs leading-5 text-[var(--muted-2)]">
-          ระบบใช้เฉพาะข้อความที่คุณพิมพ์ ไม่ใช้คำตอบเก่าของ AI เป็นข้อเท็จจริง
+          ระบบจดจากข้อความที่คุณพิมพ์เท่านั้น ไม่จดคำทำนายของ AI และไม่เก็บวันเกิดของคนอื่น
         </p>
       </div>
     </section>

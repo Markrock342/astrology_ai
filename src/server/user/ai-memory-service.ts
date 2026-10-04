@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { isCategoryIntroQuestion } from "@/lib/intake-survey";
+import { clearMemoryFacts, listMemoryFacts, type MemoryFact } from "@/server/memory/fact-memory-service";
 
 const MEMORY_QUERY_LIMIT = 160;
 const MEMORY_RECENT_LIMIT = 10;
@@ -15,6 +16,8 @@ export type UserAiMemory = {
     question: string;
     askedAt: string;
   }>;
+  /** Facts the user told the chat about themselves (memory/fact-memory-service). */
+  facts: MemoryFact[];
 };
 
 function compactQuestion(value: string): string {
@@ -52,6 +55,7 @@ export async function getUserAiMemory(
       resetAt: null,
       commonTopics: [],
       recentQuestions: [],
+      facts: [],
     };
   }
 
@@ -61,7 +65,7 @@ export async function getUserAiMemory(
     resetAt: user.aiMemoryResetAt?.toISOString() ?? null,
   };
   if (!user.aiMemoryEnabled) {
-    return { ...base, commonTopics: [], recentQuestions: [] };
+    return { ...base, commonTopics: [], recentQuestions: [], facts: [] };
   }
 
   const rows = await prisma.message.findMany({
@@ -130,7 +134,8 @@ export async function getUserAiMemory(
     }];
   });
 
-  return { ...base, commonTopics, recentQuestions };
+  const facts = await listMemoryFacts(userId);
+  return { ...base, commonTopics, recentQuestions, facts };
 }
 
 export function formatUserAiMemoryForPrompt(memory: UserAiMemory): string | null {
@@ -152,6 +157,19 @@ export function formatUserAiMemoryForPrompt(memory: UserAiMemory): string | null
   return lines.filter((line): line is string => Boolean(line)).join("\n");
 }
 
+/**
+ * What the user told about themselves, as its own block placed next to the
+ * question: inside [user_context], far up a long prompt, the model used it
+ * about half the time.
+ */
+export function formatUserFactsForPrompt(memory: UserAiMemory): string | null {
+  if (!memory.enabled || !memory.facts?.length) return null;
+  return [
+    "[user_facts] เรื่องที่ผู้ใช้เคยเล่าเกี่ยวกับตัวเองในแชทก่อน ๆ (ผู้ใช้บอกเอง) — ถ้าเกี่ยวกับคำถามนี้ ต้องคำนึงถึงและเอ่ยถึงในคำตอบ:",
+    ...memory.facts.slice(0, 25).map((fact) => `- ${fact.text}`),
+  ].join("\n");
+}
+
 export async function setUserAiMemoryEnabled(userId: string, enabled: boolean) {
   await prisma.user.update({
     where: { id: userId },
@@ -165,5 +183,6 @@ export async function resetUserAiMemory(userId: string) {
     where: { id: userId },
     data: { aiMemoryResetAt: new Date() },
   });
+  await clearMemoryFacts(userId);
   return getUserAiMemory(userId);
 }

@@ -6,6 +6,10 @@ const mocks = vi.hoisted(() => ({
   updateUser: vi.fn(),
 }));
 
+vi.mock("@/server/memory/fact-memory-service", () => ({
+  listMemoryFacts: vi.fn(async () => []),
+  clearMemoryFacts: vi.fn(async () => {}),
+}));
 vi.mock("@/server/db", () => ({
   prisma: {
     user: { findUnique: mocks.findUser, update: mocks.updateUser },
@@ -103,6 +107,7 @@ describe("user AI memory", () => {
       enabled: true,
       nickname: "โก้",
       resetAt: null,
+      facts: [],
       commonTopics: [{ slug: "career", label: "การงาน", count: 3 }],
       recentQuestions: [
         { category: "การงาน", question: "ควรย้ายงานไหม", askedAt: "2026-08-24T00:00:00Z" },
