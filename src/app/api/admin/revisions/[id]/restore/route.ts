@@ -9,6 +9,7 @@ import {
   restoreKnowledgeRevision,
 } from "@/server/admin/ai-admin-service";
 import { restoreFaqRevision } from "@/server/admin/cms-content-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** POST /api/admin/revisions/:id/restore */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -16,7 +17,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const admin = await requireAdmin();
     const { id } = await ctx.params;
     const { mode } = revisionRestoreSchema.parse(await req.json().catch(() => ({})));
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     const actor = { id: admin.id, ip };
 
     const revision = await getRevision(id);

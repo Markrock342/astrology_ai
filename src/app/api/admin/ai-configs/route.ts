@@ -6,6 +6,7 @@ import {
   createAIConfig,
   assertAiAdminEnabled,
 } from "@/server/admin/ai-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** GET /api/admin/ai-configs — list all AI provider configs. */
 export async function GET() {
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     assertAiAdminEnabled();
     const admin = await requireAdmin();
     const data = aiConfigCreateSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await createAIConfig(data, { id: admin.id, ip }), { status: 201 });
   });
 }

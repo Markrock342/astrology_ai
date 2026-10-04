@@ -8,6 +8,7 @@ import {
   saveFaqDraft,
   updateFaqMeta,
 } from "@/server/admin/cms-content-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** GET /api/admin/faq/:id — full Q/A for editor. */
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -26,7 +27,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const data = partialNoDefaults(faqItemSchema).pick({ category: true, enabled: true, sortOrder: true }).parse(
       await req.json(),
     );
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await updateFaqMeta(id, data, { id: admin.id, ip }));
   });
 }
@@ -36,7 +37,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   return handle(async () => {
     const admin = await requireAdmin();
     const { id } = await ctx.params;
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await deleteFaqItem(id, { id: admin.id, ip }));
   });
 }
@@ -47,7 +48,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     const admin = await requireAdmin();
     const { id } = await ctx.params;
     const data = faqItemSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await saveFaqDraft(id, data, { id: admin.id, ip }));
   });
 }
@@ -58,7 +59,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const admin = await requireAdmin();
     const { id } = await ctx.params;
     const data = faqItemSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await publishFaqItem(id, data, { id: admin.id, ip }));
   });
 }

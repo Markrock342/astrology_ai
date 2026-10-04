@@ -2,6 +2,7 @@ import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
 import { knowledgeCreateSchema } from "@/lib/admin-schemas";
 import { publishKnowledgeDoc, assertAiAdminEnabled } from "@/server/admin/ai-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** POST /api/admin/knowledge/:id/publish */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -10,7 +11,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const admin = await requireAdmin();
     const { id } = await ctx.params;
     const data = knowledgeCreateSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await publishKnowledgeDoc(id, data, { id: admin.id, ip }));
   });
 }

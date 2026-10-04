@@ -35,6 +35,15 @@ export function rateLimitIp(req: Request): string {
   return "local";
 }
 
+/**
+ * Client IP for audit rows. Audits stored the raw `x-forwarded-for` string,
+ * which the client writes; this is the same pick as the rate limiter.
+ */
+export function clientIp(req: Request): string | undefined {
+  const ip = rateLimitIp(req);
+  return ip === "local" ? undefined : ip.slice(0, 64);
+}
+
 type Bucket = { count: number; resetAt: number };
 const buckets = new Map<string, Bucket>();
 

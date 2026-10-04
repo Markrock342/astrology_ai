@@ -2,6 +2,7 @@ import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
 import { userSubscriptionSchema } from "@/lib/admin-schemas";
 import { setUserSubscription } from "@/server/admin/user-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** PATCH /api/admin/users/:id/subscription — set the active package (audited). */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -9,7 +10,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const admin = await requireAdmin();
     const { id } = await ctx.params;
     const data = userSubscriptionSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(
       await setUserSubscription(
         id,

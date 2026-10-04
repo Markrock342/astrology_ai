@@ -5,6 +5,7 @@ import {
   getGeminiBalance,
   updateGeminiBalance,
 } from "@/server/admin/gemini-balance-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** GET /api/admin/gemini-balance — Prepay snapshot + estimated remaining. */
 export async function GET() {
@@ -19,7 +20,7 @@ export async function PUT(req: Request) {
   return handle(async () => {
     const admin = await requireAdmin();
     const data = geminiBalanceUpdateSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(
       await updateGeminiBalance(
         {

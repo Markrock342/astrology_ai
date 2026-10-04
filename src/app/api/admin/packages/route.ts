@@ -2,6 +2,7 @@ import { handle, ok } from "@/lib/http";
 import { requireAdmin } from "@/server/auth/rbac";
 import { packageCreateSchema } from "@/lib/admin-schemas";
 import { listPackages, createPackage } from "@/server/admin/catalog-admin-service";
+import { clientIp } from "@/lib/rate-limit";
 
 /** GET /api/admin/packages — all packages. */
 export async function GET() {
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   return handle(async () => {
     const admin = await requireAdmin();
     const data = packageCreateSchema.parse(await req.json());
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const ip = clientIp(req);
     return ok(await createPackage(data, { id: admin.id, ip }), { status: 201 });
   });
 }

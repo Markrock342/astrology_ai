@@ -67,15 +67,21 @@ async function lastActiveFor(ids: string[]): Promise<Map<string, Date | null>> {
   return new Map(rows.map((r) => [r.id, r.lastActiveAt]));
 }
 
+/** Prisma passes `contains` to ILIKE as is: "_" matched every user, "%" too. */
+export function likeLiteral(text: string): string {
+  return text.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 export async function listUsers(args: ListUsersArgs) {
+  const search = args.search ? likeLiteral(args.search) : "";
   const where: Prisma.UserWhereInput = {
     ...(args.status ? { status: args.status } : {}),
     ...(args.role ? { role: args.role } : {}),
     ...(args.search
       ? {
           OR: [
-            { email: { contains: args.search, mode: "insensitive" } },
-            { name: { contains: args.search, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
+            { name: { contains: search, mode: "insensitive" } },
           ],
         }
       : {}),

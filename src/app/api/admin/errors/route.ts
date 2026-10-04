@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { handle, ok } from "@/lib/http";
 import { prisma } from "@/server/db";
-import { requireAdmin } from "@/server/auth/rbac";
+import { requireAdmin, requireSuperAdmin } from "@/server/auth/rbac";
+import { writeAudit } from "@/server/audit/audit-service";
+import { clientIp } from "@/lib/rate-limit";
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).optional().default(1),
@@ -31,11 +33,22 @@ export async function GET(req: Request) {
   });
 }
 
-/** DELETE /api/admin/errors — clear the log after triage. */
-export async function DELETE() {
+/**
+ * DELETE /api/admin/errors — clear the log after triage. Super admins only,
+ * and audited: any admin could wipe it without a trace.
+ */
+export async function DELETE(req: Request) {
   return handle(async () => {
-    await requireAdmin();
+    const admin = await requireSuperAdmin();
     const { count } = await prisma.appErrorLog.deleteMany({});
+    await writeAudit({
+      adminUserId: admin.id,
+      action: "errors.clear",
+      entityType: "app_error_log",
+      entityId: "all",
+      after: { deleted: count },
+      ipAddress: clientIp(req),
+    });
     return ok({ deleted: count });
   });
 }
