@@ -10,6 +10,33 @@ import { formatDayCheckForPrompt, formatDayScanForPrompt, scanDays } from "@/lib
 /** When the question names no life area, the houses most day-picks are about. */
 const GENERAL_HOUSES = [1, 10, 11];
 
+/** Each day's facts for a person's chart (09:00 Bangkok at the birthplace). */
+export function scanDaysForChart(input: {
+  natal: ChartJson;
+  days: Date[];
+  topicHouses: number[];
+}) {
+  const birth = input.natal.input;
+  const place = { country: birth.country, province: birth.province, district: birth.district };
+  const bkk = (d: Date) => new Date(d.getTime() + 7 * 3_600_000);
+  return scanDays({
+    natalLagna: input.natal.chart?.lagna ?? input.natal.meta.lagna,
+    natalPlanets: input.natal.planets,
+    natalTaksa: input.natal.chart?.taksa?.length ? input.natal.chart.taksa : computeTaksaFromBirth(birth),
+    topicHouses: input.topicHouses.length ? input.topicHouses : GENERAL_HOUSES,
+    days: input.days,
+    keepAll: true,
+    positionsAt: (at) =>
+      computeNatalChartFormula({
+        ...place,
+        day: bkk(at).getUTCDate(),
+        month: bkk(at).getUTCMonth() + 1,
+        year: bkk(at).getUTCFullYear(),
+        time: "09:00",
+      }).planets,
+  });
+}
+
 /**
  * The days of the asked period, walked one by one against the person's chart
  * (see lib/day-scan). Positions come from the local engine — the same Thai

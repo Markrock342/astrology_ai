@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { CalendarDays } from "lucide-react";
 import { BrandLockup, BrandMark } from "@/components/brand-logo";
 // useSearchParams is via useChatRouteSearchParams (soft-nav safe)
 import { SettingsPopover, type SettingsModal } from "./settings-popover";
@@ -610,6 +611,16 @@ export function AppShell({
           </span>
           ค้นหา
         </button>
+        <Link
+          href="/calendar"
+          onClick={closeMobile}
+          className="flex items-center gap-2.5 rounded-lg px-3.5 py-2 text-sm text-[var(--muted)] transition hover:bg-[var(--background)] hover:text-[var(--foreground)]"
+        >
+          <span className="text-[var(--primary)]">
+            <CalendarDays size={16} strokeWidth={1.9} aria-hidden />
+          </span>
+          ปฏิทินดวง
+        </Link>
         {searchOpen && (
           <input
             value={searchQuery}

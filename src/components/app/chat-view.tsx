@@ -97,6 +97,8 @@ const THINKING_PHASE_LABEL: Record<ThinkingPhase, string> = {
 
 const ANSWER_MODE_KEY = "horasard:answerMode";
 const DRAFT_KEY = "horasard:chatDraft";
+/** One-shot question for a new chat, set by another page (see calendar). */
+const ASK_HANDOFF_KEY = "horasard:askHandoff";
 const FEEDBACK_KEY = "horasard:messageFeedback";
 const FEEDBACK_MIGRATED_KEY = "horasard:messageFeedbackMigrated:v1";
 
@@ -1066,7 +1068,17 @@ export function ChatView() {
     setThreadTransitLabel(null);
     setScopeForwardingLabel(null);
     setState(locked ? "locked" : "idle");
-    composerRef.current?.setValue("");
+    // A question handed over by another page (the calendar's "ถามหมอดูเรื่อง
+    // วันนี้") survives the blank-composer reset, once.
+    let handed = "";
+    try {
+      handed = window.sessionStorage.getItem(ASK_HANDOFF_KEY) ?? "";
+      window.sessionStorage.removeItem(ASK_HANDOFF_KEY);
+    } catch {
+      /* storage blocked — blank composer */
+    }
+    composerRef.current?.setValue(handed);
+    if (handed) composerRef.current?.focus();
     setErrorText(null);
     setErrorCode(null);
     setPendingRetry(null);
