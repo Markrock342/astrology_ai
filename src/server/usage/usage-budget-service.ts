@@ -155,11 +155,55 @@ export async function addPurchasedUsage(
   });
 }
 
+/**
+ * The included (package) pool ends with its period. Nothing read periodEndsAt,
+ * so a Pro budget outlived the plan: an expired or cancelled Pro user — and
+ * everyone after the free-Pro promotion — kept spending a full Pro budget as
+ * Free. At period end the pool drops to what the Free package gives (keeping
+ * less if less is left) and becomes open-ended, like a Free sign-up's.
+ * Purchased usage is untouched; a grant with no end never lapses. Logged as an
+ * ADMIN_DEDUCT with a note, the closest existing ledger type.
+ */
+export async function lapseExpiredIncludedUsage(
+  userId: string,
+  client: Prisma.TransactionClient | typeof prisma = prisma,
+  now = new Date(),
+): Promise<void> {
+  const wallet = await client.usageWallet.findUnique({
+    where: { userId },
+    select: { includedBalanceUnits: true, periodEndsAt: true },
+  });
+  if (!wallet?.periodEndsAt || wallet.periodEndsAt > now) return;
+  const free = await client.package.findFirst({
+    where: { code: "FREE" },
+    select: { usageBudgetUnits: true },
+  });
+  const cap = Math.max(0, free?.usageBudgetUnits ?? 0);
+  const keep = Math.min(Math.max(0, wallet.includedBalanceUnits), cap);
+  const lapsed = await client.usageWallet.updateMany({
+    where: { userId, periodEndsAt: wallet.periodEndsAt, includedBalanceUnits: wallet.includedBalanceUnits },
+    data: { includedBalanceUnits: keep, includedAllowanceUnits: cap, periodEndsAt: null },
+  });
+  if (lapsed.count === 0 || keep === wallet.includedBalanceUnits) return;
+  await client.usageTransaction.create({
+    data: {
+      userId,
+      amountUnits: keep - wallet.includedBalanceUnits,
+      type: "ADMIN_DEDUCT",
+      bucket: "INCLUDED",
+      referenceType: "period_end",
+      referenceId: `lapse:${wallet.periodEndsAt.toISOString()}`,
+      note: "รอบ usage ของแพ็กเกจสิ้นสุด — กลับเป็นงบของแพ็กเกจ Free",
+    },
+  });
+}
+
 /** Fast preflight. The active response may finish even if it consumes the tail. */
 export async function assertHasUsageBudget(
   userId: string,
   tx: Prisma.TransactionClient | typeof prisma = prisma,
 ) {
+  await lapseExpiredIncludedUsage(userId, tx);
   const wallet = await tx.usageWallet.findUnique({
     where: { userId },
     select: { includedBalanceUnits: true, purchasedBalanceUnits: true },
@@ -247,6 +291,7 @@ export type UsageBudgetSnapshot = {
 export async function getUsageBudgetSnapshot(
   userId: string,
 ): Promise<UsageBudgetSnapshot> {
+  await lapseExpiredIncludedUsage(userId).catch(() => {});
   const wallet = await prisma.usageWallet.findUnique({ where: { userId } });
   if (!wallet) {
     return {

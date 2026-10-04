@@ -1,3 +1,4 @@
+import { lockUsageWalletForUpdate } from "@/server/usage/usage-budget-service";
 import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 import { Prisma } from "@prisma/client";
 import type { Role, UserStatus, CreditTxnType } from "@prisma/client";
@@ -95,9 +96,11 @@ export async function listUsers(args: ListUsersArgs) {
             purchasedBalanceUnits: true,
           },
         },
+        // Live rows only, Pro first: an expired Pro row still marked ACTIVE
+        // showed a gold PRO badge on a Free user.
         subscriptions: {
-          where: { status: "ACTIVE" },
-          orderBy: { createdAt: "desc" },
+          where: { status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+          orderBy: [{ package: { type: "desc" } }, { createdAt: "desc" }],
           take: 1,
           select: { package: { select: { code: true, type: true } }, expiresAt: true },
         },
@@ -587,6 +590,8 @@ export async function setUserSubscription(
   if (!pkg) throw new AppError("NOT_FOUND", "Package not found");
 
   const result = await prisma.$transaction(async (tx) => {
+    // Serialised with payment approvals for the same user (see payment-service).
+    await lockUsageWalletForUpdate(userId, tx);
     const before = await tx.userSubscription.findMany({
       where: { userId, status: "ACTIVE" },
       select: { id: true, packageId: true, status: true },

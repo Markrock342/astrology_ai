@@ -48,6 +48,7 @@ vi.mock("@/server/credit/credit-service", () => ({
 vi.mock("@/server/usage/usage-budget-service", () => ({
   grantIncludedUsage: mocks.grantIncludedUsage,
   addPurchasedUsage: mocks.addPurchasedUsage,
+  lockUsageWalletForUpdate: vi.fn(async () => ({})),
 }));
 
 vi.mock("@/server/audit/audit-service", () => ({
