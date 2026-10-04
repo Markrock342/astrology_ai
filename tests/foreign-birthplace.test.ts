@@ -39,3 +39,21 @@ describe("births outside Thailand", () => {
     expect(resolvePlaceCoords("ไทย", "กรุงเทพมหานคร", "พระนคร").utcOffsetMinutes).toBe(420);
   });
 });
+
+describe("Thai place names typed with prefixes", () => {
+  const bare = resolvePlaceCoords("ไทย", "นครราชสีมา", "โชคชัย");
+  it.each([
+    ["จ.นครราชสีมา", "อ.โชคชัย"],
+    ["จังหวัดนครราชสีมา", "อำเภอโชคชัย"],
+  ])("%s %s", (prov, dist) => {
+    expect(resolvePlaceCoords("ไทย", prov, dist)).toEqual(bare);
+  });
+
+  it("reads กทม and เขต", () => {
+    expect(resolvePlaceCoords("ไทย", "กทม", "เขตบางรัก")).toEqual(resolvePlaceCoords("ไทย", "กรุงเทพมหานคร", "บางรัก"));
+  });
+
+  it("reads a bare เมือง as the province's own district", () => {
+    expect(resolvePlaceCoords("ไทย", "นครราชสีมา", "เมือง")).toEqual(resolvePlaceCoords("ไทย", "นครราชสีมา", "เมืองนครราชสีมา"));
+  });
+});
