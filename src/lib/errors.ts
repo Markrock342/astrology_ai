@@ -29,6 +29,8 @@ export type AppErrorCode =
   | "QUOTA_EXCEEDED"
   | "FEATURE_DISABLED"
   | "NATAL_QA_DISABLED"
+  /** The site is in maintenance mode; admins are let through. */
+  | "MAINTENANCE"
   | "INTERNAL";
 
 const STATUS: Record<AppErrorCode, number> = {
@@ -55,6 +57,7 @@ const STATUS: Record<AppErrorCode, number> = {
   QUOTA_EXCEEDED: 403,
   FEATURE_DISABLED: 403,
   NATAL_QA_DISABLED: 422,
+  MAINTENANCE: 503,
   INTERNAL: 500,
 };
 

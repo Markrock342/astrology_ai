@@ -4,6 +4,7 @@ import { assertCanRequestReading } from "@/server/horoscope/access-policy";
 const mocks = vi.hoisted(() => ({
   getEffectivePlan: vi.fn(),
   findUser: vi.fn(),
+  maintenance: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -11,6 +12,9 @@ vi.mock("@/server/db", () => ({
 }));
 vi.mock("@/server/user/account-service", () => ({
   getEffectivePlan: mocks.getEffectivePlan,
+}));
+vi.mock("@/server/settings/settings-service", () => ({
+  getMaintenanceMode: mocks.maintenance,
 }));
 
 /** A verified, password-based Free account asking its first natal question. */
@@ -24,6 +28,7 @@ const FREE_HAPPY = {
 describe("free tier access policy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.maintenance.mockResolvedValue({ enabled: false, message: "" });
     mocks.getEffectivePlan.mockResolvedValue("FREE");
     mocks.findUser.mockResolvedValue({
       emailVerifiedAt: new Date(),
@@ -99,5 +104,33 @@ describe("free tier access policy", () => {
     ).resolves.toBe("PRO");
     // Pro must never be asked to verify an email to use what it paid for.
     expect(mocks.findUser).not.toHaveBeenCalled();
+  });
+});
+
+// QA 2026-10-04: maintenance mode hid the app pages, but the API still took
+// questions and spent AI.
+describe("maintenance mode", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getEffectivePlan.mockResolvedValue("PRO");
+    mocks.maintenance.mockResolvedValue({ enabled: true, message: "ปิดปรับปรุงถึง 18:00" });
+  });
+
+  it("refuses readings for members, Pro included", async () => {
+    mocks.findUser.mockResolvedValue({ role: "USER" });
+    await expect(assertCanRequestReading(FREE_HAPPY)).rejects.toMatchObject({
+      code: "MAINTENANCE",
+      message: "ปิดปรับปรุงถึง 18:00",
+    });
+  });
+
+  it("lets admins through to test", async () => {
+    mocks.findUser.mockResolvedValue({ role: "SUPER_ADMIN" });
+    await expect(assertCanRequestReading(FREE_HAPPY)).resolves.toBe("PRO");
+  });
+
+  it("carries on when the setting cannot be read", async () => {
+    mocks.maintenance.mockRejectedValue(new Error("db down"));
+    await expect(assertCanRequestReading(FREE_HAPPY)).resolves.toBe("PRO");
   });
 });
