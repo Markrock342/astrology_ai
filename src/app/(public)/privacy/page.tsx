@@ -8,7 +8,7 @@ export const revalidate = 60;
 
 export async function generateMetadata() {
   const seo = (await getPublishedSetting(CMS_KEYS.seoPrivacy)) as CmsSeo;
-  return metadataFromSeo(seo);
+  return metadataFromSeo(seo, { path: "/privacy" });
 }
 
 export default async function PrivacyPage() {

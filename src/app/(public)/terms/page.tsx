@@ -8,7 +8,7 @@ export const revalidate = 60;
 
 export async function generateMetadata() {
   const seo = (await getPublishedSetting(CMS_KEYS.seoTerms)) as CmsSeo;
-  return metadataFromSeo(seo);
+  return metadataFromSeo(seo, { path: "/terms" });
 }
 
 export default async function TermsPage() {

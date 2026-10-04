@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const seo =
     (await getSeoForPath("/pricing")) ??
     ((await getPublishedSetting(CMS_KEYS.seoPricing)) as CmsSeo);
-  return metadataFromSeo(seo);
+  return metadataFromSeo(seo, { path: "/pricing" });
 }
 
 export default async function PricingPage() {
