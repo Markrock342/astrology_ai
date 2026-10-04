@@ -95,9 +95,13 @@ function costOf(log: LogRow): number {
  */
 export async function getCostSummary(months = 0): Promise<CostSummary> {
   const now = new Date();
-  const { monthStart } = bangkokBoundaries(now);
-  const periodStart = new Date(monthStart);
-  periodStart.setUTCMonth(periodStart.getUTCMonth() - months);
+  // First of the month N months back, at Bangkok midnight. setUTCMonth on
+  // the UTC instant of a Bangkok midnight (the previous day, 17:00 UTC) landed
+  // a day early or late depending on month lengths.
+  const bkk = new Date(now.getTime() + 7 * 3_600_000);
+  const periodStart = new Date(
+    Date.UTC(bkk.getUTCFullYear(), bkk.getUTCMonth() - months, 1) - 7 * 3_600_000,
+  );
 
   const [logs, users, payments, calls, proPkg] = await Promise.all([
     prisma.aIUsageLog.findMany({

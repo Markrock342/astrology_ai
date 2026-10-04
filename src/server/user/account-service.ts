@@ -138,8 +138,14 @@ export async function getMe(userId: string) {
 }
 
 export async function getMyPackage(userId: string) {
+  // A live row only: an expired Pro still marked ACTIVE printed "Pro" on the
+  // account card next to "Pro หมดอายุแล้ว".
   const subscription = await prisma.userSubscription.findFirst({
-    where: { userId, status: "ACTIVE" },
+    where: {
+      userId,
+      status: "ACTIVE",
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    },
     orderBy: { createdAt: "desc" },
     select: {
       status: true,

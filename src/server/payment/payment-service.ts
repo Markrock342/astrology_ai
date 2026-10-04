@@ -1,3 +1,4 @@
+import { lockUsageWalletForUpdate } from "@/server/usage/usage-budget-service";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
@@ -209,6 +210,9 @@ export async function reviewPayment(
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    // One plan change per user at a time: an approval racing an admin
+    // set-plan left two ACTIVE subscriptions (both cancel-then-create).
+    if (input.status === "APPROVED") await lockUsageWalletForUpdate(payment.userId, tx);
     const cas = await tx.payment.updateMany({
       where: { id: paymentId, status: "PENDING" },
       data: {
