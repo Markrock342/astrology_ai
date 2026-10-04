@@ -9,10 +9,12 @@ import fit from '../data/suriyayat-planet-fit.json'
  * elongation from the Sun, fitted on 500 moments 1916–2040 from
  * astro.meemodel.com (matches myhora to the arc-minute). Held out:
  * Mercury/Venus median 15′ (max 1.5°), Mars 12′, Jupiter 5′ (max 18′),
- * Saturn 6′ (max 24′); sign right 97–100 of 100.
+ * Saturn 6′ (max 24′); sign right 97–100 of 100. Uranus (มฤตยู), added
+ * the same day: Lahiri was 4° off at the median (10° max, wrong sign 75 of
+ * 500); fitted, max 3.7′.
  */
 
-type PlanetKey = 'mercury' | 'venus' | 'mars' | 'jupiter' | 'saturn'
+type PlanetKey = 'mercury' | 'venus' | 'mars' | 'jupiter' | 'saturn' | 'uranus'
 
 const ELEMENTS: Record<PlanetKey, { M0: number; n: number; L0: number }> = {
   mercury: { M0: 174.7948, n: 4.09233445, L0: 252.2509 },
@@ -20,6 +22,7 @@ const ELEMENTS: Record<PlanetKey, { M0: number; n: number; L0: number }> = {
   mars: { M0: 19.373, n: 0.52402068, L0: 355.433 },
   jupiter: { M0: 20.0202, n: 0.08308529, L0: 34.3515 },
   saturn: { M0: 317.0207, n: 0.03344414, L0: 50.0774 },
+  uranus: { M0: 142.5905, n: 0.011725806, L0: 313.2322 },
 }
 
 const BY_THAI_NAME: Record<string, PlanetKey> = {
@@ -28,6 +31,7 @@ const BY_THAI_NAME: Record<string, PlanetKey> = {
   อังคาร: 'mars',
   พฤหัสบดี: 'jupiter',
   เสาร์: 'saturn',
+  มฤตยู: 'uranus',
 }
 
 const COEFFS = fit as Record<PlanetKey, number[]>
