@@ -82,6 +82,27 @@ describe("resuming a dropped stream", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the text and resumes when the socket resets mid-answer", async () => {
+    // QA 2026-10-04: undici raises TypeError("terminated") on a reset; the
+    // answer already on screen was saved as FAILED.
+    let pulls = 0;
+    const reset = new Response(new ReadableStream({
+      pull(c) {
+        if (pulls++ === 0) c.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(text("ครึ่งแรก"))}\n\n`));
+        else c.error(new TypeError("terminated"));
+      },
+    }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(reset)
+      .mockResolvedValueOnce(sse([text("ครึ่งหลัง"), { candidates: [{ content: { parts: [] }, finishReason: "STOP" }] }]));
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await new GeminiAdapter().streamGenerate(input, () => {});
+    expect(r.ok).toBe(true);
+    expect(r.rawText).toBe("ครึ่งแรกครึ่งหลัง");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("reads a final frame that has no trailing newline", async () => {
     const raw = `data: ${JSON.stringify(text("ครบ"))}\n\ndata: ${JSON.stringify({ candidates: [{ content: { parts: [] }, finishReason: "STOP" }] })}`;
     vi.stubGlobal("fetch", vi.fn(async () => new Response(raw)));
