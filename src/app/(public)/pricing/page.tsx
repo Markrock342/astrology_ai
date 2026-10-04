@@ -36,7 +36,7 @@ export default async function PricingPage() {
   const [section, paymentInfo, packages] = await Promise.all([
     cms(CMS_KEYS.landingPricingSection) as Promise<CmsLandingPricingSection>,
     cms(CMS_KEYS.paymentInfo) as Promise<CmsPaymentInfo>,
-    listPublicPackages(),
+    listPublicPackages().catch(() => []),
   ]);
 
   const pricingSection: CmsLandingPricingSection = {
