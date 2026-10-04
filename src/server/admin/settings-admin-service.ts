@@ -7,7 +7,7 @@ import {
   upsertSetting,
   getPublishedSetting,
 } from "@/server/settings/settings-service";
-import { recordRevision } from "@/server/admin/content-revision-service";
+import { recordBaselineIfFirstPublish, recordRevision } from "@/server/admin/content-revision-service";
 import { revalidatePath } from "next/cache";
 
 type Actor = { id: string; ip?: string };
@@ -61,6 +61,12 @@ export async function publishSetting(key: string, value: unknown, actor: Actor) 
   const cmsKey = key as CmsKey;
   const beforeRow = await listAllSettings().then((rows) => rows.find((r) => r.key === cmsKey));
   const beforePublished = beforeRow?.published ?? CMS_DEFAULTS[cmsKey];
+  await recordBaselineIfFirstPublish({
+    entityType: "APP_SETTING",
+    entityId: key,
+    snapshotJson: beforePublished,
+    actor,
+  });
 
   const updated = await upsertSetting(cmsKey, value, {
     draftValueJson: null,
