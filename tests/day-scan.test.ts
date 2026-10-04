@@ -104,3 +104,36 @@ describe("เล่าต่อ", () => {
     for (const q of ["เล่าต่อเรื่องงาน", "จะดีวันไหน", "ต่อสัญญาดีไหม"]) expect(isContinueRequest(q)).toBe(false);
   });
 });
+
+// QA 2026-10-04 (chat BUG-3/4/5).
+describe("periods the chat QA found misread", () => {
+  it("walks three months for ช่วง 3 เดือนนี้, not the rest of this month", () => {
+    const { days } = dayScanDates("ช่วง 3 เดือนนี้ ช่วงไหนดีเรื่องงาน", NOW);
+    expect(thaiDayLabel(days[0]!)).toBe("1 ต.ค. 2569");
+    expect(thaiDayLabel(days.at(-1)!)).toBe("31 ธ.ค. 2569");
+  });
+
+  it("reads อาทิตย์หน้า as next week", async () => {
+    const { detectReadingIntent } = await import("@/lib/reading-intent");
+    expect(detectReadingIntent("อาทิตย์หน้างานเป็นยังไง")).toBe("transit");
+    expect(detectReadingIntent("อาทิตย์นี้การเงินเป็นยังไง")).toBe("transit");
+  });
+
+  it("reads วันที่ 15 เดือนหน้า as a day, not a 15-month window", async () => {
+    const { monthSpanOf, resolveTransitWindow } = await import("@/lib/reading-intent");
+    expect(monthSpanOf("วันที่ 15 เดือนหน้าดีไหม")).toBeNull();
+    expect(monthSpanOf("วันที่ 3 เดือนหน้าดีไหม")).toBeNull();
+    expect(monthSpanOf("อีก 6 เดือนเป็นยังไง")).toBe(6);
+    expect(monthSpanOf("สามเดือนนี้")).toBe(3);
+    expect(monthSpanOf("ช่วง ๓ เดือน")).toBe(3);
+    const w = resolveTransitWindow("วันที่ 15 เดือนหน้าเซ็นสัญญาดีไหม", NOW, "2026-10-20");
+    expect(w.horizonAt).toBeNull();
+  });
+
+  it("walks next year for a milestone asked inside it", () => {
+    expect(isDayPickQuestion("ปีหน้าเดือนไหนเหมาะจะแต่งงาน")).toBe(true);
+    expect(isDayPickQuestion("ช่วงไหนดีที่จะแต่งงานปีหน้า")).toBe(true);
+    expect(dayScanDates("ปีหน้าเดือนไหนเหมาะจะแต่งงาน", NOW).days).toHaveLength(365);
+    expect(isDayPickQuestion("จะได้แต่งงานตอนอายุเท่าไหร่")).toBe(false);
+  });
+});

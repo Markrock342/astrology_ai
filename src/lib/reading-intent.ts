@@ -15,7 +15,7 @@ export type TransitWindow = {
 };
 
 const TRANSIT_HINT =
-  /ดวงจร|วันจร|ช่วงนี้|ตอนนี้|วันนี้|พรุ่งนี้|เดือนนี้|เดือนหน้า|สัปดาห์|ปีนี้|ปีหน้า|อนาคต|อีก\s*\d+\s*เดือน|ช่วง\s*\d+\s*เดือน|[3๓]\s*เดือน|สามเดือน|จะ(?:เป็น|ได้|มี|ไป|เจอ)|เมื่อ(?:ไหร่|ไร)|จังหวะ/;
+  /ดวงจร|วันจร|ช่วงนี้|ตอนนี้|วันนี้|พรุ่งนี้|เดือนนี้|เดือนหน้า|สัปดาห์|อาทิตย์(?:นี้|หน้า)|ปีนี้|ปีหน้า|อนาคต|อีก\s*\d+\s*เดือน|ช่วง\s*\d+\s*เดือน|[3๓]\s*เดือน|สามเดือน|จะ(?:เป็น|ได้|มี|ไป|เจอ)|เมื่อ(?:ไหร่|ไร)|จังหวะ/;
 
 export const FUTURE_DATE_PROMPT_TRIGGERS = [
   "explicit_date",
@@ -192,8 +192,8 @@ const FUTURE_DATE_PROMPT_RULES: ReadonlyArray<{
   },
   { trigger: "day_after_tomorrow", pattern: /มะรืน/ },
   { trigger: "tomorrow", pattern: /พรุ่งนี้/ },
-  { trigger: "week_next", pattern: /สัปดาห์หน้า/ },
-  { trigger: "week_current", pattern: /สัปดาห์นี้/ },
+  { trigger: "week_next", pattern: /สัปดาห์หน้า|อาทิตย์หน้า/ },
+  { trigger: "week_current", pattern: /สัปดาห์นี้|อาทิตย์นี้/ },
   { trigger: "month_next", pattern: /เดือนหน้า/ },
   { trigger: "month_current", pattern: /เดือนนี้/ },
   { trigger: "year_next", pattern: /ปีหน้า/ },
@@ -372,6 +372,23 @@ function rangeLabel(phrase: string, start: Date, end: Date): string {
 }
 
 /**
+ * "3 เดือน", "อีก 6 เดือน", "สามเดือนนี้" — a span of months. Not the day
+ * number of a date: "วันที่ 15 เดือนหน้า" used to read as a 15-month window.
+ */
+const MONTH_SPAN = /(?<!วันที่\s*[\d๐-๙]{0,2})(?<![\d๐-๙])([\d๐-๙]{1,2}|สาม|หก)\s*เดือน/;
+const THAI_DIGITS = "๐๑๒๓๔๕๖๗๘๙";
+
+export function monthSpanOf(question: string): number | null {
+  const hit = question.match(MONTH_SPAN);
+  if (!hit) return null;
+  const word = hit[1]!;
+  if (word === "สาม") return 3;
+  if (word === "หก") return 6;
+  const n = Number([...word].map((c) => (THAI_DIGITS.includes(c) ? THAI_DIGITS.indexOf(c) : c)).join(""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
  * Decide natal vs future, then pick the civil Bangkok instant(s) to compute.
  * `override` is an explicit วันจร the user picked.
  */
@@ -384,12 +401,7 @@ export function resolveTransitWindow(
   const picked = parseOverride(override);
   const q = question.trim();
 
-  const monthsHit = q.match(/(?:ช่วง|อีก)?\s*(\d+|[3๓]|สาม)\s*เดือน/);
-  const monthCount = monthsHit
-    ? monthsHit[1] === "สาม" || monthsHit[1] === "๓"
-      ? 3
-      : Number(monthsHit[1])
-    : null;
+  const monthCount = monthSpanOf(q);
 
   if (intent === "natal" && !picked && !monthCount) {
     return windowOf(intent, now, now, "พื้นดวงเดิม", now, null);
@@ -554,7 +566,7 @@ export function timelineIncludesPast(question: string): boolean {
  */
 const DAY_PICK_PATTERN =
   /วันไหน|วันใด|วันอะไรดี|วันดี|ฤกษ์|หาวัน|เลือกวัน|วันที่เหมาะ|วันที่ดี|ดีวันไหน|ควรเป็นวัน/;
-const PERIOD_PICK_PATTERN = /ช่วงไหน|ช่วงใด|เมื่อไหร่ดี|เมื่อไรดี|ตอนไหนดี|ช่วงที่เหมาะ|ช่วงที่ดี/;
+const PERIOD_PICK_PATTERN = /ช่วงไหน|ช่วงใด|เดือนไหน|เดือนใด|เมื่อไหร่ดี|เมื่อไรดี|ตอนไหนดี|ช่วงที่เหมาะ|ช่วงที่ดี/;
 const SHORT_PERIOD_PATTERN = /เดือนนี้|เดือนหน้า|สัปดาห์|อาทิตย์นี้|อาทิตย์หน้า|อีก\s*\d+\s*(วัน|เดือน)|\d+\s*เดือน|ปีนี้|ปีหน้า/;
 
 /**
@@ -575,8 +587,10 @@ const WHEN_PATTERN = /เมื่อไหร่|เมื่อไร|ตอ�
 export function isDayPickQuestion(question: string): boolean {
   const q = question.trim();
   if (DAY_PICK_PATTERN.test(q)) return true;
-  if (LIFE_SCALE_PATTERN.test(q)) return false;
+  // "ปีหน้าเดือนไหนเหมาะแต่งงาน": a milestone, but inside a named year — walk
+  // that year. Checked before LIFE_SCALE, which used to drop it to one day.
   if (PERIOD_PICK_PATTERN.test(q) && SHORT_PERIOD_PATTERN.test(q)) return true;
+  if (LIFE_SCALE_PATTERN.test(q)) return false;
   if (/เกณฑ์/.test(q)) return true;
   return EVENT_SIGN_PATTERN.test(q) && WHEN_PATTERN.test(q);
 }
@@ -605,6 +619,9 @@ export function dayScanDates(
     const pp = partsOf(pinnedAt);
     start = at9(pp.y, pp.m, pp.d);
     end = addCalendarDays(start, DAY_SCAN_DEFAULT_DAYS - 1);
+  } else if (monthSpanOf(q)) {
+    // "ช่วง 3 เดือนนี้" is three months, not the rest of this one.
+    end = addCalendarDays(addCalendarMonths(start, monthSpanOf(q)!), -1);
   } else if (/เดือนหน้า/.test(q)) {
     const first = addCalendarMonths(at9(p.y, p.m, 1), 1);
     start = first;
