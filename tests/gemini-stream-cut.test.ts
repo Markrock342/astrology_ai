@@ -110,3 +110,19 @@ describe("resuming a dropped stream", () => {
     expect(r.truncated).toBe(false);
   });
 });
+
+describe("billing a Gemini answer", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("counts thinking tokens as output, as Google bills them", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      sse([text("คำตอบ"), {
+        candidates: [{ content: { parts: [] }, finishReason: "STOP" }],
+        usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 100, thoughtsTokenCount: 400 },
+      }]),
+    ));
+    const r = await new GeminiAdapter().streamGenerate(input, () => {});
+    expect(r.usage?.outputTokens).toBe(500);
+  });
+});
+
