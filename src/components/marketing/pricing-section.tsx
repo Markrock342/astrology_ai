@@ -41,14 +41,43 @@ function displayFeatures(pkg: MarketingPackage): string[] {
   ];
 }
 
+/** Who is looking: buttons differ for a visitor, a Free member and a Pro member. */
+export type PricingViewer = "guest" | "FREE" | "PRO";
+
+type PlanAction = { label: string; href: string; current?: boolean } | null;
+
+/**
+ * The card's button for this viewer. Every card used to say "เริ่มฟรี" /
+ * "อัปเกรด Pro" and send everyone to sign-up, members included.
+ */
+function planAction(pkg: MarketingPackage, viewer: PricingViewer, paymentHref: string): PlanAction {
+  const isPro = pkg.type === "PRO";
+  if (viewer === "guest") return { label: "สมัครสมาชิก", href: "/login?tab=register" };
+  if (viewer === "FREE") {
+    return isPro
+      ? { label: "อัปเกรด Pro", href: paymentHref }
+      : { label: "คุณใช้แพ็กเกจนี้อยู่", href: "/dashboard", current: true };
+  }
+  // Pro: Free is behind them; their own card takes them back to the chat.
+  return isPro ? { label: "คุณใช้แพ็กเกจนี้อยู่", href: "/dashboard", current: true } : null;
+}
+
 export function PricingSection({
   section,
   packages,
   compact = false,
+  viewer = "guest",
+  paymentHref = "/pricing#payment",
+  bordered = true,
 }: {
   section: CmsLandingPricingSection;
   packages: MarketingPackage[];
   compact?: boolean;
+  viewer?: PricingViewer;
+  /** Where "อัปเกรด Pro" goes for a Free member. */
+  paymentHref?: string;
+  /** The top rule separates it from a section above; a page header has its own. */
+  bordered?: boolean;
 }) {
   const planPackages = packages.filter(
     (pkg) =>
@@ -61,7 +90,7 @@ export function PricingSection({
 
   return (
     <section
-      className={`border-t border-[var(--border)] bg-[var(--surface)]/40 px-6 ${
+      className={`${bordered ? "border-t border-[var(--border)]" : ""} bg-[var(--surface)]/40 px-6 ${
         compact ? "py-20" : "py-24"
       }`}
     >
@@ -126,18 +155,28 @@ export function PricingSection({
                     </li>
                   ))}
                 </ul>
-                <div className="mt-auto pt-6">
-                  <Link
-                    href="/login?tab=register"
-                    className={`press-scale block rounded-full px-5 py-2.5 text-center text-sm font-semibold transition ${
-                      highlight
-                        ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]"
-                        : "border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)]/40 hover:bg-[var(--surface-2)]"
-                    }`}
-                  >
-                    {highlight ? "อัปเกรด Pro" : "เริ่มฟรี"}
-                  </Link>
-                </div>
+                {(() => {
+                  const action = planAction(pkg, viewer, paymentHref);
+                  if (!action) return null;
+                  return (
+                    <div className="mt-auto pt-6">
+                      <Link
+                        href={action.href}
+                        aria-current={action.current ? "true" : undefined}
+                        className={`press-scale flex items-center justify-center gap-1.5 rounded-full px-5 py-2.5 text-center text-sm font-semibold transition ${
+                          action.current
+                            ? "border border-[var(--secondary-active)]/50 bg-[var(--secondary-active)]/10 text-[var(--secondary-active)] hover:bg-[var(--secondary-active)]/15"
+                            : highlight
+                              ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]"
+                              : "border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)]/40 hover:bg-[var(--surface-2)]"
+                        }`}
+                      >
+                        {action.current ? <CheckIcon /> : null}
+                        {action.label}
+                      </Link>
+                    </div>
+                  );
+                })()}
               </article>
             );
           })}
