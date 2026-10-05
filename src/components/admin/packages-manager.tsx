@@ -16,6 +16,7 @@ import {
   TextInput,
   Toggle,
 } from "../admin/ui";
+import { usdToThb } from "@/config/ai-pricing";
 
 type Package = {
   id: string;
@@ -245,8 +246,8 @@ export function PackagesManager({
               />
             </Field>
             <Field
-              label="งบ AI (หน่วยภายใน)"
-              hint="1,000,000 หน่วย = 1 USD; ผู้ใช้เห็นเป็น 100%"
+              label="งบ AI ต่อรอบแพ็กเกจ (หน่วยภายใน)"
+              hint={`ผู้ใช้เห็นงบนี้เป็น 100% แล้วลดลงตามที่ใช้ · ${form.usageBudgetUnits.toLocaleString("th-TH")} หน่วย ≈ ฿${usdToThb(form.usageBudgetUnits / 1_000_000).toLocaleString("th-TH", { maximumFractionDigits: 2 })} ค่า AI (1,000,000 หน่วย = 1 USD)`}
             >
               <TextInput
                 type="number"
@@ -277,7 +278,7 @@ export function PackagesManager({
             </Field>
             <Field
               label="ขั้นตอนอัปเกรด Pro (แพ็กเกจ Pro เท่านั้น)"
-              hint="หนึ่งบรรทัดต่อหนึ่งขั้นตอน — แสดงในหน้าบัญชีผู้ใช้"
+              hint="หนึ่งบรรทัดต่อหนึ่งขั้นตอน — แสดงในหน้าบัญชีของผู้ใช้ที่ยังไม่เป็น Pro เหนือฟอร์มส่งสลิป"
             >
               <TextArea
                 rows={5}
