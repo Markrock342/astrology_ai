@@ -89,6 +89,16 @@ function buildContents(input: GenerateAIInput) {
  * Gemini REST adapter (server-only). Model id comes from Admin CMS.
  * Never throws; returns ok:false on errors.
  */
+/**
+ * Google bills thinking tokens at the output rate, but reports them apart
+ * from candidatesTokenCount. Counting only the answer under-stated every
+ * reading's cost on the profit page and under-charged users' usage.
+ */
+function billedOutputTokens(answer: number | undefined, thinking: number | undefined): number | undefined {
+  if (answer == null && thinking == null) return undefined;
+  return (answer ?? 0) + (thinking ?? 0);
+}
+
 export class GeminiAdapter implements AIProviderAdapter {
   async generate(input: GenerateAIInput): Promise<GenerateAIResult> {
     const start = Date.now();
@@ -165,7 +175,10 @@ export class GeminiAdapter implements AIProviderAdapter {
         parsed: parseHoroscopeText(rawText),
         usage: {
           inputTokens: data.usageMetadata?.promptTokenCount,
-          outputTokens: data.usageMetadata?.candidatesTokenCount,
+          outputTokens: billedOutputTokens(
+            data.usageMetadata?.candidatesTokenCount,
+            data.usageMetadata?.thoughtsTokenCount,
+          ),
           cachedTokens: data.usageMetadata?.cachedContentTokenCount,
         },
         latencyMs,
@@ -443,7 +456,7 @@ export class GeminiAdapter implements AIProviderAdapter {
         modelId: input.modelId,
         rawText: text,
         parsed: parseHoroscopeText(text),
-        usage: { inputTokens, outputTokens, cachedTokens },
+        usage: { inputTokens, outputTokens: billedOutputTokens(outputTokens, thoughtTokens), cachedTokens },
         latencyMs,
         // Two signals, because the first one demonstrably misses: a real answer
         // came back cut MID-WORD with finishReason unset while text(661) +
@@ -467,7 +480,7 @@ export class GeminiAdapter implements AIProviderAdapter {
           modelId: input.modelId,
           rawText: rawText.trim(),
           parsed: parseHoroscopeText(rawText.trim()),
-          usage: { inputTokens, outputTokens, cachedTokens },
+          usage: { inputTokens, outputTokens: billedOutputTokens(outputTokens, thoughtTokens), cachedTokens },
           latencyMs: Date.now() - start,
         };
       }
@@ -482,7 +495,7 @@ export class GeminiAdapter implements AIProviderAdapter {
           modelId: input.modelId,
           rawText: rawText.trim(),
           parsed: parseHoroscopeText(rawText.trim()),
-          usage: { inputTokens, outputTokens, cachedTokens },
+          usage: { inputTokens, outputTokens: billedOutputTokens(outputTokens, thoughtTokens), cachedTokens },
           latencyMs: Date.now() - start,
           truncated: true,
           truncatedBy: "connection",
