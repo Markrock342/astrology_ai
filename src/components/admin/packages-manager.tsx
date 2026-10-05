@@ -16,7 +16,13 @@ import {
   TextInput,
   Toggle,
 } from "../admin/ui";
-import { usdToThb } from "@/config/ai-pricing";
+import {
+  questionsToUnits,
+  thbToUnits,
+  typicalQuestionThb,
+  unitsToQuestions,
+  unitsToThb,
+} from "@/lib/usage-budget-display";
 
 type Package = {
   id: string;
@@ -188,8 +194,8 @@ export function PackagesManager({
       <InfoBox>
         <strong className="text-[var(--foreground)]">Free</strong> = ผู้ใช้ทั่วไป ·{" "}
         <strong className="text-[var(--foreground)]">Pro</strong> = ใช้ AI ได้ ·{" "}
-        <strong className="text-[var(--foreground)]">งบ AI</strong> = ต้นทุนรวมที่ผู้ใช้เห็นเป็น 100%
-        · 1,000,000 หน่วย = 1 USD · จำกัดต่อวัน/เดือน = anti-abuse
+        <strong className="text-[var(--foreground)]">งบ AI</strong> = ค่า AI สูงสุดต่อคนต่อรอบ
+        ตั้งเป็น «จำนวนคำถาม» หรือ «บาท» ก็ได้ ผู้ใช้เห็นงบของแพ็กเกจตัวเองเป็น 100% แล้วลดลงตามที่ใช้
       </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
@@ -246,15 +252,36 @@ export function PackagesManager({
               />
             </Field>
             <Field
-              label="งบ AI ต่อรอบแพ็กเกจ (หน่วยภายใน)"
-              hint={`ผู้ใช้เห็นงบนี้เป็น 100% แล้วลดลงตามที่ใช้ · ${form.usageBudgetUnits.toLocaleString("th-TH")} หน่วย ≈ ฿${usdToThb(form.usageBudgetUnits / 1_000_000).toLocaleString("th-TH", { maximumFractionDigits: 2 })} ค่า AI (1,000,000 หน่วย = 1 USD)`}
+              label="ถามได้ประมาณ (คำถามต่อรอบ)"
+              hint={`คิดจากคำถามทั่วไปราว ฿${typicalQuestionThb().toFixed(2)} ต่อข้อ — คำตอบยาวหรือดูดวงภาพรวมใช้มากกว่า`}
             >
               <TextInput
                 type="number"
                 min={0}
-                value={form.usageBudgetUnits}
+                value={unitsToQuestions(form.usageBudgetUnits)}
                 onChange={(e) =>
-                  setForm({ ...form, usageBudgetUnits: Number(e.target.value) })
+                  setForm({ ...form, usageBudgetUnits: questionsToUnits(Number(e.target.value)) })
+                }
+              />
+            </Field>
+            <Field
+              label="งบ AI ต่อคนต่อรอบ (บาท)"
+              hint={(() => {
+                const proUnits = packages.find((p) => p.type === "PRO" && p.code === "PRO")?.usageBudgetUnits ?? 0;
+                const pct =
+                  proUnits > 0 && form.type !== "PRO" && form.code !== "PRO"
+                    ? ` · = ${Math.round((form.usageBudgetUnits / proUnits) * 100)}% ของงบ Pro`
+                    : "";
+                return `ผู้ใช้เห็นงบนี้เป็น 100% แล้วลดลงตามที่ใช้${pct} · ${form.usageBudgetUnits.toLocaleString("th-TH")} หน่วยภายใน`;
+              })()}
+            >
+              <TextInput
+                type="number"
+                min={0}
+                step="0.5"
+                value={Math.round(unitsToThb(form.usageBudgetUnits) * 100) / 100}
+                onChange={(e) =>
+                  setForm({ ...form, usageBudgetUnits: thbToUnits(Number(e.target.value)) })
                 }
               />
             </Field>
@@ -319,7 +346,10 @@ export function PackagesManager({
               </span>
               <Badge tone="gold">{pkg.type === "PRO" ? "Pro" : "ฟรี"}</Badge>
               <Badge>฿{pkg.price}</Badge>
-              <Badge>{pkg.usageBudgetUnits.toLocaleString("th-TH")} usage units</Badge>
+              <Badge>
+                ≈ {unitsToQuestions(pkg.usageBudgetUnits)} คำถาม · งบ ฿
+                {(Math.round(unitsToThb(pkg.usageBudgetUnits) * 100) / 100).toLocaleString("th-TH")}
+              </Badge>
               {!pkg.enabled && <Badge tone="red">ปิดอยู่</Badge>}
               <div className="ml-auto flex gap-2">
                 <Button variant="ghost" onClick={() => startEdit(pkg)}>
