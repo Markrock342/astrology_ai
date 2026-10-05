@@ -111,6 +111,7 @@ import { buildKnowledgePromptWithTrace } from "@/server/horoscope/knowledge-retr
 import type { ReadingPromptTrace, TracePlanet } from "@/types/reading-trace";
 import { findWrongLordClaims } from "@/lib/answer-facts";
 import { buildHouseChains } from "@/lib/house-chains";
+import { repairScriptGlitches } from "@/server/ai/script-repair";
 
 export { buildKnowledgePrompt } from "@/server/horoscope/knowledge-retrieval";
 
@@ -849,12 +850,14 @@ async function runReading(
     // "ran out of room, type เล่าต่อ" would be a lie.
     // A cut connection gets its own wording: "ran out of room" would blame
     // the answer mode for what was a dropped stream.
+    // Gemini sometimes drops another script into a Thai word; mend those lines.
+    const cleanText = await repairScriptGlitches(result.rawText, userId);
     const answerText =
       result.truncated && !result.stopped
         ? result.truncatedBy === "connection"
-          ? `${result.rawText.trimEnd()}\n\n*การเชื่อมต่อกับระบบ AI ขาดกลางคำตอบ — กด “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
-          : `${result.rawText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
-        : result.rawText;
+          ? `${cleanText.trimEnd()}\n\n*การเชื่อมต่อกับระบบ AI ขาดกลางคำตอบ — กด “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
+          : `${cleanText.trimEnd()}\n\n*คำตอบยาวถึงเพดานของโหมดคำตอบ — พิมพ์ “เล่าต่อ” เพื่อฟังส่วนที่เหลือ*`
+        : cleanText;
 
     const creditCost = 0;
     // The answer's "เจ้าเรือน…" claims against the chart, kept on the trace so
