@@ -618,7 +618,8 @@ export async function completePendingMessage(
 
     // Memory, off the answer's path: what the user said about themselves,
     // and the chat's running summary once it outgrows the history window.
-    if (reading.status === "SUCCESS" && !purpose) {
+    // EVAL_NO_AUX: the answer test suite on a rate-limited key skips the side calls.
+    if (reading.status === "SUCCESS" && !purpose && process.env.EVAL_NO_AUX !== "1") {
       void Promise.allSettled([
         rememberFromTurn({ userId: input.userId, conversationId: conversation.id, userMessage: input.content }),
         foldThreadSummary({ conversationId: conversation.id, userId: input.userId }),

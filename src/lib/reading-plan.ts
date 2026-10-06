@@ -2,6 +2,7 @@ import {
   detectFutureDatePromptTrigger,
   detectReadingIntent,
   isDayPickQuestion,
+  isCorrectionMessage,
   isFollowUpQuestion,
   isPastEventQuestion,
   isPinpointQuestion,
@@ -40,6 +41,14 @@ export type ReadingPlan = {
   /** The question a life timeline is built for, if any. */
   timelineQuestion: string | null;
   relationship: boolean;
+  /** The user says the answer before was wrong. */
+  correction: boolean;
+  /**
+   * พ.ศ. years given in answers the user then called wrong. A 24-year-old was
+   * told the same break-up year again after "ผิดแล้ว เอาใหม่"; those years are
+   * now taken out of what the model can pick from.
+   */
+  rejectedYears: number[];
   /** What the answer is read from, as shown above it. */
   basis: "timeline-past" | "timeline" | "day-scan" | "day-check" | "transit" | "natal";
 };
@@ -103,6 +112,18 @@ export function planReading(input: {
     Boolean(input.hasCompanions) ||
     recentUser.slice(0, 2).some(isRelationshipQuestion);
 
+  const correction = !continuing && isCorrectionMessage(question);
+  const rejectedYears = new Set<number>();
+  if (correction) {
+    const thread = [...(input.priorMessages ?? []), { role: "USER" as const, content: question }];
+    thread.forEach((m, i) => {
+      if (m.role !== "ASSISTANT") return;
+      const reply = thread.slice(i + 1).find((x) => x.role === "USER" && !isContinueRequest(x.content));
+      if (!reply || !isCorrectionMessage(reply.content)) return;
+      for (const y of m.content.match(/25\d\d/g) ?? []) rejectedYears.add(Number(y));
+    });
+  }
+
   const timeline = !dayPick && Boolean(timelineQuestion);
   const basis: ReadingPlan["basis"] = timeline
     ? pastEvent
@@ -128,6 +149,8 @@ export function planReading(input: {
     pastEvent,
     timelineQuestion: timeline ? timelineQuestion : null,
     relationship,
+    correction,
+    rejectedYears: [...rejectedYears].sort((a, b) => a - b),
     basis,
   };
 }

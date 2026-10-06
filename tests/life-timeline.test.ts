@@ -152,7 +152,7 @@ describe("a whole-life timeline", () => {
       now: new Date("2026-10-01T03:00:00Z"),
     })!;
     expect(text).toContain("ช่วง ต.ค. 2569 ถึง พ.ย. 2634");
-    expect(text).toContain("นอกปฏิทินดาว 100 ปี");
+    expect(text).toContain("เดือนอาจคลาดได้ 1–2 เดือน");
     expect(text).not.toMatch(/อายุ 0 ·/);
     expect(text.split("\n").filter((l) => l.startsWith("- "))).toHaveLength(20);
   });

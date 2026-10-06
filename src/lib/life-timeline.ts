@@ -288,7 +288,7 @@ export function formatLifeTimelineForPrompt(t: LifeTimeline, opts: { past?: bool
     const outside = e.at.getUTCFullYear() < 1941 || e.at.getUTCFullYear() > 2040;
     lines.push(
       `- ${thaiMonthYear(e.at)} · อายุ ${e.age} · ${facts.join(" · ")}` +
-        (outside ? " · (นอกปฏิทินดาว 100 ปี เดือนอาจคลาดได้ไม่กี่เดือน)" : ""),
+        (outside ? " · (เดือนอาจคลาดได้ 1–2 เดือน)" : ""),
     );
   }
   return lines;

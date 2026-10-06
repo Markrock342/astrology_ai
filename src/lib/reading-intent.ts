@@ -672,12 +672,33 @@ export function isTimelineQuestion(question: string): boolean {
  * 24. The years lived are walked instead, and nothing after today.
  */
 const PAST_PATTERN =
-  /เคย|ที่ผ่านมา|เมื่อก่อน|ตอนนั้น|สมัยก่อน|ไปแล้ว|กันแล้ว|เกิดขึ้นแล้ว|ย้อนหลัง|ย้อนไป|ทำไม(?:เรา|ผม|ฉัน|หนู|กู)?(?:สองคน)?ถึง|(?:เลิก|แยก|หย่า|เสีย|ตกงาน|ลาออก)กัน?(?:ช่วงไหน|ตอนไหน|เมื่อไหร่|เมื่อไร|ตอนอายุ)/;
+  /เคย|งานแรก|(?:คน|ครั้ง|หลัง|คัน)แรก(?:ตอน|เมื่อ|ช่วง)|ที่ผ่านมา|เมื่อก่อน|ตอนนั้น|สมัยก่อน|ไปแล้ว|กันแล้ว|เกิดขึ้นแล้ว|ย้อนหลัง|ย้อนไป|ทำไม(?:เรา|ผม|ฉัน|หนู|กู)?(?:สองคน)?ถึง|(?:เลิก|แยก|หย่า|เสีย|ตกงาน|ลาออก)กัน?(?:ช่วงไหน|ตอนไหน|เมื่อไหร่|เมื่อไร|ตอนอายุ)/;
 const FUTURE_MARK = /จะ(?:ได้|มี|เจอ|กลับ|เลิก|แต่ง|เป็น)|อนาคต|ข้างหน้า|ปีหน้า|เดือนหน้า/;
 
 export function isPastEventQuestion(question: string): boolean {
   const q = question.trim();
   return PAST_PATTERN.test(q) && !FUTURE_MARK.test(q);
+}
+
+/** "ผิดแล้ว เอาใหม่", "ไม่ใช่ช่วงนั้น" — the user says the last answer was wrong. */
+const CORRECTION = /ผิด(?:แล้ว|นะ|อ่ะ|อะ|ครับ|ค่ะ|\s|$)|ไม่ใช่(?:นะ|แล้ว|ช่วง|ปี|ตอน|อายุ|\s|$)|ไม่ตรง|ไม่ถูก|เอาใหม่|ไม่จริง|มั่ว/;
+export function isCorrectionMessage(message: string): boolean {
+  return CORRECTION.test(message.trim());
+}
+
+/**
+ * Youngest age a past event of this kind is looked for at. Graders found
+ * divorces at 13 and job losses at 12 from a walk that started at 12 for all.
+ */
+export function pastEventStartAge(question: string): number {
+  if (/งาน|อาชีพ|เงิน|หนี้|ธุรกิจ|ลงทุน|กิจการ|แต่ง|หย่า|สามี|ภรรยา|เมีย|ผัว|บ้าน|รถ|ที่ดิน|คดี|ลาออก|เจ้านาย/.test(question)) return 18;
+  if (/แฟน|รัก|คบ|เลิก|คนคุย|กิ๊ก|นอกใจ/.test(question)) return 16;
+  return 12;
+}
+
+/** Asks whether something will happen at all ("จะกลับมาเจอกันอีกไหม"). */
+export function isWillItHappenQuestion(question: string): boolean {
+  return /(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า|หรือไม่)/.test(question) && /จะ|อีก/.test(question);
 }
 
 /** Love and partners: a timeline about them weighs ปัตนิ and ปุตตะ, not career. */

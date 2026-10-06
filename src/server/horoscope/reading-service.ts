@@ -63,6 +63,7 @@ import {
   BRIEF_ANSWER_HINT,
   DIRECT_ANSWER_HINT,
   TIMELINE_DIRECT_HINT,
+  PAST_TIMELINE_DIRECT_HINT,
   BRIEF_MAX_OUTPUT_TOKENS_FREE,
   BRIEF_MAX_OUTPUT_TOKENS_PRO,
   DETAILED_ANSWER_HINT_FREE,
@@ -105,6 +106,8 @@ import { repairScriptGlitches } from "@/server/ai/script-repair";
 import { planReading } from "@/lib/reading-plan";
 import { findWrongTaksaClaims } from "@/lib/answer-facts";
 import { rewriteWrongClaims } from "@/server/ai/fact-repair";
+import { leadWithDay } from "@/lib/day-scan";
+import { tidyAnswer } from "@/lib/answer-tidy";
 import { formatQuestionFocus } from "@/lib/question-topics";
 import { computeTransitTaksaByAge } from "@/lib/taksa";
 
@@ -565,6 +568,7 @@ async function runReading(
         categorySlug,
         past: pastEvent,
         relationship,
+        rejectedYears: readingPlan.rejectedYears,
       })
     : null;
 
@@ -619,8 +623,9 @@ async function runReading(
     systemPrompt = `${systemPrompt}\n\n${COMPANION_RULE}`;
   }
   const overview = isOverviewQuestion(intentQuestion);
-  if (pinpoint) {
-    systemPrompt = `${systemPrompt}\n\n${timelineText ? TIMELINE_DIRECT_HINT : DIRECT_ANSWER_HINT}`;
+  // A past event is one period with reasons, asked directly or not.
+  if (pinpoint || (timelineText && pastEvent)) {
+    systemPrompt = `${systemPrompt}\n\n${timelineText ? (pastEvent ? PAST_TIMELINE_DIRECT_HINT : TIMELINE_DIRECT_HINT) : DIRECT_ANSWER_HINT}`;
   } else if (answerMode === "brief") {
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
   } else if (overview) {
@@ -861,7 +866,11 @@ async function runReading(
     // Gemini sometimes drops another script into a Thai word; mend those lines.
     // Gemini sometimes drops another script into a Thai word; mend those lines.
     // Planet digits in brackets ("ดาวพฤหัสบดี (๕)") mean nothing to a reader.
-    let cleanText = (await repairScriptGlitches(result.rawText, userId)).replace(/\s*\([๐-๙]\)/g, "");
+    // Block names, English months and a wrong weekday on a date are fixed in place.
+    let cleanText = tidyAnswer(
+      (await repairScriptGlitches(result.rawText, userId)).replace(/\s*\([๐-๙]\)/g, ""),
+      new Date(),
+    );
 
     // House lords and ทักษาจร checked against the chart. A wrong one is
     // rewritten in place; only what survives the rewrite gets a footnote.
@@ -893,6 +902,8 @@ async function runReading(
       facts = checkFacts(cleanText);
     }
     const factIssues = facts.lords;
+    // A question about one named day is answered with that day in front.
+    if (checkDay && !dayPick && !continuing) cleanText = leadWithDay(cleanText, new Date(checkDay));
     const answerText =
       result.truncated && !result.stopped
         ? result.truncatedBy === "connection"
@@ -1038,7 +1049,10 @@ async function runReading(
         where: { id: created.id },
         data: { usageCostUnits },
       });
-    });
+      // The answer is already paid for and written by now: a slow database
+      // (several round trips for the charge and logs) must not throw it away
+      // at Prisma's 5-second default.
+    }, { maxWait: 10_000, timeout: 20_000 });
 
     // Meta (summaryLine + follow-up chips) is a second Flash-Lite call. Awaiting
     // it here used to hold the SSE `done` event — and with it the caret, the
