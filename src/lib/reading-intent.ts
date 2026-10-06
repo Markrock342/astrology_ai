@@ -407,8 +407,16 @@ function parseOverride(raw?: string | Date | null): Date | null {
  * "การงานเป็นยังไง" — is read from the natal chart. A user-picked date still
  * wins in resolveTransitWindow regardless of wording.
  */
+/**
+ * "คู่ครองของผมจะเป็นคนแบบไหน" asks what a partner is like — the birth chart —
+ * though "จะเป็น" reads as future. Without a period named, it stays natal.
+ */
+const NATURE_ASK = /(?:คน|แบบ|ลักษณะ|นิสัย|บุคลิก|สไตล์)(?:แบบ)?ไหน|ลักษณะ|นิสัย|บุคลิก|หน้าตา/;
+const NAMED_TIME = /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์(?:นี้|หน้า)|เดือน|ปีนี้|ปีหน้า|ปี\s*25\d\d|ช่วงนี้|ตอนนี้|เมื่อไหร่|เมื่อไร|อีก\s*\d/;
+
 export function detectReadingIntent(question: string): ReadingIntent {
   const q = question.trim();
+  if (NATURE_ASK.test(q) && !NAMED_TIME.test(q)) return "natal";
   if (TRANSIT_HINT.test(q)) return "transit";
   // Every wording the future-date modal recognises (มะรืน, สองวันข้างหน้า,
   // อีก ๕ วัน, วันที่ 20/10 …) is a transit question too.
@@ -674,7 +682,7 @@ export function isPastEventQuestion(question: string): boolean {
 
 /** Love and partners: a timeline about them weighs ปัตนิ and ปุตตะ, not career. */
 const RELATIONSHIP_PATTERN =
-  /แฟน|คนรัก|ความรัก|เนื้อคู่|คู่ครอง|คู่รัก|สามี|ภรรยา|เมีย|ผัว|แต่งงาน|หย่า|เลิกกัน|เลิกรา|แยกทาง|คืนดี|กลับมา(?:เจอ|คบ|คืนดี|รัก)|ความสัมพันธ์|จีบ|คบกัน|อกหัก/;
+  /แฟน|คนรัก|ความรัก|เนื้อคู่|คู่ครอง|คู่รัก|สามี|ภรรยา|เมีย|ผัว|แต่งงาน|หย่า|เลิกกัน|เลิกรา|แยกทาง|คืนดี|กลับมา(?:เจอ|คบ|คืนดี|รัก)|ความสัมพันธ์|จีบ|คบ|อกหัก|เข้ากัน|โสด|คนคุย|กิ๊ก|นอกใจ|สมพงษ์|ดวงคู่|ชอบ(?:เขา|เธอ|เค้า)/;
 
 export function isRelationshipQuestion(question: string): boolean {
   return RELATIONSHIP_PATTERN.test(question);
