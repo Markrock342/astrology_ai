@@ -21,3 +21,9 @@ describe("other scripts inside Thai words", () => {
     expect(findGlitchedLines(out)).toEqual([]);
   });
 });
+
+describe("Latin letters with Vietnamese marks", () => {
+  it("are caught too (graders saw \"yến\" in an answer)", () => {
+    expect(findGlitchedLines("ดาวพฤหัสบดีให้ผล yến ดีต่อการเงิน")).toEqual([0]);
+  });
+});

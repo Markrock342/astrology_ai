@@ -103,6 +103,10 @@ import { findWrongLordClaims } from "@/lib/answer-facts";
 import { buildHouseChains } from "@/lib/house-chains";
 import { repairScriptGlitches } from "@/server/ai/script-repair";
 import { planReading } from "@/lib/reading-plan";
+import { findWrongTaksaClaims } from "@/lib/answer-facts";
+import { rewriteWrongClaims } from "@/server/ai/fact-repair";
+import { formatQuestionFocus } from "@/lib/question-topics";
+import { computeTransitTaksaByAge } from "@/lib/taksa";
 
 export { buildKnowledgePrompt } from "@/server/horoscope/knowledge-retrieval";
 
@@ -564,6 +568,23 @@ async function runReading(
       })
     : null;
 
+  // This period's ทักษาจร, named for the model and checked in its answer —
+  // graders found one person's answers giving different ทักษาจร. Not for a
+  // birth-chart answer, nor a timeline (each year has its own).
+  const taksaSlots =
+    !timelineText && transitWindow.intent === "transit"
+      ? computeTransitTaksaByAge(natalChart.input, transitWindow.sampleAt).slots.filter((x) => x.planet)
+      : null;
+  const taksaNowText = taksaSlots?.length
+    ? `[taksa_now] ทักษาจรของผู้ถามในช่วงที่ถาม (ใช้ชื่อตามนี้เท่านั้น ห้ามเรียกดาวว่าเป็นทักษาจรอื่น): ${taksaSlots
+        .map((x) => `${x.taksa} = ${x.planet}`)
+        .join(" · ")}`
+    : null;
+  // The houses the question is about, by the team's topic table.
+  const questionFocusText = profile.birthTimeKnown
+    ? formatQuestionFocus(intentQuestion, natalChart.chart?.lagna ?? natalChart.meta.lagna)
+    : null;
+
   // Shown above the answer, so the reader knows what it was read from.
   const basis = timelineText
     ? pastEvent
@@ -637,6 +658,8 @@ async function runReading(
       intakeText: intakeAnswers ? formatIntakeForPrompt(intakeAnswers) : null,
       userContextText: formatUserAiMemoryForPrompt(userAiMemory),
       userFactsText: formatUserFactsForPrompt(userAiMemory),
+      questionFocusText,
+      taksaNowText,
       threadSummaryText: input.threadSummary ?? null,
     },
   );
@@ -836,7 +859,40 @@ async function runReading(
     // A cut connection gets its own wording: "ran out of room" would blame
     // the answer mode for what was a dropped stream.
     // Gemini sometimes drops another script into a Thai word; mend those lines.
-    const cleanText = await repairScriptGlitches(result.rawText, userId);
+    // Gemini sometimes drops another script into a Thai word; mend those lines.
+    // Planet digits in brackets ("ดาวพฤหัสบดี (๕)") mean nothing to a reader.
+    let cleanText = (await repairScriptGlitches(result.rawText, userId)).replace(/\s*\([๐-๙]\)/g, "");
+
+    // House lords and ทักษาจร checked against the chart. A wrong one is
+    // rewritten in place; only what survives the rewrite gets a footnote.
+    const chains = buildHouseChains({
+      lagna: natalChart.chart?.lagna ?? natalChart.meta.lagna,
+      planets: natalChart.planets,
+      taksa: natalChart.chart?.taksa,
+    });
+    const checkFacts = (text: string) => ({
+      lords: findWrongLordClaims(text, chains),
+      taksa: taksaSlots ? findWrongTaksaClaims(text, taksaSlots) : [],
+    });
+    let facts = checkFacts(cleanText);
+    if (facts.lords.length || facts.taksa.length) {
+      console.warn(
+        `[answer-facts] ${[
+          ...facts.lords.map((i) => `${i.claimed}≠เจ้าเรือน${i.houseName}(${i.actual})`),
+          ...facts.taksa.map((i) => `${i.planet}≠${i.claimed}(${i.actual})`),
+        ].join(", ")}`,
+      );
+      cleanText = await rewriteWrongClaims(
+        cleanText,
+        [
+          ...facts.lords.map((i) => ({ excerpt: i.excerpt, truth: `เจ้าเรือน${i.houseName}คือ${i.actual} (ไม่ใช่${i.claimed})` })),
+          ...facts.taksa.map((i) => ({ excerpt: i.excerpt, truth: `ในช่วงนี้${i.planet}เป็น${i.actual} (ไม่ใช่${i.claimed})` })),
+        ],
+        userId,
+      );
+      facts = checkFacts(cleanText);
+    }
+    const factIssues = facts.lords;
     const answerText =
       result.truncated && !result.stopped
         ? result.truncatedBy === "connection"
@@ -845,26 +901,11 @@ async function runReading(
         : cleanText;
 
     const creditCost = 0;
-    // The answer's "เจ้าเรือน…" claims against the chart, kept on the trace so
-    // the admin reading review can show them.
-    const factIssues = findWrongLordClaims(
-      result.rawText,
-      buildHouseChains({
-        lagna: natalChart.chart?.lagna ?? natalChart.meta.lagna,
-        planets: natalChart.planets,
-        taksa: natalChart.chart?.taksa,
-      }),
-    );
-    if (factIssues.length) {
-      console.warn(`[answer-facts] ${factIssues.map((i) => `${i.claimed}≠เจ้าเรือน${i.houseName}(${i.actual})`).join(", ")}`);
-    }
-    // The answer has streamed; a wrong lord cannot be unsaid, but it is
-    // corrected in the same message instead of left standing.
-    const responseText = factIssues.length
-      ? `${answerText.trimEnd()}\n\n*แก้ไข: ${factIssues
-          .map((i) => `เจ้าเรือน${i.houseName}ในดวงของคุณคือ${i.actual} ไม่ใช่${i.claimed}`)
-          .join(" · ")}*`
-      : answerText;
+    const leftover = [
+      ...facts.lords.map((i) => `เจ้าเรือน${i.houseName}ในดวงของคุณคือ${i.actual} ไม่ใช่${i.claimed}`),
+      ...facts.taksa.map((i) => `ช่วงนี้${i.planet}เป็น${i.actual} ไม่ใช่${i.claimed}`),
+    ];
+    const responseText = leftover.length ? `${answerText.trimEnd()}\n\n*แก้ไข: ${leftover.join(" · ")}*` : answerText;
     // Providers normally return authoritative counts. If a compatible endpoint
     // omits them, meter conservatively from text length instead of making that
     // model accidentally unlimited. The pricingVersion marks the fallback.

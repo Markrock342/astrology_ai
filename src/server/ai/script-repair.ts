@@ -9,7 +9,7 @@ import { resolveAuxConfig } from "@/server/horoscope/follow-up-suggestions";
  * If that fails, the stray letters are at least removed.
  */
 const FOREIGN_SCRIPT =
-  /[֐-׿؀-ۿݐ-ݿࢠ-ࣿЀ-ӿऀ-ॿঀ-৿຀-໿က-႟ក-៿぀-ヿ㐀-鿿가-힯ﭐ-﷿ﹰ-﻿]/;
+  /[À-ɏḀ-ỿ֐-׿؀-ۿݐ-ݿࢠ-ࣿЀ-ӿऀ-ॿঀ-৿຀-໿က-႟ក-៿぀-ヿ㐀-鿿가-힯ﭐ-﷿ﹰ-﻿]/;
 const FOREIGN_SCRIPT_G = new RegExp(FOREIGN_SCRIPT.source, "g");
 /** Latin letters wedged inside a Thai word, no space either side ("ปakเ"). */
 const LATIN_IN_THAI = /[ก-๎][A-Za-z]{1,3}[ก-๎]/;

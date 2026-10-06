@@ -39,3 +39,14 @@ describe("house-lord claims in an answer", () => {
     expect(line).toContain("ภพ 1 ตนุ (กันย์) = พุธ");
   });
 });
+
+describe("ทักษาจร claims in an answer", () => {
+  it("catches a planet given someone else's role", async () => {
+    const { findWrongTaksaClaims } = await import("@/lib/answer-facts");
+    const slots = [{ planet: "ราหู", taksa: "ศรีจร" }, { planet: "พฤหัสบดี", taksa: "มนตรีจร" }];
+    expect(findWrongTaksaClaims("ดาวพฤหัสบดี (๕) ซึ่งเป็นศรีจรในปีนี้", slots)).toMatchObject([
+      { planet: "พฤหัสบดี", claimed: "ศรีจร", actual: "มนตรีจร" },
+    ]);
+    expect(findWrongTaksaClaims("ราหูเป็นศรีจร และพฤหัสบดีเป็นมนตรีจร", slots)).toEqual([]);
+  });
+});
