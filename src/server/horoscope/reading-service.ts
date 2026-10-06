@@ -590,7 +590,10 @@ async function runReading(
     : null;
 
   // Shown above the answer, so the reader knows what it was read from.
-  const basis = timelineText
+  const pairBasis = companionText && input.companions?.length
+    ? `ดวงคู่: ดวงเดิมของคุณ เทียบดวงของ${input.companions.map((c) => c.nickname).join(" และ ")}`
+    : null;
+  const readFrom = timelineText
     ? pastEvent
       ? "ไทม์ไลน์ชีวิตย้อนหลัง (ดาวจรช่วงที่ผ่านมา เทียบดวงเดิม)"
       : "ไทม์ไลน์ชีวิต (ดาวจรล่วงหน้า เทียบดวงเดิม)"
@@ -601,6 +604,11 @@ async function runReading(
         : transitChart
           ? `ดวงจร ${transitWindow.label} เทียบดวงเดิม`
           : "พื้นดวงเดิม";
+  const basis = pairBasis
+    ? readFrom === "พื้นดวงเดิม"
+      ? pairBasis
+      : `${pairBasis} · ${readFrom}`
+    : readFrom;
 
   let systemPrompt = buildSystemPrompt({
     ...promptParts,

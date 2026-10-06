@@ -33,10 +33,11 @@ const P: Persona[] = [
 ];
 
 type Answer = { text: string; basis?: string; issues: string[]; error?: string };
-type Ctx = { persona: Persona; prev: Answer[]; question: string };
+type Pair = { nickname: string; relation: string; birthDate: string; birthTime: string | null; country: string; province: string; district: string };
+type Ctx = { persona: Persona; prev: Answer[]; question: string; companions?: Pair[] };
 type Check = { name: string; run: (a: Answer, c: Ctx) => string | null };
 type Turn = { q: string; checks: Check[] };
-type Case = { id: string; category: string; persona: Persona; turns: Turn[] };
+type Case = { id: string; category: string; persona: Persona; turns: Turn[]; companions?: Pair[] };
 
 // ---------- checks ----------
 const firstLine = (t: string) => t.trim().split("\n").find((l) => l.trim())?.trim() ?? "";
@@ -94,7 +95,8 @@ const C = {
 const UNIVERSAL: Check[] = [
   { name: "ไม่ว่าง/ไม่ error", run: (a) => (a.error ? `error: ${a.error}` : a.text.trim().length < 20 ? "คำตอบว่าง" : null) },
   { name: "ไม่มีอักษรเพี้ยน", run: (a) => (findGlitchedLines(a.text).length ? "มีอักษรภาษาอื่นปน" : null) },
-  { name: "ไม่หลุดคะแนน", run: (a) => (/น้ำหนัก\s*\d|คะแนน\s*\d/.test(a.text) ? "ตัวเลขคะแนนหลุด" : null) },
+  // A couple's สมพงษ์ score is meant to be shown; the timeline's weights are not.
+  { name: "ไม่หลุดคะแนน", run: (a, c) => (/น้ำหนัก\s*\d/.test(a.text) || (!c.companions && /คะแนน\s*\d/.test(a.text)) ? "ตัวเลขคะแนนหลุด" : null) },
   { name: "เจ้าเรือนถูก", run: (a) => (a.issues.length ? a.issues.join(", ") : null) },
   { name: "มีป้ายอ่านจาก", run: (a) => (a.text && !a.basis ? "ไม่มีป้ายอ่านจาก" : null) },
 ];
@@ -187,6 +189,63 @@ for (let i = 0; i < 60; i++) add("พิมพ์ผิด/ภาษาพูด
 const OOS = ["ขอเลขเด็ดงวดนี้หน่อย", "ควรกินยาอะไรรักษาเบาหวาน", "ผมควรฟ้องศาลไหม", "หุ้นตัวไหนจะขึ้นพรุ่งนี้", "บอลคืนนี้ทีมไหนชนะ"];
 for (let i = 0; i < 30; i++) add("นอกขอบเขต", [{ q: pick(OOS), checks: [] }]);
 
+// Couples: the other person's birth comes with the message, as in the app.
+const PAIRS: Record<string, Pair> = {
+  partner: { nickname: "สมปอง", relation: "partner", birthDate: "2001-11-02", birthTime: "09:15", country: "ไทย", province: "นนทบุรี", district: "" },
+  spouse: { nickname: "สมหญิง", relation: "spouse", birthDate: "1990-04-17", birthTime: null, country: "ไทย", province: "ชลบุรี", district: "" },
+  mother: { nickname: "แม่", relation: "mother", birthDate: "1965-08-12", birthTime: "06:00", country: "ไทย", province: "ขอนแก่น", district: "" },
+  business: { nickname: "สมศักดิ์", relation: "business", birthDate: "1985-02-28", birthTime: null, country: "ไทย", province: "กรุงเทพมหานคร", district: "" },
+  child: { nickname: "น้องเมย์", relation: "child", birthDate: "2015-05-20", birthTime: "13:40", country: "ไทย", province: "เชียงใหม่", district: "" },
+};
+const named = (n: string): Check => ({ name: `พูดถึง${n}`, run: (a) => (a.text.includes(n) ? null : `ไม่พูดถึง${n}`) });
+/** No birth time given: that person's lagna is unknown and must not be read. */
+const noGuessedLagna: Check = {
+  name: "ไม่เดาลัคนาคนที่ไม่รู้เวลาเกิด",
+  run: (a, c) => {
+    const bad = (c.companions ?? []).filter((p) => !p.birthTime).find((p) => new RegExp(`ลัคนา(?:ของ)?(?:คุณ)?${p.nickname}|${p.nickname}(?:มี|เป็น)?ลัคนา(?!.{0,20}(?:ไม่|ยังไม่))`).test(a.text));
+    return bad ? `อ่านลัคนาของ${bad.nickname}ทั้งที่ไม่รู้เวลาเกิด` : null;
+  },
+};
+const pairBasis: Check = { name: "ป้าย:ดวงคู่", run: (a) => (a.basis?.startsWith("ดวงคู่") ? null : `ได้ "${a.basis ?? "—"}"`) };
+const addPair = (turns: Turn[], pairs: Pair[]) => {
+  add("ดวงคู่", turns);
+  cases.at(-1)!.companions = pairs;
+};
+for (let i = 0; i < 6; i++) {
+  for (const key of ["partner", "spouse"]) {
+    const p = PAIRS[key]!;
+    addPair([{ q: pick([`ดวงเรากับ${p.nickname}เข้ากันไหม`, `${p.nickname}เป็นเนื้อคู่ผมไหม`, `ควรแต่งงานกับ${p.nickname}ไหม`]), checks: [named(p.nickname), C.verdictFirst, C.love, C.notCareerLed, noGuessedLagna, pairBasis, C.summary] }], [p]);
+    addPair([{ q: `สมพงษ์กับ${p.nickname}ได้กี่คะแนน`, checks: [named(p.nickname), C.mentions(/สมพงษ์[^\n]{0,40}\d|\d+\s*(?:คะแนน|\/)/, "คะแนนสมพงษ์"), noGuessedLagna, pairBasis] }], [p]);
+  }
+}
+for (let i = 0; i < 5; i++) {
+  const p = PAIRS.partner!;
+  addPair([
+    { q: `ดวงเรากับ${p.nickname}เข้ากันไหม`, checks: [named(p.nickname), C.verdictFirst] },
+    { q: "แล้วเรื่องเงินถ้าอยู่ด้วยกันล่ะ", checks: [C.topic(/เงิน|ทรัพย์|รายได้/, "เงิน"), named(p.nickname), C.noRepeat, pairBasis] },
+    { q: "เราจะทะเลาะกันเรื่องอะไรบ่อยสุด", checks: [named(p.nickname), C.noRepeat] },
+    { q: "สรุปควรไปต่อไหม", checks: [C.verdictFirst, named(p.nickname)] },
+  ], [p]);
+}
+for (let i = 0; i < 5; i++) {
+  const p = PAIRS.mother!;
+  addPair([{ q: pick(["ผมกับแม่ดวงเข้ากันไหม", "ทำไมผมกับแม่ชอบขัดกัน", "จะดูแลแม่ยังไงให้ไม่ทะเลาะกัน"]), checks: [named("แม่"), C.topic(/ครอบครัว|พันธุ|แม่|บ้าน/, "ครอบครัว"), pairBasis, C.summary] }], [p]);
+}
+for (let i = 0; i < 5; i++) {
+  const p = PAIRS.business!;
+  addPair([{ q: pick([`ทำธุรกิจกับ${p.nickname}ดีไหม`, `หุ้นกับ${p.nickname}ต้องระวังอะไร`]), checks: [named(p.nickname), C.topic(/ธุรกิจ|หุ้น|เงิน|ค้าขาย|ลาภะ/, "ธุรกิจ"), noGuessedLagna, pairBasis] }], [p]);
+}
+for (let i = 0; i < 4; i++) {
+  const p = PAIRS.child!;
+  addPair([{ q: pick([`${p.nickname}ลูกผมดวงเข้ากับผมไหม`, `จะเลี้ยง${p.nickname}ยังไงให้ไปด้วยกันดี`]), checks: [named(p.nickname), pairBasis, C.summary] }], [p]);
+}
+for (let i = 0; i < 4; i++) {
+  addPair([{ q: "แฟนกับแม่ผม ใครดวงเข้ากับผมมากกว่า", checks: [named("สมปอง"), named("แม่"), pairBasis] }], [PAIRS.partner!, PAIRS.mother!]);
+}
+for (let i = 0; i < 3; i++) {
+  addPair([{ q: `เรากับ${PAIRS.partner!.nickname}จะได้แต่งงานกันเมื่อไหร่`, checks: [named(PAIRS.partner!.nickname), C.futureOnly, C.love] }], [PAIRS.partner!]);
+}
+
 // ---------- judge ----------
 async function judge(cfgId: string, c: Case, turnIdx: number, a: Answer, prevTurns: Array<{ q: string; a: string }>) {
   const r = await generateWithFallback(cfgId, {
@@ -258,6 +317,10 @@ async function main() {
   }
   chosen = out;
   console.log(`cases ${chosen.length}, turns ${turns}, concurrency ${conc}`);
+  if (process.env.EVAL_LIST) {
+    for (const c of chosen) console.log(`case\t${c.id}\t${c.turns.length}`);
+    return;
+  }
 
   fs.mkdirSync("tmp/eval-1000", { recursive: true });
   const file = fs.createWriteStream(process.env.EVAL_OUT ?? "tmp/eval-1000/results.jsonl", { flags: "w" });
@@ -291,7 +354,7 @@ async function main() {
           for (let attempt = 0; attempt < 4 && !r; attempt++) {
             await slot();
             try {
-              r = (await onePerPersona(c.persona.key, () => sendMessage({ conversationId: conv.id, userId, content: turn.q, idempotencyKey: `e1k-${c.id}-${ti}-${Date.now()}`, answerMode: "detailed" }))) as unknown as Reply;
+              r = (await onePerPersona(c.persona.key, () => sendMessage({ conversationId: conv.id, userId, content: turn.q, idempotencyKey: `e1k-${c.id}-${ti}-${Date.now()}`, answerMode: "detailed", ...(c.companions ? { companions: c.companions } : {}) } as never))) as unknown as Reply;
               consecutiveCapacity = 0;
             } catch (err) {
               const code = (err as { code?: string }).code;
@@ -310,7 +373,7 @@ async function main() {
         } catch (err) {
           a = { text: "", issues: [], error: (err as Error).message.slice(0, 120) };
         }
-        const ctx: Ctx = { persona: c.persona, prev, question: turn.q };
+        const ctx: Ctx = { persona: c.persona, prev, question: turn.q, companions: c.companions };
         const failures = [...UNIVERSAL, ...turn.checks].map((ch) => ({ ch: ch.name, why: ch.run(a, ctx) })).filter((f) => f.why);
         const grade = process.env.EVAL_JUDGE === "gemini" && judgeCfg && a.text ? await judge(judgeCfg.id, c, ti, a, prevTurns).catch(() => null) : null;
         if (grade) {
@@ -320,7 +383,7 @@ async function main() {
           if (grade.contradiction) failures.push({ ch: "ผู้ตรวจ:ขัดแย้ง", why: grade.note });
           if (grade.repeats) failures.push({ ch: "ผู้ตรวจ:ตอบซ้ำ", why: grade.note });
         }
-        file.write(JSON.stringify({ id: c.id, category: c.category, persona: c.persona.key, age: c.persona.age, prevQ: prevTurns.map((t) => t.q), turn: ti + 1, q: turn.q, basis: a.basis, model: (a as Answer & { model?: string }).model, len: a.text.length, failures, grade, answer: a.text }) + "\n");
+        file.write(JSON.stringify({ id: c.id, category: c.category, persona: c.persona.key, age: c.persona.age, prevQ: prevTurns.map((t) => t.q), companions: c.companions?.map((p) => `${p.nickname} (${p.relation}) เกิด ${p.birthDate} ${p.birthTime ?? "ไม่ทราบเวลา"} ${p.province}`), turn: ti + 1, q: turn.q, basis: a.basis, model: (a as Answer & { model?: string }).model, len: a.text.length, failures, grade, answer: a.text }) + "\n");
         prev.push(a);
         prevTurns.push({ q: turn.q, a: a.text });
         done++;
