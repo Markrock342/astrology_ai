@@ -1,4 +1,5 @@
 import "@/server/horoscope/engine/taksa-boundaries";
+import { topicHousesOf } from "@/lib/question-topics";
 import type { ChartJson } from "@/types/chart";
 import type { UserChartMemoryJson } from "@/types/chart-memory";
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";
@@ -57,7 +58,10 @@ export function buildDayScanPrompt(input: {
   const keys = input.memory
     ? resolveMemoryFocusKeys({ categorySlug: input.categorySlug, question: input.question }) ?? []
     : [];
-  const topicHouses = [...new Set(keys.flatMap((k) => input.memory?.categories[k]?.houses ?? []))];
+  // The [question_focus] table decides first, so the day list and the focus
+  // line agree (a contract question was "ภพ 3" in one and "ภพ 10, 11" in the other).
+  const focus = topicHousesOf(input.question);
+  const topicHouses = focus.length ? focus : [...new Set(keys.flatMap((k) => input.memory?.categories[k]?.houses ?? []))];
 
   const checkDay = input.checkDay ? new Date(input.checkDay) : null;
   const bkk = (d: Date) => new Date(d.getTime() + 7 * 3_600_000);

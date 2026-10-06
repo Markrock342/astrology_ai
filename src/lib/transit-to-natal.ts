@@ -98,7 +98,7 @@ const CONTACT_ORDER: AspectKind[] = ["กุม", "เล็ง", "ตรีโ�
 
 export function formatTransitToNatalForPrompt(
   links: TransitNatalLink[],
-  opts: { horizon?: boolean } = {},
+  opts: { horizon?: boolean; focusHouses?: number[] } = {},
 ): string[] {
   const tag = opts.horizon ? "[transit_horizon_to_natal]" : "[transit_to_natal]";
   const when = opts.horizon ? "ดาวจรปลายช่วง" : "ดาวจร";
@@ -110,7 +110,13 @@ export function formatTransitToNatalForPrompt(
     lines.push("- ไม่มีข้อมูลดาวจรที่ใช้ได้");
     return lines;
   }
-  for (const link of links) {
+  // The houses of what was asked come first: a health question used to open
+  // on "เสาร์จร… ลาภะ (รายได้)" and "ราหูจร… กัมมะ (อาชีพ)" — and so did its answer.
+  const focus = new Set(opts.focusHouses ?? []);
+  const ordered = focus.size
+    ? [...links.filter((l) => focus.has(l.natalHouse)), ...links.filter((l) => !focus.has(l.natalHouse))]
+    : links;
+  for (const link of ordered) {
     const where = link.natalHouseName
       ? `เดินในเรือน ${link.natalHouse} ${link.natalHouseName} ของพื้นดวง (${HOUSE_MEANING[link.natalHouseName as (typeof HOUSE_NAMES)[number]]})`
       : "ไม่ทราบเรือนเพราะไม่มีลัคนาเดิม";
@@ -118,7 +124,7 @@ export function formatTransitToNatalForPrompt(
       .sort((a, b) => CONTACT_ORDER.indexOf(a.kind) - CONTACT_ORDER.indexOf(b.kind))
       .map((c) => `${c.kind}${c.natalBody === "ลัคนา" ? "ลัคนาเดิม" : `${c.natalBody}เดิม`}`);
     lines.push(
-      `- ${link.transitPlanet}จร ราศี${link.transitSign} · ${where}` +
+      `- ${link.transitPlanet}จร ราศี${link.transitSign} · ${where}${focus.has(link.natalHouse) ? " (ภพของเรื่องที่ถาม)" : ""}` +
         (contacts.length ? ` · ${contacts.join(" · ")}` : " · ไม่ทำมุมกับดาวเดิม"),
     );
   }

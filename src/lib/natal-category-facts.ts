@@ -4,6 +4,7 @@ import {
   HOUSE_MEANING,
   HOUSE_NAMES,
   houseFromLagna,
+  normalizeSignName,
   SIGNS,
 } from "@/lib/chart-theme";
 
@@ -69,7 +70,7 @@ export const NATAL_CATEGORY_MEANING: Record<string, string> = {
 };
 
 function signForHouse(lagna: string, house: number): string | null {
-  const lagnaIndex = SIGNS.indexOf(lagna as (typeof SIGNS)[number]);
+  const lagnaIndex = SIGNS.indexOf(normalizeSignName(lagna) as (typeof SIGNS)[number]);
   if (lagnaIndex < 0 || house < 1 || house > 12) return null;
   return SIGNS[(lagnaIndex + house - 1) % 12] ?? null;
 }

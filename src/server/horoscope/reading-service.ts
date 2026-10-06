@@ -1,4 +1,5 @@
 import type { ConversationMode } from "@prisma/client";
+import { UNIFIED_CHAT_CATEGORY_SLUG } from "@/lib/question-scope";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { assertCanRequestReading } from "@/server/horoscope/access-policy";
@@ -453,21 +454,25 @@ async function runReading(
 
   const templateId = category.promptTemplateId ?? config.promptTemplateId;
 
+  // The one chat hangs off the "self" category. Its framing ("คำปรึกษาหมวด
+  // ตัวตน") and its guide ("อยู่กัมมะ = นิยามตัวเองด้วยการงาน") led every
+  // answer — love, health, money — back to work.
+  const unifiedChat = categorySlug === UNIFIED_CHAT_CATEGORY_SLUG;
   const promptParts = await resolvePromptParts({
     plan,
-    categoryName: category.nameTh,
-    categoryDescription: category.description,
+    categoryName: unifiedChat ? "ดูดวงทั่วไป (ตอบตามเรื่องที่ผู้ใช้ถาม)" : category.nameTh,
+    categoryDescription: unifiedChat ? null : category.description,
     personaTemplateId: templateId,
   });
   // Put the current category guide first so an oversized global corpus cannot
   // consume the entire prompt budget before the relevant doctrine is reached.
   const scopedKnowledge = [...knowledgeDocs].sort(
     (a, b) =>
-      Number(b.categoryId === category.id) - Number(a.categoryId === category.id) ||
+      (unifiedChat ? 0 : Number(b.categoryId === category.id) - Number(a.categoryId === category.id)) ||
       a.sortOrder - b.sortOrder,
   );
   const categoryFocus =
-    categorySlug in chartMemory.categories
+    !unifiedChat && categorySlug in chartMemory.categories
       ? chartMemory.categories[
           categorySlug as keyof typeof chartMemory.categories
         ]
@@ -486,8 +491,8 @@ async function runReading(
     .map((message) => message.content.slice(0, 600))
     .join("\n");
   const retrievalContext = [
-    category.nameTh,
-    category.description,
+    unifiedChat ? null : category.nameTh,
+    unifiedChat ? null : category.description,
     `ลัคนา ${chartMemory.lagna}`,
     ...(categoryFocus?.summaryLines ?? []),
     standardsInCharts,

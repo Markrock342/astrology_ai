@@ -1,4 +1,5 @@
 import type { BirthProfileSnapshot, ConversationTurn } from "@/types";
+import { topicHousesOf } from "@/lib/question-topics";
 import type { ChartJson } from "@/types/chart";
 import type { UserChartMemoryJson } from "@/types/chart-memory";
 import {
@@ -159,7 +160,7 @@ export const PAST_TIMELINE_RULE =
   "กฎเหตุการณ์ที่เกิดแล้ว (บังคับ): คำถามนี้ถามถึงเรื่องที่เกิดขึ้นไปแล้ว บล็อก [timeline] มีเฉพาะช่วงที่ผ่านมา (ก่อนวันนี้) " +
   "ห้ามตอบเดือน ปี หรืออายุที่มากกว่าอายุปัจจุบันของผู้ถามเด็ดขาด ห้ามเล่าเป็นคำทำนายอนาคต " +
   "โหราศาสตร์บอกได้ว่าช่วงไหนดวงมีเกณฑ์ ไม่ได้รู้วันที่เกิดจริง: ประโยคแรกบอกช่วงที่เข้าเค้าที่สุดช่วงเดียว " +
-  "ในรูป 'ช่วงที่เข้าเค้าที่สุดคืออายุ 19 ปี (ก.ค. 2564)' ห้ามใช้คำว่า 'ดีที่สุด' กับเรื่องร้าย เช่น ตกงาน ป่วย เลิกรา เสียเงิน " +
+  "ในรูป 'ช่วงที่เข้าเค้าที่สุดคืออายุ … ปี (เดือน พ.ศ. …)' ตามบล็อก ห้ามใช้คำว่า 'ดีที่สุด' กับเรื่องร้าย เช่น ตกงาน ป่วย เลิกรา เสียเงิน " +
   "ห้ามไล่หลายช่วง เสนอช่วงสำรองได้อีกไม่เกิน 1 ช่วง " +
   "แล้วเหตุผล 2–3 ข้อจากดาวจรในบล็อกเป็นภาษาง่าย ถามผู้ใช้ว่าตรงกับช่วงที่เกิดจริงไหม และปิดด้วยบรรทัด **สรุป:** หนึ่งประโยค " +
   "ถ้าบล็อกบอกว่าผู้ใช้ปฏิเสธบางปีไปแล้ว ให้รับสั้น ๆ หนึ่งประโยค แล้วเสนอช่วงใหม่จากรายการที่เหลือ ห้ามยืนยันหรือตอบปีเดิมซ้ำ";
@@ -181,8 +182,8 @@ export const DAY_SCAN_RULE =
 export const DAY_CHECK_RULE =
   "กฎวันที่ระบุ (บังคับ): คำถามนี้พูดถึงวันในบล็อก [day_check] ให้ตอบเรื่องวันนั้นเท่านั้น ห้ามเปลี่ยนไปเล่าพื้นดวงทั่วไป " +
   "เรียกวันทักษาตามบล็อก เช่น 'วันอายุของคุณ' 'วันกาลกิณีของคุณ' ห้ามเติมคำว่า 'จร' เอง " +
-  "ประโยคแรกต้องระบุวันนั้น (วัน วันที่ เดือน พ.ศ. ตามบล็อก) และบอกตรง ๆ ว่าดีหรือควรระวังสำหรับเรื่องที่ถาม (เช่น นัดคุยงาน) จากเกณฑ์ในบล็อก " +
-  "ถ้าคำตอบก่อนหน้าในแชทเคยพูดถึงวันนี้ ให้ต่อจากที่พูดไว้และไม่ขัดกันเอง " +
+  "ประโยคแรกต้องระบุวันนั้น (วัน วันที่ เดือน พ.ศ. ตามบล็อก) และบอกตรง ๆ ว่าดีหรือควรระวังสำหรับเรื่องที่ผู้ใช้ถาม จากเกณฑ์ในบล็อก " +
+  "ถ้าคำตอบก่อนหน้าในแชทเคยพูดถึงวันนี้ ให้ต่อจากที่พูดไว้ แต่ถ้าผู้ใช้บอกว่าคำตอบนั้นผิด ให้รับแล้วอ่านใหม่จากบล็อก ห้ามยืนยันของเดิม " +
   "ถ้าวันนั้นมีเกณฑ์ควรระวังแต่ผู้ถามมีนัดแล้ว ให้บอกสิ่งที่ควรเตรียมหรือระวัง 1–2 ข้อ " +
   "และถ้ามี 'วันใกล้ ๆ ที่เกณฑ์ดีกว่า' ให้เสนอเป็นทางเลือกหนึ่งบรรทัด ห้ามแต่งเหตุผลที่ไม่มีในบล็อก";
 
@@ -227,7 +228,7 @@ export const TIME_BOUNDED_READING_RULE =
 
 export const NATAL_TRANSIT_BLEND_RULE =
   "กฎผสมดวง (บังคับ): คำถามมี 2 แบบ " +
-  "1) พื้นดวงเดิม — ตอบจาก [natal]/[memory] อย่างเดียว " +
+  "1) พื้นดวงเดิม — ตอบจาก [natal]/[memory] อย่างเดียว (ยกเว้นมีบล็อก [timeline] [day_scan] หรือ [day_check] ให้ตอบจากบล็อกนั้น) " +
   "2) อนาคต/ช่วงเวลา/ดวงจร — อ่านจากบล็อก [transit_to_natal] เป็นแกนของคำตอบ " +
   "(และ [transit_horizon_to_natal] ถ้ามี): ยกอย่างน้อย 2 จุดที่ดาวจรกระทบพื้นดวงของผู้ถาม " +
   "คือดาวจรเดินผ่านเรือนไหนของพื้นดวง และกุม เล็ง ตรีโกณ หรือจตุโกณดาวเดิมดวงไหน " +
@@ -484,7 +485,15 @@ export function buildUserPrompt(
     );
   }
 
-  if (opts.transitWindowLabel) {
+  if (opts.timelineText) {
+    // A timeline question used to be labelled "พื้นดวงเดิม — ใช้ [natal]/[memory]",
+    // which, with the blend rule, told the model to set the [timeline] aside.
+    lines.push("ช่วงที่ถาม: ไทม์ไลน์ชีวิต — คำถามนี้ตอบจากบล็อก [timeline] (ดาวจรเดินช้าเทียบพื้นดวง) ไม่ใช่ดวงจรวันนี้");
+  } else if (opts.dayScanText) {
+    lines.push(
+      `ช่วงที่ถาม: ${opts.transitWindowLabel ?? ""} — คำถามนี้ตอบจากบล็อก ${opts.dayScanText.startsWith("[day_check]") ? "[day_check]" : "[day_scan]"} เป็นหลัก`,
+    );
+  } else if (opts.transitWindowLabel) {
     lines.push(
       `ช่วงที่ถาม: ${opts.transitWindowLabel}` +
         (opts.readingIntent === "natal"
@@ -519,6 +528,7 @@ export function buildUserPrompt(
           natalPlanets: natal.planets,
           transitPlanets: transit.planets,
         }),
+        { focusHouses: profile.birthTimeKnown ? topicHousesOf(question) : [] },
       ),
       "",
     );
@@ -542,7 +552,7 @@ export function buildUserPrompt(
           natalPlanets: natal.planets,
           transitPlanets: horizon.planets,
         }),
-        { horizon: true },
+        { horizon: true, focusHouses: profile.birthTimeKnown ? topicHousesOf(question) : [] },
       ),
       "",
     );
@@ -574,7 +584,7 @@ export function buildUserPrompt(
     opts.threadSummaryText ? "" : null,
     opts.overview
       ? "ขอบเขตคำตอบ: ผู้ใช้ขอดูดวงภาพรวม — วิเคราะห์ครบ 17 หัวข้อตามลำดับในกฎวิธีพยากรณ์"
-      : "ขอบเขตคำตอบ: คำถามเฉพาะเรื่อง — วิเคราะห์เฉพาะหัวข้อที่ตรงกับคำถามแบบครบทุกขั้น ไม่ต้องไล่หัวข้ออื่น",
+      : "ขอบเขตคำตอบ: คำถามเฉพาะเรื่อง — ตอบเฉพาะเรื่องที่ถาม ไม่ต้องไล่หัวข้ออื่น",
     opts.questionFocusText ? opts.questionFocusText : null,
     opts.taksaNowText ? opts.taksaNowText : null,
     opts.userFactsText ? opts.userFactsText : null,
