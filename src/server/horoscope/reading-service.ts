@@ -24,6 +24,7 @@ import {
   buildConversationHistory,
   TIMELINE_RULE,
   PAST_TIMELINE_RULE,
+  ANSWER_CONTRACT,
   DAY_SCAN_RULE,
   DAY_CHECK_RULE,
   CONTINUE_RULE,
@@ -650,6 +651,8 @@ async function runReading(
   }
   if (skipCredits) {
     systemPrompt = `${systemPrompt}\n\n${CATEGORY_INTRO_SYSTEM_HINT}`;
+  } else if (!continuing) {
+    systemPrompt = `${systemPrompt}\n\n${ANSWER_CONTRACT}`;
   }
   const intakeAnswers = parseIntakeAnswers(intakeRow?.answers);
   const { conversationHistory, userPrompt } = buildConversationHistory(

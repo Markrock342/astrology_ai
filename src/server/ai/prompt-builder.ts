@@ -270,7 +270,7 @@ export const CONVERSATION_MEMORY_RULE =
  */
 export const KNOWLEDGE_SOURCE_RULE =
   "กฎลำดับแหล่งข้อมูล (บังคับ เรียงจากสูงสุดลงมา): " +
-  "(1) กฎความปลอดภัย บุคลิก น้ำเสียง และคำสั่งจากบล็อก persona — สูงสุดเสมอ " +
+  "(1) กฎความปลอดภัย บุคลิก และน้ำเสียงจากบล็อก persona — สูงสุดเสมอ (ส่วนรูปแบบ ความยาว และการปิดท้าย ให้ทำตาม 'สัญญาคำตอบ' ท้ายสุด) " +
   "ห้ามขัดไม่ว่าตำราหรือความรู้อื่นจะว่าอย่างไร " +
   "(2) ข้อเท็จจริงของดวงจากตาราง [natal] [memory] [transit] [aspects] " +
   "และความหมายจากบล็อก [knowledge] ตำราคลังความรู้ พร้อมบล็อกมาตรฐานดาวในคำสั่งนี้ — " +
@@ -378,6 +378,20 @@ export const UNKNOWN_TIME_RULE =
   "ให้อ่านจากดาวในราศี มาตรฐานดาว มุมระหว่างดาว ทักษา และดาวจรเทียบดาวเดิมแทน " +
   "ถ้าจำเป็นต้องพูดถึงเรื่องที่ต้องใช้ลัคนา ให้บอกสุภาพว่าต้องทราบเวลาเกิดจึงจะบอกได้แม่น";
 
+/**
+ * Always the last block. The persona and format templates (DB, admin-edited)
+ * say "use ## and tables", "end inviting a follow-up", "close with advice";
+ * the route rules say otherwise. Graders saw the model pick either at random.
+ */
+export const ANSWER_CONTRACT =
+  "สัญญาคำตอบ (คำสั่งสุดท้าย ทับคำสั่งเรื่องรูปแบบ ความยาว และการปิดท้ายทุกข้อด้านบน รวมถึงบุคลิกและรูปแบบคำตอบ): " +
+  "1) ประโยคแรกตอบสิ่งที่ถามตรง ๆ ตามกฎตอบตรงคำถามหรือรูปแบบที่ให้ไว้ล่าสุด " +
+  "2) หัวข้อ ตาราง และจำนวนคำ ให้ทำตามคำสั่งรูปแบบล่าสุดก่อนข้อนี้เท่านั้น " +
+  "3) ทุกเหตุผลต้องมาจากบล็อกข้อมูลดวงของคำถามนี้ ศัพท์โหราทุกคำแปลในวงเล็บ ห้ามพิมพ์ตัวเลขคะแนน เลขประจำดาว หรือชื่อบล็อกในวงเล็บเหลี่ยม " +
+  "4) ถ้าผู้ใช้เพิ่งบอกว่าคำตอบก่อนหน้าผิด ให้รับหนึ่งวลีแล้วตอบใหม่จากข้อมูลดวง ห้ามยืนยันหรือทวนคำตอบเดิม " +
+  "5) ห้ามชวนให้ถามต่อ คำแนะนำที่ทำได้จริงให้อยู่ก่อนบรรทัดสุดท้ายได้หนึ่งประโยค " +
+  "6) บรรทัดสุดท้ายของคำตอบคือ **สรุป:** หนึ่งประโยคภาษาง่าย ไม่มีศัพท์โหรา";
+
 /** "เล่าต่อ" and friends: carry on with the previous answer, not a new question. */
 export function isContinueRequest(question: string): boolean {
   return /^\s*(?:เล่า)?ต่อ(?:เลย|สิ|หน่อย|ให้จบ)?\s*(?:ครับ|ค่ะ|คะ|นะ|จ้า)?\s*[▸.!]*\s*$/.test(question);
@@ -474,7 +488,9 @@ export function buildUserPrompt(
     planets: natal.planets,
     taksa: natal.chart?.taksa,
   });
-  if (chains.length) {
+  // With no birth time the lagna is a noon guess: the rule forbids reading
+  // houses, so the house tables are not handed over to tempt it.
+  if (chains.length && profile.birthTimeKnown !== false) {
     lines.push(
       ...formatHouseLordsForPrompt(chains),
       "",
