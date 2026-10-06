@@ -281,6 +281,7 @@ export async function POST(
               provider: reading?.provider ?? null,
               creditCost: reading?.creditCost ?? 0,
               status: reading?.status ?? "SUCCESS",
+              basis: (reading as { basis?: string } | null | undefined)?.basis ?? null,
               chartSnapshot:
                 reading && "chartSnapshot" in reading
                   ? reading.chartSnapshot

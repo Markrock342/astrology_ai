@@ -165,7 +165,7 @@ export function formatUserAiMemoryForPrompt(memory: UserAiMemory): string | null
 export function formatUserFactsForPrompt(memory: UserAiMemory): string | null {
   if (!memory.enabled || !memory.facts?.length) return null;
   return [
-    "[user_facts] เรื่องที่ผู้ใช้เคยเล่าเกี่ยวกับตัวเองในแชทก่อน ๆ (ผู้ใช้บอกเอง) — ถ้าเกี่ยวกับคำถามนี้ ต้องคำนึงถึงและเอ่ยถึงในคำตอบ:",
+    "[user_facts] เรื่องที่ผู้ใช้เคยเล่าเกี่ยวกับตัวเองในแชทก่อน ๆ (ผู้ใช้บอกเอง) — ใช้เฉพาะข้อที่เป็นเรื่องเดียวกับคำถามนี้ ข้อที่เป็นเรื่องอื่นให้ข้ามไป:",
     ...memory.facts.slice(0, 25).map((fact) => `- ${fact.text}`),
   ].join("\n");
 }

@@ -657,6 +657,29 @@ export function isTimelineQuestion(question: string): boolean {
   return true;
 }
 
+/**
+ * A question about something that already happened — "เราเลิกกันช่วงไหน",
+ * "เคยเลิกกันตอนอายุเท่าไหร่", "เลิกกันไปแล้ว". The timeline used to hold only
+ * the years ahead, so the model dated a past break-up to age 34 for a man of
+ * 24. The years lived are walked instead, and nothing after today.
+ */
+const PAST_PATTERN =
+  /เคย|ที่ผ่านมา|เมื่อก่อน|ตอนนั้น|สมัยก่อน|ไปแล้ว|กันแล้ว|เกิดขึ้นแล้ว|ย้อนหลัง|ย้อนไป|ทำไม(?:เรา|ผม|ฉัน|หนู|กู)?(?:สองคน)?ถึง|(?:เลิก|แยก|หย่า|เสีย|ตกงาน|ลาออก)กัน?(?:ช่วงไหน|ตอนไหน|เมื่อไหร่|เมื่อไร|ตอนอายุ)/;
+const FUTURE_MARK = /จะ(?:ได้|มี|เจอ|กลับ|เลิก|แต่ง|เป็น)|อนาคต|ข้างหน้า|ปีหน้า|เดือนหน้า/;
+
+export function isPastEventQuestion(question: string): boolean {
+  const q = question.trim();
+  return PAST_PATTERN.test(q) && !FUTURE_MARK.test(q);
+}
+
+/** Love and partners: a timeline about them weighs ปัตนิ and ปุตตะ, not career. */
+const RELATIONSHIP_PATTERN =
+  /แฟน|คนรัก|ความรัก|เนื้อคู่|คู่ครอง|คู่รัก|สามี|ภรรยา|เมีย|ผัว|แต่งงาน|หย่า|เลิกกัน|เลิกรา|แยกทาง|คืนดี|กลับมา(?:เจอ|คบ|คืนดี|รัก)|ความสัมพันธ์|จีบ|คบกัน|อกหัก/;
+
+export function isRelationshipQuestion(question: string): boolean {
+  return RELATIONSHIP_PATTERN.test(question);
+}
+
 /** Whether the timeline should also look back over the years already lived. */
 export function timelineIncludesPast(question: string): boolean {
   return /ที่ผ่านมา|ย้อนหลัง|ย้อนไป|เคยผ่าน|ตอนเด็ก|ทั้งชีวิต|ตลอดชีวิต/.test(question);

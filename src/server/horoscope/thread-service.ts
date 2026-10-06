@@ -165,6 +165,7 @@ export async function getThreadDetail(
             content: true,
             modelId: true,
             status: true,
+            basis: true,
             idempotencyKey: true,
             createdAt: true,
             // Only the caller's own verdict — one row at most, thanks to the
@@ -200,6 +201,7 @@ export async function getThreadDetail(
           content: m.content,
           modelId: m.modelId ?? undefined,
           status: m.status,
+          basis: m.basis ?? undefined,
           // Exposed only while generating, so a reloaded tab can still stop it.
           idempotencyKey:
             m.status === "PENDING"
@@ -566,6 +568,8 @@ export async function finalizeAssistantMessage(input: {
   provider?: AIProvider;
   modelId?: string | null;
   creditCost?: number;
+  /** What the answer was read from (shown above it). */
+  basis?: string | null;
 }) {
   await prisma.message.updateMany({
     where: {
@@ -582,6 +586,7 @@ export async function finalizeAssistantMessage(input: {
       provider: input.provider,
       modelId: input.modelId ?? undefined,
       creditCost: input.creditCost ?? 0,
+      ...(input.basis ? { basis: input.basis } : {}),
     },
   });
   // updateMany, not update: the user may have deleted the thread while this

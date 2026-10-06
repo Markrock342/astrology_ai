@@ -31,6 +31,10 @@ export function buildLifeTimelinePrompt(input: {
   question: string;
   categorySlug: string;
   now?: Date;
+  /** The question is about something that already happened: walk the years lived only. */
+  past?: boolean;
+  /** About a partner or love: weigh ปัตนิ and ปุตตะ. */
+  relationship?: boolean;
 }): string | null {
   const now = input.now ?? new Date();
   const birth = input.natal.input;
@@ -43,9 +47,9 @@ export function buildLifeTimelinePrompt(input: {
   const keys = input.memory
     ? resolveMemoryFocusKeys({ categorySlug: input.categorySlug, question: input.question }) ?? []
     : [];
-  const topicHouses = [
-    ...new Set(keys.flatMap((k) => input.memory?.categories[k]?.houses ?? [])),
-  ];
+  const topicHouses = input.relationship
+    ? [7, 5, 1]
+    : [...new Set(keys.flatMap((k) => input.memory?.categories[k]?.houses ?? []))];
 
   // A whole-life question walks to age 90; others the next 20 years.
   const wholeLife = timelineIncludesPast(input.question) || /ทั้งชีวิต|ตลอดชีวิต|ชั่วชีวิต|บั้นปลาย|แก่ตัว/.test(input.question);
@@ -55,18 +59,23 @@ export function buildLifeTimelinePrompt(input: {
   const born = new Date(Date.UTC(birth.year, birth.month - 1, 1));
   // "ทั้งชีวิต" asks how a life goes on, not what happened at age one; only an
   // explicit look back (ที่ผ่านมา / ย้อนหลัง / ตอนเด็ก …) starts at birth.
-  const lookBack = /ที่ผ่านมา|ย้อนหลัง|ย้อนไป|เคยผ่าน|ตอนเด็ก|วัยเด็ก/.test(input.question);
-  const from = lookBack
-    ? born
-    : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  if (from.getTime() >= to.getTime()) return null;
+  const lookBack = input.past || /ที่ผ่านมา|ย้อนหลัง|ย้อนไป|เคยผ่าน|ตอนเด็ก|วัยเด็ก/.test(input.question);
+  // Something that already happened: from the teens (a love or a job before
+  // that is rare) to this month, never after it.
+  const from = input.past
+    ? new Date(Date.UTC(birth.year + 12, birth.month - 1, 1))
+    : lookBack
+      ? born
+      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const until = input.past ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)) : to;
+  if (from.getTime() >= until.getTime()) return null;
 
   const timeline = scanLifeTimeline({
     natalLagna: input.natal.chart?.lagna ?? input.natal.meta.lagna,
     natalPlanets: input.natal.planets,
     birth,
     from,
-    to,
+    to: until,
     now,
     topicHouses: topicHouses.length ? topicHouses : WHOLE_LIFE_HOUSES,
     // A lifetime has more turning points than twenty years.
@@ -87,5 +96,5 @@ export function buildLifeTimelinePrompt(input: {
           .map((slot) => [slot.planet, slot.taksa]),
       ),
   });
-  return timeline ? formatLifeTimelineForPrompt(timeline).join("\n") : null;
+  return timeline ? formatLifeTimelineForPrompt(timeline, { past: input.past }).join("\n") : null;
 }

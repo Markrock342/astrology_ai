@@ -613,6 +613,7 @@ export async function completePendingMessage(
       provider: reading.provider ?? undefined,
       modelId: reading.modelId,
       creditCost: reading.creditCost,
+      basis: (reading as { basis?: string }).basis ?? null,
     });
 
     // Memory, off the answer's path: what the user said about themselves,

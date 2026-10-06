@@ -774,6 +774,10 @@ model Message {
   status           ReadingStatus @default(SUCCESS)
   inputUsage       Int?
   outputUsage      Int?
+  /// What the answer was read from, shown above it: "พื้นดวงเดิม",
+  /// "ดวงจร 14 ต.ค. 2569 + ดวงเดิม", "ไทม์ไลน์ชีวิตย้อนหลัง" … Users could
+  /// not tell whether a reply used the birth chart or the transit.
+  basis            String?
   // Set by POST /conversations/[id]/stop. The generating request polls this so a
   // stop works even when it lands on a different serverless instance. A dropped
   // connection (refresh, tab close) must NOT set it — generation carries on.

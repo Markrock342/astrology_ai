@@ -160,6 +160,8 @@ type Message = {
   status?: "SUCCESS" | "FAILED" | "TIMEOUT" | "PENDING";
   chartSnapshot?: ChartJson | null;
   transitSnapshot?: ChartJson | null;
+  /** What the answer was read from — "พื้นดวงเดิม", "ดวงจร … เทียบดวงเดิม". */
+  basis?: string;
   /** Present only while PENDING — the handle the stop endpoint needs. */
   idempotencyKey?: string;
   summaryLine?: string;
@@ -1788,6 +1790,7 @@ export function ChatView() {
               modelId?: string | null;
               chartSnapshot?: ChartJson | null;
               transitSnapshot?: ChartJson | null;
+              basis?: string | null;
             };
           };
           try {
@@ -1930,6 +1933,7 @@ export function ChatView() {
                       reading?.chartSnapshot ?? m.chartSnapshot ?? null,
                     transitSnapshot:
                       reading?.transitSnapshot ?? m.transitSnapshot ?? null,
+                    basis: reading?.basis ?? m.basis,
                     summaryLine,
                     followUps,
                     elapsedMs:
@@ -2352,8 +2356,15 @@ export function ChatView() {
                     </div>
                   </div>
                   <div className="min-w-0 flex-1">
+                    {m.basis && m.content ? (
+                      <p className="mb-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[11px] text-[var(--muted)]">
+                        <span className="shrink-0 font-medium text-[var(--primary)]">อ่านจาก</span>
+                        <span className="truncate">{m.basis}</span>
+                      </p>
+                    ) : null}
                     {showCharts && (
                       <ChartDisclosure
+                        caption={isLatestTransit && m.transitSnapshot ? "ดวงเดิม + ดวงจร" : "ดวงเดิม"}
                         lagna={
                           (isLatestTransit
                             ? m.transitSnapshot?.meta?.lagna

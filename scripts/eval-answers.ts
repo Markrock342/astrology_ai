@@ -16,7 +16,7 @@ import { upsertBirthProfile } from "@/server/user/birth-profile-service";
 import { grantIncludedUsage } from "@/server/usage/usage-budget-service";
 import { createConversation, sendMessage } from "@/server/horoscope/message-service";
 
-type Answer = { text: string; issues: string[] };
+type Answer = { text: string; issues: string[]; basis?: string };
 type Check = (a: Answer, ctx: { now: Date }) => string | null;
 type Turn = {
   q: string;
@@ -43,6 +43,25 @@ const answersYesNo: Check = (a) =>
   /มี|ไม่|ได้|ยัง|จำกัด|เด่น|ดี|น้อย|สูง|ชัด/.test(firstLine(a.text).slice(0, 60))
     ? null
     : `ไม่ตอบ มี/ไม่มี ในประโยคแรก: "${firstLine(a.text).slice(0, 80)}"`;
+/** Owner case 6 Oct 2026: a 24-year-old's past break-up was dated "at 34, 2579". */
+const EVAL_AGE = 24;
+const EVAL_BE_NOW = new Date().getUTCFullYear() + 543;
+const pastOnly: Check = (a) => {
+  const ages = [...a.text.matchAll(/อายุ(?:ย่างเข้า)?\s*(\d{1,2})/g)].map((m) => Number(m[1]));
+  const years = [...a.text.matchAll(/(?:พ\.ศ\.\s*|ปี\s*)(25\d\d)/g)].map((m) => Number(m[1]));
+  const bad = [...ages.filter((x) => x > EVAL_AGE).map((x) => `อายุ ${x}`), ...years.filter((y) => y > EVAL_BE_NOW).map((y) => `พ.ศ. ${y}`)];
+  return bad.length ? `เหตุการณ์ในอดีตแต่ตอบอนาคต: ${bad.join(", ")}` : null;
+};
+const noScoreLeak: Check = (a) => (/น้ำหนัก\s*\d|คะแนน\s*\d/.test(a.text) ? "ตัวเลขคะแนนภายในหลุดออกมา" : null);
+const aboutLove: Check = (a) =>
+  /ความรัก|คู่ครอง|ปัตนิ|ความสัมพันธ์|คนรัก|แฟน|คู่/.test(a.text) ? null : "ถามเรื่องความรักแต่ไม่ตอบเรื่องความรัก";
+const notCareerLed: Check = (a) => {
+  const career = (a.text.match(/กัมมะ|การงาน|อาชีพ/g) ?? []).length;
+  const love = (a.text.match(/ปัตนิ|ความรัก|คู่ครอง|ความสัมพันธ์|คนรัก|แฟน/g) ?? []).length;
+  return career > love ? `พูดเรื่องงาน (${career}) มากกว่าความรัก (${love})` : null;
+};
+const basisIs = (re: RegExp, label: string): Check => (a) =>
+  a.basis && re.test(a.basis) ? null : `ป้าย "อ่านจาก" ควรเป็น${label} แต่ได้ "${a.basis ?? "—"}"`;
 const lordsRight: Check = (a) => (a.issues.length ? `เจ้าเรือนผิด: ${a.issues.join(", ")}` : null);
 const inThisMonth: Check = (a, { now }) => {
   const bkk = new Date(now.getTime() + 7 * 3_600_000);
@@ -96,6 +115,16 @@ const SCENARIOS: Scenario[] = [
       },
     ],
   },
+  {
+    // The owner's 6 Oct chat: future reunion, then a past break-up, then corrections.
+    id: "relationship-past-breakup",
+    turns: [
+      { q: "ผมกับแฟนจะได้มีโอกาสกลับมาเจอกันอีกไหม ช่วงไหนของชีวิต", checks: [aboutLove, notCareerLed, noScoreLeak, basisIs(/ไทม์ไลน์ชีวิต/, "ไทม์ไลน์ชีวิต")] },
+      { q: "แล้วทำไมเราถึงเลิกกัน คุณรู้ไหมเราสองคนเลิกกันช่วงไหนตอนอายุเท่าไหร่", checks: [pastOnly, noScoreLeak, aboutLove, basisIs(/ย้อนหลัง/, "ไทม์ไลน์ย้อนหลัง")] },
+      { q: "พวกเราเลิกกันไปแล้วนะ เอาใหม่", checks: [pastOnly, noScoreLeak] },
+      { q: "ตอนนี้ผมอายุ 24 แล้วเลิกกันแล้ว ตอบใหม่", checks: [pastOnly, noScoreLeak] },
+    ],
+  },
   { id: "yesno-promotion", turns: [{ q: "ปีนี้ผมจะได้เลื่อนตำแหน่งไหม", checks: [answersYesNo, short(900), noSections, lordsRight] }] },
   { id: "open-career-year", turns: [{ q: "การงานปีนี้เป็นยังไงบ้าง", checks: [lordsRight, notMentions(/ศรีจร.*ของคุณ|วันกาลกิณีจร/, "คำว่า จร ต่อทักษากำเนิด")] }] },
   { id: "natal-personality", turns: [{ q: "นิสัยผมเป็นคนยังไง จุดแข็งคืออะไร", checks: [lordsRight] }] },
@@ -111,7 +140,8 @@ async function main() {
   const failures: string[] = [];
   try {
     await upsertBirthProfile(user.id, {
-      year: 1992, month: 9, day: 23, hour: 7, minute: 45, birthTimeKnown: true,
+      // Age 24 in Oct 2026, like the owner's user — the past-event checks rely on it.
+      year: 2002, month: 3, day: 10, hour: 8, minute: 30, birthTimeKnown: true,
       birthCountry: "ไทย", birthProvince: "กรุงเทพมหานคร", birthDistrict: "บางรัก",
     } as never);
     const pro = await prisma.package.findUniqueOrThrow({ where: { code: "PRO" } });
@@ -129,11 +159,11 @@ async function main() {
           const r = (await sendMessage({
             conversationId: conv.id, userId: user.id, content: turn.q,
             idempotencyKey: `eval-${sc.id}-${i}-${Date.now()}`, answerMode: "detailed",
-          })) as { id?: string; responseText?: string };
+          })) as { id?: string; responseText?: string; basis?: string };
           const row = r.id ? await prisma.horoscopeReading.findUnique({ where: { id: r.id }, select: { promptTraceJson: true } }) : null;
           const issues = ((row?.promptTraceJson as { factIssues?: Array<{ claimed: string; houseName: string; actual: string }> } | null)?.factIssues ?? [])
             .map((x) => `${x.claimed}≠เจ้าเรือน${x.houseName}(${x.actual}) «${(x as { excerpt?: string }).excerpt ?? ""}»`);
-          answer = { text: r.responseText ?? "", issues };
+          answer = { text: r.responseText ?? "", issues, basis: r.basis };
         } catch (err) {
           failures.push(`${sc.id}#${i + 1} error: ${(err as Error).message}`);
           console.log(`✗ ${sc.id}#${i + 1} "${turn.q}" — ${(err as Error).message}`);
