@@ -54,3 +54,38 @@ export function findWrongLordClaims(answer: string, chains: HouseChain[]): LordC
     return true;
   });
 }
+
+/**
+ * "พฤหัสบดีเป็นศรีจร" when this year's ศรีจร is ราหู. Graders found the same
+ * person's answers giving different ทักษาจร — made-up facts. Checked against
+ * the computed ทักษาจร for the period asked about.
+ */
+export type TaksaClaimIssue = { planet: string; claimed: string; actual: string; excerpt: string };
+
+const ROLES = ["ศรี", "มนตรี", "เดช", "บริวาร", "อายุ", "อุตสาหะ", "มูละ", "กาลกิณี"];
+
+export function findWrongTaksaClaims(
+  answer: string,
+  slots: Array<{ planet: string; taksa: string }>,
+): TaksaClaimIssue[] {
+  const roleOf = new Map(slots.filter((s) => s.planet).map((s) => [s.planet, s.taksa.replace(/จร$/, "")]));
+  if (!roleOf.size) return [];
+  const planetAlt = PLANETS.join("|");
+  const re = new RegExp(
+    `(${planetAlt})(?:จร)?\\s*(?:\\([๐-๙0-9]\\))?\\s*(?:ซึ่ง|ที่)?\\s*(?:เป็น|ได้ตำแหน่ง|รับตำแหน่ง|ติด)?\\s*(?:ดาว)?(${ROLES.join("|")})จร`,
+    "g",
+  );
+  const out: TaksaClaimIssue[] = [];
+  const seen = new Set<string>();
+  for (const m of answer.matchAll(re)) {
+    const planet = canon(m[1]!);
+    const actual = roleOf.get(planet);
+    if (!actual || actual === m[2]) continue;
+    const key = `${planet}:${m[2]}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ planet, claimed: `${m[2]}จร`, actual: `${actual}จร`, excerpt: m[0] });
+  }
+  return out;
+}
+
