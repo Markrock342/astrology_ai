@@ -12,8 +12,11 @@ import { useId, useState } from "react";
  */
 export function ChartDisclosure({
   lagna,
+  caption,
   children,
 }: {
+  /** Which charts are inside — "ดวงเดิม" or "ดวงเดิม + ดวงจร". */
+  caption?: string;
   /** Shown on the closed row, because it is the one fact people scan for. */
   lagna?: string | null;
   children: React.ReactNode;
@@ -31,7 +34,7 @@ export function ChartDisclosure({
         className="press-scale flex w-full min-w-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left transition hover:border-[var(--primary)]/45"
       >
         <span className="shrink-0 text-xs font-semibold text-[var(--primary)]">
-          ตารางดาว
+          ตารางดาว{caption ? ` · ${caption}` : ""}
         </span>
         <span
           aria-hidden

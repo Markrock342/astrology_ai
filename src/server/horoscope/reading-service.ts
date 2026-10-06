@@ -22,6 +22,7 @@ import {
   buildSystemPrompt,
   buildConversationHistory,
   TIMELINE_RULE,
+  PAST_TIMELINE_RULE,
   DAY_SCAN_RULE,
   DAY_CHECK_RULE,
   CONTINUE_RULE,
@@ -53,6 +54,8 @@ import {
   questionInContext,
   resolveMentionedDay,
   isFollowUpQuestion,
+  isPastEventQuestion,
+  isRelationshipQuestion,
   previousTimedQuestion,
   detectReadingIntent,
   detectFutureDatePromptTrigger,
@@ -583,14 +586,46 @@ async function runReading(
       : null;
 
   // "When will my life turn?" gets the slow planets walked over the years.
-  const timelineText = !dayScanText && isTimelineQuestion(intentQuestion)
+  // Past or future, and about whom: decided here from the words and the
+  // thread, not left to the model's date arithmetic. "เลิกกันไปแล้ว ฟังนะ
+  // เอาใหม่" keeps the time-line question asked just before it, in the past.
+  const recentUser = priorUser.slice(0, 4);
+  const pastEvent =
+    !continuing &&
+    (isPastEventQuestion(question) ||
+      (isFollowUpQuestion(question) && recentUser.some(isPastEventQuestion)));
+  const timelineQuestion = isTimelineQuestion(intentQuestion)
+    ? intentQuestion
+    : pastEvent
+      ? (recentUser.find(isTimelineQuestion) ?? (isPastEventQuestion(question) ? question : null))
+      : null;
+  const relationship =
+    isRelationshipQuestion(question) ||
+    Boolean(input.companions?.length) ||
+    recentUser.slice(0, 2).some(isRelationshipQuestion);
+  const timelineText = !dayScanText && timelineQuestion
     ? buildLifeTimelinePrompt({
         natal: natalChart,
         memory: chartMemory,
-        question: intentQuestion,
+        question: timelineQuestion,
         categorySlug,
+        past: pastEvent,
+        relationship,
       })
     : null;
+
+  // Shown above the answer, so the reader knows what it was read from.
+  const basis = timelineText
+    ? pastEvent
+      ? "ไทม์ไลน์ชีวิตย้อนหลัง (ดาวจรช่วงที่ผ่านมา เทียบดวงเดิม)"
+      : "ไทม์ไลน์ชีวิต (ดาวจรล่วงหน้า เทียบดวงเดิม)"
+    : dayScanText && dayPick
+      ? `ไล่ดวงจรทีละวัน เทียบดวงเดิม · ${transitWindow.label}`
+      : dayScanText
+        ? `ดวงจร ${transitWindow.label} เทียบดวงเดิม`
+        : transitChart
+          ? `ดวงจร ${transitWindow.label} เทียบดวงเดิม`
+          : "พื้นดวงเดิม";
 
   let systemPrompt = buildSystemPrompt({
     ...promptParts,
@@ -598,7 +633,7 @@ async function runReading(
   });
   systemPrompt = `${systemPrompt}\n\n${UNIFIED_CHAT_INSTRUCTION}`;
   if (timelineText) {
-    systemPrompt = `${systemPrompt}\n\n${TIMELINE_RULE}`;
+    systemPrompt = `${systemPrompt}\n\n${pastEvent ? PAST_TIMELINE_RULE : TIMELINE_RULE}`;
   }
   if (dayScanText) {
     systemPrompt = `${systemPrompt}\n\n${dayPick ? DAY_SCAN_RULE : DAY_CHECK_RULE}`;
@@ -1038,6 +1073,7 @@ async function runReading(
       chartSnapshot: natalChart,
       transitSnapshot: transitChart,
       metaPromise,
+      basis,
     };
   } catch (err) {
     if (reservationId) {

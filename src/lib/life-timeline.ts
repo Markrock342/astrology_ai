@@ -248,16 +248,23 @@ function houseLabel(house: number): string {
   return name ? `ภพ ${house} ${name} (${HOUSE_MEANING[name]})` : `ภพ ${house}`;
 }
 
-export function formatLifeTimelineForPrompt(t: LifeTimeline): string[] {
+export function formatLifeTimelineForPrompt(t: LifeTimeline, opts: { past?: boolean } = {}): string[] {
   const lines = [
     `[timeline] จุดเปลี่ยนของชีวิตจากดาวจรเดินช้า ช่วง ${thaiMonthYear(t.from)} ถึง ${thaiMonthYear(t.to)} ` +
-      "(คำนวณจากปฏิทินดาวสุริยยาตร์ทุกเดือนแล้ว ห้ามเดา — เดือน ปี และอายุที่ตอบต้องมาจากรายการนี้เท่านั้น " +
-      "น้ำหนักยิ่งสูงยิ่งเป็นจุดเปลี่ยนใหญ่):",
-    `ตอนนี้ ${thaiMonthYear(t.now.at)} · อายุ ${t.now.age}: ` +
+      "(คำนวณจากปฏิทินดาวสุริยยาตร์ทุกเดือนแล้ว ห้ามเดา — เดือน ปี และอายุที่ตอบต้องมาจากรายการนี้เท่านั้น):",
+    `ผู้ถามอายุ ${t.now.age} ปีในวันนี้ (${thaiMonthYear(t.now.at)}) — ` +
+      (opts.past
+        ? `ทุกรายการด้านล่างเป็นอดีต (ก่อนวันนี้) ห้ามตอบเดือน ปี หรืออายุที่มากกว่า ${t.now.age} ปี`
+        : `รายการที่อายุมากกว่า ${t.now.age} ปีคืออนาคต`),
+    "ตำแหน่งดาวเดินช้าตอนนี้: " +
       t.now.positions
         .map((p) => `${p.planet}อยู่ราศี${p.sign} ภพ ${p.natalHouse} ${HOUSE_NAMES[p.natalHouse - 1] ?? ""}`)
         .join(" · "),
   ];
+  // The model printed the raw score as "(น้ำหนัก 14)". The strongest third
+  // are named instead; the number stays here.
+  const scores = [...t.events.map((e) => e.score)].sort((a, b) => b - a);
+  const bigFrom = scores[Math.max(0, Math.ceil(scores.length / 3) - 1)] ?? Infinity;
   if (!t.events.length) {
     lines.push("- ไม่มีดาวเดินช้าย้ายราศีในช่วงนี้");
     return lines;
@@ -276,7 +283,7 @@ export function formatLifeTimelineForPrompt(t: LifeTimeline): string[] {
       `${e.planet}จรเข้าราศี${e.sign}${wiggle} = ${houseLabel(e.natalHouse)} ของพื้นดวง`,
       ...contacts,
       e.transitTaksa ? `ทักษาจรปีนั้น: ${e.planet}เป็น${e.transitTaksa}` : null,
-      `น้ำหนัก ${e.score}`,
+      e.score >= bigFrom ? "จุดเปลี่ยนใหญ่" : null,
     ].filter(Boolean);
     const outside = e.at.getUTCFullYear() < 1941 || e.at.getUTCFullYear() > 2040;
     lines.push(

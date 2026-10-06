@@ -287,7 +287,7 @@ describe("the team's reading method is hard-coded", () => {
 
   it("asks for prose inside each topic, and the layout rule no longer says otherwise", () => {
     const prompt = buildSystemPrompt(base);
-    expect(prompt).toContain("ต้องเป็นความเรียงเรื่องเดียวต่อเนื่อง");
+    expect(prompt).toContain("ปิดท้ายทุกคำตอบด้วยบรรทัด **สรุป:**");
     expect(prompt).not.toContain("ใช้ตาราง Markdown (| คอลัมน์ |) เมื่อสรุปดาว");
     expect(prompt).toContain("ห้ามใช้รายการ `-` หรือ `1.` ห้ามใช้ตาราง");
   });
