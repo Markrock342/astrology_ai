@@ -13,6 +13,8 @@ import { prisma } from "@/server/db";
 import { upsertBirthProfile } from "@/server/user/birth-profile-service";
 import { grantIncludedUsage } from "@/server/usage/usage-budget-service";
 import { createConversation, sendMessage } from "@/server/horoscope/message-service";
+import { createReading } from "@/server/horoscope/reading-service";
+import { resolveTransitWindow } from "@/lib/reading-intent";
 import { generateWithFallback } from "@/server/ai/router";
 import { findGlitchedLines } from "@/server/ai/script-repair";
 
@@ -340,6 +342,64 @@ async function main() {
 
   let done = 0;
   const started = Date.now();
+  // EVAL_PROMPTS=1: no model. Each turn's prompt is built by the real pipeline
+  // and written out for audit; earlier turns' answers come from a previous
+  // live run (EVAL_PRIOR, results.jsonl) so corrections have something to correct.
+  if (process.env.EVAL_PROMPTS) {
+    process.env.EVAL_CAPTURE_PROMPT = "1";
+    const prior = new Map<string, string[]>();
+    for (const line of fs.existsSync(process.env.EVAL_PRIOR ?? "") ? fs.readFileSync(process.env.EVAL_PRIOR!, "utf8").split("\n") : []) {
+      if (!line.trim()) continue;
+      const r = JSON.parse(line) as { id: string; turn: number; answer: string };
+      const list = prior.get(r.id) ?? [];
+      list[r.turn - 1] = r.answer;
+      prior.set(r.id, list);
+    }
+    try {
+      await pool(chosen, conc, async (c) => {
+        const userId = users.get(c.persona.key)!;
+        const conv = (await createConversation({ userId, mode: "TRANSIT" } as never)) as {
+          id: string; mode: "TRANSIT"; category: { slug: string }; transitTime: string | null; transitCountry: string | null; transitProvince: string | null; transitDistrict: string | null;
+        };
+        const thread: Array<{ role: "USER" | "ASSISTANT"; content: string }> = [];
+        for (const [ti, turn] of c.turns.entries()) {
+          const tw = resolveTransitWindow(turn.q, new Date(), undefined);
+          let captured: Record<string, unknown> | null = null;
+          let error: string | null = null;
+          try {
+            await createReading({
+              userId,
+              categorySlug: conv.category.slug,
+              question: turn.q,
+              priorMessages: [...thread],
+              mode: conv.mode,
+              answerMode: "detailed",
+              companions: c.companions as never,
+              transit: { date: tw.sampleAt, time: conv.transitTime, country: conv.transitCountry, province: conv.transitProvince, district: conv.transitDistrict, explicitDate: null } as never,
+            });
+          } catch (err) {
+            const cap = (err as { captured?: Record<string, unknown> }).captured;
+            if (cap) captured = cap;
+            else error = (err as Error).message.slice(0, 200);
+          }
+          file.write(JSON.stringify({ id: c.id, category: c.category, persona: c.persona.key, age: c.persona.age, birthTimeKnown: (c.persona.profile as { birthTimeKnown: boolean }).birthTimeKnown, companions: c.companions ?? null, turn: ti + 1, q: turn.q, prevQ: thread.filter((m) => m.role === "USER").map((m) => m.content), error, ...(captured ?? {}) }) + "\n");
+          thread.push({ role: "USER", content: turn.q }, { role: "ASSISTANT", content: prior.get(c.id)?.[ti] || "(คำตอบก่อนหน้า)" });
+          done++;
+          if (done % 100 === 0) console.log(`  ${done}/${turns}`);
+        }
+      });
+    } finally {
+      file.end();
+      for (const id of users.values()) {
+        await prisma.conversation.deleteMany({ where: { userId: id } });
+        await prisma.usageTransaction.deleteMany({ where: { userId: id } }).catch(() => {});
+        await prisma.userSubscription.deleteMany({ where: { userId: id } });
+        await prisma.user.delete({ where: { id } }).catch((e) => console.log("delete", e.message));
+      }
+      console.log("left @horasard.test:", await prisma.user.count({ where: { email: { endsWith: "@horasard.test" } } }));
+    }
+    return;
+  }
   try {
     await pool(chosen, conc, async (c) => {
       const userId = users.get(c.persona.key)!;

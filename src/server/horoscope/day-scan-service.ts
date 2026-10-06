@@ -60,10 +60,20 @@ export function buildDayScanPrompt(input: {
   const topicHouses = [...new Set(keys.flatMap((k) => input.memory?.categories[k]?.houses ?? []))];
 
   const checkDay = input.checkDay ? new Date(input.checkDay) : null;
-  const { days, truncated } = checkDay
-    ? { days: [-3, -2, -1, 0, 1, 2, 3].map((k) => new Date(checkDay.getTime() + k * 86_400_000)), truncated: false }
-    : dayScanDates(input.question, input.now, input.pinnedDate);
   const bkk = (d: Date) => new Date(d.getTime() + 7 * 3_600_000);
+  // The days around an asked day are offered as better ones "if you can
+  // move it" — never a day already gone (asked about the 10th on the 7th,
+  // the model was offered the 7th, and the 5th for an earlier day).
+  const today = bkk(input.now ?? new Date()).toISOString().slice(0, 10);
+  const { days, truncated } = checkDay
+    ? {
+        days: [-3, -2, -1, 0, 1, 2, 3, 4, 5]
+          .map((k) => ({ k, at: new Date(checkDay.getTime() + k * 86_400_000) }))
+          .filter(({ k, at }) => k === 0 || bkk(at).toISOString().slice(0, 10) > today)
+          .map(({ at }) => at),
+        truncated: false,
+      }
+    : dayScanDates(input.question, input.now, input.pinnedDate);
   const scan = scanDays({
     natalLagna: input.natal.chart?.lagna ?? input.natal.meta.lagna,
     natalPlanets: input.natal.planets,

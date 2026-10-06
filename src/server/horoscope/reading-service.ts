@@ -743,6 +743,14 @@ async function runReading(
     userPrompt,
   };
 
+  // The prompt-level test suite (scripts/eval-1000.ts, EVAL_PROMPTS) audits
+  // what the model would be given, without calling it.
+  if (process.env.EVAL_CAPTURE_PROMPT === "1") {
+    throw Object.assign(new Error("EVAL_PROMPT_CAPTURED"), {
+      captured: { systemPrompt, userPrompt, conversationHistory, basis, plan: readingPlan },
+    });
+  }
+
   // Writing phase — reserve quota then call the model.
   onPhase?.("writing");
   const reservationId = skipCredits
