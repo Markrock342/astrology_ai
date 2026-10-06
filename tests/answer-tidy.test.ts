@@ -19,5 +19,6 @@ describe("stripInternalMarks", () => {
   it("removes block names and English months", () => {
     expect(stripInternalMarks("ตามข้อมูลใน [timeline] ช่วง March 2564")).toBe("ตามข้อมูลในดวงของคุณ ช่วง มีนาคม 2564");
     expect(stripInternalMarks("จุดเปลี่ยน [timeline] ปีนี้")).toBe("จุดเปลี่ยน ปีนี้");
+    expect(stripInternalMarks("วันอังคารที่ 20 ต.ค. [+4] ศุกร์(6) กับจันทร์ (2)")).toBe("วันอังคารที่ 20 ต.ค. ศุกร์ กับจันทร์");
   });
 });

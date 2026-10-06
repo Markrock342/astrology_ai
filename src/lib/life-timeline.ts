@@ -70,7 +70,7 @@ function validSign(raw: string | null | undefined): string | null {
 }
 
 function signOfHouse(lagna: string, house: number): string {
-  return SIGNS[((SIGNS as readonly string[]).indexOf(lagna) + house - 1) % 12]!;
+  return SIGNS[((SIGNS as readonly string[]).indexOf(normalizeSignName(lagna)) + house - 1) % 12]!;
 }
 
 export function completedAge(birth: { day: number; month: number; year: number }, at: Date): number {

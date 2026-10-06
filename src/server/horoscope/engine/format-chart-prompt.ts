@@ -1,3 +1,4 @@
+import { normalizeSignName } from "@/lib/chart-theme";
 import "@/server/horoscope/engine/taksa-boundaries";
 import { fillSamrapRows } from "@/lib/samrap-derive";
 import { dignityLabel } from "@/lib/thai-dignity";
@@ -41,8 +42,10 @@ const SIGN_INDEX = new Map(SIGNS.map((s, i) => [s, i]));
 
 /** House 1–12 counted from lagna (Thai whole-sign). */
 export function houseFromLagna(lagna: string, planetSign: string): number | null {
-  const l = SIGN_INDEX.get(lagna as (typeof SIGNS)[number]);
-  const p = SIGN_INDEX.get(planetSign as (typeof SIGNS)[number]);
+  // The 100-year table spells กุมภ์, this list กุมภ: every planet in
+  // Aquarius used to get no house ("เสาร์: กุมภ์ เรือน—").
+  const l = SIGN_INDEX.get(normalizeSignName(lagna) as (typeof SIGNS)[number]);
+  const p = SIGN_INDEX.get(normalizeSignName(planetSign) as (typeof SIGNS)[number]);
   if (l === undefined || p === undefined) return null;
   return ((p - l + 12) % 12) + 1;
 }

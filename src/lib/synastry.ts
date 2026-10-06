@@ -66,7 +66,7 @@ function rows(planets: PlanetSignRow[]): Array<{ planet: string; sign: string }>
 }
 
 function signOfHouse(lagna: string, house: number): string {
-  return SIGNS[((SIGNS as readonly string[]).indexOf(lagna) + house - 1) % 12]!;
+  return SIGNS[((SIGNS as readonly string[]).indexOf(normalizeSignName(lagna)) + house - 1) % 12]!;
 }
 
 export function computeSynastry(

@@ -62,6 +62,9 @@ export function stripInternalMarks(text: string): string {
   return text
     .replace(/(?:ใน|จาก|ตาม)?(?:ข้อมูล)?\s*(?:บล็อก\s*)?\[[a-z][a-z_]{2,}\]/g, (m) => (/^(?:ใน|จาก|ตาม)/.test(m) ? `${m.match(/^(?:ใน|จาก|ตาม)/)![0]}ดวงของคุณ` : ""))
     .replace(/บล็อก/g, "ข้อมูลดวง")
+    // Day scores ("[+4]") and planet numbers ("ศุกร์(6)") from the data blocks.
+    .replace(/\s*\[[+\-−]?\d+\]/g, "")
+    .replace(/(อาทิตย์|จันทร์|อังคาร|พุธ|พฤหัสบดี|พฤหัส|ศุกร์|เสาร์|ราหู|เกตุ|มฤตยู)\s*\([0-9๐-๙]\)/g, "$1")
     .replace(new RegExp(`(?<![A-Za-z])(${EN_MONTHS.join("|")})(?![A-Za-z])`, "g"), (m) => TH_MONTHS[EN_MONTHS.indexOf(m)]!);
 }
 

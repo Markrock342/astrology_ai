@@ -1,4 +1,5 @@
 import "@/server/horoscope/engine/taksa-boundaries";
+import { topicHousesOf } from "@/lib/question-topics";
 import { pastEventStartAge } from "@/lib/reading-intent";
 import type { ChartJson } from "@/types/chart";
 import type { UserChartMemoryJson } from "@/types/chart-memory";
@@ -50,9 +51,12 @@ export function buildLifeTimelinePrompt(input: {
   const keys = input.memory
     ? resolveMemoryFocusKeys({ categorySlug: input.categorySlug, question: input.question }) ?? []
     : [];
+  const focus = topicHousesOf(input.question);
   const topicHouses = input.relationship
     ? [7, 5, 1]
-    : [...new Set(keys.flatMap((k) => input.memory?.categories[k]?.houses ?? []))];
+    : focus.length
+      ? focus
+      : [...new Set(keys.flatMap((k) => input.memory?.categories[k]?.houses ?? []))];
 
   // A whole-life question walks to age 90; others the next 20 years.
   const wholeLife = timelineIncludesPast(input.question) || /ทั้งชีวิต|ตลอดชีวิต|ชั่วชีวิต|บั้นปลาย|แก่ตัว/.test(input.question);

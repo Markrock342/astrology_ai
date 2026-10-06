@@ -1,3 +1,4 @@
+import { normalizeSignName } from "@/lib/chart-theme";
 import "@/server/horoscope/engine/taksa-boundaries";
 import { createHash } from "crypto";
 import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
@@ -47,7 +48,7 @@ const ALL_MEMORY_SLUGS = /^overview$/i;
 
 
 function signForHouse(lagna: string, house: number): string | null {
-  const l = SIGNS.indexOf(lagna as (typeof SIGNS)[number]);
+  const l = SIGNS.indexOf(normalizeSignName(lagna) as (typeof SIGNS)[number]);
   if (l < 0 || house < 1 || house > 12) return null;
   return SIGNS[(l + house - 1) % 12] ?? null;
 }
