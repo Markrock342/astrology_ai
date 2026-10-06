@@ -309,6 +309,11 @@ async function main() {
   // EVAL_IDS=path/to/ids.txt reruns only those case ids (one per line).
   const onlyIds = process.env.EVAL_IDS ? new Set(fs.readFileSync(process.env.EVAL_IDS, "utf8").split(/\s+/).filter(Boolean)) : null;
   let chosen = cases.filter((c) => c.category.includes(filter) && (!onlyIds || onlyIds.has(c.id)));
+  // An id list runs in its own order: most important first, in case the quota runs out.
+  if (onlyIds) {
+    const order = [...onlyIds];
+    chosen.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  }
   // Count by turns, up to the limit.
   const out: Case[] = [];
   let turns = 0;
