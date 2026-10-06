@@ -109,3 +109,26 @@ describe(`routing ${cases.length} questions`, () => {
   }
   it("is about a thousand", () => expect(cases.length).toBeGreaterThanOrEqual(1000));
 });
+
+describe("past events and corrections (grading batch 2)", () => {
+  it("reads a first job as a past event", () => {
+    for (const q of ["ผมได้งานแรกตอนอายุเท่าไหร่", "ได้งานแรกตอนไหน", "แฟนคนแรกตอนอายุเท่าไหร่"]) {
+      expect(planReading({ question: q }).basis, q).toBe("timeline-past");
+    }
+    expect(planReading({ question: "จะได้งานแรกเมื่อไหร่" }).pastEvent).toBe(false);
+  });
+  it("takes the years of an answer called wrong out of the next one", () => {
+    const plan = planReading({
+      question: "เลิกกันไปแล้วนะ ผิดแล้ว เอาใหม่",
+      priorMessages: [
+        { role: "USER", content: "ผมกับแฟนจะกลับมาเจอกันอีกไหม ช่วงไหนของชีวิต" },
+        { role: "ASSISTANT", content: "มีโอกาสครับ ช่วง พ.ศ. 2571" },
+        { role: "USER", content: "แล้วเราเลิกกันช่วงไหน ตอนอายุเท่าไหร่" },
+        { role: "ASSISTANT", content: "ช่วงที่เข้าเค้าที่สุดคืออายุ 21 ปี (มี.ค. 2566)" },
+      ],
+    });
+    expect(plan.basis).toBe("timeline-past");
+    expect(plan.correction).toBe(true);
+    expect(plan.rejectedYears).toEqual([2566]);
+  });
+});

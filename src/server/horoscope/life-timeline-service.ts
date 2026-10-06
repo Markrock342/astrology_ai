@@ -1,4 +1,5 @@
 import "@/server/horoscope/engine/taksa-boundaries";
+import { pastEventStartAge } from "@/lib/reading-intent";
 import type { ChartJson } from "@/types/chart";
 import type { UserChartMemoryJson } from "@/types/chart-memory";
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";
@@ -35,6 +36,8 @@ export function buildLifeTimelinePrompt(input: {
   past?: boolean;
   /** About a partner or love: weigh ปัตนิ and ปุตตะ. */
   relationship?: boolean;
+  /** พ.ศ. years the user already said were wrong: left out of the list. */
+  rejectedYears?: number[];
 }): string | null {
   const now = input.now ?? new Date();
   const birth = input.natal.input;
@@ -63,7 +66,7 @@ export function buildLifeTimelinePrompt(input: {
   // Something that already happened: from the teens (a love or a job before
   // that is rare) to this month, never after it.
   const from = input.past
-    ? new Date(Date.UTC(birth.year + 12, birth.month - 1, 1))
+    ? new Date(Date.UTC(birth.year + pastEventStartAge(input.question), birth.month - 1, 1))
     : lookBack
       ? born
       : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -79,7 +82,7 @@ export function buildLifeTimelinePrompt(input: {
     now,
     topicHouses: topicHouses.length ? topicHouses : WHOLE_LIFE_HOUSES,
     // A lifetime has more turning points than twenty years.
-    limit: wholeLife ? 20 : 12,
+    limit: (wholeLife ? 20 : 12) + (input.rejectedYears?.length ? 8 : 0),
     // Mid-month, noon: the slow planets' sign for that month.
     positionsAt: (at) =>
       computeNatalChartFormula({
@@ -96,5 +99,18 @@ export function buildLifeTimelinePrompt(input: {
           .map((slot) => [slot.planet, slot.taksa]),
       ),
   });
-  return timeline ? formatLifeTimelineForPrompt(timeline, { past: input.past }).join("\n") : null;
+  if (!timeline) return null;
+  const rejected = new Set(input.rejectedYears ?? []);
+  const kept = rejected.size
+    ? { ...timeline, events: timeline.events.filter((e) => !rejected.has(e.at.getUTCFullYear() + 543)) }
+    : timeline;
+  const lines = formatLifeTimelineForPrompt(kept, { past: input.past });
+  if (rejected.size) {
+    lines.splice(
+      2,
+      0,
+      `ผู้ใช้บอกแล้วว่าช่วงปี พ.ศ. ${[...rejected].join(", ")} ที่ตอบไปไม่ใช่ — ตัดออกจากรายการแล้ว ห้ามตอบปีเหล่านี้อีก ให้เลือกช่วงใหม่จากรายการด้านล่าง`,
+    );
+  }
+  return lines.join("\n");
 }

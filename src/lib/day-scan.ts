@@ -187,6 +187,33 @@ export function thaiDayLabel(date: Date): string {
   return `${b.getUTCDate()} ${THAI_MONTH[b.getUTCMonth()]} ${b.getUTCFullYear() + 543}`;
 }
 
+const THAI_MONTH_FULL = ["มกรา", "กุมภา", "มีนา", "เมษา", "พฤษภา", "มิถุนา", "กรกฎา", "สิงหา", "กันยา", "ตุลา", "พฤศจิกา", "ธันวา"];
+const THAI_DIGIT = /[๐-๙]/g;
+
+/**
+ * "Is 26 Oct good for an interview?" answered "ดีครับ…" leaves the reader to
+ * trust the date was understood. The rule asks the model to lead with the
+ * day; when it doesn't, the day is put in front of the first line here.
+ */
+export function leadWithDay(text: string, day: Date): string {
+  const b = new Date(day.getTime() + 7 * 3_600_000);
+  const d = b.getUTCDate();
+  const m = b.getUTCMonth();
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => l.trim());
+  if (at < 0) return text;
+  const first = lines[at]!.replace(THAI_DIGIT, (c) => String(c.charCodeAt(0) - 0x0e50));
+  const abbr = THAI_MONTH[m]!.replace(/\./g, "\\.?");
+  if (new RegExp(`(^|\\D)${d}\\s*(${abbr}|${THAI_MONTH_FULL[m]})`).test(first)) return text;
+  const label = `วันที่ ${thaiDayLabel(day)}`;
+  if (/^\s*(#|\||>|[-*]\s)/.test(lines[at]!)) {
+    lines.splice(at, 0, `**${label}**`, "");
+  } else {
+    lines[at] = `${label}: ${lines[at]!.trimStart()}`;
+  }
+  return lines.join("\n");
+}
+
 export function formatDayScanForPrompt(scan: DayScan): string[] {
   const lines = [
     `[day_scan] ไล่ดาวจรทีละวัน ${thaiDayLabel(scan.from)} – ${thaiDayLabel(scan.to)} ` +
