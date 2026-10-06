@@ -27,7 +27,6 @@ import {
   DAY_CHECK_RULE,
   CONTINUE_RULE,
   UNKNOWN_TIME_RULE,
-  isContinueRequest,
   COMPANION_RULE,
 } from "@/server/ai/prompt-builder";
 import type { PriorThreadMessage } from "@/server/ai/prompt-builder";
@@ -49,18 +48,6 @@ import { getOrRefreshChartMemory } from "@/server/horoscope/chart-memory-service
 import {
   bangkokTimeHm,
   isOverviewQuestion,
-  isDayPickQuestion,
-  isPinpointQuestion,
-  questionInContext,
-  resolveMentionedDay,
-  isFollowUpQuestion,
-  isPastEventQuestion,
-  isRelationshipQuestion,
-  previousTimedQuestion,
-  detectReadingIntent,
-  detectFutureDatePromptTrigger,
-  isTimelineQuestion,
-  resolveTransitWindow,
 } from "@/lib/reading-intent";
 import { buildLifeTimelinePrompt } from "@/server/horoscope/life-timeline-service";
 import { buildDayScanPrompt } from "@/server/horoscope/day-scan-service";
@@ -115,6 +102,7 @@ import type { ReadingPromptTrace, TracePlanet } from "@/types/reading-trace";
 import { findWrongLordClaims } from "@/lib/answer-facts";
 import { buildHouseChains } from "@/lib/house-chains";
 import { repairScriptGlitches } from "@/server/ai/script-repair";
+import { planReading } from "@/lib/reading-plan";
 
 export { buildKnowledgePrompt } from "@/server/horoscope/knowledge-retrieval";
 
@@ -269,31 +257,15 @@ async function runReading(
   // "เล่าต่อ" continues the previous answer: what to compute comes from the
   // question that answer was for. Read on its own, "เล่าต่อ" got no day scan,
   // no transit window, and a new natal reading instead of the rest.
-  const continuing = isContinueRequest(question);
-  const newestFirst = [...(priorMessages ?? [])].reverse();
-  const priorUser = newestFirst
-    .filter((m) => m.role === "USER" && !isContinueRequest(m.content))
-    .map((m) => m.content);
-  // Time comes from the thread too: "14 ผมมีนัดคุยงาน" after an answer about
-  // 14 ต.ค. is that day; "แล้วเรื่องเงินล่ะ" keeps the period asked before.
-  const priorAssistant = newestFirst.filter((m) => m.role === "ASSISTANT").map((m) => m.content);
-  // A day this question names is the whole of its time: "14 ผมมีนัด" after
-  // "วันไหนจะมีคนจ้าง" is about the 14th, not another day-pick.
-  const ownDay = continuing ? null : resolveMentionedDay(question, priorAssistant);
-  const intentQuestion = continuing
-    ? (priorUser[0] ?? question)
-    : ownDay
-      ? question
-      : questionInContext(question, priorUser);
-  // For "แล้วเรื่องเงินล่ะ": the day the thread is on.
-  const timedBefore =
-    !continuing && !ownDay && isFollowUpQuestion(question) ? previousTimedQuestion(question, priorUser) : null;
-  const mentionedDay =
-    ownDay ??
-    (timedBefore && detectReadingIntent(question) === "natal"
-      ? resolveMentionedDay(timedBefore, priorAssistant)
-      : null);
-  const explicitDate = input.transit?.explicitDate ?? mentionedDay;
+  // What this question is read from — one pure decision (lib/reading-plan),
+  // tested on a thousand questions without the model.
+  const readingPlan = planReading({
+    question,
+    priorMessages: (priorMessages ?? []).map((m) => ({ role: m.role, content: m.content })),
+    pickedDate: input.transit?.explicitDate ?? null,
+    hasCompanions: Boolean(input.companions?.length),
+  });
+  const { continuing, intentQuestion, explicitDate } = readingPlan;
   const mode = input.mode ?? "NATAL";
   const skipCredits = input.purpose === "category_intro";
 
@@ -375,11 +347,7 @@ async function runReading(
     additionalInfo: profile.additionalInfo,
   };
 
-  const transitWindow = resolveTransitWindow(
-    intentQuestion,
-    new Date(),
-    explicitDate ?? null,
-  );
+  const transitWindow = readingPlan.transitWindow;
   const transitPlace = {
     country: input.transit?.country ?? natalChart.input.country,
     province: input.transit?.province ?? natalChart.input.province,
@@ -446,7 +414,7 @@ async function runReading(
   onPhase?.("memory");
   // A pinpoint question ("วันไหนดีสุด") is answered short whatever the mode;
   // "เล่าต่อ" asks for more, so it keeps the mode it was given.
-  const pinpoint = !continuing && (isPinpointQuestion(intentQuestion) || Boolean(mentionedDay));
+  const pinpoint = readingPlan.pinpoint;
   // Brief mode prefers 3.5 Flash (lite only if nothing smarter is enabled).
   const answerMode = pinpoint ? "brief" : (input.answerMode ?? "detailed");
   const [chartMemory, userAiMemory, config, knowledgeDocs, standardRows] = await Promise.all([
@@ -561,12 +529,7 @@ async function runReading(
 
   // "Which day is good for …?" gets every day of the period walked; it takes
   // precedence over the life timeline, which also matches ช่วงไหน/เมื่อไหร่.
-  const dayPick = isDayPickQuestion(intentQuestion);
-  // One day to check: picked, named by number, or written out ("14 ต.ค. 2569",
-  // as the calendar's "ถามเรื่องวันนี้" sends it).
-  const checkDay =
-    explicitDate ??
-    (detectFutureDatePromptTrigger(intentQuestion) === "explicit_date" ? transitWindow.sampleAt : null);
+  const { dayPick, checkDay } = readingPlan;
   const dayScanText = dayPick
     ? buildDayScanPrompt({
         natal: natalChart,
@@ -589,20 +552,7 @@ async function runReading(
   // Past or future, and about whom: decided here from the words and the
   // thread, not left to the model's date arithmetic. "เลิกกันไปแล้ว ฟังนะ
   // เอาใหม่" keeps the time-line question asked just before it, in the past.
-  const recentUser = priorUser.slice(0, 4);
-  const pastEvent =
-    !continuing &&
-    (isPastEventQuestion(question) ||
-      (isFollowUpQuestion(question) && recentUser.some(isPastEventQuestion)));
-  const timelineQuestion = isTimelineQuestion(intentQuestion)
-    ? intentQuestion
-    : pastEvent
-      ? (recentUser.find(isTimelineQuestion) ?? (isPastEventQuestion(question) ? question : null))
-      : null;
-  const relationship =
-    isRelationshipQuestion(question) ||
-    Boolean(input.companions?.length) ||
-    recentUser.slice(0, 2).some(isRelationshipQuestion);
+  const { pastEvent, timelineQuestion, relationship } = readingPlan;
   const timelineText = !dayScanText && timelineQuestion
     ? buildLifeTimelinePrompt({
         natal: natalChart,
