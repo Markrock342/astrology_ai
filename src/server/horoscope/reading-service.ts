@@ -110,7 +110,7 @@ import { findWrongTaksaClaims } from "@/lib/answer-facts";
 import { rewriteWrongClaims } from "@/server/ai/fact-repair";
 import { leadWithDay } from "@/lib/day-scan";
 import { tidyAnswer } from "@/lib/answer-tidy";
-import { formatQuestionFocus } from "@/lib/question-topics";
+import { formatQuestionFocus, questionTopics } from "@/lib/question-topics";
 import { computeTransitTaksaByAge } from "@/lib/taksa";
 
 export { buildKnowledgePrompt } from "@/server/horoscope/knowledge-retrieval";
@@ -247,6 +247,25 @@ export async function streamReading(
   shouldStop?: () => Promise<boolean>,
 ) {
   return runReading(input, onDelta, shouldStop);
+}
+
+/** Knowledge docs kept out of answers (seed ids, prisma/seed-knowledge-myhora.ts). */
+const BACKGROUND_KNOWLEDGE_IDS = ["kb-global-foundation", "kb-global-calc-tools"] as const;
+
+/** The category guides that fit a question in the one chat; a relationship question always gets love. */
+function guideSlugsFor(question: string, aboutRelationship: boolean): string[] {
+  const bySlug: Record<string, string> = {
+    "ความรักและคู่ครอง": "love",
+    "การงาน": "career",
+    "ธุรกิจและการค้า": "career",
+    "การเงิน": "finance",
+    "โชคลาภ": "fortune",
+    "สุขภาพ": "health",
+  };
+  const slugs = new Set(questionTopics(question).map((t) => bySlug[t.label]).filter((x): x is string => Boolean(x)));
+  if (aboutRelationship) slugs.add("love");
+  if (!slugs.size && isOverviewQuestion(question)) slugs.add("overview");
+  return [...slugs];
 }
 
 async function runReading(
@@ -437,7 +456,17 @@ async function runReading(
     prisma.knowledgeDoc.findMany({
       where: {
         enabled: true,
-        OR: [{ categoryId: null }, { categoryId: category.id }],
+        // The one chat sits on "self", whose guide sent every answer to work.
+        // It gets the guide of what this question is about instead.
+        OR: [
+          { categoryId: null },
+          categorySlug === UNIFIED_CHAT_CATEGORY_SLUG
+            ? { category: { slug: { in: guideSlugsFor(intentQuestion, Boolean(input.companions?.length) || readingPlan.relationship) } } }
+            : { categoryId: category.id },
+        ],
+        // Background on calendars, ayanamsa and tools — for the engine's
+        // makers, not for answering; it named outside sources and padded every prompt.
+        id: { notIn: [...BACKGROUND_KNOWLEDGE_IDS] },
       },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
@@ -581,8 +610,11 @@ async function runReading(
   // This period's ทักษาจร, named for the model and checked in its answer —
   // graders found one person's answers giving different ทักษาจร. Not for a
   // birth-chart answer, nor a timeline (each year has its own).
+  // Not for a day pick or day check either: there a day's role comes from the
+  // birth ทักษา ("วันอุตสาหะของคุณ"), and a year's ทักษาจร beside it ("ศรีจร =
+  // เสาร์") read as the same Saturday being both bad and good.
   const taksaSlots =
-    !timelineText && transitWindow.intent === "transit"
+    !timelineText && !dayScanText && transitWindow.intent === "transit"
       ? computeTransitTaksaByAge(natalChart.input, transitWindow.sampleAt).slots.filter((x) => x.planet)
       : null;
   const taksaNowText = taksaSlots?.length
