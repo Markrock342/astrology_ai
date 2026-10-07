@@ -87,7 +87,8 @@ describe("future date confirmation", () => {
   it("prefills a date derived from relative Thai wording", () => {
     expect(suggestedFutureDateKey("พรุ่งนี้จะเป็นยังไง", NOW)).toBe("2026-09-09");
     expect(suggestedFutureDateKey("มะรืนการเงินเป็นยังไง", NOW)).toBe("2026-09-10");
-    expect(suggestedFutureDateKey("เดือนหน้าการงาน", NOW)).toBe("2026-10-08");
+    // เดือนหน้า is the whole of next month, read at its middle.
+    expect(suggestedFutureDateKey("เดือนหน้าการงาน", NOW)).toBe("2026-10-16");
     expect(suggestedFutureDateKey("ปีหน้าความรัก", NOW)).toBe("2027-09-08");
   });
 });
@@ -103,7 +104,9 @@ describe("resolveTransitWindow", () => {
 
   it("jumps เดือนหน้า to next calendar month", () => {
     const w = resolveTransitWindow("เดือนหน้างานเป็นไง", NOW);
-    expect(bangkokDateKey(w.sampleAt)).toBe("2026-10-08");
+    expect(bangkokDateKey(w.sampleAt)).toBe("2026-10-16");
+    expect(bangkokDateKey(w.start)).toBe("2026-10-01");
+    expect(bangkokDateKey(w.end)).toBe("2026-10-31");
     expect(w.horizonAt).toBeNull();
   });
 
@@ -126,5 +129,17 @@ describe("resolveTransitWindow", () => {
 
   it("adds calendar months without UTC day-slip", () => {
     expect(bangkokDateKey(addCalendarMonths(NOW, 3))).toBe("2026-12-08");
+  });
+});
+
+describe("calendar weeks", () => {
+  it("reads next week as Monday to Sunday", () => {
+    // Wednesday 7 Oct 2026.
+    const wed = new Date("2026-10-07T03:00:00.000Z");
+    const w = resolveTransitWindow("สัปดาห์หน้าดวงเป็นไง", wed);
+    expect(bangkokDateKey(w.start)).toBe("2026-10-12");
+    expect(bangkokDateKey(w.end)).toBe("2026-10-18");
+    const thisWeek = resolveTransitWindow("สัปดาห์นี้ดวงเป็นไง", wed);
+    expect(bangkokDateKey(thisWeek.end)).toBe("2026-10-11");
   });
 });

@@ -46,7 +46,8 @@ describe("scanDays", () => {
     { index: 1, taksa: "ศรี", planet: "ศุกร์", planetNum: 6 },
     { index: 2, taksa: "กาลกิณี", planet: "พุธ", planetNum: 4 },
   ];
-  const { days } = dayScanDates("สัปดาห์นี้วันไหนดี", NOW);
+  // Next week is Monday to Sunday: every weekday is in it.
+  const { days } = dayScanDates("สัปดาห์หน้าวันไหนดี", NOW);
   const scan = scanDays({
     natalLagna: "กันย์",
     natalPlanets: [{ planet: "พฤหัสบดี", siderealSign: "มิถุน" }],

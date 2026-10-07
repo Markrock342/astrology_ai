@@ -67,7 +67,7 @@ const C = {
       return bad.length ? `อายุ ${bad.join(", ")} (อายุตอนนี้ ${c.persona.age})` : null;
     },
   } as Check,
-  ageFirst: { name: "บอกอายุในประโยคแรก", run: (a) => (/อายุ\s*\d{2}/.test(firstLine(a.text)) ? null : `ประโยคแรก: ${firstLine(a.text).slice(0, 70)}`) } as Check,
+  ageFirst: { name: "บอกอายุในประโยคแรก", run: (a) => (/อายุ[\s*]*\d{2}/.test(firstLine(a.text)) ? null : `ประโยคแรก: ${firstLine(a.text).slice(0, 70)}`) } as Check,
   love: { name: "ตอบเรื่องความรัก", run: (a) => (/ความรัก|คู่ครอง|ปัตนิ|ความสัมพันธ์|คนรัก|แฟน|คู่/.test(a.text) ? null : "ไม่พูดเรื่องความรัก") } as Check,
   notCareerLed: {
     name: "ไม่ลากไปเรื่องงาน",

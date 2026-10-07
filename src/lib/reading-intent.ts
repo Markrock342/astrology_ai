@@ -487,6 +487,32 @@ export function monthSpanOf(question: string): number | null {
  * Decide natal vs future, then pick the civil Bangkok instant(s) to compute.
  * `override` is an explicit วันจร the user picked.
  */
+/**
+ * "สัปดาห์หน้า" is next Monday to Sunday and "เดือนหน้า" the whole of next
+ * month, not today plus 7 or 30. Asked on Wednesday 7 Oct, next week was read
+ * as 14–20 Oct and fourteen answers picked the 19th or 20th — the week after.
+ */
+export function calendarPeriod(question: string, now = new Date()): { start: Date; end: Date; label: string } | null {
+  const q = question.trim();
+  const p = partsOf(now);
+  const at9 = (y: number, m: number, d: number) => bangkokCivilDate(y, m, d, "09:00");
+  const today = at9(p.y, p.m, p.d);
+  // 0 = Monday … 6 = Sunday.
+  const dow = (new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay() + 6) % 7;
+  if (/(?:สัปดาห์|อาทิตย์|week)\s*หน้า/i.test(q)) {
+    const start = addCalendarDays(today, 7 - dow);
+    return { start, end: addCalendarDays(start, 6), label: "สัปดาห์หน้า" };
+  }
+  if (/(?:สัปดาห์|อาทิตย์|week)\s*นี้/i.test(q)) {
+    return { start: today, end: addCalendarDays(today, 6 - dow), label: "สัปดาห์นี้" };
+  }
+  if (/เดือนหน้า/.test(q) && !monthSpanOf(q)) {
+    const start = addCalendarMonths(at9(p.y, p.m, 1), 1);
+    return { start, end: addCalendarDays(addCalendarMonths(start, 1), -1), label: "เดือนหน้า" };
+  }
+  return null;
+}
+
 export function resolveTransitWindow(
   question: string,
   now = new Date(),
@@ -533,6 +559,13 @@ export function resolveTransitWindow(
       explicit,
       null,
     );
+  }
+
+  const period = parseRelativeSpan(q) ? null : calendarPeriod(q, now);
+  if (period) {
+    // Read at the middle of the period; the label names the whole of it.
+    const mid = new Date((period.start.getTime() + period.end.getTime()) / 2);
+    return windowOf("transit", period.start, period.end, rangeLabel(period.label, period.start, period.end), mid, null);
   }
 
   // The client's keyword table decides the day whenever a phrase names one.
@@ -797,17 +830,12 @@ export function dayScanDates(
   } else if (monthSpanOf(q)) {
     // "ช่วง 3 เดือนนี้" is three months, not the rest of this one.
     end = addCalendarDays(addCalendarMonths(start, monthSpanOf(q)!), -1);
-  } else if (/เดือนหน้า/.test(q)) {
-    const first = addCalendarMonths(at9(p.y, p.m, 1), 1);
-    start = first;
-    end = addCalendarDays(addCalendarMonths(first, 1), -1);
+  } else if (calendarPeriod(q, now)) {
+    const period = calendarPeriod(q, now)!;
+    start = period.start;
+    end = period.end;
   } else if (/เดือนนี้/.test(q)) {
     end = addCalendarDays(addCalendarMonths(at9(p.y, p.m, 1), 1), -1);
-  } else if (/สัปดาห์หน้า|อาทิตย์หน้า/.test(q)) {
-    start = addCalendarDays(start, 7);
-    end = addCalendarDays(start, 6);
-  } else if (/สัปดาห์นี้|อาทิตย์นี้/.test(q)) {
-    end = addCalendarDays(start, 6);
   } else if (/ปีหน้า/.test(q)) {
     start = at9(p.y + 1, 1, 1);
     end = at9(p.y + 1, 12, 31);
