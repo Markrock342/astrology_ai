@@ -1,5 +1,6 @@
 import { DISPLAY_TIMEZONE } from "@/config/constants";
 import { formatTransitDateLabel } from "@/lib/transit-label";
+import { questionTopics } from "@/lib/question-topics";
 
 export type ReadingIntent = "natal" | "transit";
 
@@ -14,8 +15,11 @@ export type TransitWindow = {
   label: string;
 };
 
+const TH_MONTH_NAMES = "มกรา|กุมภา|มีนา|เมษา|พฤษภา|มิถุนา|กรกฎา|สิงหา|กันยา|ตุลา|พฤศจิกา|ธันวา";
+/** "ตุลานี้", "เดือนตุลาคม" — a month named without a day number. */
+const MONTH_NAME = new RegExp(`(?<![\\d๐-๙]\\s{0,2})(?:เดือน)?(${TH_MONTH_NAMES})(?:คม|ยน|พันธ์)?`);
 const TRANSIT_HINT =
-  /ดวงจร|วันจร|ช่วงนี้|ตอนนี้|วันนี้|พรุ่งนี้|เดือนนี้|เดือนหน้า|สัปดาห์|อาทิตย์(?:นี้|หน้า)|ปีนี้|ปีหน้า|อนาคต|อีก\s*\d+\s*เดือน|ช่วง\s*\d+\s*เดือน|[3๓]\s*เดือน|สามเดือน|จะ(?:เป็น|ได้|มี|ไป|เจอ)|เมื่อ(?:ไหร่|ไร)|จังหวะ/;
+  /สิ้นเดือน|ทั้งเดือน|มกรา|กุมภา|มีนา|เมษา|พฤษภา|มิถุนา|กรกฎา|สิงหา|กันยา|ตุลา|พฤศจิกา|ธันวา|ดวงจร|วันจร|ช่วงนี้|ตอนนี้|วันนี้|พรุ่งนี้|เดือนนี้|เดือนหน้า|สัปดาห์|อาทิตย์(?:นี้|หน้า)|ปีนี้|ปีหน้า|อนาคต|อีก\s*\d+\s*เดือน|ช่วง\s*\d+\s*เดือน|[3๓]\s*เดือน|สามเดือน|จะ(?:เป็น|ได้|มี|ไป|เจอ)|เมื่อ(?:ไหร่|ไร)|จังหวะ/;
 
 export const FUTURE_DATE_PROMPT_TRIGGERS = [
   "explicit_date",
@@ -388,9 +392,28 @@ export function previousTimedQuestion(question: string, priorUserNewestFirst: st
   );
 }
 
+/**
+ * "บอกให้ดูทั้งเดือนไม่ใช่ดูวันที่7" names the 7th only to reject it; it was
+ * read as a question about the 7th. Rejected days and the common typo "เกณ"
+ * are cleaned before the question is routed.
+ */
+export function normalizeQuestionForRouting(question: string): string {
+  return question
+    .replace(/(?:ไม่ใช่|ไม่ได้ถาม|ไม่เอา)\s*(?:ดู|ถาม)?\s*(?:แค่)?\s*(?:วันที่|วัน)?\s*[\d๐-๙]{1,2}(?:\s*(?:ต\.ค\.|พ\.ย\.|ธ\.ค\.|[ก-๙]+\.?[ก-๙]*\.?))?/g, "")
+    .replace(/เกณ(?!ฑ)/g, "เกณฑ์");
+}
+
 export function questionInContext(question: string, priorUserNewestFirst: string[] = []): string {
   const q = question.trim();
-  if (detectReadingIntent(q) !== "natal" || !isFollowUpQuestion(q)) return q;
+  // "งั้นดูหน่อยถึงสิ้นเดือนเลยมีเกณไหม" after a money question names a period
+  // but no topic, and was answered about love. It keeps the topic asked
+  // before — the words only, so the earlier question's period can't override.
+  if (detectReadingIntent(q) !== "natal") {
+    if (!isFollowUpQuestion(q) || questionTopics(q).length) return q;
+    const before = priorUserNewestFirst.map((u) => questionTopics(u)).find((t) => t.length);
+    return before ? `${q} · เรื่อง${before.map((t) => t.label).join(" ")}` : q;
+  }
+  if (!isFollowUpQuestion(q)) return q;
   const previous = previousTimedQuestion(q, priorUserNewestFirst);
   return previous ? `${previous} · ${q}` : q;
 }
@@ -412,7 +435,7 @@ function parseOverride(raw?: string | Date | null): Date | null {
  * though "จะเป็น" reads as future. Without a period named, it stays natal.
  */
 const NATURE_ASK = /(?:คน|แบบ|ลักษณะ|นิสัย|บุคลิก|สไตล์)(?:แบบ)?ไหน|ลักษณะ|นิสัย|บุคลิก|หน้าตา/;
-const NAMED_TIME = /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์(?:นี้|หน้า)|เดือน|ปีนี้|ปีหน้า|ปี\s*25\d\d|ช่วงนี้|ตอนนี้|เมื่อไหร่|เมื่อไร|อีก\s*\d/;
+const NAMED_TIME = /สิ้นเดือน|ทั้งเดือน|ตุลา|พฤศจิกา|ธันวา|มกรา|กุมภา|มีนา|เมษา|พฤษภา|มิถุนา|กรกฎา|สิงหา|กันยา|วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์(?:นี้|หน้า)|เดือน|ปีนี้|ปีหน้า|ปี\s*25\d\d|ช่วงนี้|ตอนนี้|เมื่อไหร่|เมื่อไร|อีก\s*\d/;
 
 /** "แฟนจะกลับมาไหม": whether something will happen is a question about time. */
 const WILL_IT = /จะ.{1,30}(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า|หรือไม่)\s*(?:ครับ|คะ|ค่ะ|คับ|จ้า|นะ)?\s*[?？]?\s*$/;
@@ -510,6 +533,21 @@ export function calendarPeriod(question: string, now = new Date()): { start: Dat
     const start = addCalendarMonths(at9(p.y, p.m, 1), 1);
     return { start, end: addCalendarDays(addCalendarMonths(start, 1), -1), label: "เดือนหน้า" };
   }
+  // "ตุลานี้ได้เงินไหม" was read as the birth chart, then as one day: a named
+  // month is that whole month (from today, if it is this one; next year's,
+  // if it has passed).
+  const named = q.match(MONTH_NAME);
+  if (named && !monthSpanOf(q)) {
+    const m = TH_MONTH_NAMES.split("|").indexOf(named[1]!) + 1;
+    const y = m < p.m ? p.y + 1 : p.y;
+    const first = at9(y, m, 1);
+    const end = addCalendarDays(addCalendarMonths(first, 1), -1);
+    const start = m === p.m && y === p.y ? today : first;
+    return { start, end, label: `เดือน${named[1]}${["มกรา", "มีนา", "พฤษภา", "กรกฎา", "สิงหา", "ตุลา", "ธันวา"].includes(named[1]!) ? "คม" : named[1] === "กุมภา" ? "พันธ์" : "ยน"}` };
+  }
+  if (/เดือนนี้|ทั้งเดือน|สิ้นเดือน/.test(q) && !monthSpanOf(q)) {
+    return { start: today, end: addCalendarDays(addCalendarMonths(at9(p.y, p.m, 1), 1), -1), label: "เดือนนี้" };
+  }
   return null;
 }
 
@@ -563,9 +601,13 @@ export function resolveTransitWindow(
 
   const period = parseRelativeSpan(q) ? null : calendarPeriod(q, now);
   if (period) {
-    // Read at the middle of the period; the label names the whole of it.
+    // A week is read at its middle. A month is read at its start with a second
+    // chart at its end — from one chart the model kept saying "ข้อมูลมีแค่วันที่ 7".
+    const days = (period.end.getTime() - period.start.getTime()) / 86_400_000;
+    const label = rangeLabel(period.label, period.start, period.end);
+    if (days >= 10) return windowOf("transit", period.start, period.end, label, period.start, period.end);
     const mid = new Date((period.start.getTime() + period.end.getTime()) / 2);
-    return windowOf("transit", period.start, period.end, rangeLabel(period.label, period.start, period.end), mid, null);
+    return windowOf("transit", period.start, period.end, label, mid, null);
   }
 
   // The client's keyword table decides the day whenever a phrase names one.

@@ -87,8 +87,8 @@ describe("future date confirmation", () => {
   it("prefills a date derived from relative Thai wording", () => {
     expect(suggestedFutureDateKey("พรุ่งนี้จะเป็นยังไง", NOW)).toBe("2026-09-09");
     expect(suggestedFutureDateKey("มะรืนการเงินเป็นยังไง", NOW)).toBe("2026-09-10");
-    // เดือนหน้า is the whole of next month, read at its middle.
-    expect(suggestedFutureDateKey("เดือนหน้าการงาน", NOW)).toBe("2026-10-16");
+    // เดือนหน้า is the whole of next month, read from its first day.
+    expect(suggestedFutureDateKey("เดือนหน้าการงาน", NOW)).toBe("2026-10-01");
     expect(suggestedFutureDateKey("ปีหน้าความรัก", NOW)).toBe("2027-09-08");
   });
 });
@@ -104,10 +104,11 @@ describe("resolveTransitWindow", () => {
 
   it("jumps เดือนหน้า to next calendar month", () => {
     const w = resolveTransitWindow("เดือนหน้างานเป็นไง", NOW);
-    expect(bangkokDateKey(w.sampleAt)).toBe("2026-10-16");
+    // Start and end charts, so a month isn't read from one day.
+    expect(bangkokDateKey(w.sampleAt)).toBe("2026-10-01");
+    expect(w.horizonAt && bangkokDateKey(w.horizonAt)).toBe("2026-10-31");
     expect(bangkokDateKey(w.start)).toBe("2026-10-01");
     expect(bangkokDateKey(w.end)).toBe("2026-10-31");
-    expect(w.horizonAt).toBeNull();
   });
 
   it("reads an explicit Thai date as the transit day", () => {
