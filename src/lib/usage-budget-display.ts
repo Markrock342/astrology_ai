@@ -35,3 +35,12 @@ export function unitsToQuestions(units: number): number {
 export function questionsToUnits(questions: number): number {
   return thbToUnits(Math.max(0, questions) * typicalQuestionThb());
 }
+
+/**
+ * The chat's "เหลือ …%" chip. 100% is the package allowance; add-on packs can
+ * push it far past that, and "เหลือ 1387.9%" told the reader nothing.
+ */
+export function formatRemainingChip(percent: number): string {
+  if (percent > 100) return "100%+";
+  return `${Math.max(0, Math.round(percent))}%`;
+}

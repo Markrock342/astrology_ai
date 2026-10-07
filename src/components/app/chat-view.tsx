@@ -1,5 +1,6 @@
 "use client";
 
+import { formatRemainingChip } from "@/lib/usage-budget-display";
 import {
   useCallback,
   useEffect,
@@ -2855,7 +2856,7 @@ function ReadingContextBar({
   const label = mode === "reference" ? "กำลังดู" : "กำลังสนทนา";
   const hint =
     mode === "transit"
-      ? "ถามต่อได้ในหมวดนี้"
+      ? "แต่ละคำตอบบอกไว้ว่าอ่านจากอะไร"
       : mode === "reference"
         ? "ข้อมูลพื้นดวงที่ระบบใช้"
         : "สรุปอัตโนมัติ ไม่หัก usage";
@@ -2868,9 +2869,12 @@ function ReadingContextBar({
           {/* Say WHAT is being read, not which admin category the thread
               belongs to — both buttons opened the same category and users
               read the label as the reading type. */}
-          <span> {mode === "transit" ? "ดวงจร" : (category ?? "พื้นดวงเดิม")}</span>
+          {/* A chat thread is not one mode: each answer picks พื้นดวงเดิม,
+              ดวงจร or a timeline and says so above itself. "ดวงจร" here sat
+              over a birth-chart answer and read as a contradiction. */}
+          <span> {mode === "transit" ? "ดูดวงตามคำถาม" : (category ?? "พื้นดวงเดิม")}</span>
           {detail ? (
-            <span className="hidden text-[var(--muted)] sm:inline"> · {detail}</span>
+            <span className="hidden text-[var(--muted)] sm:inline"> · ดวงจรล่าสุด {detail}</span>
           ) : null}
         </p>
         <span className="hidden shrink-0 text-[11px] text-[var(--muted-2)] sm:inline">{hint}</span>
@@ -3127,7 +3131,7 @@ const Composer = forwardRef<
           <span>
             {usageExhausted
               ? "usage หมดแล้ว — เติม usage หรือเริ่มรอบแพ็กเกจใหม่เพื่อถามต่อ"
-              : `เหลือ usage ${remaining}% — โหมด「กระชับ」จะใช้ได้นานกว่า`}
+              : `เหลือ usage ${formatRemainingChip(remaining)} — โหมด「กระชับ」จะใช้ได้นานกว่า`}
           </span>
           <a
             href="/account"
@@ -3199,7 +3203,13 @@ const Composer = forwardRef<
         />
         {aiEnabled ? (
           <p className="shrink-0 whitespace-nowrap text-[11px] text-[var(--muted)]">
-            เหลือ <span className="font-semibold tabular-nums text-[var(--foreground)]">{remaining}%</span>
+            เหลือ{" "}
+            <span
+              className="font-semibold tabular-nums text-[var(--foreground)]"
+              title={remaining > 100 ? "เกิน 100% เพราะรวมแพ็กเสริมที่ซื้อไว้" : undefined}
+            >
+              {formatRemainingChip(remaining)}
+            </span>
           </p>
         ) : null}
       </div>

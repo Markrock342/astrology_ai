@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { smallTalkKind, smallTalkReply } from "@/lib/small-talk";
 import { AppError } from "@/lib/errors";
 import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 import { getEffectivePlan } from "@/server/user/account-service";
@@ -227,7 +228,7 @@ async function isFreeCategoryIntro(
 export async function acceptMessage(
   input: SendMessageInput,
 ): Promise<AcceptMessageResult> {
-  const { conversation } = await assertCanSend(input);
+  const { conversation, purpose } = await assertCanSend(input);
 
   let question = input.content.trim();
   let skipUserAppend = false;
@@ -411,6 +412,26 @@ export async function acceptMessage(
     userId: input.userId,
     idempotencyKey: input.idempotencyKey,
   });
+
+  // "เทส", "สวัสดีครับ", "ขอบคุณค่ะ": answered here, no model, no charge.
+  // "เทส" used to get a full birth-chart reading and use up quota.
+  const smallTalk = purpose ? null : smallTalkKind(question);
+  if (smallTalk) {
+    const responseText = smallTalkReply(smallTalk);
+    await finalizeAssistantMessage({
+      conversationId: conversation.id,
+      idempotencyKey: input.idempotencyKey,
+      content: responseText,
+      status: "SUCCESS",
+      creditCost: 0,
+    });
+    return {
+      status: "ready",
+      reading: { id: assistant.id, responseText, provider: null, modelId: null, creditCost: 0, status: "SUCCESS" },
+      userMessageId,
+      assistantMessageId: assistant.id,
+    };
+  }
 
   const transitAsOf =
     conversation.mode === "TRANSIT"
