@@ -759,7 +759,11 @@ export function isDayPickQuestion(question: string): boolean {
   // that year. Checked before LIFE_SCALE, which used to drop it to one day.
   if (PERIOD_PICK_PATTERN.test(q) && SHORT_PERIOD_PATTERN.test(q)) return true;
   if (LIFE_SCALE_PATTERN.test(q)) return false;
-  if (/เกณฑ์/.test(q)) return true;
+  // "มีเกณฑ์ได้เงินเมื่อไหร่" asks for a day; "ปีหน้าความรักมีเกณฑ์ดีไหม" asks
+  // whether — a yes/no about the period, not a walk of its days.
+  const yesNo = /(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า|หรือไม่)\s*(?:ครับ|คะ|ค่ะ|คับ|จ้า|นะ)?\s*[?？]?\s*$/.test(q);
+  const longPeriod = /ปีนี้|ปีหน้า|ครึ่งปี|[2-9๒-๙]\s*เดือน|สามเดือน|หกเดือน/.test(q);
+  if (/เกณฑ์/.test(q) && !(yesNo && longPeriod)) return true;
   return EVENT_SIGN_PATTERN.test(q) && WHEN_PATTERN.test(q);
 }
 
