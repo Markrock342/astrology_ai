@@ -94,6 +94,27 @@ export async function resolveConfig(
     return winner;
   };
 
+  // The admin's own choice first: a config marked ละเอียด or กระชับ answers
+  // that mode, whatever its model or provider.
+  const wanted = opts?.preferFast ? "BRIEF" : "DETAILED";
+  const byRole = candidates.filter((c) => c.role === wanted);
+  if (byRole.length > 0) return pickDeterministic(byRole);
+
+  // No role set: inferred from Gemini model names, as before roles existed.
+  // A backup, a config marked for the other mode, or an OpenAI model is never
+  // picked this way — a GPT added as a backup used to be able to take กระชับ
+  // just by being cheaper.
+  const unassigned = candidates.filter((c) => !c.role);
+  const geminiUnassigned = unassigned.filter((c) => c.provider === "GEMINI");
+  const pool = geminiUnassigned.length ? geminiUnassigned : unassigned.length ? unassigned : candidates;
+  return pickByModelName(pool, opts, pickDeterministic);
+}
+
+function pickByModelName<T extends { modelId: string }>(
+  candidates: T[],
+  opts: { preferFast?: boolean } | undefined,
+  pickDeterministic: (pool: T[], extraRank?: (c: T) => number) => T,
+): T {
   if (opts?.preferFast) {
     const nonLite = candidates.filter((c) => !isGeminiLiteModel(c.modelId));
     if (nonLite.length > 0) {
@@ -218,18 +239,23 @@ export async function generateWithFallback(
  * overloaded on 1 Oct 2026 every answer failed while Flash Lite sat enabled
  * and unused. At most two extra attempts, never the same model twice.
  */
-async function fallbackChain(config: { id: string; modelId: string; fallbackConfigId: string | null }) {
+async function fallbackChain(config: { id: string; modelId: string; provider: string; fallbackConfigId: string | null }) {
   const enabled = await prisma.aIProviderConfig.findMany({
     where: { enabled: true, id: { not: config.id } },
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
   });
   const explicit = enabled.filter((c) => c.id === config.fallbackConfigId);
+  // Then the configs the admin marked สำรอง — another provider first, since
+  // an outage or a spent balance takes down every model of the same provider.
+  const backups = enabled
+    .filter((c) => c.id !== config.fallbackConfigId && c.role === "BACKUP")
+    .sort((a, b) => Number(b.provider !== config.provider) - Number(a.provider !== config.provider));
   const others = enabled
-    .filter((c) => c.id !== config.fallbackConfigId)
+    .filter((c) => c.id !== config.fallbackConfigId && c.role !== "BACKUP")
     .sort((a, b) => Number(isGeminiLiteModel(b.modelId)) - Number(isGeminiLiteModel(a.modelId)));
   const seen = new Set([config.modelId]);
   const chain: typeof enabled = [];
-  for (const c of [...explicit, ...others]) {
+  for (const c of [...explicit, ...backups, ...others]) {
     if (seen.has(c.modelId)) continue;
     seen.add(c.modelId);
     chain.push(c);
@@ -240,7 +266,7 @@ async function fallbackChain(config: { id: string; modelId: string; fallbackConf
 
 /**
  * Stream generation with the same fallback rules as generateWithFallback.
- * Gemini streams tokens; other providers fall back to one-shot then one delta.
+ * Gemini and OpenAI stream tokens; any other provider falls back to one-shot then one delta.
  */
 export async function streamWithFallback(
   configId: string,
@@ -264,7 +290,7 @@ export async function streamWithFallback(
     try {
       const adapter = adapterFor(cfg.provider);
       const input = await toGenerateInput(cfg, base);
-      if (adapter instanceof GeminiAdapter) {
+      if (adapter instanceof GeminiAdapter || adapter instanceof OpenAIAdapter) {
         return adapter.streamGenerate(input, countingDelta, shouldStop);
       }
       const result = await adapter.generate(input);

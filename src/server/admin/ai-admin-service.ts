@@ -383,6 +383,8 @@ export type AIConfigCreateInput = {
   maxOutputTokens?: number;
   timeoutMs?: number;
   fallbackConfigId?: string | null;
+  /** DETAILED / BRIEF answer models, BACKUP for when they fail; null = by model name. */
+  role?: "DETAILED" | "BRIEF" | "BACKUP" | null;
   planScope?: "FREE" | "PRO" | "ALL";
   categoryId?: string | null;
   promptTemplateId?: string | null;
@@ -408,6 +410,7 @@ const aiConfigListSelect = {
   maxOutputTokens: true,
   timeoutMs: true,
   fallbackConfigId: true,
+  role: true,
   planScope: true,
   categoryId: true,
   promptTemplateId: true,
