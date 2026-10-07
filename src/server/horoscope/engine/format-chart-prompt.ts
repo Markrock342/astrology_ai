@@ -129,7 +129,12 @@ export function formatChartForPrompt(
     "[natal] พื้นดวง (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)";
 
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "—";
-  const lines: string[] = [title, `ลัคนา: ${lagna}`];
+  // On a transit table the lagna is the asker's own, used to count houses —
+  // "ลัคนา: พฤษภ" under a transit date read as the sky's ascendant.
+  const lines: string[] = [
+    title,
+    options.preferTransitSamrap ? `ลัคนาเดิมของผู้ถาม (ใช้นับเรือนของดาวจร): ${lagna}` : `ลัคนา: ${lagna}`,
+  ];
 
   if (chart.meta.birthDisplay) lines.push(`วันเวลา: ${chart.meta.birthDisplay}`);
   if (chart.meta.locationDisplay) lines.push(`สถานที่: ${chart.meta.locationDisplay}`);
@@ -281,7 +286,12 @@ export function formatChartCompactForPrompt(
     options.title ??
     "[natal] พื้นดวงจาก engine (ย่อ — ใช้ตำแหน่งดาวนี้เท่านั้น ห้ามแต่งดาว)";
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "—";
-  const lines: string[] = [title, `ลัคนา: ${lagna}`];
+  // On a transit table the lagna is the asker's own, used to count houses —
+  // "ลัคนา: พฤษภ" under a transit date read as the sky's ascendant.
+  const lines: string[] = [
+    title,
+    options.preferTransitSamrap ? `ลัคนาเดิมของผู้ถาม (ใช้นับเรือนของดาวจร): ${lagna}` : `ลัคนา: ${lagna}`,
+  ];
 
   const samrap = options.preferTransitSamrap
     ? chart.myhora?.transitPlanets
