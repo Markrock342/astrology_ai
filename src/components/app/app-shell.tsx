@@ -1,5 +1,6 @@
 "use client";
 
+import { formatRemainingChip } from "@/lib/usage-budget-display";
 import { useCallback, useEffect, useRef, useState, type RefObject, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -1027,10 +1028,10 @@ function CollapsedRail({
           <Link
             href="/account"
             className="rounded-md px-1 py-0.5 text-[11px] font-semibold tabular-nums text-[var(--foreground)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-            title={`usage เหลือ ${usageRemainingPercent}%`}
-            aria-label={`usage เหลือ ${usageRemainingPercent} เปอร์เซ็นต์`}
+            title={`usage เหลือ ${formatRemainingChip(usageRemainingPercent)}${usageRemainingPercent > 100 ? " (รวมแพ็กเสริม)" : ""}`}
+            aria-label={`usage เหลือ ${formatRemainingChip(usageRemainingPercent)}`}
           >
-            {usageRemainingPercent}%
+            {formatRemainingChip(usageRemainingPercent)}
           </Link>
         )}
         <ThemePicker />
