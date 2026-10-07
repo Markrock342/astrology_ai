@@ -173,7 +173,9 @@ export function formatAspectsForPrompt(aspects: ChartAspect[]): string[] {
       `- ${kind}: ${rows
         .map(
           (item) =>
-            `${item.a.name}–${item.b.name} (เรือน${item.houseFromA} ห่าง ${item.degreeSep.toFixed(1)}°)`,
+            // "เรือน7" here was the count of signs between the two planets,
+            // read by the model as a house. Said as what it is.
+            `${item.a.name}–${item.b.name} (นับได้ราศีที่ ${item.houseFromA} ห่าง ${item.degreeSep.toFixed(1)}°)`,
         )
         .join("; ")}`,
     );

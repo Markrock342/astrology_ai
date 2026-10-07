@@ -52,6 +52,8 @@ export function buildDayScanPrompt(input: {
   now?: Date;
   /** Check this one day (09:00 Bangkok) against the week around it instead. */
   checkDay?: string | Date | null;
+  /** False: the lagna is a noon guess — days are judged without houses. */
+  birthTimeKnown?: boolean;
 }): string | null {
   const birth = input.natal.input;
   const place = { country: birth.country, province: birth.province, district: birth.district };
@@ -79,7 +81,7 @@ export function buildDayScanPrompt(input: {
       }
     : dayScanDates(input.question, input.now, input.pinnedDate);
   const scan = scanDays({
-    natalLagna: input.natal.chart?.lagna ?? input.natal.meta.lagna,
+    natalLagna: input.birthTimeKnown === false ? null : (input.natal.chart?.lagna ?? input.natal.meta.lagna),
     natalPlanets: input.natal.planets,
     natalTaksa: input.natal.chart?.taksa?.length ? input.natal.chart.taksa : computeTaksaFromBirth(birth),
     topicHouses: topicHouses.length ? topicHouses : GENERAL_HOUSES,

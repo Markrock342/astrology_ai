@@ -248,7 +248,21 @@ function houseLabel(house: number): string {
   return name ? `ภพ ${house} ${name} (${HOUSE_MEANING[name]})` : `ภพ ${house}`;
 }
 
-export function formatLifeTimelineForPrompt(t: LifeTimeline, opts: { past?: boolean } = {}): string[] {
+/**
+ * Which way a turning point leans. One person's "first job" and "lost my
+ * job" were both put on the same Saturn ingress; the tone lets a good event
+ * take a supportive point and a hard one a pressing point.
+ */
+export function eventTone(planet: string, transitTaksa: string | null | undefined): "หนุน" | "กดดัน" | "ผสม" {
+  let lean = 0;
+  if (planet === "พฤหัสบดี") lean += 1;
+  if (["เสาร์", "ราหู", "มฤตยู", "เกตุ"].includes(planet)) lean -= 1;
+  if (transitTaksa && /ศรี|เดช|มนตรี|มูละ/.test(transitTaksa)) lean += 1;
+  if (transitTaksa && /กาลกิณี/.test(transitTaksa)) lean -= 1;
+  return lean > 0 ? "หนุน" : lean < 0 ? "กดดัน" : "ผสม";
+}
+
+export function formatLifeTimelineForPrompt(t: LifeTimeline, opts: { past?: boolean; noHouses?: boolean } = {}): string[] {
   const lines = [
     `[timeline] จุดเปลี่ยนของชีวิตจากดาวจรเดินช้า ช่วง ${thaiMonthYear(t.from)} ถึง ${thaiMonthYear(t.to)} ` +
       "(คำนวณจากปฏิทินดาวสุริยยาตร์ทุกเดือนแล้ว ห้ามเดา — เดือน ปี และอายุที่ตอบต้องมาจากรายการนี้เท่านั้น):",
@@ -258,7 +272,7 @@ export function formatLifeTimelineForPrompt(t: LifeTimeline, opts: { past?: bool
         : `รายการที่อายุมากกว่า ${t.now.age} ปีคืออนาคต`),
     "ตำแหน่งดาวเดินช้าตอนนี้: " +
       t.now.positions
-        .map((p) => `${p.planet}อยู่ราศี${p.sign} ภพ ${p.natalHouse} ${HOUSE_NAMES[p.natalHouse - 1] ?? ""}`)
+        .map((p) => `${p.planet}อยู่ราศี${p.sign}${opts.noHouses ? "" : ` ภพ ${p.natalHouse} ${HOUSE_NAMES[p.natalHouse - 1] ?? ""}`}`)
         .join(" · "),
   ];
   // The model printed the raw score as "(น้ำหนัก 14)". The strongest third
@@ -276,14 +290,17 @@ export function formatLifeTimelineForPrompt(t: LifeTimeline, opts: { past?: bool
         : e.retreatedAt
           ? ` (ถอยกลับ ${thaiMonthYear(e.retreatedAt)})`
           : "";
-    const contacts = e.contacts.map((c) =>
+    const contacts = e.contacts.filter((c) => !(opts.noHouses && c.body === "ลัคนา")).map((c) =>
       `${c.kind}${c.body === "ลัคนา" ? "ลัคนาเดิม" : `${c.body}เดิม`}`,
     );
     const facts = [
-      `${e.planet}จรเข้าราศี${e.sign}${wiggle} = ${houseLabel(e.natalHouse)} ของพื้นดวง`,
+      opts.noHouses
+        ? `${e.planet}จรเข้าราศี${e.sign}${wiggle}`
+        : `${e.planet}จรเข้าราศี${e.sign}${wiggle} = ${houseLabel(e.natalHouse)} ของพื้นดวง`,
       ...contacts,
       e.transitTaksa ? `ทักษาจรปีนั้น: ${e.planet}เป็น${e.transitTaksa}` : null,
       e.score >= bigFrom ? "จุดเปลี่ยนใหญ่" : null,
+      `โทน${eventTone(e.planet, e.transitTaksa)}`,
     ].filter(Boolean);
     const outside = e.at.getUTCFullYear() < 1941 || e.at.getUTCFullYear() > 2040;
     lines.push(
