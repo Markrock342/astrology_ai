@@ -76,3 +76,27 @@ export function stripInternalMarks(text: string): string {
 export function tidyAnswer(text: string, now: Date): string {
   return fixWeekdayClaims(stripInternalMarks(text), now);
 }
+
+const PERIOD_PAIRS: Array<[RegExp, RegExp, string]> = [
+  [/สัปดาห์หน้า|อาทิตย์หน้า/, /สัปดาห์นี้|อาทิตย์นี้/g, "สัปดาห์หน้า"],
+  [/เดือนหน้า/, /เดือนนี้/g, "เดือนหน้า"],
+  [/ปีหน้า/, /ปีนี้/g, "ปีหน้า"],
+];
+
+/**
+ * Asked about next week, three answers summed up "สัปดาห์นี้". When the
+ * question names only the coming period, the answer's "this" becomes "next".
+ */
+export function matchAskedPeriod(text: string, question: string): string {
+  let out = text;
+  for (const [asked, wrong, right] of PERIOD_PAIRS) {
+    wrong.lastIndex = 0;
+    if (asked.test(question) && !new RegExp(wrong.source).test(question)) out = out.replace(wrong, right);
+  }
+  return out;
+}
+
+/** Questions about fitting with someone (เข้ากัน / สมพงษ์ / เนื้อคู่ไหม). */
+export function isCompatibilityQuestion(question: string): boolean {
+  return /เข้ากัน|สมพงษ์|ดวงคู่|คู่กันได้|เป็นเนื้อคู่|ใช่เนื้อคู่|เนื้อคู่(?:กัน|ผม|ฉัน|หนู|เรา)?(?:ไหม|มั้ย|หรือเปล่า)/.test(question);
+}
