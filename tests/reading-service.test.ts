@@ -632,6 +632,7 @@ describe("createReading (M3 B2)", () => {
         where: {
           enabled: true,
           OR: [{ categoryId: null }, { categoryId: "cat-1" }],
+          id: { notIn: ["kb-global-foundation", "kb-global-calc-tools"] },
         },
       }),
     );
