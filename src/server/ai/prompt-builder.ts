@@ -343,6 +343,8 @@ export type BuildUserPromptOptions = {
   threadSummaryText?: string | null;
   /** What the user told about themselves, placed right before the question. */
   userFactsText?: string | null;
+  /** Days the asked period spans; two months or more is read from slow planets only. */
+  transitSpanDays?: number;
   /** The houses the question is about (lib/question-topics). */
   questionFocusText?: string | null;
   /** This period's ทักษาจร, named so the model does not invent it. */
@@ -408,6 +410,15 @@ export const OVERVIEW_TOPICS_RULE =
   "16 ผู้ใหญ่อุปถัมภ์และความสำเร็จ (เจ้าเรือนศุภะ ในบริบทการสนับสนุนและเลื่อนขั้น) " +
   "17 ศัตรูลับและงานเบื้องหลัง (เจ้าเรือนวินาศ) ถ้าดูดวงจร ให้อธิบายผลของดวงจรในแต่ละหัวข้อด้วย ";
 
+/**
+ * "ผมกับเธอเข้ากันได้ไหม" with no partner's birth data: 17 graded answers read
+ * the asker's chart alone as if two charts had been compared.
+ */
+export const NO_PARTNER_CHART_RULE =
+  "กฎถามความเข้ากันแต่ไม่มีดวงอีกฝ่าย (บังคับ): คำถามนี้ถามว่าเข้ากันหรือเป็นเนื้อคู่กับคนหนึ่ง แต่ไม่มีวันเกิดของอีกฝ่าย " +
+  "ประโยคแรกบอกตรง ๆ ว่ายังเทียบสองดวงไม่ได้เพราะยังไม่มีวันเกิดของเขา และแนะให้กดปุ่ม 'ดูดวงคู่' ใส่วันเกิดอีกฝ่าย " +
+  "จากนั้นบอกได้เฉพาะสิ่งที่ดวงของผู้ใช้ฝั่งเดียวบอกเรื่องความรัก (ภพปัตนิ ภพปุตตะ ดาวศุกร์) ห้ามเขียนราวกับได้เทียบดวงอีกฝ่ายแล้ว";
+
 /** "เล่าต่อ" and friends: carry on with the previous answer, not a new question. */
 export function isContinueRequest(question: string): boolean {
   return /^\s*(?:เล่า)?ต่อ(?:เลย|สิ|หน่อย|ให้จบ)?\s*(?:ครับ|ค่ะ|คะ|นะ|จ้า)?\s*[▸.!]*\s*$/.test(question);
@@ -457,6 +468,15 @@ export function transitBlockTitle(chart: ChartJson): string {
  * produced read out as fact ("ดาวพฤหัสในภพ 10") for that user in 15 of 150
  * answers, though the rule forbade it: the tables are now sent without it.
  */
+/**
+ * A year asked about was read from where the Moon, Mercury and Venus stood on
+ * one day of it. Over two months or more only the slow planets mean anything.
+ */
+const SLOW_TRANSIT = new Set(["เสาร์", "พฤหัสบดี", "ราหู", "เกตุ", "มฤตยู"]);
+function slowOnlyFor<T extends { transitPlanet: string }>(spanDays: number | undefined, links: T[]): T[] {
+  return spanDays && spanDays >= 60 ? links.filter((l) => SLOW_TRANSIT.has(l.transitPlanet)) : links;
+}
+
 function withoutLagna(chart: ChartJson): ChartJson {
   const copy = structuredClone(chart) as ChartJson & { chart?: { lagna?: unknown }; meta: { lagna?: unknown } };
   if (copy.chart) copy.chart.lagna = undefined as never;
@@ -563,7 +583,10 @@ export function buildUserPrompt(
       `ช่วงที่ถาม: ${opts.transitWindowLabel}` +
         (opts.readingIntent === "natal"
           ? " — คำถามนี้เป็นพื้นดวงเดิม ใช้ [natal]/[memory]"
-          : " — คำถามนี้ต้องผสมพื้นดวงกับดวงจร"),
+          : " — คำถามนี้ต้องผสมพื้นดวงกับดวงจร") +
+        (opts.readingIntent !== "natal" && (opts.transitSpanDays ?? 0) >= 60
+          ? " · ช่วงยาวหลายเดือน: อ่านจากดาวเดินช้า (เสาร์ พฤหัสบดี ราหู เกตุ มฤตยู) เท่านั้น ห้ามใช้จันทร์ พุธ ศุกร์ อาทิตย์ อังคาร ทำนายทั้งช่วง"
+          : ""),
     );
     if (opts.transitPickedAt) {
       const month = thaiMonthYear(opts.transitPickedAt);
@@ -589,11 +612,11 @@ export function buildUserPrompt(
       }),
       "",
       ...formatTransitToNatalForPrompt(
-        linkTransitToNatal({
+        slowOnlyFor(opts.transitSpanDays, linkTransitToNatal({
           natalLagna,
           natalPlanets: natal.planets,
           transitPlanets: transit.planets,
-        }),
+        })),
         { focusHouses: profile.birthTimeKnown ? topicHousesOf(question) : [] },
       ),
       "",
@@ -659,11 +682,11 @@ export function buildUserPrompt(
       natalPlanets: natal.planets,
       // A day pick or timeline has its own evidence; transits only for a period question.
       transitLinks: opts.transitChartJson && !opts.dayScanText && !opts.timelineText
-        ? linkTransitToNatal({
+        ? slowOnlyFor(opts.transitSpanDays, linkTransitToNatal({
             natalLagna,
             natalPlanets: natal.planets,
             transitPlanets: assertUsableEngineChart(opts.transitChartJson).planets,
-          })
+          }))
         : null,
     }),
     opts.taksaNowText ? opts.taksaNowText : null,

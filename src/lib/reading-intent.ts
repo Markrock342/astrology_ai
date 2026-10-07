@@ -414,10 +414,13 @@ function parseOverride(raw?: string | Date | null): Date | null {
 const NATURE_ASK = /(?:คน|แบบ|ลักษณะ|นิสัย|บุคลิก|สไตล์)(?:แบบ)?ไหน|ลักษณะ|นิสัย|บุคลิก|หน้าตา/;
 const NAMED_TIME = /วันนี้|พรุ่งนี้|สัปดาห์|อาทิตย์(?:นี้|หน้า)|เดือน|ปีนี้|ปีหน้า|ปี\s*25\d\d|ช่วงนี้|ตอนนี้|เมื่อไหร่|เมื่อไร|อีก\s*\d/;
 
+/** "แฟนจะกลับมาไหม": whether something will happen is a question about time. */
+const WILL_IT = /จะ.{1,30}(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า|หรือไม่)\s*(?:ครับ|คะ|ค่ะ|คับ|จ้า|นะ)?\s*[?？]?\s*$/;
+
 export function detectReadingIntent(question: string): ReadingIntent {
   const q = question.trim();
   if (NATURE_ASK.test(q) && !NAMED_TIME.test(q)) return "natal";
-  if (TRANSIT_HINT.test(q)) return "transit";
+  if (TRANSIT_HINT.test(q) || WILL_IT.test(q)) return "transit";
   // Every wording the future-date modal recognises (มะรืน, สองวันข้างหน้า,
   // อีก ๕ วัน, วันที่ 20/10 …) is a transit question too.
   if (detectFutureDatePromptTrigger(q)) return "transit";

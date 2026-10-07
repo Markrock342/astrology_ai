@@ -25,6 +25,7 @@ import {
   TIMELINE_RULE,
   PAST_TIMELINE_RULE,
   ANSWER_CONTRACT,
+  NO_PARTNER_CHART_RULE,
   OVERVIEW_TOPICS_RULE,
   DAY_SCAN_RULE,
   DAY_CHECK_RULE,
@@ -110,7 +111,7 @@ import { planReading } from "@/lib/reading-plan";
 import { findWrongTaksaClaims } from "@/lib/answer-facts";
 import { rewriteWrongClaims } from "@/server/ai/fact-repair";
 import { leadWithDay } from "@/lib/day-scan";
-import { tidyAnswer } from "@/lib/answer-tidy";
+import { isCompatibilityQuestion, matchAskedPeriod, tidyAnswer } from "@/lib/answer-tidy";
 import { formatQuestionFocus, questionTopics } from "@/lib/question-topics";
 import { computeTransitTaksaByAge } from "@/lib/taksa";
 
@@ -671,6 +672,8 @@ async function runReading(
   }
   if (companionText) {
     systemPrompt = `${systemPrompt}\n\n${COMPANION_RULE}`;
+  } else if (isCompatibilityQuestion(intentQuestion)) {
+    systemPrompt = `${systemPrompt}\n\n${NO_PARTNER_CHART_RULE}`;
   }
   const overview = isOverviewQuestion(intentQuestion);
   // A past event is one period with reasons, asked directly or not.
@@ -702,6 +705,7 @@ async function runReading(
       transitChartJson: transitChart,
       transitHorizonChartJson: transitHorizonChart,
       transitWindowLabel: transitWindow.label,
+      transitSpanDays: (transitWindow.end.getTime() - transitWindow.start.getTime()) / 86_400_000,
       // The date the user confirmed in the modal outranks relative words in
       // the question ("เดือนหน้า" + picked 1 Oct means October, not November).
       transitPickedAt: explicitDate
@@ -962,6 +966,7 @@ async function runReading(
       facts = checkFacts(cleanText);
     }
     const factIssues = facts.lords;
+    cleanText = matchAskedPeriod(cleanText, question);
     // A question about one named day is answered with that day in front.
     if (checkDay && !dayPick && !continuing) cleanText = leadWithDay(cleanText, new Date(checkDay));
     const answerText =
