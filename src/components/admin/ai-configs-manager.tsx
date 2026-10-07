@@ -20,6 +20,19 @@ import {
 import { GeminiBalanceCard } from "./gemini-balance-card";
 
 type Category = { id: string; nameTh: string; slug: string };
+type AIRole = "DETAILED" | "BRIEF" | "BACKUP";
+
+/** What each role does, in the words the admin chooses by. */
+const ROLE_OPTIONS: { value: "" | AIRole; label: string; hint: string }[] = [
+  { value: "", label: "อัตโนมัติ (ตามชื่อรุ่น Gemini)", hint: "แบบเดิม: ละเอียด = Gemini 3.7 Flash, กระชับ = ตัวที่ถูกที่สุด" },
+  { value: "DETAILED", label: "ตอบโหมดละเอียด", hint: "ใช้ตัวนี้ตอบเมื่อผู้ใช้เลือก「ละเอียด」" },
+  { value: "BRIEF", label: "ตอบโหมดกระชับ", hint: "ใช้ตัวนี้ตอบเมื่อผู้ใช้เลือก「กระชับ」และคำถามสั้นที่ต้องตอบตรง" },
+  { value: "BACKUP", label: "สำรอง (ใช้เมื่อตัวหลักล่ม)", hint: "ไม่ตอบเอง ใช้เมื่อตัวหลักล่ม — ตัวที่อยู่คนละบริษัทกับตัวที่ล่มจะถูกลองก่อน" },
+];
+
+function roleLabel(role: AIRole | null): string {
+  return role === "DETAILED" ? "ละเอียด" : role === "BRIEF" ? "กระชับ" : role === "BACKUP" ? "สำรอง" : "อัตโนมัติ";
+}
 type Prompt = { id: string; name: string; type: string; enabled: boolean };
 type AIConfig = {
   id: string;
@@ -35,6 +48,7 @@ type AIConfig = {
   maxOutputTokens: number;
   timeoutMs: number;
   fallbackConfigId: string | null;
+  role: AIRole | null;
   planScope: "FREE" | "PRO" | "ALL";
   categoryId: string | null;
   promptTemplateId: string | null;
@@ -138,6 +152,7 @@ const EMPTY_FORM = {
   maxOutputTokens: 2048,
   timeoutMs: 30000,
   fallbackConfigId: "",
+  role: "" as "" | AIRole,
   planScope: "ALL" as "FREE" | "PRO" | "ALL",
   categoryId: "",
   promptTemplateId: "",
@@ -314,6 +329,7 @@ export function AiConfigsManager() {
       maxOutputTokens: cfg.maxOutputTokens,
       timeoutMs: cfg.timeoutMs,
       fallbackConfigId: cfg.fallbackConfigId ?? "",
+      role: cfg.role ?? "",
       planScope: cfg.planScope,
       categoryId: cfg.categoryId ?? "",
       promptTemplateId: cfg.promptTemplateId ?? "",
@@ -444,6 +460,7 @@ export function AiConfigsManager() {
         enabled: form.enabled,
         planScope: form.planScope,
         fallbackConfigId: form.fallbackConfigId || null,
+        role: form.role || null,
         categoryId: form.categoryId || null,
         promptTemplateId: form.promptTemplateId || null,
         temperature: Number(form.temperature),
@@ -1052,6 +1069,23 @@ export function AiConfigsManager() {
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted-2)]">
               C · ขอบเขตแพลน / หมวด
             </h3>
+            <div className="mb-3">
+              <Field
+                label="บทบาทของโมเดลนี้"
+                hint={ROLE_OPTIONS.find((o) => o.value === form.role)?.hint}
+              >
+                <Select
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value as "" | AIRole })}
+                >
+                  {ROLE_OPTIONS.map((o) => (
+                    <option key={o.value || "auto"} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <Field label="ใช้กับแพลน">
                 <Select
@@ -1203,6 +1237,7 @@ export function AiConfigsManager() {
                       <div className="flex flex-wrap gap-1">
                         <Badge tone="gold">{providerLabel(cfg.provider)}</Badge>
                         <Badge>{cfg.modelId}</Badge>
+                        <Badge>บทบาท: {roleLabel(cfg.role)}</Badge>
                       </div>
                       {cfg.provider === "OPENAI" && (
                         <p className="mt-1 text-[10px] text-[var(--muted-2)]">

@@ -328,3 +328,29 @@ describe("generateOnce (health/test)", () => {
     expect(mocks.fallbackGenerate).not.toHaveBeenCalled();
   });
 });
+
+describe("resolveConfig with admin roles", () => {
+  beforeEach(() => vi.clearAllMocks());
+  const row = (id: string, provider: string, modelId: string, role: string | null) => ({
+    id, provider, modelId, role, categoryId: null, planScope: "ALL", enabled: true, updatedAt: t0,
+  });
+
+  it("answers each mode with the config marked for it, any provider", async () => {
+    mocks.findMany.mockResolvedValue([
+      row("gem", "GEMINI", "gemini-3.7-flash", null),
+      row("gpt", "OPENAI", "gpt-6-luna", "BRIEF"),
+    ]);
+    expect((await resolveConfig("cat", "PRO", { preferFast: true })).id).toBe("gpt");
+    expect((await resolveConfig("cat", "PRO")).id).toBe("gem");
+  });
+
+  it("never lets an unmarked or backup GPT take a mode by price", async () => {
+    mocks.findMany.mockResolvedValue([
+      row("gem", "GEMINI", "gemini-3.5-flash", null),
+      row("mini", "OPENAI", "gpt-4.1-nano", null),
+      row("bk", "OPENAI", "gpt-6-luna", "BACKUP"),
+    ]);
+    expect((await resolveConfig("cat", "PRO", { preferFast: true })).id).toBe("gem");
+    expect((await resolveConfig("cat", "PRO")).id).toBe("gem");
+  });
+});

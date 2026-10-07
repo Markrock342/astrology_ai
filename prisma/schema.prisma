@@ -91,6 +91,14 @@ enum AIProvider {
   OPENAI
 }
 
+/// What an AI config is used for, set by the admin. Null = inferred from the
+/// model name (the behaviour before roles existed).
+enum AIConfigRole {
+  DETAILED
+  BRIEF
+  BACKUP
+}
+
 enum PlanScope {
   FREE
   PRO
@@ -592,6 +600,7 @@ model AIProviderConfig {
   maxOutputTokens  Int        @default(2048)
   timeoutMs        Int        @default(30000)
   fallbackConfigId String?
+  role             AIConfigRole?
   planScope        PlanScope  @default(ALL)
   categoryId       String?
   promptTemplateId String?
