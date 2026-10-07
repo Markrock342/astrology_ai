@@ -329,6 +329,13 @@ async function main() {
     return;
   }
 
+  // A live run spends real AI credit (on 2026-10-07 one run used up the
+  // owner's freshly topped-up balance). It refuses to start without a cap the
+  // owner agreed to, and stops when the run's own usage reaches it.
+  const maxUsd = Number(process.env.EVAL_MAX_USD);
+  if (!process.env.EVAL_PROMPTS && !(maxUsd > 0)) {
+    throw new Error("Live run needs EVAL_MAX_USD (a spend cap the owner approved). Use EVAL_PROMPTS=1 for a free prompt-only run.");
+  }
   fs.mkdirSync("tmp/eval-1000", { recursive: true });
   const file = fs.createWriteStream(process.env.EVAL_OUT ?? "tmp/eval-1000/results.jsonl", { flags: "w" });
   const judgeCfg =
@@ -347,6 +354,13 @@ async function main() {
 
   let done = 0;
   const started = Date.now();
+  const spentUsd = async () => {
+    const agg = await prisma.aIUsageLog.aggregate({
+      where: { userId: { in: [...users.values()] } },
+      _sum: { estimatedCost: true },
+    });
+    return Number(agg._sum.estimatedCost ?? 0);
+  };
   // EVAL_PROMPTS=1: no model. Each turn's prompt is built by the real pipeline
   // and written out for audit; earlier turns' answers come from a previous
   // live run (EVAL_PRIOR, results.jsonl) so corrections have something to correct.
@@ -416,6 +430,7 @@ async function main() {
         try {
           type Reply = { id?: string; responseText?: string; basis?: string; modelId?: string };
           let r = null as Reply | null;
+          if ((await spentUsd()) >= maxUsd) throw new Error(`SPEND_CAP reached ($${maxUsd})`);
           for (let attempt = 0; attempt < 4 && !r; attempt++) {
             await slot();
             try {
