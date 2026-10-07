@@ -20,5 +20,6 @@ describe("stripInternalMarks", () => {
     expect(stripInternalMarks("ตามข้อมูลใน [timeline] ช่วง March 2564")).toBe("ตามข้อมูลในดวงของคุณ ช่วง มีนาคม 2564");
     expect(stripInternalMarks("จุดเปลี่ยน [timeline] ปีนี้")).toBe("จุดเปลี่ยน ปีนี้");
     expect(stripInternalMarks("วันอังคารที่ 20 ต.ค. [+4] ศุกร์(6) กับจันทร์ (2)")).toBe("วันอังคารที่ 20 ต.ค. ศุกร์ กับจันทร์");
+    expect(stripInternalMarks("จันทร์จรเดินภพ 10 กัมมะ (ภพของเรื่องที่ถาม) ดวงของผู้ถาม ภพภพอริ มฤตยูจรจร")).toBe("จันทร์จรเดินภพ 10 กัมมะ ดวงของคุณ ภพอริ มฤตยูจร");
   });
 });

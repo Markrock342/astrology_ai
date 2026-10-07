@@ -251,7 +251,10 @@ export async function reserveUsageSlot(input: ReserveUsageInput): Promise<string
       select: { id: true },
     });
     return log.id;
-  });
+    // Several round trips (purge, lock, two limit checks, the wallet's period
+    // lapse) on a far database: Prisma's 5-second default failed one live
+    // test turn with "usageWallet.findUnique()" before the model was called.
+  }, { maxWait: 10_000, timeout: 20_000 });
 }
 
 /** Release a reservation when AI fails or the request is abandoned. */
