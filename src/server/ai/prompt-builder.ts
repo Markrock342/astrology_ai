@@ -1,4 +1,5 @@
 import type { BirthProfileSnapshot, ConversationTurn } from "@/types";
+import { formatAnswerEvidence } from "@/lib/answer-evidence";
 import { topicHousesOf } from "@/lib/question-topics";
 import type { ChartJson } from "@/types/chart";
 import type { UserChartMemoryJson } from "@/types/chart-memory";
@@ -111,16 +112,7 @@ export const READING_METHOD_RULE =
   "(2) ดูว่าดาวจรแต่ละดวงเข้าภพไหนของลัคนาเดิม มีดาวเดิมดวงใดตั้งรับหรือร่วมเรือน และทำมุมกับดาวเดิมดวงใด ตาม [transit_to_natal] " +
   "(3) ตีความการกระทบด้วยมุม ดาวคู่ มาตรฐานดาวจร และธาตุ ผสมกัน " +
   "(4) ชี้ขาดด้วยทักษาจรของปีนั้นเสมอ ว่าดาวจรหรือดาวเดิมที่ถูกกระทบติดทักษาจรเป็นอะไร เช่น ศรีจร หรือกาลกิณีจร " +
-  "โครงสร้างคำตอบ: เปิดด้วยภาพรวมสั้น ๆ แล้ววิเคราะห์ตามหัวข้อ ถ้าผู้ใช้ขอดูดวงภาพรวม ให้ไล่ครบ 17 หัวข้อตามลำดับนี้ " +
-  "ถ้าถามเรื่องเฉพาะ ให้วิเคราะห์เฉพาะหัวข้อที่ตรงกับคำถามแบบครบทุกขั้น ห้ามข้าม: " +
-  "1 ตัวตน (เจ้าเรือนตนุ) 2 การงาน (เจ้าเรือนกัมมะ) 3 การเงิน (เจ้าเรือนกดุมภะ) 4 โชคลาภ (เจ้าเรือนลาภะ) " +
-  "5 ความรักและคู่ครอง (เจ้าเรือนปัตนิ) 6 สุขภาพและอุบัติเหตุ (เจ้าเรือนตนุ โยงกับเจ้าเรือนอริหรือมรณะ) " +
-  "7 หุ้นส่วนและคู่สัญญา (เจ้าเรือนปัตนิในบริบทธุรกิจ) 8 ครอบครัว (เจ้าเรือนพันธุ) 9 บุตร หลาน บริวาร (เจ้าเรือนปุตตะ) " +
-  "10 การเสี่ยงโชค (เจ้าเรือนปุตตะ โยงกับเจ้าเรือนลาภะ) 11 การเดินทางระยะใกล้และเพื่อนฝูง (เจ้าเรือนสหัชชะ) " +
-  "12 การเดินทางไกลและต่างประเทศ (เจ้าเรือนศุภะ) 13 บ้าน รถ ที่ดิน (เจ้าเรือนพันธุในมุมทรัพย์สิน) " +
-  "14 การสื่อสาร เอกสาร สัญญา (เจ้าเรือนสหัชชะ โยงกับดาวพุธ ๔) 15 อุปสรรค ศัตรู หนี้สิน (เจ้าเรือนอริ) " +
-  "16 ผู้ใหญ่อุปถัมภ์และความสำเร็จ (เจ้าเรือนศุภะ ในบริบทการสนับสนุนและเลื่อนขั้น) " +
-  "17 ศัตรูลับและงานเบื้องหลัง (เจ้าเรือนวินาศ) ถ้าดูดวงจร ให้อธิบายผลของดวงจรในแต่ละหัวข้อด้วย " +
+  "ถ้าถามเรื่องเฉพาะ ให้ตอบจากภพของเรื่องนั้นตาม [question_focus] และ [answer_evidence] ไม่ต้องไล่หัวข้ออื่น " +
   "รูปแบบการเขียน (ผู้อ่านคือคนทั่วไป ไม่ใช่หมอดู): ภาษาไทยเท่านั้น " +
   "ไล่ดวงครบทุกขั้นข้างบนในใจ ห้ามละเลยดาวร่วมเรือน มุม มาตรฐานดาว และทักษาตอนวิเคราะห์ (ฤกษ์เฉพาะเมื่อมีในตาราง) " +
   "แต่ในคำตอบให้เล่าเฉพาะผลที่ตอบคำถาม และเหตุผลทางดาวที่สำคัญที่สุด 2–4 จุด ไม่ต้องบรรยายการไล่ดาวเจ้าเรือนทีละทอด " +
@@ -394,6 +386,21 @@ export const ANSWER_CONTRACT =
   "6) บรรทัดสุดท้ายของคำตอบคือ **สรุป:** หนึ่งประโยคภาษาง่าย ไม่มีศัพท์โหรา " +
   "7) เรียกผู้ถามว่า 'คุณ' (ไม่ใช่ 'ท่าน') และลงท้ายแบบแม่หมอด้วย 'ค่ะ/คะ'";
 
+/**
+ * The 17-topic walk, for an overview only. It sat in the method rule of
+ * every prompt, so "วันไหนดีสุด" carried a 17-item syllabus as well.
+ */
+export const OVERVIEW_TOPICS_RULE =
+  "โครงสร้างคำตอบ: เปิดด้วยภาพรวมสั้น ๆ แล้ววิเคราะห์ตามหัวข้อ ถ้าผู้ใช้ขอดูดวงภาพรวม ให้ไล่ครบ 17 หัวข้อตามลำดับนี้: " +
+  "1 ตัวตน (เจ้าเรือนตนุ) 2 การงาน (เจ้าเรือนกัมมะ) 3 การเงิน (เจ้าเรือนกดุมภะ) 4 โชคลาภ (เจ้าเรือนลาภะ) " +
+  "5 ความรักและคู่ครอง (เจ้าเรือนปัตนิ) 6 สุขภาพและอุบัติเหตุ (เจ้าเรือนตนุ โยงกับเจ้าเรือนอริหรือมรณะ) " +
+  "7 หุ้นส่วนและคู่สัญญา (เจ้าเรือนปัตนิในบริบทธุรกิจ) 8 ครอบครัว (เจ้าเรือนพันธุ) 9 บุตร หลาน บริวาร (เจ้าเรือนปุตตะ) " +
+  "10 การเสี่ยงโชค (เจ้าเรือนปุตตะ โยงกับเจ้าเรือนลาภะ) 11 การเดินทางระยะใกล้และเพื่อนฝูง (เจ้าเรือนสหัชชะ) " +
+  "12 การเดินทางไกลและต่างประเทศ (เจ้าเรือนศุภะ) 13 บ้าน รถ ที่ดิน (เจ้าเรือนพันธุในมุมทรัพย์สิน) " +
+  "14 การสื่อสาร เอกสาร สัญญา (เจ้าเรือนสหัชชะ โยงกับดาวพุธ ๔) 15 อุปสรรค ศัตรู หนี้สิน (เจ้าเรือนอริ) " +
+  "16 ผู้ใหญ่อุปถัมภ์และความสำเร็จ (เจ้าเรือนศุภะ ในบริบทการสนับสนุนและเลื่อนขั้น) " +
+  "17 ศัตรูลับและงานเบื้องหลัง (เจ้าเรือนวินาศ) ถ้าดูดวงจร ให้อธิบายผลของดวงจรในแต่ละหัวข้อด้วย ";
+
 /** "เล่าต่อ" and friends: carry on with the previous answer, not a new question. */
 export function isContinueRequest(question: string): boolean {
   return /^\s*(?:เล่า)?ต่อ(?:เลย|สิ|หน่อย|ให้จบ)?\s*(?:ครับ|ค่ะ|คะ|นะ|จ้า)?\s*[▸.!]*\s*$/.test(question);
@@ -492,13 +499,21 @@ export function buildUserPrompt(
   });
   // With no birth time the lagna is a noon guess: the rule forbids reading
   // houses, so the house tables are not handed over to tempt it.
+  // The houses this question is about (none for an overview, or with no
+  // birth time — then houses are a noon guess).
+  const focusHouses = profile.birthTimeKnown !== false && !opts.overview ? topicHousesOf(question) : [];
   if (chains.length && profile.birthTimeKnown !== false) {
+    // Twelve chains for a one-topic question was most of the prompt and
+    // little of the answer: the asked houses (and ตนุ) are kept.
+    const shownChains = focusHouses.length
+      ? chains.filter((c) => c.startHouse === 1 || focusHouses.includes(c.startHouse))
+      : chains;
     lines.push(
       ...formatHouseLordsForPrompt(chains),
       "",
       ...formatPlanetFactsForPrompt(chains),
       "",
-      ...formatHouseChainsForPrompt(chains),
+      ...formatHouseChainsForPrompt(shownChains),
       "",
     );
   }
@@ -604,6 +619,20 @@ export function buildUserPrompt(
       ? "ขอบเขตคำตอบ: ผู้ใช้ขอดูดวงภาพรวม — วิเคราะห์ครบ 17 หัวข้อตามลำดับในกฎวิธีพยากรณ์"
       : "ขอบเขตคำตอบ: คำถามเฉพาะเรื่อง — ตอบเฉพาะเรื่องที่ถาม ไม่ต้องไล่หัวข้ออื่น",
     opts.questionFocusText ? opts.questionFocusText : null,
+    ...formatAnswerEvidence({
+      focusHouses,
+      chains,
+      lagna: natalLagna,
+      natalPlanets: natal.planets,
+      // A day pick or timeline has its own evidence; transits only for a period question.
+      transitLinks: opts.transitChartJson && !opts.dayScanText && !opts.timelineText
+        ? linkTransitToNatal({
+            natalLagna,
+            natalPlanets: natal.planets,
+            transitPlanets: assertUsableEngineChart(opts.transitChartJson).planets,
+          })
+        : null,
+    }),
     opts.taksaNowText ? opts.taksaNowText : null,
     opts.userFactsText ? opts.userFactsText : null,
     `คำถาม: ${question}`,

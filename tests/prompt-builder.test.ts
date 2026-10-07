@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  OVERVIEW_TOPICS_RULE,
   buildSystemPrompt,
   buildUserPrompt,
   buildConversationHistory,
@@ -298,9 +299,11 @@ describe("the team's reading method is hard-coded", () => {
   });
 
   it("walks all 17 topics only for an overview", () => {
-    const prompt = buildSystemPrompt(base);
-    expect(prompt).toContain("ถ้าผู้ใช้ขอดูดวงภาพรวม ให้ไล่ครบ 17 หัวข้อ");
-    expect(prompt).toContain("17 ศัตรูลับและงานเบื้องหลัง (เจ้าเรือนวินาศ)");
+    // The list is appended for an overview (reading-service); a one-topic
+    // question no longer carries it.
+    expect(buildSystemPrompt(base)).not.toContain("17 ศัตรูลับและงานเบื้องหลัง");
+    expect(OVERVIEW_TOPICS_RULE).toContain("ถ้าผู้ใช้ขอดูดวงภาพรวม ให้ไล่ครบ 17 หัวข้อ");
+    expect(OVERVIEW_TOPICS_RULE).toContain("17 ศัตรูลับและงานเบื้องหลัง (เจ้าเรือนวินาศ)");
   });
 });
 

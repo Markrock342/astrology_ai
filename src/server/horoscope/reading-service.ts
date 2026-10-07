@@ -25,6 +25,7 @@ import {
   TIMELINE_RULE,
   PAST_TIMELINE_RULE,
   ANSWER_CONTRACT,
+  OVERVIEW_TOPICS_RULE,
   DAY_SCAN_RULE,
   DAY_CHECK_RULE,
   CONTINUE_RULE,
@@ -675,7 +676,7 @@ async function runReading(
   } else if (answerMode === "brief") {
     systemPrompt = `${systemPrompt}\n\n${BRIEF_ANSWER_HINT}`;
   } else if (overview) {
-    systemPrompt = `${systemPrompt}\n\n${plan === "FREE" ? OVERVIEW_ANSWER_HINT_FREE : OVERVIEW_ANSWER_HINT_PRO}`;
+    systemPrompt = `${systemPrompt}\n\n${OVERVIEW_TOPICS_RULE}\n\n${plan === "FREE" ? OVERVIEW_ANSWER_HINT_FREE : OVERVIEW_ANSWER_HINT_PRO}`;
   } else if (plan === "FREE") {
     systemPrompt = `${systemPrompt}\n\n${DETAILED_ANSWER_HINT_FREE}`;
   } else {
