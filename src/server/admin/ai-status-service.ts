@@ -347,6 +347,19 @@ async function getProviderAlert(): Promise<AiStatusSnapshot["providerAlert"]> {
     const kind = classifyProviderFailure(fail.errorCode, fail.errorMessage);
     if (!kind) continue;
 
+    // Solved once Gemini has answered since: a real reading, or a passing
+    // connection check. The banner stayed up for six hours after a top-up
+    // while every model tested OK.
+    const answeredSince = await prisma.aIUsageLog.findFirst({
+      where: { provider: "GEMINI", status: "SUCCESS", createdAt: { gt: fail.createdAt } },
+      select: { id: true },
+    });
+    const checkedOkSince =
+      healthCache !== null &&
+      healthCache.at > fail.createdAt.getTime() &&
+      healthCache.results.some((r) => r.provider === "GEMINI" && r.ok);
+    if (answeredSince || checkedOkSince) return null;
+
     const titles = {
       BILLING: "เครดิต Gemini อาจหมด — แชททั้งระบบพังได้",
       QUOTA: "โควต้า Gemini เต็ม — คำขอถูกปฏิเสธ",
