@@ -132,3 +132,18 @@ describe("past events and corrections (grading batch 2)", () => {
     expect(plan.rejectedYears).toEqual([2566]);
   });
 });
+
+describe("a month asked about, followed up (owner's chat, 7 Oct 2026)", () => {
+  it("keeps the month, the money topic, and drops a rejected day", () => {
+    const now = new Date("2026-10-07T04:40:00.000Z");
+    const prior: Array<{ role: "USER" | "ASSISTANT"; content: string }> = [];
+    const turns = ["ตุลานี้ผมมีเกณได้เงินก้อนใหญ่ไหม", "งั้นดูหน่อยถึงสิ้นเดือนเลยมีเกณไหม", "ผมถามเรื่องเงินก้อนใหญ่นะ", "บอกให้ดูทั้งเดือนไม่ใช่ดูวันที่7"];
+    for (const q of turns) {
+      const plan = planReading({ question: q, priorMessages: prior, now });
+      expect(plan.transitWindow.label, q).toContain("31 ต.ค. 2569");
+      expect(plan.intentQuestion, q).toMatch(/เงิน/);
+      expect(plan.checkDay, q).toBeNull();
+      prior.push({ role: "USER", content: q }, { role: "ASSISTANT", content: "ตอบ" });
+    }
+  });
+});

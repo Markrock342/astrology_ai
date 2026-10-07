@@ -8,6 +8,7 @@ import {
   isPinpointQuestion,
   isRelationshipQuestion,
   isTimelineQuestion,
+  normalizeQuestionForRouting,
   previousTimedQuestion,
   questionInContext,
   resolveMentionedDay,
@@ -62,7 +63,7 @@ export function planReading(input: {
   now?: Date;
 }): ReadingPlan {
   const now = input.now ?? new Date();
-  const question = input.question;
+  const question = normalizeQuestionForRouting(input.question);
   const continuing = isContinueRequest(question);
   const newestFirst = [...(input.priorMessages ?? [])].reverse();
   const priorUser = newestFirst

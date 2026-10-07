@@ -54,8 +54,8 @@ describe("time keywords resolve to a day without asking", () => {
   it("feeds the resolved day into the transit window", () => {
     const window = resolveTransitWindow("เดือนหน้าจะได้ย้ายงานไหม", TODAY);
     expect(window.intent).toBe("transit");
-    // The middle of next month, not today plus 30 days.
-    expect(bangkokDateKey(window.sampleAt)).toBe("2026-10-16");
+    // Next month from its first day, not today plus 30 days.
+    expect(bangkokDateKey(window.sampleAt)).toBe("2026-10-01");
   });
 
   it("still honours a day the user picked by hand", () => {
