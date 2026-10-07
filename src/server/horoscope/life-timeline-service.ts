@@ -39,6 +39,8 @@ export function buildLifeTimelinePrompt(input: {
   relationship?: boolean;
   /** พ.ศ. years the user already said were wrong: left out of the list. */
   rejectedYears?: number[];
+  /** False: houses come from a noon guess and are not shown. */
+  birthTimeKnown?: boolean;
 }): string | null {
   const now = input.now ?? new Date();
   const birth = input.natal.input;
@@ -108,7 +110,7 @@ export function buildLifeTimelinePrompt(input: {
   const kept = rejected.size
     ? { ...timeline, events: timeline.events.filter((e) => !rejected.has(e.at.getUTCFullYear() + 543)) }
     : timeline;
-  const lines = formatLifeTimelineForPrompt(kept, { past: input.past });
+  const lines = formatLifeTimelineForPrompt(kept, { past: input.past, noHouses: input.birthTimeKnown === false });
   if (rejected.size) {
     lines.splice(
       2,

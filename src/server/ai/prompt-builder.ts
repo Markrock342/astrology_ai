@@ -133,6 +133,7 @@ export const TIMELINE_RULE =
   "กฎไทม์ไลน์ (บังคับ): คำถามนี้ถามว่าเมื่อไหร่ในชีวิต และมีบล็อก [timeline] ที่คำนวณดาวจรล่วงหน้าไว้แล้ว " +
   "ห้ามบอกว่าไม่มีข้อมูลดาวจรหรือระบุเวลาไม่ได้ " +
   "เลือกจุดเปลี่ยน 3–6 จุดที่ตรงกับคำถามที่สุด ให้ความสำคัญกับจุดที่ระบุว่า 'จุดเปลี่ยนใหญ่' ก่อน ห้ามพิมพ์ตัวเลขคะแนนหรือคำว่าน้ำหนัก " +
+  "ถามหาช่วงที่ดีให้ใช้จุดโทนหนุนก่อน ถามหาช่วงที่ต้องระวังให้ใช้จุดโทนกดดันก่อน ไม่ต้องพิมพ์คำว่าโทน " +
   "บอกเดือน ปี พ.ศ. และอายุ ตามที่บล็อกระบุเท่านั้น ห้ามเดาหรือคำนวณปีเอง " +
   "แต่ละจุดอธิบายตามวิธีพยากรณ์: ดาวจรเข้าภพไหนของพื้นดวง ทับหรือเล็งดาวเดิมดวงใด " +
   "และทักษาจรปีนั้นชี้ว่าดีหรือต้องระวัง แล้วบอกว่าชีวิตด้านไหนจะเปลี่ยนอย่างไร " +
@@ -154,6 +155,8 @@ export const PAST_TIMELINE_RULE =
   "โหราศาสตร์บอกได้ว่าช่วงไหนดวงมีเกณฑ์ ไม่ได้รู้วันที่เกิดจริง: ประโยคแรกบอกช่วงที่เข้าเค้าที่สุดช่วงเดียว " +
   "ในรูป 'ช่วงที่เข้าเค้าที่สุดคืออายุ … ปี (เดือน พ.ศ. …)' ตามบล็อก ห้ามใช้คำว่า 'ดีที่สุด' กับเรื่องร้าย เช่น ตกงาน ป่วย เลิกรา เสียเงิน " +
   "ห้ามไล่หลายช่วง เสนอช่วงสำรองได้อีกไม่เกิน 1 ช่วง " +
+  "เลือกจุดให้ตรงกับชนิดของเรื่อง: เรื่องดี (ได้งาน แต่งงาน ได้เงิน มีลูก) ใช้จุดที่ระบุ 'โทนหนุน' หรือ 'โทนผสม' " +
+  "เรื่องร้าย (ตกงาน ป่วย เลิกรา หย่า เสียเงิน มีปัญหา) ใช้จุดที่ระบุ 'โทนกดดัน' หรือ 'โทนผสม' ห้ามใช้จุดโทนหนุนอธิบายเรื่องร้าย " +
   "แล้วเหตุผล 2–3 ข้อจากดาวจรในบล็อกเป็นภาษาง่าย ถามผู้ใช้ว่าตรงกับช่วงที่เกิดจริงไหม และปิดด้วยบรรทัด **สรุป:** หนึ่งประโยค " +
   "ถ้าบล็อกบอกว่าผู้ใช้ปฏิเสธบางปีไปแล้ว ให้รับสั้น ๆ หนึ่งประโยค แล้วเสนอช่วงใหม่จากรายการที่เหลือ ห้ามยืนยันหรือตอบปีเดิมซ้ำ";
 
@@ -195,7 +198,8 @@ export const COMPANION_RULE =
   "ถ้ามีบล็อก [sompong_N] ให้บอกคะแนนสมพงษ์เป็นตัวเลขและระดับตรงตามที่บล็อกระบุ (เช่น คะแนน -20 ไม่ค่อยสมพงษ์) " +
   "พร้อมผลของวันเกิด เดือนเกิด ปีเกิด ห้ามคิดคะแนนเอง ห้ามเปลี่ยนระดับให้ฟังดีขึ้นหรือแย่ลง " +
   "แล้วผูกเข้ากับการอ่านดวงสองดวงเป็นเรื่องเดียว " +
-  "สรุปให้ชัดว่าเข้ากันในเรื่องไหน ต้องระวังเรื่องไหน และคำแนะนำให้ทั้งคู่อยู่ร่วมกันได้ดี " +
+  "ถ้าถามว่าเป็นเนื้อคู่ไหม เข้ากันไหม หรือควรแต่ง/ไปต่อไหม ประโยคแรกต้องฟันธงเป็นคำตัดสิน เช่น 'เข้ากันได้ดีค่ะ' 'เข้ากันได้แต่ต้องปรับตัวมากค่ะ' 'ควรค่ะ' หรือ 'ยังไม่ควรรีบค่ะ' " +
+  "สรุปให้ชัดว่าเข้ากันในเรื่องไหน ต้องระวังเรื่องไหน และคำแนะนำให้ทั้งคู่อยู่ร่วมกันได้ดี ห้ามเรียกผู้ใช้ว่า 'ผู้ถาม' และห้ามเดาเพศของใคร " +
   "ถ้ามีหลายคน ให้แยกหัวข้อทีละคน แล้วสรุปภาพรวมท้ายคำตอบ";
 
 /** Stops Gemini treating chart-memory blocks as a table of contents. */
@@ -446,6 +450,20 @@ export function transitBlockTitle(chart: ChartJson): string {
  * Build the current-turn user prompt. Natal engine chart is required —
  * never call Gemini with profile/question alone.
  */
+/**
+ * With no birth time the lagna is a noon guess. Graders found the houses it
+ * produced read out as fact ("ดาวพฤหัสในภพ 10") for that user in 15 of 150
+ * answers, though the rule forbade it: the tables are now sent without it.
+ */
+function withoutLagna(chart: ChartJson): ChartJson {
+  const copy = structuredClone(chart) as ChartJson & { chart?: { lagna?: unknown }; meta: { lagna?: unknown } };
+  if (copy.chart) copy.chart.lagna = undefined as never;
+  copy.meta.lagna = undefined as never;
+  const rows = (copy as { myhora?: { natalPlanets?: Array<{ house?: unknown }>; transitPlanets?: Array<{ house?: unknown }> } }).myhora;
+  for (const r of [...(rows?.natalPlanets ?? []), ...(rows?.transitPlanets ?? [])]) r.house = undefined;
+  return copy;
+}
+
 export function buildUserPrompt(
   profile: BirthProfileSnapshot,
   question: string,
@@ -454,6 +472,7 @@ export function buildUserPrompt(
 ): string {
   const opts = options ?? {};
   const natal = assertUsableEngineChart(chartJson);
+  const timeKnown = profile.birthTimeKnown !== false;
 
   const formatNatal = opts.compactNatal ? formatChartCompactForPrompt : formatChartForPrompt;
   // Every ทักษา block in the prompt is walked to the SAME day — the transit
@@ -471,7 +490,7 @@ export function buildUserPrompt(
       )
     : undefined;
   const lines: Array<string | null> = [
-    formatNatal(natal, {
+    formatNatal(timeKnown ? natal : withoutLagna(natal), {
       title: opts.compactNatal
         ? "[natal] พื้นดวงที่คำนวณแล้ว (ย่อ — ใช้ตำแหน่งดาวนี้เท่านั้น ห้ามแต่งดาว)"
         : "[natal] พื้นดวงที่คำนวณแล้ว (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)",
@@ -482,11 +501,21 @@ export function buildUserPrompt(
 
   if (opts.chartMemory) {
     lines.push(
-      formatMemoryForPrompt(opts.chartMemory, {
-        categorySlug: opts.categorySlug,
-        question,
-        priorUserTexts: opts.priorUserTexts,
-      }),
+      (() => {
+        const text = formatMemoryForPrompt(opts.chartMemory, {
+          categorySlug: opts.categorySlug,
+          question,
+          priorUserTexts: opts.priorUserTexts,
+        });
+        // The memory's lagna and house lines come from a noon guess too.
+        return timeKnown
+          ? text
+          : text
+              .replace(/^ลัคนา: .*$/m, "ลัคนา: ไม่ทราบ (ผู้ถามไม่ทราบเวลาเกิด — ห้ามอ่านลัคนา ภพ และเจ้าเรือน)")
+              .split("\n")
+              .filter((line) => !/(?:ภพ|เรือน)\s*\d/.test(line))
+              .join("\n");
+      })(),
       "",
     );
   }
@@ -545,11 +574,12 @@ export function buildUserPrompt(
   }
 
   // Computed, not requested: where each moving planet lands in THIS chart.
-  const natalLagna = natal.chart?.lagna ?? natal.meta.lagna;
+  // No birth time: no lagna for the transit links either (houses would be a guess).
+  const natalLagna = timeKnown ? (natal.chart?.lagna ?? natal.meta.lagna) : null;
   if (opts.transitChartJson) {
     const transit = assertUsableEngineChart(opts.transitChartJson);
     lines.push(
-      formatChartForPrompt(transit, {
+      formatChartForPrompt(timeKnown ? transit : withoutLagna(transit), {
         title: transitBlockTitle(transit),
         preferTransitSamrap: true,
         natalInput: natal.input,
@@ -571,7 +601,7 @@ export function buildUserPrompt(
   if (opts.transitHorizonChartJson) {
     const horizon = assertUsableEngineChart(opts.transitHorizonChartJson);
     lines.push(
-      formatChartForPrompt(horizon, {
+      formatChartForPrompt(timeKnown ? horizon : withoutLagna(horizon), {
         title: transitBlockTitle(horizon).replace(
           "[transit]",
           "[transit_horizon]",

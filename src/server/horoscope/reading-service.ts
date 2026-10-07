@@ -580,6 +580,7 @@ async function runReading(
         question: intentQuestion,
         categorySlug,
         pinnedDate: explicitDate ?? null,
+        birthTimeKnown: profile.birthTimeKnown,
       })
     : checkDay && !continuing
       ? buildDayScanPrompt({
@@ -588,6 +589,7 @@ async function runReading(
           question: intentQuestion,
           categorySlug,
           checkDay,
+          birthTimeKnown: profile.birthTimeKnown,
         })
       : null;
 
@@ -605,6 +607,7 @@ async function runReading(
         past: pastEvent,
         relationship,
         rejectedYears: readingPlan.rejectedYears,
+        birthTimeKnown: profile.birthTimeKnown,
       })
     : null;
 
