@@ -1,6 +1,6 @@
 "use client";
 
-import { formatRemainingChip } from "@/lib/usage-budget-display";
+import { formatRemainingUsage } from "@/lib/usage-budget-display";
 import { useCallback, useEffect, useRef, useState, type RefObject, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -513,7 +513,7 @@ export function AppShell({
             >
               เหลือ{" "}
               <span className="font-semibold tabular-nums text-[var(--foreground)]">
-                {user.usageRemainingPercent}%
+                {formatRemainingUsage(user.usageRemainingPercent, user.usageRemainingQuestions)}
               </span>
             </Link>
           )}
@@ -800,6 +800,7 @@ export function AppShell({
             displayName={displayName}
             image={user?.image}
             usageRemainingPercent={user?.usageRemainingPercent}
+            usageRemainingQuestions={user?.usageRemainingQuestions}
           />
         </div>
 
@@ -947,6 +948,7 @@ function CollapsedRail({
   displayName,
   image,
   usageRemainingPercent,
+  usageRemainingQuestions,
 }: {
   settingsOpen: boolean;
   onToggleSettings: () => void;
@@ -957,6 +959,7 @@ function CollapsedRail({
   displayName: string;
   image?: string | null;
   usageRemainingPercent?: number;
+  usageRemainingQuestions?: number;
 }) {
   const chatNav = useChatNav();
   const railBtnRef = useRef<HTMLButtonElement>(null);
@@ -1028,10 +1031,10 @@ function CollapsedRail({
           <Link
             href="/account"
             className="rounded-md px-1 py-0.5 text-[11px] font-semibold tabular-nums text-[var(--foreground)] transition hover:bg-[var(--surface-2)] hover:text-[var(--primary)]"
-            title={`usage เหลือ ${formatRemainingChip(usageRemainingPercent)}${usageRemainingPercent > 100 ? " (รวมแพ็กเสริม)" : ""}`}
-            aria-label={`usage เหลือ ${formatRemainingChip(usageRemainingPercent)}`}
+            title={`usage เหลือ ${formatRemainingUsage(usageRemainingPercent, usageRemainingQuestions)} (ประมาณ)`}
+            aria-label={`usage เหลือ ${formatRemainingUsage(usageRemainingPercent, usageRemainingQuestions)}`}
           >
-            {formatRemainingChip(usageRemainingPercent)}
+            {formatRemainingUsage(usageRemainingPercent, usageRemainingQuestions)}
           </Link>
         )}
         <ThemePicker />

@@ -1,6 +1,6 @@
 "use client";
 
-import { formatRemainingChip } from "@/lib/usage-budget-display";
+import { formatRemainingUsage } from "@/lib/usage-budget-display";
 import {
   useCallback,
   useEffect,
@@ -622,6 +622,7 @@ export function ChatView() {
   // still leave answerMode on "detailed" — force brief so send() matches the UI.
   const usageRemainingPercent =
     usage?.remainingPercent ?? user?.usageRemainingPercent ?? 0;
+  const usageRemainingQuestions = usage?.remainingQuestions ?? user?.usageRemainingQuestions;
 
   function updateAnswerMode(mode: AnswerMode) {
     setAnswerMode(mode);
@@ -2505,6 +2506,20 @@ export function ChatView() {
                             {q}
                           </button>
                         ))}
+                        {/* Feedback: no gist at the end of a long chat. After
+                            two answers the newest one offers a summary of it all
+                            (an ordinary question — the server reads the thread). */}
+                        {idx === messages.length - 1 &&
+                        messages.filter((x) => x.role === "assistant" && x.status === "SUCCESS").length >= 2 ? (
+                          <button
+                            type="button"
+                            disabled={emailGate}
+                            onClick={() => void send("ช่วยสรุปใจความสำคัญของดวงจากที่คุยมาทั้งหมดในแชทนี้")}
+                            className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-2.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-40 md:py-1.5"
+                          >
+                            สรุปทั้งแชท
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                     {!isStreamingTurn && (
@@ -2648,6 +2663,7 @@ export function ChatView() {
               aiEnabled={FEATURES.aiChat}
               categoryLocked={locked}
               usageRemainingPercent={usageRemainingPercent}
+              usageRemainingQuestions={usageRemainingQuestions}
               plan={user?.plan === "PRO" ? "PRO" : "FREE"}
               needsEmailVerification={Boolean(user?.needsEmailVerification)}
               answerMode={answerMode}
@@ -2782,8 +2798,71 @@ function ErrorBanner({
   );
 }
 
+/**
+ * Starter questions by topic, each with a subject AND a period — feedback:
+ * a broad question gets a broad answer, and new users didn't know how to ask.
+ */
+const STARTER_GROUPS: Array<{ topic: string; questions: string[]; pro?: boolean }> = [
+  { topic: "หาวันดี", questions: ["เดือนนี้วันไหนดีที่สุดสำหรับเซ็นสัญญา", "สัปดาห์หน้าวันไหนเหมาะสัมภาษณ์งาน"] },
+  { topic: "การงาน", questions: ["เดือนหน้าเรื่องงานมีเกณฑ์เลื่อนตำแหน่งไหม", "ปีนี้ควรเปลี่ยนงานไหม"] },
+  { topic: "การเงิน", questions: ["เดือนนี้มีเกณฑ์ได้เงินก้อนไหม", "ปีหน้าการเงินต้องระวังอะไร"], pro: true },
+  { topic: "ความรัก", questions: ["ปีนี้จะเจอคนที่ใช่ไหม", "ช่วง 3 เดือนนี้ความรักเป็นยังไง"], pro: true },
+  { topic: "ดวงชีวิต", questions: ["นิสัยและจุดแข็งของฉันจากดวงกำเนิด", "ทั้งชีวิตจุดเปลี่ยนที่ดีสุดอายุเท่าไหร่"] },
+];
+
+const GUIDE_SEEN_KEY = "horasard.firstVisitGuide.v1";
+
+/** A one-time card on how the chat works. Dismissed for good on this device. */
+function FirstVisitGuide() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage hydrate
+      setShow(window.localStorage.getItem(GUIDE_SEEN_KEY) !== "1");
+    } catch {
+      setShow(false);
+    }
+  }, []);
+  if (!show) return null;
+  const close = () => {
+    setShow(false);
+    try {
+      window.localStorage.setItem(GUIDE_SEEN_KEY, "1");
+    } catch {
+      /* private mode: shows again next time, harmless */
+    }
+  };
+  const steps: Array<[string, string]> = [
+    ["พิมพ์คำถาม", "บอกเรื่องและช่วงเวลา เช่น “เดือนหน้าเรื่องงานเป็นยังไง” จะได้คำตอบตรงกว่าถามกว้าง ๆ"],
+    ["ดูดวงของวันที่ระบุ", "ปุ่มรูปปฏิทินใต้ช่องพิมพ์ ใช้ดูวันสำคัญ เช่น วันสัมภาษณ์ — ไม่ใช่การจองคิว"],
+    ["ดูดวงสมพงษ์ (ดวงคู่)", "ใส่วันเกิดแฟนหรือคนในครอบครัว แล้วถามว่าเข้ากันไหม"],
+    ["กระชับ / ละเอียด", "เลือกความยาวคำตอบ ส่วน “เหลือ ≈ … คำถาม” คือโควตาที่ใช้ได้อีกโดยประมาณ"],
+  ];
+  return (
+    <div className="animate-fade-up mt-5 w-full rounded-2xl border border-[var(--primary)]/35 bg-[var(--primary)]/8 p-4 text-left">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-[var(--primary)]">ใช้งานครั้งแรก? ดู 4 อย่างนี้</p>
+        <button type="button" onClick={close} className="rounded-md px-2 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]">
+          เข้าใจแล้ว
+        </button>
+      </div>
+      <ol className="space-y-1.5 text-[13px] leading-6 text-[var(--foreground)]">
+        {steps.map(([title, body], i) => (
+          <li key={title} className="flex gap-2">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[11px] font-semibold text-[var(--primary-foreground)]">
+              {i + 1}
+            </span>
+            <span>
+              <b>{title}</b> — <span className="text-[var(--muted)]">{body}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function EmptyState({
-  categories,
   plan,
   onPick,
   emailGate = false,
@@ -2797,49 +2876,38 @@ function EmptyState({
   onPick: (q: string) => void;
   emailGate?: boolean;
 }) {
-  // Timing questions first: the ones the reading answers best (each day of
-  // the period is walked), and the kind new users did not know they could ask.
-  const timing =
-    plan === "PRO"
-      ? [
-          "วันไหนในเดือนนี้ดวงดีสุด",
-          "สัปดาห์หน้าเรื่องงานเป็นยังไง",
-          "เดือนหน้ามีเกณฑ์ได้เงินไหม",
-          "ทั้งชีวิตจุดเปลี่ยนที่ดีสุดอายุเท่าไหร่",
-        ]
-      : ["วันไหนในเดือนนี้ดวงดีสุด", "สัปดาห์หน้าเรื่องงานเป็นยังไง"];
-  const suggestions = [...timing, ...categories.flatMap((item) => item.suggestedQuestions ?? [])]
-    .filter((q, i, all) => all.indexOf(q) === i)
-    .slice(0, 6);
+  const groups = STARTER_GROUPS.filter((g) => plan === "PRO" || !g.pro);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center pt-6 text-center">
       <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
         ถามดวงได้เลย
       </h1>
-      <p className="animate-fade-up stagger-1 mt-3 text-sm leading-relaxed text-[var(--muted)]">
-        {plan === "PRO"
-          ? "การงาน การเงิน ความรัก สุขภาพ ถามในแชทนี้ได้ทั้งหมด — ระบบดึงดวงจรปัจจุบันให้อัตโนมัติ"
-          : "ถามเรื่องตัวตนและการงานได้เลย หากข้อความเป็นหมวดอื่น ระบบจะชวนอัปเกรด — ดวงจรดึงให้อัตโนมัติ"}
+      <p className="animate-fade-up stagger-1 mt-2 text-sm leading-relaxed text-[var(--muted)]">
+        ถามให้เจาะจง: <b className="text-[var(--foreground)]">เรื่องอะไร + ช่วงไหน</b> แล้วแม่หมอจะดูดวงจรของช่วงนั้นให้
       </p>
-      {suggestions.length > 0 && (
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          {suggestions.map((q, i) => (
-            <button
-              key={q}
-              type="button"
-              disabled={emailGate}
-              onClick={() => {
-                if (emailGate) return;
-                onPick(q);
-              }}
-              className={`animate-fade-up stagger-${Math.min(i + 2, 6)} press-scale rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2.5 text-xs text-[var(--muted)] transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 md:py-1.5`}
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
+      <FirstVisitGuide />
+      <div className="mt-5 w-full space-y-2.5 text-left">
+        {groups.map((g, gi) => (
+          <div key={g.topic} className={`animate-fade-up stagger-${Math.min(gi + 2, 6)} flex flex-wrap items-center gap-2`}>
+            <span className="w-16 shrink-0 text-xs font-semibold text-[var(--primary)]">{g.topic}</span>
+            {g.questions.map((q) => (
+              <button
+                key={q}
+                type="button"
+                disabled={emailGate}
+                onClick={() => {
+                  if (emailGate) return;
+                  onPick(q);
+                }}
+                className="press-scale rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2 text-xs text-[var(--muted)] transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 md:py-1.5"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -3000,6 +3068,7 @@ const Composer = forwardRef<
     aiEnabled: boolean;
     categoryLocked?: boolean;
     usageRemainingPercent?: number;
+    usageRemainingQuestions?: number;
     plan?: "FREE" | "PRO";
     needsEmailVerification?: boolean;
     answerMode: AnswerMode;
@@ -3019,6 +3088,7 @@ const Composer = forwardRef<
     aiEnabled,
     categoryLocked,
     usageRemainingPercent,
+    usageRemainingQuestions,
     plan = "FREE",
     needsEmailVerification = false,
     answerMode,
@@ -3131,7 +3201,7 @@ const Composer = forwardRef<
           <span>
             {usageExhausted
               ? "usage หมดแล้ว — เติม usage หรือเริ่มรอบแพ็กเกจใหม่เพื่อถามต่อ"
-              : `เหลือ usage ${formatRemainingChip(remaining)} — โหมด「กระชับ」จะใช้ได้นานกว่า`}
+              : `เหลือ ${formatRemainingUsage(remaining, usageRemainingQuestions)} — เติม usage เพื่อถามต่อได้ไม่สะดุด`}
           </span>
           <a
             href="/account"
@@ -3143,7 +3213,7 @@ const Composer = forwardRef<
       ) : null}
       {aiEnabled && !companions.length && COMPANION_QUESTION_PATTERN.test(value) ? (
         <p className="mx-auto mb-1 max-w-3xl text-[11px] text-[var(--muted)]">
-          ถามเรื่องดวงคู่? กด <span className="text-[var(--primary)]">♡ ดูดวงคู่</span>{" "}
+          ถามเรื่องดวงคู่? กด <span className="text-[var(--primary)]">♡ ดูดวงสมพงษ์ (ดวงคู่)</span>{" "}
           แล้วใส่วันเกิดอีกฝ่าย จะได้วิเคราะห์จากดวงของทั้งสองคนจริง ๆ
         </p>
       ) : null}
@@ -3206,9 +3276,9 @@ const Composer = forwardRef<
             เหลือ{" "}
             <span
               className="font-semibold tabular-nums text-[var(--foreground)]"
-              title={remaining > 100 ? "เกิน 100% เพราะรวมแพ็กเสริมที่ซื้อไว้" : undefined}
+              title="ประมาณจากคำถามทั่วไป คำถามยาว แชทยาว หรือโหมดละเอียดอาจใช้มากกว่านี้"
             >
-              {formatRemainingChip(remaining)}
+              {formatRemainingUsage(remaining, usageRemainingQuestions)}
             </span>
           </p>
         ) : null}

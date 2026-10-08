@@ -44,3 +44,14 @@ export function formatRemainingChip(percent: number): string {
   if (percent > 100) return "100%+";
   return `${Math.max(0, Math.round(percent))}%`;
 }
+
+/**
+ * The usage chip, in questions when the server sent an estimate: users read
+ * "เหลือ 37%" as "37 questions?" or nothing at all.
+ */
+export function formatRemainingUsage(percent: number, questions?: number | null): string {
+  if (typeof questions === "number" && Number.isFinite(questions)) {
+    return questions <= 0 ? "หมดแล้ว" : `≈ ${questions.toLocaleString("th-TH")} คำถาม`;
+  }
+  return formatRemainingChip(percent);
+}
