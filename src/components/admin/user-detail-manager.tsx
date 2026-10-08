@@ -175,7 +175,9 @@ export function UserDetailManager({
   const [expiresAt, setExpiresAt] = useState("");
   /** "date" = ends on the chosen day · "forever" = no expiry at all. */
   const [expiryMode, setExpiryMode] = useState<"date" | "forever">("date");
-  const [grantCredits, setGrantCredits] = useState(true);
+  // Off by default: on, it resets usage to the package's full budget, and
+  // being on by default reset users to 100% on every plan or expiry change.
+  const [grantCredits, setGrantCredits] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
   const [role, setRole] = useState("");
   const [confirmReset2fa, setConfirmReset2fa] = useState(false);
@@ -606,7 +608,7 @@ export function UserDetailManager({
               <Toggle
                 checked={grantCredits}
                 onChange={setGrantCredits}
-                label="เริ่ม usage ของแพ็กเกจที่ 100% ทันที"
+                label="รีเซ็ต usage เป็นเต็มตามแพ็กเกจ (เปิดรอบใหม่) — ไม่ติ๊ก = usage คงเดิม"
               />
               <Button onClick={setSubscription} disabled={busy}>
                 บันทึกแพ็กเกจ
