@@ -80,8 +80,10 @@ export const FREE_KNOWLEDGE_MAX_CHARS = scaleForTrial(KNOWLEDGE_MAX_CHARS, 100);
  * answers leaned on headings and tables; once the team's method asked for one
  * continuous story per topic, the same budget read as four thin paragraphs.
  */
-export const PRO_DETAILED_WORDS_MIN = 800;
-export const PRO_DETAILED_WORDS_MAX = 1_100;
+// One answer mode now (no กระชับ): an open question is read in 400–550 words;
+// ~900 was what users called "อธิบายเยอะ".
+export const PRO_DETAILED_WORDS_MIN = 400;
+export const PRO_DETAILED_WORDS_MAX = 550;
 /** Per topic, for a 17-topic overview. */
 export const PRO_OVERVIEW_WORDS_PER_TOPIC_MIN = 150;
 export const PRO_OVERVIEW_WORDS_PER_TOPIC_MAX = 220;
@@ -144,8 +146,10 @@ export const GEMINI_DETAILED_FIRST_TOKEN_MS = 90_000;
  * these leave enough room; if a complex chart ever starves brief on Gemini 3,
  * raise the fallback retry's cap rather than pushing brief above detailed.
  */
-export const BRIEF_MAX_OUTPUT_TOKENS_FREE = 896;
-export const BRIEF_MAX_OUTPUT_TOKENS_PRO = 1_280;
+// Direct questions now run on the detailed model, whose thinking shares this
+// budget: room for it, or a short answer is cut mid-sentence.
+export const BRIEF_MAX_OUTPUT_TOKENS_FREE = 1_536;
+export const BRIEF_MAX_OUTPUT_TOKENS_PRO = 2_048;
 
 export const BRIEF_ANSWER_HINT =
   "โหมดกระชับ (สำคัญ ทับกติการูปแบบก่อนหน้า): ตอบคำถามให้จบใน 2–3 ย่อหน้าสั้น รวมไม่เกิน 180 คำ " +
@@ -192,9 +196,9 @@ export const PAST_TIMELINE_DIRECT_HINT =
  * outside the narrative, which is where the reading method forbids lists.
  */
 const DETAILED_SINGLE_TOPIC_SHAPE =
-  "แบ่งเป็น 2–4 ส่วนด้วย ## หัวข้อเป็นภาษาคน เช่น ภาพรวม · จุดเด่น · สิ่งที่ต้องระวัง · ควรทำอะไร " +
+  "แบ่งเป็น 2–3 ส่วนด้วย ## หัวข้อเป็นภาษาคน เช่น ภาพรวม · จุดเด่น · สิ่งที่ต้องระวัง " +
   "แต่ละส่วนเป็นความเรียงสั้น ๆ เล่าผลก่อนแล้วตามด้วยเหตุผลทางดาวสั้น ๆ ห้ามข้อย่อยในเนื้อหา " +
-  "ต่อด้วยตารางหนึ่งตาราง ชื่อ ### ดาวที่เกี่ยวข้องกับเรื่องนี้ คอลัมน์ ดาว | ราศี · ภพ | มาตรฐาน | ทักษา | บทบาทในเรื่องนี้ " +
+  "ต่อด้วยตารางหนึ่งตาราง ชื่อ ### ดาวที่เกี่ยวข้องกับเรื่องนี้ คอลัมน์ ดาว | ราศี · ภพ | มาตรฐาน | ทักษา | บทบาทในเรื่องนี้ ไม่เกิน 4 แถว ช่องบทบาทไม่เกิน 12 คำ " +
   "ใช้ข้อมูลจาก [planet_facts] เท่านั้น แล้วจบด้วยบรรทัด **สรุป:** 1–2 ประโยคภาษาง่าย (อยู่ท้ายสุด หลังตาราง)";
 
 /** Free detailed — the same shape, shorter (trial depth). */

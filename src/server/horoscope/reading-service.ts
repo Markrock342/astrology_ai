@@ -456,7 +456,10 @@ async function runReading(
       currentQuestion: question,
       categorySlug,
     }),
-    resolveConfig(category.id, plan, { preferFast: answerMode === "brief" }),
+    // One answer mode for users now: a direct question is answered short, but
+    // by the same model — the กระชับ model (3.5 Flash) cost twice as much per
+    // question. Only an old client that still sends "brief" picks it.
+    resolveConfig(category.id, plan, { preferFast: input.answerMode === "brief" }),
     prisma.knowledgeDoc.findMany({
       where: {
         enabled: true,

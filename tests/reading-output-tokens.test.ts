@@ -82,10 +82,12 @@ describe("resolveAiTimeoutMs", () => {
 });
 
 describe("detailed answers are long enough for the reading method", () => {
-  it("asks a single topic for real depth, in sections, with a closing table", async () => {
+  it("asks a single topic for depth in a few sections, with a closing table", async () => {
     const c = await import("@/config/constants");
-    expect(c.PRO_DETAILED_WORDS_MIN).toBeGreaterThanOrEqual(800);
-    expect(c.DETAILED_ANSWER_HINT_PRO).toContain("2–4 ส่วนด้วย ##");
+    // One answer mode since 8 Oct 2026: ~900 words read as "อธิบายเยอะ".
+    expect(c.PRO_DETAILED_WORDS_MIN).toBe(400);
+    expect(c.PRO_DETAILED_WORDS_MAX).toBe(550);
+    expect(c.DETAILED_ANSWER_HINT_PRO).toContain("2–3 ส่วนด้วย ##");
     expect(c.DETAILED_ANSWER_HINT_PRO).toContain("### ดาวที่เกี่ยวข้องกับเรื่องนี้");
     // The old hint forbade tables outright and capped the answer at 500 words.
     expect(c.DETAILED_ANSWER_HINT_PRO).not.toContain("350–500");
