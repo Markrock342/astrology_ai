@@ -321,6 +321,14 @@ select option {
 
 /* Long unbroken tokens (URLs, hashes) must wrap, not force the chat pane to
    scroll sideways on a phone. */
+/* The answer's first paragraph is the answer itself (verdict, best day,
+   period) — set a step larger so a reader who reads one line gets it. */
+.chat-md > p:first-child,
+.chat-md > div:first-child > p:first-child {
+  font-size: 16.5px;
+  line-height: 1.8rem;
+}
+
 .chat-md {
   overflow-wrap: anywhere;
 }
