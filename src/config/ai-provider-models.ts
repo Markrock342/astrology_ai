@@ -9,6 +9,8 @@ export type SupportedAIProvider = Extract<AIProvider, "GEMINI" | "OPENAI">;
 export const DEFAULT_OPENAI_MODEL_ID = "gpt-5.6";
 
 export const OPENAI_MODEL_PRESETS: { id: string; label: string }[] = [
+  { id: "gpt-6-luna", label: "GPT-6 Luna — ถูกสุด (แนะนำเป็นสำรอง)" },
+  { id: "gpt-6.1-sol", label: "GPT-6.1 Sol — ละเอียด (แพง)" },
   { id: DEFAULT_OPENAI_MODEL_ID, label: "GPT 5.6 Sol — ละเอียด" },
   { id: "gpt-5.6-terra", label: "GPT 5.6 Terra — สมดุล" },
   { id: "gpt-5.6-luna", label: "GPT 5.6 Luna — เร็ว/ประหยัด" },

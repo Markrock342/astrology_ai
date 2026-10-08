@@ -62,6 +62,10 @@ export const AI_PRICING: Record<string, ModelPricing> = {
   "gpt-5.6-sol": { inputPerMTok: 4.0, outputPerMTok: 20.0, cachedInputPerMTok: 0.4 },
   "gpt-5.6-terra": { inputPerMTok: 2.0, outputPerMTok: 12.0, cachedInputPerMTok: 0.2 },
   "gpt-5.6-luna": { inputPerMTok: 0.2, outputPerMTok: 1.2, cachedInputPerMTok: 0.02 },
+  // GPT-6 rates as given by the owner on 2026-10-08 (cache writes, $0.13 /
+  // $2.50 per 1M, are not modelled — the cost view treats cached input only).
+  "gpt-6-luna": { inputPerMTok: 0.1, outputPerMTok: 0.5, cachedInputPerMTok: 0.01 },
+  "gpt-6.1-sol": { inputPerMTok: 2.0, outputPerMTok: 10.0, cachedInputPerMTok: 0.1 },
   // Compatibility for configs created before the official GPT-5.6 tier names.
   "gpt-5.6-pro": { inputPerMTok: 4.0, outputPerMTok: 20.0, cachedInputPerMTok: 0.4 },
   "gpt-5.6-mini": { inputPerMTok: 2.0, outputPerMTok: 12.0, cachedInputPerMTok: 0.2 },
