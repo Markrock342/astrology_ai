@@ -618,7 +618,7 @@ export function UserDetailManager({
               <Toggle
                 checked={grantCredits}
                 onChange={setGrantCredits}
-                label="รีเซ็ต usage เป็นเต็มตามแพ็กเกจ (เปิดรอบใหม่) — ไม่ติ๊ก = usage คงเดิม"
+                label="รีเซ็ต usage เป็นเต็มตามแพ็กเกจ — เปลี่ยนเป็น Pro ใหม่ ระบบเติมให้เองแม้ไม่ติ๊ก · ไม่ติ๊ก + แพ็กเกจเดิม = usage คงเดิม"
               />
               <Button onClick={setSubscription} disabled={busy}>
                 บันทึกแพ็กเกจ
