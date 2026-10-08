@@ -18,6 +18,7 @@ import {
 } from "./ui";
 import { GeminiBalanceCard } from "./gemini-balance-card";
 import { CreditReportCard } from "./credit-report-card";
+import { ProLapseRepairCard } from "./pro-lapse-repair-card";
 import { formatThb, usdToThb } from "@/config/ai-pricing";
 import type { Spread, UsageStats } from "@/lib/usage-stats";
 
@@ -107,6 +108,7 @@ export function CostPanel() {
 
       <GeminiBalanceCard />
       <CreditReportCard />
+      <ProLapseRepairCard />
 
       <div className="mb-4 flex items-center gap-2">
         <Select
