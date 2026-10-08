@@ -18,6 +18,7 @@ import {
   Toggle,
 } from "./ui";
 import { GeminiBalanceCard } from "./gemini-balance-card";
+import { CreditReportCard } from "./credit-report-card";
 
 type Category = { id: string; nameTh: string; slug: string };
 type AIRole = "DETAILED" | "BRIEF" | "BACKUP";
@@ -610,6 +611,7 @@ export function AiConfigsManager() {
       />
 
       <GeminiBalanceCard />
+      <CreditReportCard />
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 
