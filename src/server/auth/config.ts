@@ -1,5 +1,4 @@
 import { credentialVersion } from "@/server/auth/credential-version";
-import { rateLimit, rateLimitIp } from "@/lib/rate-limit";
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -42,18 +41,10 @@ export const authConfig: NextAuthConfig = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      authorize: async (raw, request) => {
+      authorize: async (raw) => {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
         const email = parsed.data.email.trim().toLowerCase();
-        // POST /api/auth/callback/credentials reaches here without passing the
-        // /api/auth/login limiter: limit guesses per IP and per account here too.
-        try {
-          await rateLimit(`login-cb:${rateLimitIp(request as Request)}`, 20, 60_000);
-          await rateLimit(`login-cb-acct:${email}`, 10, 15 * 60_000);
-        } catch {
-          return null;
-        }
         const { password } = parsed.data;
 
         const user = await prisma.user.findUnique({ where: { email } });
