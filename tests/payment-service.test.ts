@@ -32,6 +32,8 @@ vi.mock("@/server/db", () => ({
   prisma: {
     payment: {
       count: mocks.count,
+      // No earlier payment used the same slip.
+      findFirst: vi.fn(async () => null),
       create: mocks.create,
       findUnique: mocks.findUnique,
       update: mocks.update,

@@ -174,6 +174,27 @@ export async function lapseExpiredIncludedUsage(
     select: { includedBalanceUnits: true, periodEndsAt: true },
   });
   if (!wallet?.periodEndsAt || wallet.periodEndsAt > now) return;
+  // A paid or admin-given Pro that is still running outlives a period set by
+  // something else — the September promotion set every wallet's period to end
+  // 1 Oct, and paying Pro users were dropped to the Free budget the next day
+  // while still shown as Pro. The period follows that Pro instead.
+  const runningPro = await client.userSubscription.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE",
+      package: { type: "PRO" },
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+    orderBy: { expiresAt: { sort: "desc", nulls: "first" } },
+    select: { expiresAt: true },
+  });
+  if (runningPro) {
+    await client.usageWallet.updateMany({
+      where: { userId, periodEndsAt: wallet.periodEndsAt },
+      data: { periodEndsAt: runningPro.expiresAt },
+    });
+    return;
+  }
   const free = await client.package.findFirst({
     where: { code: "FREE" },
     select: { usageBudgetUnits: true },

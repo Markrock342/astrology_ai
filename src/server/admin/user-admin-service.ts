@@ -618,7 +618,7 @@ export async function setUserSubscription(
     await lockUsageWalletForUpdate(userId, tx);
     const before = await tx.userSubscription.findMany({
       where: { userId, status: "ACTIVE" },
-      select: { id: true, packageId: true, status: true },
+      select: { id: true, packageId: true, status: true, expiresAt: true },
     });
 
     // Retire any currently-active subscriptions before granting the new one.
@@ -647,7 +647,12 @@ export async function setUserSubscription(
     // an upgrade with the reset box left unticked kept the Free budget
     // ("Pro · 100% ≈ 1 คำถาม", A, 8 Oct 2026). The box still forces a reset
     // on the same package; an expiry edit alone keeps the balance.
-    const upgrading = pkg.type === "PRO" && !before.some((sub) => sub.packageId === pkg.id);
+    // An ACTIVE row past its expiry (the promotion's Pro rows, a lapsed payer)
+    // is not a running plan: giving that user Pro is an upgrade.
+    const now = new Date();
+    const upgrading =
+      pkg.type === "PRO" &&
+      !before.some((sub) => sub.packageId === pkg.id && (sub.expiresAt === null || sub.expiresAt > now));
     const grant = Boolean(input.grantCredits) || upgrading;
 
     // Optionally grant the package's credit quota in the same transaction so

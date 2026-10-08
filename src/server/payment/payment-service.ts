@@ -54,6 +54,12 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
     throw new AppError("VALIDATION", "กรุณาอัปโหลดสลิปการโอนเงิน");
   }
   const proofPath = assertOwnedProofPath(userId, input.proofPath);
+  // A slip already sent with an earlier payment (last month's, approved) is
+  // not proof of a new one — the admin would see a real slip.
+  const reused = await prisma.payment.findFirst({ where: { proofUrl: proofPath }, select: { id: true } });
+  if (reused) {
+    throw new AppError("VALIDATION", "สลิปนี้เคยใช้แจ้งชำระไปแล้ว — กรุณาอัปโหลดสลิปของการโอนครั้งนี้");
+  }
 
   const pending = await prisma.payment.count({
     where: { userId, status: "PENDING" },
@@ -320,9 +326,16 @@ export async function reviewPayment(
         });
 
         if (pkg.usageBudgetUnits > 0) {
+          // Renewing before the old Pro ends keeps what is left of it: the
+          // grant SETS the balance, and an early renewal used to wipe the
+          // remaining paid-for usage. Lifetime/expired plans start fresh.
+          const carry =
+            !hasLifetime && latestExpiry && latestExpiry > now
+              ? Math.max(0, (await tx.usageWallet.findUnique({ where: { userId: payment.userId }, select: { includedBalanceUnits: true } }))?.includedBalanceUnits ?? 0)
+              : 0;
           await grantIncludedUsage(
             payment.userId,
-            pkg.usageBudgetUnits,
+            pkg.usageBudgetUnits + carry,
             {
               type: "PACKAGE_RENEWAL",
               referenceType: "payment",
@@ -372,7 +385,9 @@ export async function reviewPayment(
     );
 
     return { payment: updated, subscription };
-  });
+    // Approval runs a lock, plan rows, the usage grant, credits and an audit
+    // row on a far database: one live approval timed out at Prisma's 5 s.
+  }, { maxWait: 10_000, timeout: 20_000 });
 
   if (input.status === "REJECTED") {
     void deletePaymentProofBlob(payment.proofUrl);
