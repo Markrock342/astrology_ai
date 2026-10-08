@@ -25,6 +25,8 @@ import {
   TIMELINE_RULE,
   PAST_TIMELINE_RULE,
   ANSWER_CONTRACT,
+  CHAT_SUMMARY_RULE,
+  isChatSummaryRequest,
   NO_PARTNER_CHART_RULE,
   OVERVIEW_TOPICS_RULE,
   DAY_SCAN_RULE,
@@ -666,6 +668,9 @@ async function runReading(
   }
   if (continuing) {
     systemPrompt = `${systemPrompt}\n\n${CONTINUE_RULE}`;
+  }
+  if (isChatSummaryRequest(question)) {
+    systemPrompt = `${systemPrompt}\n\n${CHAT_SUMMARY_RULE}`;
   }
   if (!profile.birthTimeKnown) {
     systemPrompt = `${systemPrompt}\n\n${UNKNOWN_TIME_RULE}`;

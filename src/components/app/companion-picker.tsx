@@ -93,6 +93,7 @@ export function CompanionPicker({
       <button
         type="button"
         disabled={disabled}
+        title="ใส่วันเกิดแฟน คู่สมรส พ่อแม่ หรือหุ้นส่วน แล้วถามว่าเข้ากันไหม — แม่หมอจะเทียบดวงของทั้งสองคนและบอกคะแนนสมพงษ์"
         onClick={() => {
           setSaved(loadSaved());
           setOpen(true);
@@ -104,7 +105,8 @@ export function CompanionPicker({
         } disabled:opacity-50`}
       >
         <span aria-hidden>♡</span>
-        {value.length ? `ดูดวงคู่กับ ${value.map((p) => p.nickname).join(", ")}` : "ดูดวงคู่"}
+        {/* "ดูดวงคู่" alone didn't say what it does; สมพงษ์ is the word people know. */}
+        {value.length ? `ดูดวงคู่กับ ${value.map((p) => p.nickname).join(", ")}` : "ดูดวงสมพงษ์ (ดวงคู่)"}
       </button>
 
       {/* Portalled to <body>: inside the composer the dialog shared its stacking

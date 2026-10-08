@@ -403,6 +403,11 @@ export function TransitDatePicker({
             ? `วันจร ${label}`
             : "เลือกวันจร ว่างไว้ให้ระบบถอดจากคำถาม"
         }
+        title={
+          label
+            ? undefined
+            : "เลือกวันที่อยากดูดวงโดยเฉพาะ เช่น วันสัมภาษณ์ วันเซ็นสัญญา — ไม่ต้องเลือกก็ได้ ถ้าพิมพ์วันที่ในคำถามอยู่แล้ว"
+        }
         onClick={() => {
           if (open) closePanel(true);
           else openPanel();
@@ -429,7 +434,8 @@ export function TransitDatePicker({
             {label}
           </span>
         ) : (
-          <span className="min-w-0 truncate">เลือกวันที่ต้องการเช็คดวง</span>
+          // "เลือกวันที่ต้องการเช็คดวง" read as booking an astrologer's slot.
+          <span className="min-w-0 truncate">ดูดวงของวันที่ระบุ</span>
         )}
       </button>
       {panel}

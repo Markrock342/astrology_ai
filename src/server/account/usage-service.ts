@@ -1,4 +1,5 @@
 import { prisma } from "@/server/db";
+import { unitsToQuestions } from "@/lib/usage-budget-display";
 import { getUsageCounts } from "@/server/credit/quota-service";
 import {
   getUsageBudgetSnapshot,
@@ -21,6 +22,8 @@ export type MyUsageSummary = {
   balance: number;
   usedPercent: number;
   remainingPercent: number;
+  /** About how many questions the balance pays for, at a typical question's cost. */
+  remainingQuestions: number;
   includedRemainingPercent: number;
   purchasedRemainingPercent: number;
   periodStartedAt: string | null;
@@ -48,6 +51,7 @@ function serializeSummary(
     balance: budget.remainingPercent,
     usedPercent: budget.usedPercent,
     remainingPercent: budget.remainingPercent,
+    remainingQuestions: unitsToQuestions(budget.remainingUnits),
     includedRemainingPercent: budget.includedRemainingPercent,
     purchasedRemainingPercent: budget.purchasedRemainingPercent,
     periodStartedAt: budget.periodStartedAt?.toISOString() ?? null,

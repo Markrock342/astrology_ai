@@ -50,6 +50,7 @@ type UserDetail = {
     balance: number;
     usedPercent: number;
     remainingPercent: number;
+    remainingQuestions?: number;
     includedRemainingPercent: number;
     purchasedRemainingPercent: number;
     dailyLimit: number | null;
@@ -446,7 +447,16 @@ export function UserDetailManager({
               />
               <Row
                 label="usage คงเหลือ"
-                value={user.usage ? `${user.usage.remainingPercent}%` : "—"}
+                // A asked for questions here too, matching what the user now sees.
+                value={
+                  user.usage
+                    ? `${user.usage.remainingPercent}%${
+                        typeof user.usage.remainingQuestions === "number"
+                          ? ` · ≈ ${user.usage.remainingQuestions.toLocaleString("th-TH")} คำถาม`
+                          : ""
+                      }`
+                    : "—"
+                }
               />
               <Row
                 label="usage จากรอบแพ็กเกจ"

@@ -13,6 +13,8 @@ export type MyUsage = {
   balance: number;
   usedPercent: number;
   remainingPercent: number;
+  /** About how many questions are left (server estimate). */
+  remainingQuestions?: number;
   includedRemainingPercent: number;
   purchasedRemainingPercent: number;
   periodStartedAt: string | null;

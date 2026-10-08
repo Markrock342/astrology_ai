@@ -6,6 +6,7 @@ import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CopyCodeButton } from "./copy-code-button";
+import { withGlossary } from "./astro-glossary";
 import { completeMarkdown } from "./complete-markdown";
 import { handleDashboardChatLinkClick } from "./chat-nav";
 import { linkChatNavigationCtas } from "@/lib/chat-navigation-links";
@@ -31,11 +32,22 @@ const components: Components = {
       {children}
     </h4>
   ),
-  p: ({ children }) => (
-    <p className="mb-3 text-[15px] leading-7 text-[var(--foreground)] last:mb-0">
-      {children}
-    </p>
-  ),
+  p: ({ children }) => {
+    // The answer's closing "**สรุป:** …" line, set apart so it can be found
+    // at a glance — users asked for a plain conclusion they don't have to dig for.
+    if (isSummaryParagraph(children)) {
+      return (
+        <div className="mb-3 mt-4 rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/8 px-4 py-3 text-[15px] leading-7 text-[var(--foreground)] last:mb-0">
+          {children}
+        </div>
+      );
+    }
+    return (
+      <p className="mb-3 text-[15px] leading-7 text-[var(--foreground)] last:mb-0">
+        {withGlossary(children)}
+      </p>
+    );
+  },
   ul: ({ children }) => (
     <ul className="mb-3 list-disc space-y-1.5 pl-5 text-[15px] leading-7 text-[var(--foreground)] last:mb-0">
       {children}
@@ -46,7 +58,7 @@ const components: Components = {
       {children}
     </ol>
   ),
-  li: ({ children }) => <li className="pl-0.5 marker:text-[var(--primary)]">{children}</li>,
+  li: ({ children }) => <li className="pl-0.5 marker:text-[var(--primary)]">{withGlossary(children)}</li>,
   strong: ({ children }) => (
     <strong className="font-semibold text-[var(--foreground)]">{children}</strong>
   ),
@@ -149,6 +161,11 @@ const components: Components = {
     </td>
   ),
 };
+
+function isSummaryParagraph(children: unknown): boolean {
+  const first = Array.isArray(children) ? children[0] : children;
+  return /^\s*สรุป\s*[:：]/.test(reactNodeText(first));
+}
 
 function sanitizeHref(raw: string): string | null {
   const href = raw.trim();

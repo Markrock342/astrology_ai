@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { getBalance } from "@/server/credit/credit-service";
 import { availableUsagePercent } from "@/server/usage/usage-budget-service";
+import { unitsToQuestions } from "@/lib/usage-budget-display";
 import { getUsageBudgetSnapshot } from "@/server/usage/usage-budget-service";
 import { MAX_BIRTH_EDITS, isStaffRole } from "@/server/user/birth-profile-service";
 import {
@@ -130,6 +131,8 @@ export async function getMe(userId: string) {
       purchasedUsageBalance,
       usageAllowance,
     ),
+    // "เหลือ 1387.9%" told users nothing; questions left is what they ask about.
+    usageRemainingQuestions: unitsToQuestions(includedUsageBalance + purchasedUsageBalance),
     /** Free cannot chat AI — must upgrade to Pro (`CHAT_REQUIRES_PRO`). */
     canChat: plan === "PRO",
     emailVerified: Boolean(user.emailVerifiedAt),
@@ -219,6 +222,7 @@ export async function getMyPackage(userId: string) {
     credits: balance,
     creditBalance: balance,
     usageRemainingPercent: usageBudget.remainingPercent,
+    usageRemainingQuestions: unitsToQuestions(usageBudget.remainingUnits),
     usageUsedPercent: usageBudget.usedPercent,
     usagePeriodEndsAt: hideSilentPromotionDate(usageBudget.periodEndsAt)?.toISOString() ?? null,
     /** When Pro ends — null when it never does (see resolveProExpiry). */
