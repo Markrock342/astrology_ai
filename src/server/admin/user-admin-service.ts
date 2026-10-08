@@ -643,10 +643,17 @@ export async function setUserSubscription(
       },
     });
 
+    // Moving onto a Pro package the user wasn't on starts its usage round —
+    // an upgrade with the reset box left unticked kept the Free budget
+    // ("Pro · 100% ≈ 1 คำถาม", A, 8 Oct 2026). The box still forces a reset
+    // on the same package; an expiry edit alone keeps the balance.
+    const upgrading = pkg.type === "PRO" && !before.some((sub) => sub.packageId === pkg.id);
+    const grant = Boolean(input.grantCredits) || upgrading;
+
     // Optionally grant the package's credit quota in the same transaction so
     // activating Pro immediately gives the user usable credits.
     let grantedCredits = 0;
-    if (input.grantCredits && pkg.creditQuota > 0) {
+    if (grant && pkg.creditQuota > 0) {
       await addCredits(
         userId,
         pkg.creditQuota,
@@ -661,7 +668,7 @@ export async function setUserSubscription(
       );
       grantedCredits = pkg.creditQuota;
     }
-    if (input.grantCredits && pkg.usageBudgetUnits > 0) {
+    if (grant && pkg.usageBudgetUnits > 0) {
       await grantIncludedUsage(
         userId,
         pkg.usageBudgetUnits,
@@ -682,7 +689,7 @@ export async function setUserSubscription(
     // the period moves: a Pro's runs to the new expiry; a move to Free ends
     // the Pro period now, and the pool drops to Free's budget — keeping less
     // if less is left (lapseExpiredIncludedUsage).
-    if (!input.grantCredits) {
+    if (!grant) {
       if (pkg.type === "PRO") {
         await tx.usageWallet.updateMany({
           where: { userId },
