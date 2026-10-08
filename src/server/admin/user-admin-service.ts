@@ -11,6 +11,7 @@ import {
   availableUsagePercent,
   deductUsageCost,
   grantIncludedUsage,
+  lapseExpiredIncludedUsage,
 } from "@/server/usage/usage-budget-service";
 import { writeAudit } from "@/server/audit/audit-service";
 import { getMyUsage } from "@/server/account/usage-service";
@@ -674,6 +675,24 @@ export async function setUserSubscription(
         { startsAt: new Date(), endsAt: input.expiresAt ?? null },
         tx,
       );
+    }
+
+    // Without a reset the balance stays what it was. Changing a plan or an
+    // expiry with the old default reset usage to 100% (A, 8 Oct 2026). Only
+    // the period moves: a Pro's runs to the new expiry; a move to Free ends
+    // the Pro period now, and the pool drops to Free's budget — keeping less
+    // if less is left (lapseExpiredIncludedUsage).
+    if (!input.grantCredits) {
+      if (pkg.type === "PRO") {
+        await tx.usageWallet.updateMany({
+          where: { userId },
+          data: { periodEndsAt: input.expiresAt ?? null },
+        });
+      } else {
+        const now = new Date();
+        await tx.usageWallet.updateMany({ where: { userId }, data: { periodEndsAt: now } });
+        await lapseExpiredIncludedUsage(userId, tx, now);
+      }
     }
 
     await writeAudit(
