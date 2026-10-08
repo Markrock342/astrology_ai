@@ -96,7 +96,6 @@ const THINKING_PHASE_LABEL: Record<ThinkingPhase, string> = {
   writing: "กำลังเขียนคำทำนาย…",
 };
 
-const ANSWER_MODE_KEY = "horasard:answerMode";
 const DRAFT_KEY = "horasard:chatDraft";
 /** One-shot question for a new chat, set by another page (see calendar). */
 const ASK_HANDOFF_KEY = "horasard:askHandoff";
@@ -109,14 +108,6 @@ const natalIntroStarted = new Set<string>();
 /** Wall-clock helper kept outside the component so React purity lint ignores it. */
 function nowMs(): number {
   return Date.now();
-}
-
-function readAnswerMode(plan: "FREE" | "PRO" = "FREE"): AnswerMode {
-  if (typeof window === "undefined") return plan === "PRO" ? "detailed" : "brief";
-  const saved = window.localStorage.getItem(ANSWER_MODE_KEY);
-  if (saved === "brief" || saved === "detailed") return saved;
-  // Free defaults to brief — burns fewer tokens on the 3-credit trial.
-  return plan === "PRO" ? "detailed" : "brief";
 }
 
 function readFeedbackMap(): Record<string, FeedbackValue> {
@@ -429,7 +420,6 @@ export function ChatView() {
   const { usage, refresh: refreshUsage } = useMyUsage();
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [answerMode, setAnswerMode] = useState<AnswerMode>("brief");
   const [transitDateInput, setTransitDateInput] = useState("");
   // Who else is read in this thread's questions. Kept per thread for this tab
   // only, so switching threads never carries someone into another reading.
@@ -607,27 +597,17 @@ export function ChatView() {
     return () => window.removeEventListener(ASK_FROM_CHART_EVENT, onAsk);
   }, []);
 
-  // Hydrate answer mode, draft, and thumbs from localStorage once on mount /
-  // when plan is known (Free defaults to brief to stretch trial credits).
+  // Hydrate thumbs from localStorage once on mount.
   useEffect(() => {
-    const plan = user?.plan === "PRO" ? "PRO" : "FREE";
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage hydrate
-    setAnswerMode(readAnswerMode(plan));
     setFeedbackById(readFeedbackMap());
     // The draft itself is restored by Composer on its own mount, so it also
     // survives opening the natal reference view (which unmounts the composer).
-  }, [user?.plan]);
+  }, []);
 
-  // Free + ≤1 credit: detailed is disabled in Composer, but localStorage can
-  // still leave answerMode on "detailed" — force brief so send() matches the UI.
   const usageRemainingPercent =
     usage?.remainingPercent ?? user?.usageRemainingPercent ?? 0;
   const usageRemainingQuestions = usage?.remainingQuestions ?? user?.usageRemainingQuestions;
-
-  function updateAnswerMode(mode: AnswerMode) {
-    setAnswerMode(mode);
-    window.localStorage.setItem(ANSWER_MODE_KEY, mode);
-  }
 
   /**
    * Record a thumbs verdict — and actually TELL the server about it.
@@ -1611,8 +1591,8 @@ export function ChatView() {
       setInFlight({ threadId: activeConversationId, idempotencyKey });
 
       // Free + ≤1 credit: never send detailed even if localStorage still has it.
-      const effectiveAnswerMode: AnswerMode =
-        answerMode;
+      // One mode: length follows the question (direct → short), not a toggle.
+      const effectiveAnswerMode: AnswerMode = "detailed";
 
       const res = await fetch(
         `/api/conversations/${activeConversationId}/messages`,
@@ -2666,8 +2646,6 @@ export function ChatView() {
               usageRemainingQuestions={usageRemainingQuestions}
               plan={user?.plan === "PRO" ? "PRO" : "FREE"}
               needsEmailVerification={Boolean(user?.needsEmailVerification)}
-              answerMode={answerMode}
-              onAnswerModeChange={updateAnswerMode}
               transitDate={transitDateInput}
               onTransitDateChange={setTransitDateInput}
               companions={companionsInput}
@@ -3071,8 +3049,6 @@ const Composer = forwardRef<
     usageRemainingQuestions?: number;
     plan?: "FREE" | "PRO";
     needsEmailVerification?: boolean;
-    answerMode: AnswerMode;
-    onAnswerModeChange: (mode: AnswerMode) => void;
     transitDate?: string;
     onTransitDateChange?: (value: string) => void;
     companions?: Companion[];
@@ -3091,8 +3067,6 @@ const Composer = forwardRef<
     usageRemainingQuestions,
     plan = "FREE",
     needsEmailVerification = false,
-    answerMode,
-    onAnswerModeChange,
     transitDate = "",
     onTransitDateChange,
     companions = [],
@@ -3220,47 +3194,7 @@ const Composer = forwardRef<
       {/* Wraps instead of clipping: with a large system font the three items do
           not fit one phone row, and the usage figure was cut off the screen. */}
       <div className="mx-auto mb-1 flex max-w-3xl flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
-        <div
-          className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-0.5 text-[11px]"
-          role="group"
-          aria-label="โหมดคำตอบ"
-        >
-          <button
-            type="button"
-            onClick={() => onAnswerModeChange("brief")}
-            disabled={!aiEnabled || emailGate}
-            aria-pressed={answerMode === "brief"}
-            className={`min-h-9 rounded-md px-3 py-1.5 transition ${
-              answerMode === "brief"
-                ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                : "text-[var(--muted)] hover:text-[var(--foreground)]"
-            }`}
-          >
-            กระชับ
-          </button>
-          <button
-            type="button"
-            onClick={() => onAnswerModeChange("detailed")}
-            disabled={
-              !aiEnabled ||
-              emailGate ||
-              usageExhausted
-            }
-            title={
-              usageExhausted
-                ? "usage หมดแล้ว"
-                : undefined
-            }
-            aria-pressed={answerMode === "detailed"}
-            className={`min-h-9 rounded-md px-3 py-1.5 transition ${
-              answerMode === "detailed"
-                ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                : "text-[var(--muted)] hover:text-[var(--foreground)]"
-            }`}
-          >
-            ละเอียด
-          </button>
-        </div>
+        {/* The กระชับ / ละเอียด toggle is gone: one mode, length set by the question. */}
         <TransitDatePicker
           value={transitDate}
           onChange={(next) => onTransitDateChange?.(next)}
@@ -3283,12 +3217,7 @@ const Composer = forwardRef<
           </p>
         ) : null}
       </div>
-      <p
-        data-compact-hide
-        className="mx-auto mb-2 hidden max-w-3xl text-[11px] text-[var(--muted)] md:block"
-      >
-        กระชับ ≈ สั้น เร็ว · ละเอียด ≈ ยาวขึ้น ใช้โควตามากกว่า
-      </p>
+
       <div className="mx-auto flex max-w-3xl items-end gap-2.5 rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 transition-colors md:py-2 duration-200 focus-within:border-[var(--primary)]/70 focus-within:ring-1 focus-within:ring-[var(--primary)]/30">
         <textarea
           ref={textareaRef}
