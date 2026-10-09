@@ -12,7 +12,8 @@ import {
 const MAX_BYTES = 2 * 1024 * 1024;
 
 /**
- * POST /api/payments/proof — upload a private payment slip to Vercel Blob.
+ * POST /api/payments/proof — upload a private payment slip (Blob store, or
+ * the database when the server has no Blob token).
  * Returns { pathname } (not a public URL) for Payment.proofUrl.
  */
 export async function POST(req: Request) {
@@ -28,14 +29,6 @@ export async function POST(req: Request) {
       throw new AppError(
         "DUPLICATE_REQUEST",
         "มีคำขอชำระเงินรอตรวจสอบอยู่แล้ว — ไม่สามารถอัปโหลดสลิปเพิ่มได้",
-      );
-    }
-
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) {
-      throw new AppError(
-        "INTERNAL",
-        "ระบบอัปโหลดสลิปยังไม่ได้ตั้งค่า (BLOB_READ_WRITE_TOKEN)",
       );
     }
 
@@ -58,12 +51,7 @@ export async function POST(req: Request) {
       throw new AppError("VALIDATION", "ไฟล์ไม่ใช่รูปภาพที่รองรับ (JPG, PNG, WebP)");
     }
 
-    const { pathname } = await uploadPrivatePaymentSlip(
-      user.id,
-      file,
-      token,
-      realType,
-    );
+    const { pathname } = await uploadPrivatePaymentSlip(user.id, file, realType);
     return ok({ pathname }, { status: 201 });
   });
 }
