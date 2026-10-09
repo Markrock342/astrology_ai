@@ -1,3 +1,4 @@
+import { slipStorage } from "@/server/payment/payment-proof";
 import { getRateLimitBackend } from "@/lib/rate-limit";
 import { isEncryptionConfigured } from "@/lib/crypto/secret-box";
 import { prisma } from "@/server/db";
@@ -47,6 +48,8 @@ export async function getOpsHealth() {
     rateLimitBackend: getRateLimitBackend(),
     upstashConfigured,
     blobConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim()),
+    /** Slips always have somewhere to go: Blob, or the database without it. */
+    slipStorage: slipStorage(),
     emailConfigured: Boolean(
       process.env.RESEND_API_KEY?.trim() && process.env.EMAIL_FROM?.trim(),
     ),

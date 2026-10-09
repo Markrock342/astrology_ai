@@ -58,11 +58,18 @@ const ORPHAN_GRACE_MS = 24 * 60 * 60 * 1000;
  * sweep above nor account deletion could ever find them again (PDPA).
  */
 export async function sweepOrphanSlips(now = new Date()): Promise<{ scanned: number; deleted: number } | null> {
+  // Database slips: an account's go with it (cascade); one never sent with
+  // a payment goes after a day.
+  const cutoff = new Date(now.getTime() - ORPHAN_GRACE_MS);
+  const dbDeleted = await prisma.$executeRaw`
+    DELETE FROM payment_slips s
+    WHERE s."createdAt" < ${cutoff}
+      AND NOT EXISTS (SELECT 1 FROM payments p WHERE p."proofUrl" = s.pathname)`;
   const slips = await listStoredSlips("payment-slips/");
-  if (!slips) return null;
+  if (!slips) return { scanned: dbDeleted, deleted: dbDeleted };
   const orphans = await findOrphanSlips(slips, now);
   const ok = await deleteStoredSlips(orphans.map((s) => s.url));
-  return { scanned: slips.length, deleted: ok ? orphans.length : 0 };
+  return { scanned: slips.length + dbDeleted, deleted: (ok ? orphans.length : 0) + dbDeleted };
 }
 
 export async function findOrphanSlips(

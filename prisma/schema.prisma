@@ -224,6 +224,7 @@ model User {
   usageLogs         AIUsageLog[]
   messageFeedback   MessageFeedback[]
   payments          Payment[]
+  paymentSlips      PaymentSlip[]
   pushSubscriptions PushSubscription[]
 
   // Records where this user acted as the reviewing/acting admin.
@@ -536,6 +537,23 @@ model CreditTransaction {
 // ---------------------------------------------------------------------------
 // Cost-weighted usage wallet + immutable ledger
 // ---------------------------------------------------------------------------
+
+/// Payment slips kept in the database when the server has no Blob store
+/// (BLOB_READ_WRITE_TOKEN). Go with the account (PDPA); the daily sweep
+/// removes ones never sent with a payment.
+model PaymentSlip {
+  /// The same "payment-slips/<userId>/<file>" path Payment.proofUrl holds.
+  pathname    String   @id
+  userId      String
+  contentType String
+  bytes       Bytes
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("payment_slips")
+}
 
 model UsageWallet {
   id                      String    @id @default(cuid())

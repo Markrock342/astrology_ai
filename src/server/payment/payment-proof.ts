@@ -1,4 +1,5 @@
 import { del, get, put, list } from "@vercel/blob";
+import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 
 export const ALLOWED_IMAGE_TYPES = new Set([
@@ -73,10 +74,21 @@ export function assertOwnedProofPath(userId: string, proofPath: string): string 
   return path;
 }
 
+const blobToken = () => process.env.BLOB_READ_WRITE_TOKEN?.trim() || null;
+
+/** Where new slips go: the Blob store when the server has its token, else the database. */
+export function slipStorage(): "blob" | "database" {
+  return blobToken() ? "blob" : "database";
+}
+
+/**
+ * Save a slip privately; returns the path Payment.proofUrl keeps. Without a
+ * Blob token the upload used to fail outright ("ระบบอัปโหลดสลิปยังไม่ได้ตั้งค่า")
+ * — nobody could pay after the move to Coolify. Slips are small (≤ 2 MB).
+ */
 export async function uploadPrivatePaymentSlip(
   userId: string,
   file: File,
-  token: string,
   /** Server-detected MIME (from magic bytes), NOT the client-declared type. */
   detectedType: string,
 ): Promise<{ pathname: string }> {
@@ -91,45 +103,55 @@ export async function uploadPrivatePaymentSlip(
   const pathname = `payment-slips/${userId}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2, 10)}.${ext}`;
-  await put(pathname, file, {
-    access: "private",
-    token,
-    contentType: detectedType,
-    addRandomSuffix: false,
-  });
+  const token = blobToken();
+  if (token) {
+    await put(pathname, file, {
+      access: "private",
+      token,
+      contentType: detectedType,
+      addRandomSuffix: false,
+    });
+  } else {
+    await prisma.paymentSlip.create({
+      data: { pathname, userId, contentType: detectedType, bytes: Buffer.from(await file.arrayBuffer()) },
+    });
+  }
   return { pathname };
 }
 
-export async function streamPaymentProof(
-  proofUrl: string,
-  token: string,
-): Promise<Response> {
-  if (isLegacyPublicProofUrl(proofUrl)) {
-    return Response.redirect(proofUrl, 302);
-  }
-
-  const result = await get(proofUrl, {
-    access: "private",
-    token,
-  });
-  if (!result || result.statusCode !== 200 || !result.stream) {
-    throw new AppError("NOT_FOUND", "ไม่พบไฟล์สลิป");
-  }
-
+function slipHeaders(stored: string): Headers {
   const headers = new Headers();
-  const stored =
-    result.blob.contentType || result.headers.get("content-type") || "image/jpeg";
   // Only ever serve the slip as one of the allowed image types — never honour a
   // spoofed type that could sniff into something executable.
-  const contentType = ALLOWED_IMAGE_TYPES.has(stored) ? stored : "image/jpeg";
-  headers.set("Content-Type", contentType);
+  headers.set("Content-Type", ALLOWED_IMAGE_TYPES.has(stored) ? stored : "image/jpeg");
   // Defense in depth: forbid MIME sniffing and force inline image rendering, so
   // a non-image byte-stream stored under an image label can't become active
   // content in the admin's browser.
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Content-Disposition", "inline");
   headers.set("Cache-Control", "private, max-age=60");
-  return new Response(result.stream, { status: 200, headers });
+  return headers;
+}
+
+export async function streamPaymentProof(proofUrl: string): Promise<Response> {
+  if (isLegacyPublicProofUrl(proofUrl)) {
+    return Response.redirect(proofUrl, 302);
+  }
+  const row = await prisma.paymentSlip.findUnique({ where: { pathname: proofUrl } });
+  if (row) {
+    return new Response(new Uint8Array(row.bytes), { status: 200, headers: slipHeaders(row.contentType) });
+  }
+  const token = blobToken();
+  if (!token) {
+    // Slips from before the move to Coolify live in the Blob store.
+    throw new AppError("NOT_FOUND", "สลิปนี้อยู่ในที่เก็บไฟล์เดิม — เปิดดูได้เมื่อตั้ง BLOB_READ_WRITE_TOKEN");
+  }
+  const result = await get(proofUrl, { access: "private", token });
+  if (!result || result.statusCode !== 200 || !result.stream) {
+    throw new AppError("NOT_FOUND", "ไม่พบไฟล์สลิป");
+  }
+  const stored = result.blob.contentType || result.headers.get("content-type") || "image/jpeg";
+  return new Response(result.stream, { status: 200, headers: slipHeaders(stored) });
 }
 
 /** True once nothing is left to delete; false when the blob may still exist. */
@@ -137,7 +159,9 @@ export async function deletePaymentProofBlob(
   proofUrl: string | null | undefined,
 ): Promise<boolean> {
   if (!proofUrl) return true;
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const removed = await prisma.paymentSlip.deleteMany({ where: { pathname: proofUrl } });
+  if (removed.count > 0) return true;
+  const token = blobToken();
   if (!token) return false;
   try {
     await del(proofUrl, { token });
@@ -187,6 +211,8 @@ export async function deleteStoredSlips(urls: string[]): Promise<boolean> {
  * a payment, which no payment row points at (PDPA: account deletion left them).
  */
 export async function deleteUserSlipFolder(userId: string): Promise<boolean> {
+  await prisma.paymentSlip.deleteMany({ where: { userId } });
+  if (!blobToken()) return true;
   const slips = await listStoredSlips(`payment-slips/${userId}/`).catch(() => null);
   if (!slips) return false;
   return deleteStoredSlips(slips.map((s) => s.url));

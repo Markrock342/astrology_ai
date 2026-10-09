@@ -53,6 +53,7 @@ type OpsHealth = {
   rateLimitBackend: "upstash" | "memory";
   upstashConfigured: boolean;
   blobConfigured: boolean;
+  slipStorage?: "blob" | "database";
   emailConfigured: boolean;
   cronSecretSet: boolean;
   aiSecretEncConfigured: boolean;
@@ -155,16 +156,6 @@ export function DashboardOverview({ initialStats }: { initialStats?: DashboardSt
             ตรวจสลิป <ArrowRight size={14} aria-hidden />
           </span>
         </Link>
-      ) : null}
-
-      {ops && !ops.blobConfigured ? (
-        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-[var(--danger)]/40 bg-[var(--danger)]/8 px-4 py-3">
-          <IconTile icon={HardDriveUpload} tone="red" />
-          <p className="text-sm text-[var(--foreground)]">
-            <b>ลูกค้าส่งสลิปไม่ได้</b> — เซิร์ฟเวอร์ยังไม่มี BLOB_READ_WRITE_TOKEN
-            <span className="block text-xs text-[var(--muted)]">ใส่ใน Coolify → horasard-web → Environment Variables แล้ว Redeploy</span>
-          </p>
-        </div>
       ) : null}
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
@@ -319,8 +310,8 @@ export function DashboardOverview({ initialStats }: { initialStats?: DashboardSt
                   <OpsRow
                     icon={HardDriveUpload}
                     label="อัปโหลดสลิป"
-                    state={ops.blobConfigured ? "ok" : "bad"}
-                    note={ops.blobConfigured ? "พร้อม" : "ลูกค้าส่งสลิปไม่ได้"}
+                    state={ops.blobConfigured || ops.slipStorage === "database" ? "ok" : "bad"}
+                    note={ops.blobConfigured ? "พร้อม (Blob)" : ops.slipStorage === "database" ? "พร้อม (เก็บในฐานข้อมูล)" : "ลูกค้าส่งสลิปไม่ได้"}
                   />
                   <OpsRow icon={Mail} label="อีเมล" state={ops.emailConfigured ? "ok" : "bad"} note={ops.emailConfigured ? "พร้อม" : "ยังไม่ตั้ง"} />
                   <OpsRow

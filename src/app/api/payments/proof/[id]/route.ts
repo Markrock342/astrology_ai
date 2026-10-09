@@ -31,11 +31,6 @@ export async function GET(
     // Someone else's slip is an admin read like any other: 2FA first.
     if (!isOwner) await assertAdmin2faVerified(user.id);
 
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token && !/^https?:\/\//i.test(payment.proofUrl)) {
-      throw new AppError("INTERNAL", "ระบบไฟล์สลิปยังไม่ได้ตั้งค่า");
-    }
-
-    return streamPaymentProof(payment.proofUrl, token ?? "");
+    return streamPaymentProof(payment.proofUrl);
   });
 }
