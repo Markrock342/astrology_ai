@@ -191,7 +191,44 @@ export async function getNatalChart(userId: string) {
 }
 
 export async function recomputeNatalChart(userId: string) {
-  rateLimit(`natal-recompute:${userId}`, 5, 60_000);
+  // Was not awaited: the limit never applied and its rejection went unhandled.
+  await rateLimit(`natal-recompute:${userId}`, 5, 60_000);
   await ensureNatalChartScrapeFirst(userId, { force: true });
   return getNatalChart(userId);
+}
+
+/** A build in progress, per user, so polls that overlap share it. */
+const inflight = new Map<string, Promise<unknown>>();
+
+/** A build this recent is still running (PENDING) or just failed (FAILED). */
+const BUILDING_GRACE_MS = 90_000;
+const FAILED_COOLDOWN_MS = 60_000;
+
+/**
+ * What the app's status poll calls. It used to rebuild the chart (a myhora
+ * scrape plus the engine) on every poll — every 3–5 s, forever, for a chart
+ * stuck at FAILED. Now a poll rebuilds only when no build is running, a
+ * failure is not fresh, and the user is under the limit; `retry` (the
+ * button) skips the failure cooldown.
+ */
+export async function pollNatalChartStatus(userId: string, opts: { retry?: boolean; now?: number } = {}) {
+  const now = opts.now ?? Date.now();
+  const chart = await getNatalChart(userId);
+  const age = chart ? now - chart.updatedAt.getTime() : Infinity;
+  const busy =
+    inflight.has(userId) ||
+    (chart?.status === "PENDING" && age < BUILDING_GRACE_MS) ||
+    (chart?.status === "FAILED" && age < FAILED_COOLDOWN_MS && !opts.retry);
+  if (chart?.status !== "READY" && !busy) {
+    await rateLimit(`natal-status:${userId}`, opts.retry ? 5 : 12, 60_000);
+    const build = ensureNatalChartScrapeFirst(userId).finally(() => inflight.delete(userId));
+    inflight.set(userId, build);
+    await build.catch(() => null);
+  } else if (chart?.status === "READY") {
+    // A READY row can still be stale (birth data edited, engine changed);
+    // ensure() returns at once when the saved chart is fine.
+    await ensureNatalChartScrapeFirst(userId).catch(() => null);
+  }
+  const after = await getNatalChart(userId);
+  return { status: after?.status ?? "PENDING", note: after?.note ?? null };
 }

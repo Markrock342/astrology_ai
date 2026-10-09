@@ -1,4 +1,4 @@
-import { del, get, put } from "@vercel/blob";
+import { del, get, put, list } from "@vercel/blob";
 import { AppError } from "@/lib/errors";
 
 export const ALLOWED_IMAGE_TYPES = new Set([
@@ -146,4 +146,48 @@ export async function deletePaymentProofBlob(
     console.error("[payment-proof] blob delete failed:", err);
     return false;
   }
+}
+
+export type StoredSlip = { url: string; pathname: string; uploadedAt: Date };
+
+/**
+ * Every slip in the store under a prefix (a user's folder, or all of them).
+ * Null when there is no store to ask.
+ */
+export async function listStoredSlips(prefix: string, maxPages = 20): Promise<StoredSlip[] | null> {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) return null;
+  const slips: StoredSlip[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < maxPages; page++) {
+    const res = await list({ prefix, cursor, limit: 1000, token });
+    for (const b of res.blobs) slips.push({ url: b.url, pathname: b.pathname, uploadedAt: new Date(b.uploadedAt) });
+    if (!res.hasMore || !res.cursor) break;
+    cursor = res.cursor;
+  }
+  return slips;
+}
+
+/** Delete these slips; true once they are gone. */
+export async function deleteStoredSlips(urls: string[]): Promise<boolean> {
+  if (urls.length === 0) return true;
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) return false;
+  try {
+    for (let i = 0; i < urls.length; i += 100) await del(urls.slice(i, i + 100), { token });
+    return true;
+  } catch (err) {
+    console.error("[payment-proof] blob delete failed:", err);
+    return false;
+  }
+}
+
+/**
+ * A user's whole slip folder — including slips uploaded but never sent with
+ * a payment, which no payment row points at (PDPA: account deletion left them).
+ */
+export async function deleteUserSlipFolder(userId: string): Promise<boolean> {
+  const slips = await listStoredSlips(`payment-slips/${userId}/`).catch(() => null);
+  if (!slips) return false;
+  return deleteStoredSlips(slips.map((s) => s.url));
 }

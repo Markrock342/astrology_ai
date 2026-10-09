@@ -1,19 +1,15 @@
 import { handle, ok } from "@/lib/http";
 import { requireUser } from "@/server/auth/rbac";
-import {
-  ensureNatalChartScrapeFirst,
-  getNatalChart,
-} from "@/server/horoscope/natal-chart-service";
+import { pollNatalChartStatus } from "@/server/horoscope/natal-chart-service";
 
-/** Repair + return natal chart status after scrape-first build. */
-export async function GET() {
+/**
+ * Natal chart status for the app's poll. Rebuilds only when no build is
+ * running and a failure is not fresh; `?retry=1` is the retry button.
+ */
+export async function GET(req: Request) {
   return handle(async () => {
     const user = await requireUser();
-    await ensureNatalChartScrapeFirst(user.id);
-    const chart = await getNatalChart(user.id);
-    return ok({
-      status: chart?.status ?? "PENDING",
-      note: chart?.note ?? null,
-    });
+    const retry = new URL(req.url).searchParams.get("retry") === "1";
+    return ok(await pollNatalChartStatus(user.id, { retry }));
   });
 }

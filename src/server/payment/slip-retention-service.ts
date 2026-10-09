@@ -1,6 +1,10 @@
 import { prisma } from "@/server/db";
 import { SLIP_RETENTION_DAYS } from "@/config/constants";
-import { deletePaymentProofBlob } from "@/server/payment/payment-proof";
+import {
+  deletePaymentProofBlob,
+  deleteStoredSlips,
+  listStoredSlips,
+} from "@/server/payment/payment-proof";
 
 /**
  * PDPA retention: after admin review, keep the money row but delete the slip
@@ -9,6 +13,7 @@ import { deletePaymentProofBlob } from "@/server/payment/payment-proof";
 export async function runSlipRetentionSweep(now = new Date()): Promise<{
   scanned: number;
   deleted: number;
+  orphans: { scanned: number; deleted: number } | null;
 }> {
   const cutoff = new Date(
     now.getTime() - SLIP_RETENTION_DAYS * 24 * 60 * 60 * 1000,
@@ -37,7 +42,50 @@ export async function runSlipRetentionSweep(now = new Date()): Promise<{
     deleted += 1;
   }
 
-  return { scanned: due.length, deleted };
+  const orphans = await sweepOrphanSlips(now).catch((err) => {
+    console.error("[slip-retention] orphan sweep failed:", err instanceof Error ? err.message : err);
+    return null;
+  });
+  return { scanned: due.length, deleted, orphans };
+}
+
+/** A slip uploaded and never sent gets this long before it counts as abandoned. */
+const ORPHAN_GRACE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Slips nothing points at: uploaded then never sent with a payment, or left
+ * behind by a deleted account whose blob delete failed. Neither the review
+ * sweep above nor account deletion could ever find them again (PDPA).
+ */
+export async function sweepOrphanSlips(now = new Date()): Promise<{ scanned: number; deleted: number } | null> {
+  const slips = await listStoredSlips("payment-slips/");
+  if (!slips) return null;
+  const orphans = await findOrphanSlips(slips, now);
+  const ok = await deleteStoredSlips(orphans.map((s) => s.url));
+  return { scanned: slips.length, deleted: ok ? orphans.length : 0 };
+}
+
+export async function findOrphanSlips(
+  slips: Array<{ url: string; pathname: string; uploadedAt: Date }>,
+  now: Date,
+): Promise<Array<{ url: string; pathname: string }>> {
+  if (slips.length === 0) return [];
+  const userIds = [...new Set(slips.map((s) => s.pathname.split("/")[1]).filter(Boolean))];
+  const [users, referenced] = await Promise.all([
+    prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true } }),
+    prisma.payment.findMany({
+      where: { proofUrl: { in: slips.flatMap((s) => [s.pathname, s.url]) } },
+      select: { proofUrl: true },
+    }),
+  ]);
+  const live = new Set(users.map((u) => u.id));
+  const pointed = new Set(referenced.map((r) => r.proofUrl));
+  return slips.filter((s) => {
+    if (pointed.has(s.pathname) || pointed.has(s.url)) return false;
+    const owner = s.pathname.split("/")[1];
+    if (!owner || !live.has(owner)) return true;
+    return now.getTime() - s.uploadedAt.getTime() > ORPHAN_GRACE_MS;
+  });
 }
 
 /** Alert helpers for stale PENDING payments (does not change status). */

@@ -16,6 +16,8 @@ export type SendEmailInput = {
   text: string;
   /** Optional HTML body. */
   html?: string;
+  /** Extra headers, e.g. List-Unsubscribe for bulk mail. */
+  headers?: Record<string, string>;
 };
 
 export type SendEmailResult = { ok: true; via: "resend" | "dev" } | { ok: false; error: string };
@@ -76,6 +78,7 @@ async function sendViaResend(
         subject: input.subject,
         text: input.text,
         html: input.html,
+        ...(input.headers ? { headers: input.headers } : {}),
       }),
     });
 

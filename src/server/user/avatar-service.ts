@@ -1,5 +1,6 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
+import { sniffImageType } from "@/server/payment/payment-proof";
 
 const MAX_BYTES = 512 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -27,7 +28,12 @@ export async function updateUserAvatar(userId: string, file: File): Promise<{ im
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const image = `data:${file.type};base64,${buffer.toString("base64")}`;
+  // The declared type is the client's word; the bytes decide (as for slips).
+  const type = sniffImageType(new Uint8Array(buffer.subarray(0, 16)));
+  if (!type || !ALLOWED.has(type)) {
+    throw new AppError("VALIDATION", "รองรับเฉพาะ JPG, PNG หรือ WebP");
+  }
+  const image = `data:${type};base64,${buffer.toString("base64")}`;
 
   await prisma.user.update({
     where: { id: userId },

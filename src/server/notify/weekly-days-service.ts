@@ -84,8 +84,15 @@ ${caution && caution.score < 0 ? `<p><b>วันที่ควรระวั�
     subject: `วันดีของคุณสัปดาห์นี้: ${best.map((d) => `วัน${d.weekday}`).join(" ")}`,
     text: textLines.join("\n"),
     html,
+    // Mail apps show their own "unsubscribe" with these (RFC 8058); Gmail
+    // expects them on bulk mail.
+    headers: unsubscribe
+      ? { "List-Unsubscribe": `<${unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+      : undefined,
   };
 }
+
+const RETRY_AFTER_FAIL_MS = 60 * 60_000;
 
 /** Send to everyone opted in who has not had this week's yet. */
 export async function runWeeklyDaysEmails(opts: { limit?: number; now?: Date } = {}) {
@@ -103,20 +110,18 @@ export async function runWeeklyDaysEmails(opts: { limit?: number; now?: Date } =
       natalChart: { status: "READY" },
     },
     select: { id: true, email: true, name: true, natalChart: { select: { chartJson: true } } },
+    // Longest-waiting first, so the batch always moves on.
+    orderBy: [{ weeklyDaysSentAt: { sort: "asc", nulls: "first" } }, { id: "asc" }],
     take: opts.limit ?? 200,
   });
   let sent = 0;
   let skipped = 0;
   let failed = 0;
   for (const u of users) {
-    const natal = u.natalChart?.chartJson as ChartJson | null;
-    const mail = natal ? composeWeeklyDays(natal, now, u.name, unsubscribeUrl(u.id)) : null;
-    if (!mail) {
-      skipped += 1;
-      continue;
-    }
-    // Claim the week before sending: two server instances running the job
-    // at once must not both mail the same person.
+    // Claim the week before anything else: two server instances running the
+    // job at once must not both mail the same person — and someone with no
+    // email this week is done for the week too. Unclaimed, they came back in
+    // every 15-minute run and, 200 at a time, could hold the batch forever.
     const claim = await prisma.user.updateMany({
       where: { id: u.id, OR: [{ weeklyDaysSentAt: null }, { weeklyDaysSentAt: { lt: fiveDaysAgo } }] },
       data: { weeklyDaysSentAt: now },
@@ -125,13 +130,22 @@ export async function runWeeklyDaysEmails(opts: { limit?: number; now?: Date } =
       skipped += 1;
       continue;
     }
+    const natal = u.natalChart?.chartJson as ChartJson | null;
+    const mail = natal ? composeWeeklyDays(natal, now, u.name, unsubscribeUrl(u.id)) : null;
+    if (!mail) {
+      skipped += 1;
+      continue;
+    }
     const result = await sendEmail({ to: u.email, ...mail });
     if (result.ok) {
       sent += 1;
     } else {
       failed += 1;
-      // Give the week back so the next run tries again.
-      await prisma.user.update({ where: { id: u.id }, data: { weeklyDaysSentAt: null } });
+      // Try again in about an hour, not on every 15-minute run.
+      await prisma.user.update({
+        where: { id: u.id },
+        data: { weeklyDaysSentAt: new Date(fiveDaysAgo.getTime() + RETRY_AFTER_FAIL_MS) },
+      });
       console.error(`[weekly-days] send failed for ${u.id}: ${result.error}`);
     }
   }

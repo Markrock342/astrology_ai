@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { signOut } from "next-auth/react";
+import { useAppData } from "@/components/app/app-data-provider";
 
-/** Self-serve PDPA account deletion — confirm by typing email. */
+/** Self-serve PDPA account deletion — type the email, and the password when there is one. */
 export function DeleteAccountCard({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
+  const [password, setPassword] = useState("");
+  // A password account proves it is the owner; a Google account has no password.
+  const hasPassword = useAppData().user?.hasPassword ?? false;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,10 +19,18 @@ export function DeleteAccountCard({ email }: { email: string }) {
       setError("พิมพ์อีเมลให้ตรงกับบัญชีของคุณ");
       return;
     }
+    if (hasPassword && !password) {
+      setError("ใส่รหัสผ่านของบัญชีนี้");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/me/account", { method: "DELETE" });
+      const res = await fetch("/api/me/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: confirm.trim(), ...(hasPassword ? { password } : {}) }),
+      });
       const json = (await res.json().catch(() => null)) as {
         error?: { message?: string };
       } | null;
@@ -59,6 +71,18 @@ export function DeleteAccountCard({ email }: { email: string }) {
               className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--danger)]"
             />
           </label>
+          {hasPassword ? (
+            <label className="block text-xs text-[var(--muted)]">
+              รหัสผ่านของบัญชีนี้
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--danger)]"
+              />
+            </label>
+          ) : null}
           {error ? <p className="text-xs text-[var(--danger)]">{error}</p> : null}
           <div className="flex flex-wrap gap-2">
             <button
@@ -75,6 +99,7 @@ export function DeleteAccountCard({ email }: { email: string }) {
               onClick={() => {
                 setOpen(false);
                 setConfirm("");
+                setPassword("");
                 setError(null);
               }}
               className="rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm text-[var(--muted)]"

@@ -29,15 +29,22 @@ function header(headers: Headers, name: string): string | null {
 }
 
 /** Verify Resend/Svix webhook signatures. */
+const WEBHOOK_TOLERANCE_MS = 5 * 60_000;
+
 export function verifyResendWebhook(
   rawBody: string,
   headers: Headers,
   secret: string,
+  nowMs: number = Date.now(),
 ): boolean {
   const id = header(headers, "svix-id");
   const timestamp = header(headers, "svix-timestamp");
   const signature = header(headers, "svix-signature");
   if (!id || !timestamp || !signature) return false;
+  // Svix's 5-minute window: a captured request could otherwise be replayed
+  // forever, re-forwarding the same mail each time.
+  const sentAt = Number(timestamp) * 1000;
+  if (!Number.isFinite(sentAt) || Math.abs(nowMs - sentAt) > WEBHOOK_TOLERANCE_MS) return false;
 
   const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
   const expected = createHmac("sha256", key)

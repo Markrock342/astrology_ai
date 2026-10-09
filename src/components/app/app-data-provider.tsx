@@ -302,11 +302,11 @@ export function AppDataProvider({
     }
   }, []);
 
-  const repairNatalChart = useCallback(async () => {
+  const checkNatalChart = useCallback(async (retry: boolean) => {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 45_000);
     try {
-      const response = await fetch("/api/me/natal-chart/status", {
+      const response = await fetch(`/api/me/natal-chart/status${retry ? "?retry=1" : ""}`, {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -324,6 +324,8 @@ export function AppDataProvider({
       window.clearTimeout(timeout);
     }
   }, []);
+  /** The retry button: rebuilds even right after a failure. */
+  const repairNatalChart = useCallback(() => checkNatalChart(true), [checkNatalChart]);
 
   useEffect(() => {
     if (initialData) return;
@@ -332,7 +334,9 @@ export function AppDataProvider({
   }, [initialData, load]);
 
   useEffect(() => {
-    if (loading || natalChartStatus?.status === "READY") return;
+    // FAILED waits for the retry button: polling it every few seconds rebuilt
+    // the chart forever. A build that runs past ~3 minutes stops being polled.
+    if (loading || natalChartStatus?.status === "READY" || natalChartStatus?.status === "FAILED") return;
     let active = true;
     let timer: number | null = null;
     let attempts = 0;
@@ -340,8 +344,8 @@ export function AppDataProvider({
     const poll = async () => {
       if (!active) return;
       attempts += 1;
-      await repairNatalChart();
-      if (!active) return;
+      await checkNatalChart(false);
+      if (!active || attempts >= 40) return;
       const delay = attempts < 6 ? 3_000 : 5_000;
       timer = window.setTimeout(poll, delay);
     };
@@ -351,7 +355,7 @@ export function AppDataProvider({
       active = false;
       if (timer != null) window.clearTimeout(timer);
     };
-  }, [loading, natalChartStatus?.status, repairNatalChart]);
+  }, [loading, natalChartStatus?.status, checkNatalChart]);
 
   const q = searchQuery.trim().toLowerCase();
   const filteredCategories = useMemo(
