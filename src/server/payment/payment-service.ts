@@ -14,6 +14,7 @@ import {
   persistPaymentNotifyResult,
 } from "@/server/payment/payment-notify";
 import { getEffectivePlan } from "@/server/user/account-service";
+import { applyQuestionPack } from "@/server/catalog/question-pack-service";
 import {
   assertOwnedProofPath,
   deletePaymentProofBlob,
@@ -209,6 +210,10 @@ export async function reviewPayment(
             creditQuota: true,
             usageBudgetUnits: true,
             creditOnly: true,
+            questionPack: true,
+            expiryMode: true,
+            expiryDays: true,
+            expiresOn: true,
           },
         })
       : null;
@@ -255,7 +260,21 @@ export async function reviewPayment(
 
     let subscription = null;
     if (input.status === "APPROVED" && pkg) {
-      if (pkg.creditOnly) {
+      if (pkg.questionPack) {
+        const applied = await applyQuestionPack(tx, {
+          userId: payment.userId,
+          pkg,
+          activationSource: "PAYMENT",
+          ref: {
+            type: "TOP_UP",
+            referenceType: "payment",
+            referenceId: `usage:${paymentId}`,
+            note: `ซื้อแพ็กคำถาม ${pkg.code} ${payment.amount} บาท`,
+            createdByAdminId: actor.id,
+          },
+        });
+        subscription = applied.subscription;
+      } else if (pkg.creditOnly) {
         if (pkg.usageBudgetUnits > 0) {
           await addPurchasedUsage(
             payment.userId,
@@ -377,7 +396,8 @@ export async function reviewPayment(
           subscription,
           packageCode,
           creditOnly: pkg?.creditOnly ?? false,
-          proDurationDays: pkg && !pkg.creditOnly ? PAYMENT_PRO_DURATION_DAYS : null,
+          questionPack: pkg?.questionPack ?? false,
+          proDurationDays: pkg && !pkg.creditOnly && !pkg.questionPack ? PAYMENT_PRO_DURATION_DAYS : null,
         },
         ipAddress: actor.ip,
       },

@@ -3,6 +3,8 @@
 export type UsageHistoryItem = {
   id: string;
   amountPercent: number;
+  /** The row in questions; older servers did not send it. */
+  amountQuestions?: number;
   type: string;
   note: string | null;
   createdAt: string;
@@ -15,6 +17,8 @@ export type MyUsage = {
   remainingPercent: number;
   /** About how many questions are left (server estimate). */
   remainingQuestions?: number;
+  /** When bought questions end; null = never or none bought. */
+  purchasedExpiresAt?: string | null;
   includedRemainingPercent: number;
   purchasedRemainingPercent: number;
   periodStartedAt: string | null;

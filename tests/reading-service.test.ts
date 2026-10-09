@@ -515,7 +515,9 @@ describe("createReading (M3 B2)", () => {
     expect(aiCall.systemPrompt).not.toContain("โหมดละเอียด");
   });
 
-  it("deducts cost-weighted usage on successful AI response", async () => {
+  // 9 Oct 2026: packs are sold in questions — one answer is one question
+  // (15,000 units) whatever the call cost.
+  it("deducts one question on a successful AI response", async () => {
     const result = await createReading({
       userId: "user-1",
       categorySlug: "career",
@@ -536,7 +538,7 @@ describe("createReading (M3 B2)", () => {
     expect(mocks.transaction).toHaveBeenCalledOnce();
     expect(mocks.deductUsageCost).toHaveBeenCalledWith(
       "user-1",
-      7,
+      15_000,
       expect.objectContaining({ type: "AI_USAGE", referenceType: "reading" }),
       expect.anything(),
     );

@@ -23,13 +23,13 @@ function formatResetDate(iso: string | null): string | null {
 function formatHistoryType(type: string): string {
   const map: Record<string, string> = {
     AI_USAGE: "คำตอบจาก AI",
-    REFUND: "คืน usage",
+    REFUND: "คืนคำถาม",
     ADMIN_ADD: "แอดมินเพิ่มให้",
     ADMIN_DEDUCT: "แอดมินปรับลด",
     INITIAL_GRANT: "สิทธิ์ทดลอง",
     PROMOTION: "โปรโมชัน",
     PACKAGE_RENEWAL: "เริ่มรอบแพ็กเกจ",
-    TOP_UP: "เติม usage",
+    TOP_UP: "ซื้อแพ็กคำถาม",
     MIGRATION: "ย้ายจากระบบเครดิต",
   };
   return map[type] ?? type;
@@ -50,7 +50,7 @@ export function UsageSummary({
 }: {
   fallbackLimits?: UsageLimitsFallback;
 }) {
-  const { usage, loading, apiReady, refresh } = useMyUsage(fallbackLimits, {
+  const { usage, loading, refresh } = useMyUsage(fallbackLimits, {
     includeHistory: true,
   });
   const { user } = useAppData();
@@ -68,11 +68,14 @@ export function UsageSummary({
   }
   if (!usage) return null;
 
+  // Questions since 9 Oct 2026 (one answer = one question); an older server
+  // without the count still gets the percentage.
+  const questions = typeof usage.remainingQuestions === "number" ? usage.remainingQuestions : null;
   const remaining = Math.max(0, usage.remainingPercent);
-  const used = Math.max(0, Math.min(100, usage.usedPercent));
-  const resetDate = formatResetDate(usage.periodEndsAt);
-  const exhausted = remaining <= 0;
-  const low = !exhausted && remaining <= 20;
+  const exhausted = questions != null ? questions <= 0 : remaining <= 0;
+  const low = !exhausted && (questions != null ? questions <= 3 : remaining <= 20);
+  const packEnds = formatResetDate(usage.purchasedExpiresAt ?? null);
+  const planEnds = formatResetDate(usage.periodEndsAt);
   const history = usage.history?.items ?? [];
 
   return (
@@ -87,21 +90,17 @@ export function UsageSummary({
               id="usage-heading"
               className="text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--muted-2)]"
             >
-              การใช้งานรอบนี้
+              คำถามคงเหลือ
             </p>
             <p className="mt-3 text-xl font-semibold text-[var(--foreground)]">
-              เหลือ{` `}
               <span
-                className={`tabular-nums ${
-                  exhausted
-                    ? "text-[var(--danger)]"
-                    : low
-                      ? "text-[var(--primary)]"
-                      : "text-[var(--primary)]"
+                className={`tabular-nums text-3xl ${
+                  exhausted ? "text-[var(--danger)]" : "text-[var(--primary)]"
                 }`}
               >
-                {formatPercent(remaining)}%
+                {questions != null ? questions.toLocaleString("th-TH") : `${formatPercent(remaining)}%`}
               </span>
+              {questions != null ? <span className="ml-2 text-base font-normal text-[var(--muted)]">คำถาม</span> : null}
             </p>
           </div>
           <button
@@ -113,57 +112,24 @@ export function UsageSummary({
           </button>
         </div>
 
-        <div
-          className="mt-5 h-2.5 overflow-hidden rounded-full bg-[var(--surface-2)]"
-          role="progressbar"
-          aria-label="usage ที่ใช้ในรอบนี้"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={used}
-          aria-valuetext={`ใช้ไป ${formatPercent(used)} เปอร์เซ็นต์ เหลือ ${formatPercent(remaining)} เปอร์เซ็นต์`}
-        >
-          <div
-            className={`h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none ${
-              exhausted ? "bg-[var(--danger)]" : "bg-[var(--primary)]"
-            }`}
-            style={{ width: apiReady ? `${used}%` : "0%" }}
-          />
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="text-[var(--muted)]">
-            ใช้ไป {formatPercent(used)}%
-          </span>
-          <span className="text-[var(--muted-2)]">
-            {resetDate
-              ? `ใช้ก้อนนี้ได้ถึง ${resetDate} · 100% ใหม่เมื่อต่อแพ็กเกจ`
-              : "usage ก้อนเดียว ไม่มีรีเซ็ตรายวันหรือรายสัปดาห์"}
-          </span>
-        </div>
-
-        <p className="mt-5 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
-          คำตอบแต่ละครั้งใช้ไม่เท่ากัน ขึ้นอยู่กับความยาว ความละเอียด และโมเดลที่ใช้
-          ระบบจะหักเฉพาะเมื่อสร้างคำตอบสำเร็จ
+        <p className="mt-4 max-w-[65ch] text-xs leading-relaxed text-[var(--muted)]">
+          ถาม 1 ครั้ง = 1 คำถาม ไม่ว่าคำตอบจะยาวแค่ไหน · หักเฉพาะเมื่อได้คำตอบสำเร็จ
+          {packEnds
+            ? ` · คำถามที่ซื้อใช้ได้ถึง ${packEnds}`
+            : planEnds
+              ? ` · ใช้ได้ถึง ${planEnds}`
+              : " · ไม่มีวันหมดอายุ"}
         </p>
-
-        {usage.purchasedRemainingPercent > 0 ? (
-          <p className="mt-3 text-xs text-[var(--secondary-active)]">
-            ในยอดคงเหลือมี usage ที่เติมแยก {formatPercent(usage.purchasedRemainingPercent)}%
-            และจะไม่หายเมื่อต่ออายุแพ็กเกจ
-          </p>
-        ) : null}
 
         {exhausted ? (
           <p className="mt-5 flex items-start gap-2.5 border-t border-[var(--border)] pt-3 text-sm text-[var(--foreground)]">
             <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--danger)]" aria-hidden />
-            {isPro
-              ? "usage รอบนี้หมดแล้ว — เติม usage เพื่อถามต่อ"
-              : "usage ทดลองหมดแล้ว — อัปเกรดเป็น Pro เพื่อถามต่อ"}
+            {isPro ? "คำถามหมดแล้ว — ซื้อแพ็กคำถามด้านล่างเพื่อถามต่อ" : "คำถามทดลองหมดแล้ว — ซื้อแพ็กคำถามด้านล่างเพื่อถามต่อ"}
           </p>
         ) : low ? (
           <p className="mt-5 flex items-start gap-2.5 border-t border-[var(--border)] pt-3 text-sm text-[var(--foreground)]">
             <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--primary)]" aria-hidden />
-            เหลือ usage ไม่มากแล้ว โหมดกระชับจะช่วยให้ใช้งานได้นานขึ้น
+            เหลือคำถามไม่มากแล้ว — ซื้อแพ็กเพิ่มได้ คำถามที่เหลือบวกรวมกัน ไม่หาย
           </p>
         ) : null}
       </div>
@@ -171,7 +137,7 @@ export function UsageSummary({
       {history.length > 0 ? (
         <details className="group border-t border-[var(--border)] px-5 py-4 sm:px-6">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm text-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] [&::-webkit-details-marker]:hidden">
-            <span>ประวัติ usage ล่าสุด</span>
+            <span>ประวัติการใช้คำถาม</span>
             <span aria-hidden className="text-[var(--primary)] transition group-open:rotate-45">
               +
             </span>
@@ -191,13 +157,15 @@ export function UsageSummary({
                   </span>
                   <span
                     className={`min-w-12 text-right font-medium tabular-nums ${
-                      row.amountPercent >= 0
+                      (row.amountQuestions ?? row.amountPercent) >= 0
                         ? "text-[var(--secondary-active)]"
                         : "text-[var(--foreground)]"
                     }`}
                   >
-                    {row.amountPercent >= 0 ? "+" : "−"}
-                    {formatPercent(Math.abs(row.amountPercent))}%
+                    {(row.amountQuestions ?? row.amountPercent) >= 0 ? "+" : "−"}
+                    {row.amountQuestions != null
+                      ? `${formatPercent(Math.abs(row.amountQuestions))} คำถาม`
+                      : `${formatPercent(Math.abs(row.amountPercent))}%`}
                   </span>
                 </span>
               </li>

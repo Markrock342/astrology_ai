@@ -222,8 +222,7 @@ const UPGRADE_ERRORS = new Set([
 /** Map API error codes (lib/errors.ts) to friendly Thai messages. */
 const ERROR_MESSAGES: Record<string, string> = {
   // The team's wording (Sep 2026); the box adds the button to buy more.
-  NO_QUOTA:
-    "เครดิตการใช้งานของคุณถึงขีดจำกัดแล้ว คุณสามารถเพิ่มเครดิตได้ที่นี่",
+  NO_QUOTA: "คำถามของคุณหมดแล้ว — ซื้อแพ็กคำถามเพื่อถามต่อได้ที่นี่",
   CATEGORY_LOCKED:
     "หมวดนี้ใช้ได้ใน Pro — แพ็ก Free ใช้หมวด「ตัวตน」กับ「การงาน」ได้",
   CHAT_REQUIRES_PRO: "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
@@ -2702,7 +2701,6 @@ function ErrorBanner({
     state === "no-quota" ||
     (errorCode != null && UPGRADE_ERRORS.has(errorCode));
   const quotaExceeded = errorCode === "QUOTA_EXCEEDED";
-  const plan = useAppData().user?.plan ?? "FREE";
   const showBirthProfile =
     errorCode === "VALIDATION" && errorText === ERROR_MESSAGES.VALIDATION;
 
@@ -2748,10 +2746,9 @@ function ErrorBanner({
           <a
             href={
               state === "no-quota" && !quotaExceeded
-                ? // Pro buys a top-up; a trial account buys Pro.
-                  plan === "PRO"
-                  ? "/account#topup"
-                  : "/account#payment"
+                ? // Question packs: everyone buys the same way. The old
+                  // monthly Pro page still has a #payment anchor.
+                  "/account#payment"
                 : "/account"
             }
             className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
@@ -2759,7 +2756,7 @@ function ErrorBanner({
             {quotaExceeded
               ? "ดูแพ็กเกจ / รอวันใหม่"
               : state === "no-quota"
-                ? "เพิ่มเครดิต"
+                ? "ซื้อแพ็กคำถาม"
                 : "อัปเกรดเป็น Pro"}
           </a>
         )}
@@ -2812,9 +2809,9 @@ function FirstVisitGuide() {
   };
   const steps: Array<[string, string]> = [
     ["พิมพ์คำถาม", "บอกเรื่องและช่วงเวลา เช่น “เดือนหน้าเรื่องงานเป็นยังไง” จะได้คำตอบตรงกว่าถามกว้าง ๆ"],
-    ["ดูดวงของวันที่ระบุ", "ปุ่มรูปปฏิทินใต้ช่องพิมพ์ ใช้ดูวันสำคัญ เช่น วันสัมภาษณ์ — ไม่ใช่การจองคิว"],
+    ["ดูดวงของวันที่ต้องการทราบ (เลือกวันจร)", "ปุ่มรูปปฏิทินใต้ช่องพิมพ์ ใช้ดูวันสำคัญ เช่น วันสัมภาษณ์ — ไม่ใช่การจองคิว"],
     ["ดูดวงสมพงษ์ (ดวงคู่)", "ใส่วันเกิดแฟนหรือคนในครอบครัว แล้วถามว่าเข้ากันไหม"],
-    ["กระชับ / ละเอียด", "เลือกความยาวคำตอบ ส่วน “เหลือ ≈ … คำถาม” คือโควตาที่ใช้ได้อีกโดยประมาณ"],
+    ["เหลือ … คำถาม", "ถาม 1 ครั้งใช้ 1 คำถาม ไม่ว่าคำตอบจะยาวแค่ไหน — หมดแล้วซื้อแพ็กเพิ่มได้ในหน้าบัญชี"],
   ];
   return (
     <div className="animate-fade-up mt-5 w-full rounded-2xl border border-[var(--primary)]/35 bg-[var(--primary)]/8 p-4 text-left">

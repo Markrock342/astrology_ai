@@ -114,13 +114,18 @@ export function PaymentSubmitCard({
   variant = "upgrade",
   usagePercent,
   currentUsagePercent,
+  packageCode,
+  packName,
 }: {
   proPrice: number;
   paymentInfo: CmsPaymentInfo;
-  /** `upgrade` = Free→Pro; `renew` = extend Pro; `topup` = usage refill. */
-  variant?: "upgrade" | "renew" | "topup";
+  /** `upgrade` = Free→Pro; `renew` = extend Pro; `topup` = usage refill; `pack` = a question pack. */
+  variant?: "upgrade" | "renew" | "topup" | "pack";
   usagePercent?: number;
   currentUsagePercent?: number;
+  /** The package the slip pays for (question packs); else PRO / CREDIT_TOPUP. */
+  packageCode?: string;
+  packName?: string;
 }) {
   const { refresh } = useAppData();
   const [file, setFile] = useState<File | null>(null);
@@ -165,6 +170,7 @@ export function PaymentSubmitCard({
 
   const isTopUp = variant === "topup";
   const isRenew = variant === "renew";
+  const isPack = variant === "pack";
   const paymentConfigured = isPaymentInfoConfigured(paymentInfo);
   const topUpPercent = usagePercent ?? 50;
   const remainingPercent = currentUsagePercent ?? 0;
@@ -194,7 +200,7 @@ export function PaymentSubmitCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount,
-          packageCode: isTopUp ? "CREDIT_TOPUP" : "PRO",
+          packageCode: packageCode ?? (isTopUp ? "CREDIT_TOPUP" : "PRO"),
           proofPath,
         }),
       });
@@ -220,7 +226,9 @@ export function PaymentSubmitCard({
   const latestRejected = !pending
     ? history.find((p) => p.status === "REJECTED")
     : undefined;
-  const cardTitle = isTopUp
+  const cardTitle = isPack
+    ? `ส่งสลิป — ${packName ?? "แพ็กคำถาม"} ฿${amount}`
+    : isTopUp
     ? "เติม usage เพิ่ม"
     : isRenew
       ? "ต่ออายุสมาชิก Pro"
@@ -231,21 +239,30 @@ export function PaymentSubmitCard({
       ? isTopUp
         ? `ส่งสลิปใหม่เพื่อรับ +${topUpPercent}%`
         : "ส่งสลิปใหม่"
-      : isTopUp
+      : isPack
+        ? `แจ้งชำระ ฿${amount}`
+        : isTopUp
         ? `ส่งสลิปเพื่อรับ +${topUpPercent}%`
         : isRenew
           ? "แจ้งชำระต่ออายุ Pro"
           : "แจ้งชำระเงิน";
 
   // Soften Pro-centric CMS copy on topup/renew (amountNote defaults to "แพ็กเกจ Pro").
-  const amountNote = isTopUp
+  const amountNote = isPack
+    ? `ยอดที่ต้องโอน: ${amount} บาท (${packName ?? "แพ็กคำถาม"})`
+    : isTopUp
     ? `ยอดที่ต้องโอน: ${amount} บาท`
     : isRenew
       ? `โอนตามยอดต่ออายุ Pro (${amount} บาท)`
       : paymentInfo.amountNote;
   const displaySteps = paymentInfo.steps.map((step) => {
     let text = step.replaceAll("{price}", String(proPrice));
-    if (isTopUp) {
+    if (isPack) {
+      text = text
+        .replaceAll("แพ็กเกจ Pro", packName ?? "แพ็กคำถาม")
+        .replaceAll("อัปเกรด Pro", "ซื้อแพ็กคำถาม")
+        .replaceAll("อัปเกรดเป็น Pro", "ซื้อแพ็กคำถาม");
+    } else if (isTopUp) {
       text = text
         .replaceAll("แพ็กเกจ Pro", "เติม usage")
         .replaceAll("อัปเกรด Pro", "เติม usage")
