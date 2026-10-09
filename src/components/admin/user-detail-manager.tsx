@@ -1,5 +1,6 @@
 "use client";
 
+import { History, MessagesSquare, Package, Trash2, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { subscriptionExpiryPayload } from "@/lib/pro-expiry";
@@ -15,8 +16,7 @@ import {
   StatCard,
   TextInput,
   Toggle,
-  adminFetch,
-} from "./ui";
+  adminFetch, IconTile } from "./ui";
 import { ConfirmModal } from "@/components/app/confirm-modal";
 import { largeAvatarUrl, UserAvatar } from "@/components/app/user-avatar";
 import { formatThb, usdToThb } from "@/config/ai-pricing";
@@ -578,7 +578,8 @@ export function UserDetailManager({
           </Card>
 
           <Card>
-            <h2 className="text-sm font-semibold">ตั้งแพ็กเกจ</h2>
+            <h2 className="flex items-center gap-2.5 text-sm font-semibold">
+<IconTile icon={Package} tone="gold" size="sm" />ตั้งแพ็กเกจ</h2>
             <p className="mt-1 text-xs text-[var(--muted-2)]">
               ตอนนี้: {currentPlanLabel}
             </p>
@@ -678,7 +679,8 @@ export function UserDetailManager({
           {user.cost ? (
             <Card className="lg:col-span-2">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-sm font-semibold">ต้นทุนและกำไร · เดือนนี้</h2>
+                <h2 className="flex items-center gap-2.5 text-sm font-semibold">
+<IconTile icon={TrendingUp} tone="green" size="sm" />ต้นทุนและกำไร · เดือนนี้</h2>
                 <Link
                   href="/admin/costs"
                   className="text-[11px] text-[var(--primary)] hover:underline"
@@ -752,7 +754,8 @@ export function UserDetailManager({
           ) : null}
 
           <Card className="lg:col-span-2">
-            <h2 className="text-sm font-semibold">เพิ่ม / หักคำถาม</h2>
+            <h2 className="flex items-center gap-2.5 text-sm font-semibold">
+<IconTile icon={MessagesSquare} tone="blue" size="sm" />เพิ่ม / หักคำถาม</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
               <Field label="ประเภท">
                 <Select
@@ -795,7 +798,8 @@ export function UserDetailManager({
           </Card>
 
           <Card className="lg:col-span-2">
-            <h2 className="text-sm font-semibold">ประวัติการใช้คำถาม</h2>
+            <h2 className="flex items-center gap-2.5 text-sm font-semibold">
+<IconTile icon={History} tone="muted" size="sm" />ประวัติการใช้คำถาม</h2>
             <ul className="mt-3 space-y-2">
               {(user.usage?.history.items.length ?? 0) === 0 && (
                 <li className="text-xs text-[var(--muted)]">ยังไม่มีรายการ</li>
@@ -820,7 +824,8 @@ export function UserDetailManager({
 
           {isSuperAdmin ? (
             <Card className="lg:col-span-2 border-[var(--danger)]/40">
-              <h2 className="text-sm font-semibold text-[var(--danger)]">
+              <h2 className="flex items-center gap-2.5 text-sm font-semibold text-[var(--danger)]">
+<IconTile icon={Trash2} tone="red" size="sm" />
                 ลบบัญชีผู้ใช้ (PDPA)
               </h2>
               <p className="mt-2 text-xs text-[var(--muted)]">

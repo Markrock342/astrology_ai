@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarSearch, Coins, Wallet } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AdminPage,
@@ -12,8 +13,7 @@ import {
   TableSkeleton,
   Td,
   Th,
-  adminFetch,
-} from "./ui";
+  adminFetch, IconTile } from "./ui";
 import { formatThb } from "@/config/ai-pricing";
 import {
   FUTURE_DATE_PROMPT_TRIGGER_LABELS,
@@ -544,7 +544,8 @@ export function AnalyticsPanel() {
           ) : (
             <div className="mt-4 grid gap-4 xl:grid-cols-2">
               <Card>
-                <h2 className="text-sm font-semibold">Token ต่อวัน</h2>
+                <h2 className="flex items-center gap-2.5 text-sm font-semibold">
+<IconTile icon={Coins} tone="violet" size="sm" />Token ต่อวัน</h2>
                 <p className="mb-2 text-[11px] text-[var(--muted-2)]">
                   รวม {days} วัน: {nf.format(totals.tokens)} tokens ·{" "}
                   {nf.format(totals.calls)} ครั้ง
@@ -552,7 +553,8 @@ export function AnalyticsPanel() {
                 <TokenChart series={data.series} />
               </Card>
               <Card>
-                <h2 className="text-sm font-semibold">ต้นทุน AI ต่อวัน (บาท)</h2>
+                <h2 className="flex items-center gap-2.5 text-sm font-semibold">
+<IconTile icon={Wallet} tone="gold" size="sm" />ต้นทุน AI ต่อวัน (บาท)</h2>
                 <p className="mb-2 text-[11px] text-[var(--muted-2)]">
                   ราคา ณ ตอนเรียกจริง · $1 = {data.usdToThb}฿ · เดือนนี้โดยประมาณ{" "}
                   {formatThb(totals.costUsd)}
@@ -564,7 +566,8 @@ export function AnalyticsPanel() {
 
           <Card className="mt-4">
             <div className="mb-3">
-              <h2 className="text-sm font-semibold">
+              <h2 className="flex items-center gap-2.5 text-sm font-semibold">
+<IconTile icon={CalendarSearch} tone="blue" size="sm" />
                 Keyword ที่เรียก modal เลือกวันจร
               </h2>
               <p className="mt-1 text-[11px] text-[var(--muted-2)]">

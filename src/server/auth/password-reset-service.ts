@@ -97,19 +97,24 @@ export async function resetPassword(rawToken: string, newPassword: string): Prom
     include: { user: true },
   });
 
-  if (!record || !isResetTokenUsable(record)) {
+  // A link sent before the account was disabled must not reopen it.
+  if (!record || !isResetTokenUsable(record) || record.user.status === "DISABLED") {
     throw new AppError("VALIDATION", "ลิงก์รีเซ็ตไม่ถูกต้องหรือหมดอายุแล้ว");
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: record.userId },
-      data: { passwordHash },
-    }),
-    prisma.passwordResetToken.update({
-      where: { id: record.id },
+  await prisma.$transaction(async (tx) => {
+    // Claim the token in the same statement that checks it: two requests
+    // with one link both passed the read above and both set a password.
+    const claimed = await tx.passwordResetToken.updateMany({
+      where: { id: record.id, usedAt: null, expiresAt: { gt: new Date() } },
       data: { usedAt: new Date() },
-    }),
-  ]);
+    });
+    if (claimed.count === 0) {
+      throw new AppError("VALIDATION", "ลิงก์รีเซ็ตไม่ถูกต้องหรือหมดอายุแล้ว");
+    }
+    await tx.user.update({ where: { id: record.userId }, data: { passwordHash } });
+    // Any other link still out there dies with this reset.
+    await tx.passwordResetToken.deleteMany({ where: { userId: record.userId, usedAt: null } });
+  });
 }

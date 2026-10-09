@@ -11,6 +11,8 @@ export async function POST(req: Request) {
   return handle(async () => {
     await rateLimit(`calculator:${rateLimitIp(req)}`, 20, 60_000);
     const input = birthProfileSchema.parse(await req.json());
-    return ok({ chart: await computePublicNatalChart(input) });
+    // Anonymous traffic must not drive scrapes of a third-party site (it now
+    // answers 403, so each request also waited out a 10 s timeout).
+    return ok({ chart: await computePublicNatalChart(input, { scrape: false }) });
   });
 }

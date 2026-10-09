@@ -1,5 +1,6 @@
 "use client";
 
+import { PlugZap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { providerLabel, type SupportedAIProvider } from "@/config/ai-provider-models";
 import { geminiReplacementHint } from "@/config/gemini-models";
@@ -15,8 +16,7 @@ import {
   PageHeader,
   Select,
   TextInput,
-  Toggle,
-} from "./ui";
+  Toggle, IconTile } from "./ui";
 import { GeminiBalanceCard } from "./gemini-balance-card";
 import { CreditReportCard } from "./credit-report-card";
 
@@ -618,7 +618,8 @@ export function AiConfigsManager() {
       <Card className="mb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-[var(--foreground)]">
+            <h2 className="flex items-center gap-2.5 text-sm font-semibold text-[var(--foreground)]">
+<IconTile icon={PlugZap} tone="green" size="sm" />
               สถานะการเชื่อมต่อ AI
             </h2>
             <p className="mt-1 text-[11px] text-[var(--muted-2)]">

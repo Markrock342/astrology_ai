@@ -6,6 +6,7 @@ import {
 } from "@/server/user/account-deletion-service";
 
 const mocks = vi.hoisted(() => ({
+  deleteFolder: vi.fn(async () => true),
   findUnique: vi.fn(),
   count: vi.fn(),
   findMany: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock("@/server/audit/audit-service", () => ({
 
 vi.mock("@/server/payment/payment-proof", () => ({
   deletePaymentProofBlob: mocks.deleteBlob,
+  deleteUserSlipFolder: mocks.deleteFolder,
 }));
 
 const order: string[] = [];
@@ -70,7 +72,7 @@ describe("account-deletion-service (BE-E1.6)", () => {
       role: "USER",
       email: "u@test.com",
     });
-    await deleteMyAccount("u-1");
+    await deleteMyAccount("u-1", { email: "u@test.com" });
     expect(mocks.deleteBlob).toHaveBeenCalled();
     expect(mocks.deleteUser).toHaveBeenCalledWith({ where: { id: "u-1" } });
   });
@@ -125,7 +127,7 @@ describe("deletion with rows that do not cascade", () => {
 
   it("removes the user's own audit rows first and deletes slips only after the rows", async () => {
     mocks.findUnique.mockResolvedValue({ id: "u-1", role: "USER", email: "u@test.com" });
-    await deleteMyAccount("u-1");
+    await deleteMyAccount("u-1", { email: "u@test.com" });
     expect(order).toContain("adminAuditLog.deleteMany");
     expect(order.indexOf("adminAuditLog.deleteMany")).toBeLessThan(order.indexOf("user.delete"));
     expect(order.indexOf("user.delete")).toBeLessThan(order.indexOf("blob.delete"));
@@ -134,7 +136,23 @@ describe("deletion with rows that do not cascade", () => {
   it("keeps a slip when the deletion fails", async () => {
     mocks.findUnique.mockResolvedValue({ id: "u-1", role: "USER", email: "u@test.com" });
     mocks.deleteUser.mockRejectedValue(new Error("fk"));
-    await expect(deleteMyAccount("u-1")).rejects.toThrow();
+    await expect(deleteMyAccount("u-1", { email: "u@test.com" })).rejects.toThrow();
     expect(mocks.deleteBlob).not.toHaveBeenCalled();
+  });
+});
+
+// Code review 2026-10-09: a session alone could delete the account.
+describe("self-deletion asks the owner", () => {
+  it("refuses a wrong password, and a Google account without its email typed", async () => {
+    const bcrypt = await import("bcryptjs");
+    mocks.findUnique.mockResolvedValue({
+      id: "p-1",
+      role: "USER",
+      email: "p@test.com",
+      passwordHash: await bcrypt.hash("right-password", 4),
+    });
+    await expect(deleteMyAccount("p-1", { password: "wrong" })).rejects.toThrow("รหัสผ่านไม่ถูกต้อง");
+    mocks.findUnique.mockResolvedValue({ id: "g-1", role: "USER", email: "g@test.com", passwordHash: null });
+    await expect(deleteMyAccount("g-1", {})).rejects.toThrow("พิมพ์อีเมล");
   });
 });

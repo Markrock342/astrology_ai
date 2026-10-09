@@ -43,7 +43,9 @@ describe("weekly good-days email", () => {
     expect(isValidUnsubscribe("u1", "forged")).toBe(false);
   });
 
-  it("claims the week before sending, and gives it back when the send fails", async () => {
+  // Code review 2026-10-09: a failure was given back at once and retried on
+  // every 15-minute run; now it waits about an hour.
+  it("claims the week before sending, and retries a failed send in about an hour", async () => {
     mocks.findMany.mockResolvedValue([
       { id: "ok", email: "a@x.co", name: null, natalChart: { chartJson: natal } },
       { id: "bad", email: "b@x.co", name: null, natalChart: { chartJson: natal } },
@@ -57,7 +59,26 @@ describe("weekly good-days email", () => {
     const r = await runWeeklyDaysEmails({ now: NOW });
     expect(r).toMatchObject({ candidates: 3, sent: 1, failed: 1, skipped: 1 });
     expect(mocks.sendEmail).toHaveBeenCalledTimes(2);
-    expect(mocks.update).toHaveBeenCalledWith({ where: { id: "bad" }, data: { weeklyDaysSentAt: null } });
+    const retryAt = mocks.update.mock.calls[0]![0].data.weeklyDaysSentAt as Date;
+    expect(mocks.update.mock.calls[0]![0].where).toEqual({ id: "bad" });
+    // Eligible again when weeklyDaysSentAt < now − 5 days: one hour from now.
+    expect(retryAt.getTime()).toBe(NOW.getTime() - 5 * 86_400_000 + 60 * 60_000);
+  });
+
+  it("marks someone with nothing to send as done for the week, and orders the batch", async () => {
+    mocks.findMany.mockResolvedValue([{ id: "nochart", email: "d@x.co", name: null, natalChart: null }]);
+    mocks.updateMany.mockResolvedValueOnce({ count: 1 });
+    const r = await runWeeklyDaysEmails({ now: NOW });
+    expect(r).toMatchObject({ skipped: 1, sent: 0 });
+    expect(mocks.updateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.findMany.mock.calls[0]![0].orderBy).toBeDefined();
+  });
+
+  it("carries one-click unsubscribe headers", () => {
+    const mail = composeWeeklyDays(natal, NOW, null, "https://horasard.com/api/notify/weekly-days/unsubscribe?u=1&t=x");
+    if (!mail) return; // a week with no good day sends nothing
+    expect(mail.headers?.["List-Unsubscribe"]).toContain("unsubscribe?u=1");
+    expect(mail.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
   });
 
   it("asks only for opted-in, verified people not sent this week", async () => {
