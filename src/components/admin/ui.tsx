@@ -1,7 +1,77 @@
 "use client";
 
 import { forwardRef, useEffect, useId, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { Inbox, Info, type LucideIcon } from "lucide-react";
 import { adminFetchTimeoutMessage } from "@/lib/admin-fetch-timeout";
+import { ADMIN_NAV } from "@/config/admin-nav";
+
+/** The sidebar icon of the page at this path (longest matching menu entry). */
+function useNavIcon(): LucideIcon | null {
+  const pathname = usePathname() ?? "";
+  let best: (typeof ADMIN_NAV)[number] | null = null;
+  for (const item of ADMIN_NAV) {
+    if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
+      if (!best || item.href.length > best.href.length) best = item;
+    }
+  }
+  return best?.icon ?? null;
+}
+
+/** A rounded tile holding an icon — page headers, stat cards, section titles. */
+export function IconTile({
+  icon: Icon,
+  tone = "gold",
+  size = "md",
+}: {
+  icon: LucideIcon;
+  tone?: "gold" | "green" | "red" | "blue" | "violet" | "muted";
+  size?: "sm" | "md" | "lg";
+}) {
+  const tones = {
+    gold: "bg-[var(--primary)]/12 text-[var(--primary)] ring-[var(--primary)]/25",
+    green: "bg-[var(--secondary-active)]/12 text-[var(--secondary-active)] ring-[var(--secondary-active)]/25",
+    red: "bg-[var(--danger)]/12 text-[var(--danger)] ring-[var(--danger)]/25",
+    blue: "bg-sky-400/10 text-sky-300 ring-sky-400/25",
+    violet: "bg-violet-400/10 text-violet-300 ring-violet-400/25",
+    muted: "bg-[var(--surface-2)] text-[var(--muted)] ring-[var(--border)]",
+  } as const;
+  const dims = size === "lg" ? "h-11 w-11 rounded-2xl" : size === "sm" ? "h-7 w-7 rounded-lg" : "h-9 w-9 rounded-xl";
+  const iconSize = size === "lg" ? 20 : size === "sm" ? 14 : 17;
+  return (
+    <span className={`inline-flex shrink-0 items-center justify-center ring-1 ring-inset ${dims} ${tones[tone]}`} aria-hidden>
+      <Icon size={iconSize} strokeWidth={1.9} />
+    </span>
+  );
+}
+
+/** A card's heading row: icon, title, an optional line under it, an action on the right. */
+export function CardTitle({
+  icon,
+  title,
+  description,
+  action,
+  tone = "gold",
+}: {
+  icon?: LucideIcon;
+  title: string;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+  tone?: "gold" | "green" | "red" | "blue" | "violet" | "muted";
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex min-w-0 items-start gap-3">
+        {icon ? <IconTile icon={icon} tone={tone} size="sm" /> : null}
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-[var(--foreground)]">{title}</h2>
+          {description ? <p className="mt-0.5 text-xs leading-5 text-[var(--muted)]">{description}</p> : null}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
 
 /** Small shared primitives for Admin CMS pages (dark HORASARD theme). */
 
@@ -10,25 +80,33 @@ export function PageHeader({
   description,
   hint,
   action,
+  icon,
 }: {
   title: string;
   description?: string;
   /** A second, quieter line — for a rule the admin needs before editing. */
   hint?: string;
   action?: React.ReactNode;
+  /** Defaults to this page's sidebar icon. */
+  icon?: LucideIcon;
 }) {
+  const navIcon = useNavIcon();
+  const Icon = icon ?? navIcon;
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--foreground)]">{title}</h1>
-        {description && (
-          <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>
-        )}
-        {hint && (
-          <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--muted-2)]">
-            {hint}
-          </p>
-        )}
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-[var(--border)]/70 pb-5">
+      <div className="flex min-w-0 items-start gap-3.5">
+        {Icon ? <IconTile icon={Icon} size="lg" /> : null}
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h1>
+          {description && (
+            <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>
+          )}
+          {hint && (
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--muted-2)]">
+              {hint}
+            </p>
+          )}
+        </div>
       </div>
       {action}
     </div>
@@ -170,14 +248,14 @@ export function Badge({
 }) {
   const styles =
     tone === "gold"
-      ? "border-[var(--primary)]/40 text-[var(--primary)]"
+      ? "border-[var(--primary)]/35 bg-[var(--primary)]/8 text-[var(--primary)]"
       : tone === "green"
-        ? "border-[var(--secondary-active)]/40 text-[var(--secondary-active)]"
+        ? "border-[var(--secondary-active)]/35 bg-[var(--secondary-active)]/8 text-[var(--secondary-active)]"
         : tone === "red"
-          ? "border-[var(--danger)]/40 text-[var(--danger)]"
-          : "border-[var(--border)] text-[var(--muted-2)]";
+          ? "border-[var(--danger)]/35 bg-[var(--danger)]/8 text-[var(--danger)]"
+          : "border-[var(--border)] bg-[var(--surface-2)]/60 text-[var(--muted-2)]";
   return (
-    <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] ${styles}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${styles}`}>
       {children}
     </span>
   );
@@ -185,7 +263,9 @@ export function Badge({
 
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 ${className}`}>
+    <div
+      className={`rounded-2xl border border-[var(--border)] bg-gradient-to-b from-[var(--surface)] to-[var(--surface)]/70 p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset] ${className}`}
+    >
       {children}
     </div>
   );
@@ -196,11 +276,16 @@ export function StatCard({
   value,
   hint,
   tone = "default",
+  icon,
+  href,
 }: {
   label: string;
   value: string | number;
   hint?: string;
-  tone?: "default" | "gold" | "green" | "danger";
+  tone?: "default" | "gold" | "green" | "danger" | "blue" | "violet";
+  icon?: LucideIcon;
+  /** Makes the whole card a link to the page behind the number. */
+  href?: string;
 }) {
   const valueColor =
     tone === "gold"
@@ -210,12 +295,24 @@ export function StatCard({
         : tone === "danger"
           ? "text-[var(--danger)]"
           : "text-[var(--foreground)]";
-  return (
-    <Card className="!p-4">
-      <p className="text-[11px] text-[var(--muted)]">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${valueColor}`}>{value}</p>
-      {hint && <p className="mt-1 text-[10px] text-[var(--muted-2)]">{hint}</p>}
+  const tileTone =
+    tone === "danger" ? "red" : tone === "default" ? "muted" : tone;
+  const body = (
+    <Card className={`!p-4 h-full ${href ? "transition hover:border-[var(--primary)]/40 hover:bg-[var(--surface-2)]/40" : ""}`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] font-medium text-[var(--muted)]">{label}</p>
+        {icon ? <IconTile icon={icon} tone={tileTone} size="sm" /> : null}
+      </div>
+      <p className={`mt-2 text-2xl font-semibold tracking-tight tabular-nums ${valueColor}`}>{value}</p>
+      {hint && <p className="mt-1 text-[11px] text-[var(--muted-2)]">{hint}</p>}
     </Card>
+  );
+  return href ? (
+    <a href={href} className="block h-full rounded-2xl focus-visible:outline-2 focus-visible:outline-[var(--primary)]">
+      {body}
+    </a>
+  ) : (
+    body
   );
 }
 
@@ -267,7 +364,8 @@ export function EmptyPanel({
 }) {
   return (
     <Card className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="text-sm font-medium text-[var(--foreground)]">{title}</p>
+      <IconTile icon={Inbox} tone="muted" size="lg" />
+      <p className="mt-3 text-sm font-medium text-[var(--foreground)]">{title}</p>
       {description && (
         <p className="mt-2 max-w-md text-xs leading-relaxed text-[var(--muted)]">{description}</p>
       )}
@@ -278,8 +376,9 @@ export function EmptyPanel({
 
 export function InfoBox({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-4 rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-4 py-3 text-xs leading-relaxed text-[var(--muted)]">
-      {children}
+    <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-4 py-3 text-xs leading-relaxed text-[var(--muted)]">
+      <Info size={15} className="mt-0.5 shrink-0 text-[var(--primary)]" aria-hidden />
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }

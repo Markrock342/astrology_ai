@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, adminFetch } from "./ui";
+import { ChartColumn } from "lucide-react";
+import { Card, IconTile, adminFetch } from "./ui";
 import { formatBaht } from "@/config/ai-pricing";
 
 type Bucket = { calls: number; inputTokens: number; outputTokens: number; cachedTokens: number; costUsd: number };
@@ -57,7 +58,8 @@ export function CreditReportCard() {
 
   return (
     <Card className="mb-4">
-      <h2 className="text-sm font-semibold text-[var(--foreground)]">รายงานการใช้เครดิต AI</h2>
+      <h2 className="flex items-center gap-2.5 text-sm font-semibold text-[var(--foreground)]">
+        <IconTile icon={ChartColumn} tone="violet" size="sm" />รายงานการใช้เครดิต AI</h2>
       <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--muted)]">
         นับจาก log การเรียก AI ทุกครั้งของระบบเรา
         {data ? (data.sinceTracked ? ` ตั้งแต่เติมเงินรอบนี้ (${dateTh(data.since)})` : ` ตั้งแต่ต้นเดือน (ยังไม่ได้ใส่ยอดเติมในการ์ดด้านบน)`) : ""}

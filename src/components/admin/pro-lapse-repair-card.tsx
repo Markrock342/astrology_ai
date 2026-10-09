@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, adminFetch } from "./ui";
+import { RotateCcw } from "lucide-react";
+import { Button, Card, IconTile, adminFetch } from "./ui";
 
 type Row = { userId: string; email: string | null; lapsedAt: string; proUntil: string | null; before: number; after: number };
 type Result = { applied: boolean; rows: Row[]; skipped: number; lapsesSeen: number };
@@ -33,7 +34,8 @@ export function ProLapseRepairCard() {
 
   return (
     <Card className="mb-4">
-      <h2 className="text-sm font-semibold text-[var(--foreground)]">คืน usage ลูกค้า Pro ที่ถูกตัดเมื่อ 1 ต.ค.</h2>
+      <h2 className="flex items-center gap-2.5 text-sm font-semibold text-[var(--foreground)]">
+        <IconTile icon={RotateCcw} tone="green" size="sm" />คืน usage ลูกค้า Pro ที่ถูกตัดเมื่อ 1 ต.ค.</h2>
       <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--muted)]">
         รอบโปรโมชันเดือนกันยาหมดวันที่ 1 ต.ค. แล้วระบบลด usage ของทุกคนเหลืองบ Free รวมถึงลูกค้าที่จ่าย Pro อยู่
         (แก้ระบบแล้ว) ปุ่มนี้คืนยอดที่ถูกตัดให้เฉพาะคนที่ยังเป็น Pro — กด “ตรวจดู” ก่อน ไม่มีอะไรเปลี่ยน

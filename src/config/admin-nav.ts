@@ -56,7 +56,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
 
   { href: "/admin/users", label: "ผู้ใช้", icon: Users, group: "users" },
   { href: "/admin/payments", label: "ตรวจการโอนเงิน", icon: ReceiptText, group: "users" },
-  { href: "/admin/packages", label: "แพ็กเกจและโควตา", icon: Package, group: "users" },
+  { href: "/admin/packages", label: "แพ็กเกจและคำถาม", icon: Package, group: "users" },
   { href: "/admin/costs", label: "ต้นทุนและกำไร", icon: TrendingUp, aiOnly: true, group: "users" },
 
   { href: "/admin/categories", label: "หมวดดูดวง", icon: Orbit, group: "reading" },

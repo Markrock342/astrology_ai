@@ -1,5 +1,6 @@
 "use client";
 
+import { Bell } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "./ui";
 
@@ -103,12 +104,13 @@ export function AdminPushEnable() {
   if (!supported) return null;
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
-      <p className="text-xs font-medium text-[var(--foreground)]">
-        แจ้งเตือนมือถือ (PWA)
+    <div>
+      <p className="flex items-center gap-2 text-xs font-medium text-[var(--foreground)]">
+        <Bell size={14} className="text-[var(--primary)]" aria-hidden />
+        แจ้งเตือนมือถือเมื่อมีสลิปใหม่
       </p>
       <p className="mt-1 text-[11px] text-[var(--muted)]">
-        ติดตั้งแอป / เปิดไซต์บนมือถือ แล้วกดอนุญาต — จะได้แจ้งเมื่อมีสลิปใหม่
+        เปิดหน้านี้บนมือถือ แล้วกดปุ่มและอนุญาตการแจ้งเตือน
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Button

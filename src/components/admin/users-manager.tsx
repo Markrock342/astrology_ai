@@ -1,5 +1,6 @@
 "use client";
 
+import { unitsToQuestions } from "@/lib/usage-budget-display";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { UserAvatar } from "@/components/app/user-avatar";
@@ -143,7 +144,7 @@ export function UsersManager({
     <AdminPage>
       <PageHeader
         title="ผู้ใช้"
-        description="ค้นหา · เปิด-ปิดบัญชี · ตั้งแพ็กเกจ · ปรับ usage — ทุกการเปลี่ยนแปลงลง audit log"
+        description="ค้นหา · เปิด-ปิดบัญชี · ตั้งแพ็กเกจ · เพิ่ม/หักคำถาม — ทุกการเปลี่ยนแปลงลง audit log"
         action={
           canCreateStaff ? (
             <Button onClick={() => setCreateOpen(true)}>เพิ่มแอดมิน</Button>
@@ -201,7 +202,7 @@ export function UsersManager({
               <Th>ผู้ใช้</Th>
               <Th>บทบาท</Th>
               <Th>แพ็กเกจ</Th>
-              <Th>usage เหลือ</Th>
+              <Th>คำถามเหลือ</Th>
               <Th>สถานะ</Th>
               <Th>ใช้งานล่าสุด</Th>
               <Th>สมัครเมื่อ</Th>
@@ -247,13 +248,10 @@ export function UsersManager({
                     <Badge tone={plan === "PRO" ? "gold" : "muted"}>{plan}</Badge>
                   </Td>
                   <Td>
-                    {u.usageWallet && u.usageWallet.includedAllowanceUnits > 0
-                      ? `${Math.round(
-                          ((u.usageWallet.includedBalanceUnits +
-                            u.usageWallet.purchasedBalanceUnits) /
-                            u.usageWallet.includedAllowanceUnits) *
-                            1_000,
-                        ) / 10}%`
+                    {u.usageWallet
+                      ? `${unitsToQuestions(
+                          u.usageWallet.includedBalanceUnits + u.usageWallet.purchasedBalanceUnits,
+                        ).toLocaleString("th-TH")} คำถาม`
                       : "—"}
                   </Td>
                   <Td>

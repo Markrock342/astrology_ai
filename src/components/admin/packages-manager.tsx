@@ -15,7 +15,9 @@ import {
   TextArea,
   TextInput,
   Toggle,
+  IconTile,
 } from "../admin/ui";
+import { Archive, CalendarClock, Gift, Package } from "lucide-react";
 import {
   questionsToUnits,
   typicalQuestionThb,
@@ -300,7 +302,10 @@ export function PackagesManager({
       </InfoBox>
 
       <Card className="mb-4">
-        <h2 className="text-sm font-semibold text-[var(--foreground)]">วันหมดอายุเริ่มต้นของแพ็กคำถาม</h2>
+        <h2 className="flex items-center gap-2.5 text-sm font-semibold text-[var(--foreground)]">
+          <IconTile icon={CalendarClock} tone="blue" size="sm" />
+          วันหมดอายุเริ่มต้นของแพ็กคำถาม
+        </h2>
         <p className="mt-1 text-xs text-[var(--muted)]">
           ใช้กับทุกแพ็กที่ตั้งเป็น «ใช้ค่าเริ่มต้น» · ตอนนี้: <b className="text-[var(--foreground)]">{packExpiryLabel(defaultExpiry)}</b>
           {" "}· ซื้อเพิ่มแล้ววันหมดอายุของคำถามทั้งหมดเลื่อนไปตามแพ็กล่าสุด (ไม่สั้นลง)
@@ -513,6 +518,11 @@ export function PackagesManager({
         {packages.map((pkg) => (
           <Card key={pkg.id}>
             <div className="flex flex-wrap items-center gap-2">
+              <IconTile
+                icon={pkg.questionPack ? Package : pkg.type === "FREE" ? Gift : Archive}
+                tone={pkg.questionPack ? "gold" : pkg.type === "FREE" ? "green" : "muted"}
+                size="sm"
+              />
               <span className="text-sm font-medium text-[var(--foreground)]">
                 {pkg.name}
               </span>
