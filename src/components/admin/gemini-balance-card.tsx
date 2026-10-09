@@ -9,7 +9,9 @@ import {
   Field,
   TextInput,
   adminFetch,
+  IconTile,
 } from "./ui";
+import { Wallet } from "lucide-react";
 import { formatBaht } from "@/config/ai-pricing";
 
 type BalanceView = {
@@ -168,7 +170,8 @@ export function GeminiBalanceCard() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-[var(--foreground)]">
+            <h2 className="flex items-center gap-2.5 text-sm font-semibold text-[var(--foreground)]">
+              <IconTile icon={Wallet} tone="gold" size="sm" />
               เครดิต Gemini ที่เติม
             </h2>
             <Badge tone={badge.tone}>{badge.text}</Badge>
