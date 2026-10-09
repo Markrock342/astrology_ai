@@ -37,6 +37,15 @@ enum PackageType {
   PRO
 }
 
+/// When a question pack's questions stop working. DEFAULT follows the site-wide
+/// setting (Admin → แพ็กเกจ), so the team can change every pack at once.
+enum PackExpiryMode {
+  DEFAULT
+  NONE
+  DAYS
+  DATE
+}
+
 enum SubscriptionStatus {
   ACTIVE
   EXPIRED
@@ -451,6 +460,14 @@ model Package {
   upgradeSteps     String[]    @default([])
   /// When true, approving a payment only adds credits — no subscription change.
   creditOnly       Boolean     @default(false)
+  /// A one-time pack of questions (Oct 2026): the questions add to what is
+  /// left and every Pro feature is open while they last.
+  questionPack     Boolean     @default(false)
+  expiryMode       PackExpiryMode @default(DEFAULT)
+  /// DAYS: questions last this many days from approval.
+  expiryDays       Int?
+  /// DATE: questions last until this moment.
+  expiresOn        DateTime?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
@@ -527,6 +544,8 @@ model UsageWallet {
   includedAllowanceUnits  Int       @default(0)
   purchasedBalanceUnits   Int       @default(0)
   purchasedAllowanceUnits Int       @default(0)
+  /// Question packs bought with an expiry; null = the purchased pool never ends.
+  purchasedExpiresAt      DateTime?
   periodStartedAt         DateTime?
   periodEndsAt            DateTime?
   version                 Int       @default(0)

@@ -20,6 +20,8 @@ import { provisionUser } from "@/server/auth/provisioning";
 import { normalizeEmail } from "@/server/auth/account-lookup";
 import { getEffectivePlan } from "@/server/user/account-service";
 import { repairBuiltInPackages } from "@/server/catalog/builtin-package-repair";
+import { applyQuestionPack } from "@/server/catalog/question-pack-service";
+import { questionsToUnits, unitsToQuestions } from "@/lib/usage-budget-display";
 
 /**
  * Admin user-management service. Every mutation writes an audit log with the
@@ -504,7 +506,11 @@ export async function adminResetUsageQuota(userId: string, actor: Actor) {
   });
 }
 
-/** Adjust cost-weighted usage in percentage points; positive adjustments are top-up-like. */
+/**
+ * Add or take questions (one answer = one question since 9 Oct 2026). It was
+ * in percentage points of the package allowance, which a pack buyer — whose
+ * allowance is Free's — could not read. Additions go to the purchased pool.
+ */
 export async function adjustUserCredits(
   userId: string,
   input: { amount: number; type: CreditTxnType; note?: string },
@@ -512,18 +518,11 @@ export async function adjustUserCredits(
 ) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
+  const amountUnits = questionsToUnits(input.amount);
+  if (amountUnits <= 0) throw new AppError("VALIDATION", "จำนวนคำถามต้องมากกว่า 0");
 
   return prisma.$transaction(async (tx) => {
-    const wallet = await tx.usageWallet.findUnique({
-      where: { userId },
-    });
-    if (!wallet || wallet.includedAllowanceUnits <= 0) {
-      throw new AppError("VALIDATION", "ผู้ใช้นี้ยังไม่มีฐาน usage 100%");
-    }
-    const amountUnits = Math.max(
-      1,
-      Math.round((wallet.includedAllowanceUnits * input.amount) / 100),
-    );
+    const wallet = await lockUsageWalletForUpdate(userId, tx);
     const ref = {
       type: input.type,
       note: input.note,
@@ -537,28 +536,27 @@ export async function adjustUserCredits(
       await addPurchasedUsage(userId, amountUnits, ref, tx);
     }
     const updated = await tx.usageWallet.findUniqueOrThrow({ where: { userId } });
-    const remainingPercent = availableUsagePercent(
-      updated.includedBalanceUnits,
-      updated.purchasedBalanceUnits,
-      updated.includedAllowanceUnits,
-    );
+    const remainingQuestions = unitsToQuestions(updated.includedBalanceUnits + updated.purchasedBalanceUnits);
     await writeAudit(
       {
         adminUserId: actor.id,
         action: "user.usage.adjust",
         entityType: "usage_wallet",
         entityId: userId,
-        before: { remainingPercent: availableUsagePercent(
-          wallet.includedBalanceUnits,
-          wallet.purchasedBalanceUnits,
-          wallet.includedAllowanceUnits,
-        ) },
-        after: { amountPercent: input.amount, type: input.type, note: input.note, remainingPercent },
+        before: { remainingQuestions: unitsToQuestions(wallet.includedBalanceUnits + wallet.purchasedBalanceUnits) },
+        after: { amountQuestions: input.amount, type: input.type, note: input.note, remainingQuestions },
         ipAddress: actor.ip,
       },
       tx,
     );
-    return { remainingPercent };
+    return {
+      remainingQuestions,
+      remainingPercent: availableUsagePercent(
+        updated.includedBalanceUnits,
+        updated.purchasedBalanceUnits,
+        updated.includedAllowanceUnits,
+      ),
+    };
   });
 }
 
@@ -611,6 +609,40 @@ export async function setUserSubscription(
   }
   if (input.expiresAt && input.expiresAt.getTime() <= Date.now()) {
     throw new AppError("VALIDATION", "วันหมดอายุต้องเป็นวันในอนาคต (เว้นว่าง = ไม่มีวันหมดอายุ)");
+  }
+
+  // A question pack given by hand works like a bought one: its questions add
+  // to what is left, Pro runs while they last. The form's expiry is the pack's.
+  if (pkg.questionPack) {
+    const given = await prisma.$transaction(async (tx) => {
+      await lockUsageWalletForUpdate(userId, tx);
+      const applied = await applyQuestionPack(tx, {
+        userId,
+        pkg,
+        activationSource: "ADMIN_MANUAL",
+        ref: {
+          type: "ADMIN_ADD",
+          referenceType: "admin_pack",
+          referenceId: `${actor.id}:${Date.now()}`,
+          note: `แอดมินให้แพ็กคำถาม ${pkg.code}`,
+          createdByAdminId: actor.id,
+        },
+      });
+      await writeAudit(
+        {
+          adminUserId: actor.id,
+          action: "user.subscription.set",
+          entityType: "user_subscription",
+          entityId: userId,
+          after: { packageCode: pkg.code, questionsAdded: applied.questionsAdded, questionsEnd: applied.questionsEnd },
+          ipAddress: actor.ip,
+        },
+        tx,
+      );
+      return applied.subscription;
+    });
+    invalidateUserBootstrap(userId);
+    return { ...given, grantedCredits: 0, effectivePlan: await getEffectivePlan(userId) };
   }
 
   const result = await prisma.$transaction(async (tx) => {

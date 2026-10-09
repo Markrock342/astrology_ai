@@ -435,7 +435,8 @@ export function TransitDatePicker({
           </span>
         ) : (
           // "เลือกวันที่ต้องการเช็คดวง" read as booking an astrologer's slot.
-          <span className="min-w-0 truncate">ดูดวงของวันที่ระบุ</span>
+          // A's wording (9 Oct 2026).
+          <span className="min-w-0 truncate">ดูดวงของวันที่ต้องการทราบ (เลือกวันจร)</span>
         )}
       </button>
       {panel}

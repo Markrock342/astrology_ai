@@ -219,12 +219,50 @@ export async function lapseExpiredIncludedUsage(
   });
 }
 
+/**
+ * Question packs can expire (Admin → แพ็กเกจ). When the purchased pool's date
+ * passes, what is left of it goes; the included pool is not touched. Logged
+ * as an ADMIN_DEDUCT on PURCHASED with a note, like the period lapse above.
+ */
+export async function expirePurchasedUsage(
+  userId: string,
+  client: Prisma.TransactionClient | typeof prisma = prisma,
+  now = new Date(),
+): Promise<void> {
+  const wallet = await client.usageWallet.findUnique({
+    where: { userId },
+    select: { purchasedBalanceUnits: true, purchasedExpiresAt: true },
+  });
+  if (!wallet?.purchasedExpiresAt || wallet.purchasedExpiresAt > now) return;
+  const expired = await client.usageWallet.updateMany({
+    where: {
+      userId,
+      purchasedExpiresAt: wallet.purchasedExpiresAt,
+      purchasedBalanceUnits: wallet.purchasedBalanceUnits,
+    },
+    data: { purchasedBalanceUnits: 0, purchasedAllowanceUnits: 0, purchasedExpiresAt: null },
+  });
+  if (expired.count === 0 || wallet.purchasedBalanceUnits <= 0) return;
+  await client.usageTransaction.create({
+    data: {
+      userId,
+      amountUnits: -wallet.purchasedBalanceUnits,
+      type: "ADMIN_DEDUCT",
+      bucket: "PURCHASED",
+      referenceType: "pack_expired",
+      referenceId: `pack-expired:${wallet.purchasedExpiresAt.toISOString()}`,
+      note: "คำถามจากแพ็กที่ซื้อหมดอายุ",
+    },
+  });
+}
+
 /** Fast preflight. The active response may finish even if it consumes the tail. */
 export async function assertHasUsageBudget(
   userId: string,
   tx: Prisma.TransactionClient | typeof prisma = prisma,
 ) {
   await lapseExpiredIncludedUsage(userId, tx);
+  await expirePurchasedUsage(userId, tx);
   const wallet = await tx.usageWallet.findUnique({
     where: { userId },
     select: { includedBalanceUnits: true, purchasedBalanceUnits: true },
@@ -234,7 +272,7 @@ export async function assertHasUsageBudget(
     wallet.includedBalanceUnits + wallet.purchasedBalanceUnits <= 0
   ) {
     // Shown in the chat bubble; the box under it carries the button to buy more.
-    throw new AppError("NO_QUOTA", "เครดิตการใช้งานของคุณถึงขีดจำกัดแล้ว");
+    throw new AppError("NO_QUOTA", "คำถามของคุณหมดแล้ว");
   }
 }
 
@@ -307,12 +345,15 @@ export type UsageBudgetSnapshot = {
   purchasedRemainingPercent: number;
   periodStartedAt: Date | null;
   periodEndsAt: Date | null;
+  /** When bought questions end; null = never (or none bought). */
+  purchasedExpiresAt: Date | null;
 };
 
 export async function getUsageBudgetSnapshot(
   userId: string,
 ): Promise<UsageBudgetSnapshot> {
   await lapseExpiredIncludedUsage(userId).catch(() => {});
+  await expirePurchasedUsage(userId).catch(() => {});
   const wallet = await prisma.usageWallet.findUnique({ where: { userId } });
   if (!wallet) {
     return {
@@ -325,6 +366,7 @@ export async function getUsageBudgetSnapshot(
       purchasedRemainingPercent: 0,
       periodStartedAt: null,
       periodEndsAt: null,
+      purchasedExpiresAt: null,
     };
   }
   // The package allowance is always the 100% denominator. Purchased units are
@@ -360,5 +402,6 @@ export async function getUsageBudgetSnapshot(
         : 0,
     periodStartedAt: wallet.periodStartedAt,
     periodEndsAt: wallet.periodEndsAt,
+    purchasedExpiresAt: wallet.purchasedBalanceUnits > 0 ? wallet.purchasedExpiresAt : null,
   };
 }

@@ -34,10 +34,12 @@ export function useMyUsage(
   const [loading, setLoading] = useState(true);
   const [apiReady, setApiReady] = useState(false);
   const includeHistory = options?.includeHistory ?? false;
+  const userPercent = user?.usageRemainingPercent;
+  const userQuestions = user?.usageRemainingQuestions;
 
   const load = useCallback(async () => {
     const remainingPercent =
-      user?.usageRemainingPercent ?? fallbackLimits?.remainingPercent ?? 0;
+      userPercent ?? fallbackLimits?.remainingPercent ?? 0;
     setLoading(true);
     try {
       const res = await fetch(
@@ -53,6 +55,8 @@ export function useMyUsage(
           balance: data.remainingPercent ?? remainingPercent,
           usedPercent: data.usedPercent ?? Math.max(0, 100 - remainingPercent),
           remainingPercent: data.remainingPercent ?? remainingPercent,
+          remainingQuestions: data.remainingQuestions ?? userQuestions,
+          purchasedExpiresAt: data.purchasedExpiresAt ?? null,
           includedRemainingPercent:
             data.includedRemainingPercent ?? remainingPercent,
           purchasedRemainingPercent: data.purchasedRemainingPercent ?? 0,
@@ -75,7 +79,7 @@ export function useMyUsage(
     } finally {
       setLoading(false);
     }
-  }, [user?.usageRemainingPercent, fallbackLimits, includeHistory]);
+  }, [userPercent, userQuestions, fallbackLimits, includeHistory]);
 
   useEffect(() => {
     // Async fetch on mount — setState runs after await inside load().

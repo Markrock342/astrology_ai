@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CmsPaymentInfo } from "@/lib/cms-keys";
 import { PaymentSubmitCard } from "./payment-submit-card";
+import { PackPurchase } from "./pack-purchase";
 import { ProfileAvatarCard } from "./profile-avatar-card";
 import { UsageSummary } from "./usage-summary";
 import { DeleteAccountCard } from "./delete-account-card";
@@ -24,6 +25,9 @@ export type PublicPackage = {
   upgradeSteps: string[];
   /** True for CREDIT_TOPUP — shown in PaymentSubmitCard only, not plan grids. */
   creditOnly?: boolean;
+  questionPack?: boolean;
+  questions?: number;
+  expiryLabel?: string | null;
 };
 
 type MyPackage = {
@@ -107,6 +111,19 @@ export function AccountView({
   aiMemory: UserAiMemory;
 }) {
   const isPro = myPackage.plan === "PRO";
+  // Question packs (Oct 2026) replace the monthly Pro, its renewal and the
+  // usage top-up on this page once the team has made at least one.
+  const packs = packages
+    .filter((p) => p.questionPack)
+    .map((p) => ({
+      code: p.code,
+      name: p.name,
+      price: p.price,
+      questions: p.questions ?? 0,
+      expiryLabel: p.expiryLabel ?? null,
+      upgradeSteps: p.upgradeSteps ?? [],
+    }));
+  const packMode = packs.length > 0;
   // CREDIT_TOPUP is also type PRO — exclude credit-only from plan price/renew.
   const proPkg = packages.find(
     (p) =>
@@ -132,7 +149,7 @@ export function AccountView({
   const neverExpires = isPro && Boolean(myPackage.proNeverExpires);
   const daysLeft = isPro && expiresAt ? daysUntil(expiresAt) : null;
   const expirySoon =
-    daysLeft != null && daysLeft >= 0 && daysLeft <= PRO_EXPIRY_WARN_DAYS;
+    !packMode && daysLeft != null && daysLeft >= 0 && daysLeft <= PRO_EXPIRY_WARN_DAYS;
 
   const usageLimits: UsageLimitsFallback = {
     remainingPercent: myPackage.usageRemainingPercent,
@@ -171,24 +188,37 @@ export function AccountView({
                   expirySoon ? "text-[var(--danger)]" : "text-[var(--muted)]"
                 }`}
               >
-                หมดอายุ {formatExpiry(expiresAt)}
+                {packMode ? "เปิดทุกหมวดถึง" : "หมดอายุ"} {formatExpiry(expiresAt)}
                 {daysLeft != null && daysLeft >= 0
                   ? ` · เหลือ ${daysLeft} วัน`
                   : ""}
               </p>
-              <RenewLink className="press-scale rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)]">
-                ต่ออายุ
-              </RenewLink>
+              {packMode ? (
+                <a
+                  href="#payment"
+                  className="press-scale rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)]"
+                >
+                  ซื้อแพ็กเพิ่ม
+                </a>
+              ) : (
+                <RenewLink className="press-scale rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)]">
+                  ต่ออายุ
+                </RenewLink>
+              )}
             </div>
           ) : null}
           {/* Admin-granted Pro with no end date — say so, instead of leaving the
               card silent about how long it lasts. */}
           {neverExpires ? (
-            <p className="mt-3 text-sm text-[var(--muted)]">ไม่มีวันหมดอายุ</p>
+            <p className="mt-3 text-sm text-[var(--muted)]">
+              {packMode ? "เปิดทุกหมวด · ไม่มีวันหมดอายุ" : "ไม่มีวันหมดอายุ"}
+            </p>
           ) : null}
           {!isPro ? (
             <p className="mt-2 text-sm text-[var(--muted)]">
-              {proPkg
+              {packMode
+                ? "ซื้อแพ็กคำถามด้านล่าง เพื่อถามต่อและเปิดทุกหมวด ดวงจร ดวงสมพงษ์"
+                : proPkg
                 ? "ยังไม่ใช่ Pro หรือ Pro หมดอายุแล้ว — อัปเกรดหรือต่ออายุได้ด้านล่าง"
                 : "แพ็กทดลอง Free"}
             </p>
@@ -206,6 +236,13 @@ export function AccountView({
 
         <UsageSummary fallbackLimits={usageLimits} />
 
+        {packMode ? (
+          <div id="payment" className="scroll-mt-4">
+            <PackPurchase packs={packs} paymentInfo={paymentInfo} />
+          </div>
+        ) : null}
+
+
         {/* The survey used to block the way in and people bounced off it. It is
             offered here instead, for anyone who wants sharper readings. */}
         {hasIntake ? null : (
@@ -216,7 +253,7 @@ export function AccountView({
             </h2>
             <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">
               ตอบ 10 ข้อ ใช้ประกอบคำทำนายให้ตรงกับชีวิตคุณมากขึ้น ข้ามได้ตลอด
-              และไม่หัก usage
+              และไม่หักคำถาม
             </p>
             <Link
               href="/onboarding/survey"
@@ -229,6 +266,8 @@ export function AccountView({
 
         <AiMemoryCard initialMemory={aiMemory} />
 
+        {packMode ? null : (
+        <>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {packages
             .filter(
@@ -303,6 +342,9 @@ export function AccountView({
             {/* Legacy hash used by older banners */}
             <div id="payment" className="sr-only" aria-hidden />
           </>
+        )}
+
+        </>
         )}
 
         <DeleteAccountCard email={profile.email} />

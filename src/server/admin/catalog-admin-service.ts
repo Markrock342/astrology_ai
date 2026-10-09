@@ -2,6 +2,9 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/server/audit/audit-service";
+import { getDefaultPackExpiry } from "@/server/catalog/question-pack-service";
+import { packExpiryLabel, packExpiryRule } from "@/lib/pack-expiry";
+import { unitsToQuestions } from "@/lib/usage-budget-display";
 
 /**
  * Admin catalog service: CRUD for horoscope categories and packages. Every
@@ -41,7 +44,22 @@ export type PackageCreateInput = {
   description?: string;
   features?: string[];
   upgradeSteps?: string[];
+  creditOnly?: boolean;
+  questionPack?: boolean;
+  expiryMode?: "DEFAULT" | "NONE" | "DAYS" | "DATE";
+  expiryDays?: number | null;
+  expiresOn?: Date | null;
 };
+
+/**
+ * A question pack opens every Pro feature while its questions last, so it is
+ * a PRO row; and the Free package — what a sign-up gets — cannot be one.
+ */
+function packRules<T extends PackageUpdateInput>(input: T, code: string | undefined): T {
+  if (!input.questionPack) return input;
+  if (code === "FREE") throw new AppError("VALIDATION", "แพ็กเกจ Free เป็นแพ็กคำถามไม่ได้");
+  return { ...input, type: "PRO", creditOnly: false };
+}
 
 export type PackageUpdateInput = Partial<PackageCreateInput>;
 
@@ -140,8 +158,21 @@ export function listPackages() {
   return prisma.package.findMany({ orderBy: { price: "asc" } });
 }
 
-/** Enabled packages for the account page (no secrets). */
-export function listPublicPackages() {
+/**
+ * Enabled packages for the pricing and account pages (no secrets), with what
+ * a page shows for a question pack worked out here: its question count and
+ * when its questions end under the pack's rule or the site default.
+ */
+export async function listPublicPackages() {
+  const [rows, fallback] = await Promise.all([listEnabledPackages(), getDefaultPackExpiry()]);
+  return rows.map(({ expiryMode, expiryDays, expiresOn, ...pkg }) => ({
+    ...pkg,
+    questions: unitsToQuestions(pkg.usageBudgetUnits),
+    expiryLabel: pkg.questionPack ? packExpiryLabel(packExpiryRule({ expiryMode, expiryDays, expiresOn }, fallback)) : null,
+  }));
+}
+
+function listEnabledPackages() {
   return prisma.package.findMany({
     where: { enabled: true },
     orderBy: { price: "asc" },
@@ -158,6 +189,10 @@ export function listPublicPackages() {
       features: true,
       upgradeSteps: true,
       creditOnly: true,
+      questionPack: true,
+      expiryMode: true,
+      expiryDays: true,
+      expiresOn: true,
     },
   });
 }
@@ -171,7 +206,7 @@ export async function getPackage(id: string) {
 export async function createPackage(input: PackageCreateInput, actor: Actor) {
   return prisma.$transaction(async (tx) => {
     const created = await tx.package.create({
-      data: input as Prisma.PackageUncheckedCreateInput,
+      data: packRules(input, input.code) as Prisma.PackageUncheckedCreateInput,
     });
     await writeAudit(
       {
@@ -195,7 +230,7 @@ export async function updatePackage(id: string, input: PackageUpdateInput, actor
   return prisma.$transaction(async (tx) => {
     const updated = await tx.package.update({
       where: { id },
-      data: input as Prisma.PackageUncheckedUpdateInput,
+      data: packRules(input, before.code) as Prisma.PackageUncheckedUpdateInput,
     });
     await writeAudit(
       {

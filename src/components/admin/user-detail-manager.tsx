@@ -61,6 +61,7 @@ type UserDetail = {
       items: Array<{
         id: string;
         amountPercent: number;
+        amountQuestions?: number;
         type: string;
         note: string | null;
         createdAt: string;
@@ -751,7 +752,7 @@ export function UserDetailManager({
           ) : null}
 
           <Card className="lg:col-span-2">
-            <h2 className="text-sm font-semibold">ปรับ usage</h2>
+            <h2 className="text-sm font-semibold">เพิ่ม / หักคำถาม</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
               <Field label="ประเภท">
                 <Select
@@ -766,7 +767,7 @@ export function UserDetailManager({
                   <option value="ADMIN_DEDUCT">หัก (Admin)</option>
                 </Select>
               </Field>
-              <Field label="จำนวน (%)">
+              <Field label="จำนวน (คำถาม)">
                 <TextInput
                   type="number"
                   min={1}
@@ -787,14 +788,14 @@ export function UserDetailManager({
                   onClick={() => adjustCredits(creditType)}
                   disabled={busy}
                 >
-                  {creditType === "ADMIN_DEDUCT" ? "หัก usage" : "เพิ่ม usage"}
+                  {creditType === "ADMIN_DEDUCT" ? "หักคำถาม" : "เพิ่มคำถาม"}
                 </Button>
               </div>
             </div>
           </Card>
 
           <Card className="lg:col-span-2">
-            <h2 className="text-sm font-semibold">ประวัติ usage ล่าสุด</h2>
+            <h2 className="text-sm font-semibold">ประวัติการใช้คำถาม</h2>
             <ul className="mt-3 space-y-2">
               {(user.usage?.history.items.length ?? 0) === 0 && (
                 <li className="text-xs text-[var(--muted)]">ยังไม่มีรายการ</li>
@@ -810,7 +811,7 @@ export function UserDetailManager({
                   </span>
                   <span className={tx.amountPercent >= 0 ? "text-[var(--secondary-active)]" : "text-[var(--danger)]"}>
                     {tx.amountPercent >= 0 ? "+" : ""}
-                    {tx.amountPercent}%
+                    {tx.amountQuestions != null ? `${tx.amountQuestions} คำถาม` : `${tx.amountPercent}%`}
                   </span>
                 </li>
               ))}

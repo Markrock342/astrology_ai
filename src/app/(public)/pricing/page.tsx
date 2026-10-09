@@ -13,6 +13,7 @@ import {
 } from "@/lib/cms-keys";
 import { isPaymentInfoConfigured, paymentUnavailableNote } from "@/lib/payment-info";
 import { metadataFromSeo } from "@/lib/seo";
+import { DEFAULT_PACK_STEPS } from "@/lib/pack-expiry";
 import { listPublicPackages } from "@/server/admin/catalog-admin-service";
 import { isPreviewMode } from "@/server/cms/preview-mode";
 import {
@@ -65,7 +66,11 @@ export default async function PricingPage() {
   // The team writes the transfer details in the Pro package's "ขั้นตอนอัปเกรด"
   // field; the page only read the site-wide payment settings, which were
   // empty, so it said payments were not open.
-  const upgradeSteps = (proPkg?.upgradeSteps ?? []).filter((s) => s.trim());
+  // Question packs (Oct 2026): any pack is bought the same way, so the steps
+  // come from the first one and the price is the one picked above.
+  const packs = packages.filter((p) => p.questionPack);
+  const ownSteps = ((packs[0] ?? proPkg)?.upgradeSteps ?? []).filter((s) => s.trim());
+  const upgradeSteps = packs.length > 0 && ownSteps.length === 0 ? DEFAULT_PACK_STEPS : ownSteps;
   const hasPaymentDetails = paymentConfigured || upgradeSteps.length > 0;
 
   return (
@@ -95,9 +100,14 @@ export default async function PricingPage() {
       <section id="payment" className="scroll-mt-6 border-t border-[var(--border)] px-6 py-16">
         <div className="mx-auto max-w-2xl rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8">
           <h2 className="text-lg font-semibold text-[var(--foreground)]">
-            {paymentInfo.title}
+            {/* The CMS title still says "อัปเกรด Pro" from the monthly plan. */}
+            {packs.length > 0 ? "วิธีซื้อแพ็กคำถาม" : paymentInfo.title}
           </h2>
-          {proPkg ? (
+          {packs.length > 0 ? (
+            <p className="mt-3 text-sm text-[var(--muted)]">
+              โอนตามราคาแพ็กที่เลือกด้านบน แล้วส่งสลิปในหน้าบัญชี — คำถามบวกเพิ่มจากที่เหลือ
+            </p>
+          ) : proPkg ? (
             <p className="mt-3 flex flex-wrap items-baseline gap-x-2">
               <span className="text-sm text-[var(--muted)]">{proPkg.name}</span>
               <span className="text-2xl font-semibold text-[var(--primary)]">
@@ -142,7 +152,7 @@ export default async function PricingPage() {
           ) : null}
           {upgradeSteps.length > 0 ? (
             <div className="mt-5">
-              <p className="text-sm font-medium text-[var(--foreground)]">ขั้นตอนอัปเกรด</p>
+              <p className="text-sm font-medium text-[var(--foreground)]">{packs.length > 0 ? "ขั้นตอนการซื้อ" : "ขั้นตอนอัปเกรด"}</p>
               <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-[var(--muted)]">
                 {upgradeSteps.map((step, i) => (
                   <li key={i}>
@@ -183,7 +193,14 @@ export default async function PricingPage() {
               href="/account#payment"
               className="rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
             >
-              โอนแล้ว — ส่งสลิปอัปเกรด Pro
+              {packs.length > 0 ? "โอนแล้ว — ส่งสลิป" : "โอนแล้ว — ส่งสลิปอัปเกรด Pro"}
+            </Link>
+          ) : packs.length > 0 ? (
+            <Link
+              href="/account#payment"
+              className="rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+            >
+              ซื้อแพ็กคำถามเพิ่ม
             </Link>
           ) : (
             <Link

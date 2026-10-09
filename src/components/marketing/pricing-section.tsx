@@ -15,9 +15,33 @@ export type MarketingPackage = {
   upgradeSteps: string[];
   /** True for CREDIT_TOPUP — omit from plan grids. */
   creditOnly?: boolean;
+  /** A one-time pack of questions (Oct 2026). */
+  questionPack?: boolean;
+  /** Questions the package gives (server-computed). */
+  questions?: number;
+  /** "ไม่มีวันหมดอายุ" / "ใช้ได้ 30 วันหลังได้รับ" — packs only. */
+  expiryLabel?: string | null;
 };
 
+/** The pack with the lowest price per question gets the "คุ้มที่สุด" mark. */
+function bestValueCode(packages: MarketingPackage[]): string | null {
+  let best: { code: string; per: number } | null = null;
+  for (const pkg of packages) {
+    if (!pkg.questionPack || !pkg.questions || pkg.price <= 0) continue;
+    const per = pkg.price / pkg.questions;
+    if (!best || per < best.per) best = { code: pkg.code, per };
+  }
+  return best?.code ?? null;
+}
+
+const perQuestion = (pkg: MarketingPackage) =>
+  pkg.questions ? (pkg.price / pkg.questions).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
+
 function displayFeatures(pkg: MarketingPackage): string[] {
+  // The card states the question count itself; "AI usage …%" means nothing now.
+  if (pkg.questionPack || pkg.questions != null) {
+    return pkg.features.filter((f) => !f.startsWith("AI usage") && !f.startsWith("เครดิต"));
+  }
   if (pkg.features.length > 0) {
     return pkg.features.map((feature) =>
       feature.startsWith("เครดิต")
@@ -51,6 +75,13 @@ type PlanAction = { label: string; href: string; current?: boolean } | null;
  * "อัปเกรด Pro" and send everyone to sign-up, members included.
  */
 function planAction(pkg: MarketingPackage, viewer: PricingViewer, paymentHref: string): PlanAction {
+  // Packs are bought again and again: every member gets a buy button, and
+  // the account page opens with that pack picked.
+  if (pkg.questionPack) {
+    return viewer === "guest"
+      ? { label: "สมัครแล้วซื้อแพ็กนี้", href: "/login?tab=register" }
+      : { label: "ซื้อแพ็กนี้", href: `/account?pack=${encodeURIComponent(pkg.code)}#payment` };
+  }
   const isPro = pkg.type === "PRO";
   if (viewer === "guest") return { label: "สมัครสมาชิก", href: "/login?tab=register" };
   if (viewer === "FREE") {
@@ -87,6 +118,7 @@ export function PricingSection({
   );
 
   if (!section.enabled || planPackages.length === 0) return null;
+  const best = bestValueCode(planPackages);
 
   return (
     <section
@@ -109,12 +141,15 @@ export function PricingSection({
               ? "max-w-md"
               : planPackages.length === 2
                 ? "max-w-3xl sm:grid-cols-2"
-                : "sm:grid-cols-2 lg:grid-cols-3"
+                : planPackages.length === 4
+                  ? "sm:grid-cols-2 lg:grid-cols-4"
+                  : "sm:grid-cols-2 lg:grid-cols-3"
           }`}
         >
           {planPackages.map((pkg) => {
-            const highlight = pkg.type === "PRO";
+            const highlight = best ? pkg.code === best : pkg.type === "PRO";
             const features = displayFeatures(pkg);
+            const isFreeTrial = pkg.type === "FREE";
             return (
               <article
                 key={pkg.code}
@@ -132,7 +167,7 @@ export function PricingSection({
                         aria-hidden
                         className="h-1.5 w-1.5 rounded-full bg-[var(--primary)]"
                       />
-                      แนะนำ
+                      {best ? "คุ้มที่สุด" : "แนะนำ"}
                     </span>
                   ) : null}
                 </div>
@@ -147,6 +182,23 @@ export function PricingSection({
                     / {pkg.billingLabel ?? "ต่อแพ็กเกจ"}
                   </span>
                 </p>
+                {pkg.questions ? (
+                  <div className="mt-3 border-y border-[var(--border)] py-3">
+                    {pkg.name.includes(String(pkg.questions)) ? null : (
+                      <p className="text-sm text-[var(--foreground)]">
+                        <span className="text-xl font-semibold tabular-nums">{pkg.questions.toLocaleString("th-TH")}</span>{" "}
+                        คำถาม{isFreeTrial ? " ทดลองฟรี" : ""}
+                      </p>
+                    )}
+                    <p className="mt-0.5 text-xs text-[var(--muted-2)]">
+                      {pkg.questionPack
+                        ? `ตกคำถามละ ฿${perQuestion(pkg)} · ${pkg.expiryLabel ?? "ไม่มีวันหมดอายุ"}`
+                        : isFreeTrial
+                          ? "หลังสมัครและยืนยันอีเมล"
+                          : "ต่อรอบแพ็กเกจ"}
+                    </p>
+                  </div>
+                ) : null}
                 <ul className={`mt-5 space-y-2 text-sm text-[var(--muted)] ${compact ? "mt-4" : ""}`}>
                   {features.map((f) => (
                     <li key={f} className="flex items-start gap-2">

@@ -44,8 +44,8 @@ import {
 import {
   assertHasUsageBudget,
   deductUsageCost,
-  usageUnitsFromUsd,
 } from "@/server/usage/usage-budget-service";
+import { UNITS_PER_QUESTION } from "@/lib/usage-budget-display";
 import {
   assertUsableEngineChart,
   requireReadyNatalChart,
@@ -1012,9 +1012,9 @@ async function runReading(
       meteredOutputUsage,
       meteredCachedUsage,
     );
-    const requestedUsageUnits = skipCredits
-      ? 0
-      : usageUnitsFromUsd(estimatedCost);
+    // One answer = one question, whatever it cost (packs are sold in
+    // questions since 9 Oct 2026); the real cost stays on the usage log.
+    const requestedUsageUnits = skipCredits ? 0 : UNITS_PER_QUESTION;
 
     // Success => persist reading. Metered turns reconcile actual provider cost.
     const reading = await prisma.$transaction(async (tx) => {

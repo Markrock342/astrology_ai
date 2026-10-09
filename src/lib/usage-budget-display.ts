@@ -27,13 +27,25 @@ export function thbToUnits(thb: number): number {
   return Math.max(0, Math.round((thb / USD_TO_THB) * USAGE_UNITS_PER_USD));
 }
 
+/**
+ * One question, in wallet units. Since 9 Oct 2026 every answer costs exactly
+ * one question whatever its length (A: "เรารับความเสี่ยงเรื่องความยาวของคำถาม"),
+ * so packs are sold — and wallets read — in whole questions. 15,000 units is
+ * the measured typical question (฿0.55 at 3.7 Flash), so balances from before
+ * read about the same. The AI's real cost is still logged per call.
+ */
+export const UNITS_PER_QUESTION = 15_000;
+
+/**
+ * Questions a balance buys. Rounded up: an older balance that is not a whole
+ * number of questions still answers its last one (the charge takes what is left).
+ */
 export function unitsToQuestions(units: number): number {
-  const per = typicalQuestionThb();
-  return per > 0 ? Math.floor(unitsToThb(units) / per) : 0;
+  return units > 0 ? Math.ceil(units / UNITS_PER_QUESTION) : 0;
 }
 
 export function questionsToUnits(questions: number): number {
-  return thbToUnits(Math.max(0, questions) * typicalQuestionThb());
+  return Math.max(0, Math.round(questions)) * UNITS_PER_QUESTION;
 }
 
 /**
@@ -51,7 +63,7 @@ export function formatRemainingChip(percent: number): string {
  */
 export function formatRemainingUsage(percent: number, questions?: number | null): string {
   if (typeof questions === "number" && Number.isFinite(questions)) {
-    return questions <= 0 ? "หมดแล้ว" : `≈ ${questions.toLocaleString("th-TH")} คำถาม`;
+    return questions <= 0 ? "หมดแล้ว" : `${questions.toLocaleString("th-TH")} คำถาม`;
   }
   return formatRemainingChip(percent);
 }

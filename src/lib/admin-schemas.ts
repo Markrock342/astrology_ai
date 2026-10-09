@@ -414,7 +414,17 @@ export const packageCreateSchema = z.object({
   features: z.array(z.string().min(1).max(200)).default([]),
   upgradeSteps: z.array(z.string().min(1).max(300)).default([]),
   creditOnly: z.boolean().default(false),
+  questionPack: z.boolean().default(false),
+  expiryMode: z.enum(["DEFAULT", "NONE", "DAYS", "DATE"]).default("DEFAULT"),
+  expiryDays: z.number().int().min(1).max(3650).nullish(),
+  expiresOn: z.coerce.date().nullish(),
 });
+
+export const packExpiryRuleSchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("NONE") }),
+  z.object({ mode: z.literal("DAYS"), days: z.number().int().min(1).max(3650) }),
+  z.object({ mode: z.literal("DATE"), date: z.string().refine((v) => !Number.isNaN(Date.parse(v)), "วันที่ไม่ถูกต้อง") }),
+]);
 
 export const packageUpdateSchema = partialNoDefaults(packageCreateSchema);
 

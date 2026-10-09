@@ -1,5 +1,5 @@
 import { prisma } from "@/server/db";
-import { unitsToQuestions } from "@/lib/usage-budget-display";
+import { UNITS_PER_QUESTION, unitsToQuestions } from "@/lib/usage-budget-display";
 import { getUsageCounts } from "@/server/credit/quota-service";
 import {
   getUsageBudgetSnapshot,
@@ -10,6 +10,8 @@ import { hideSilentPromotionDate } from "@/config/promotion";
 export type UsageHistoryItem = {
   id: string;
   amountPercent: number;
+  /** The row in questions (one decimal: answers before 9 Oct cost a fraction). */
+  amountQuestions: number;
   type: string;
   note: string | null;
   referenceType: string | null;
@@ -22,8 +24,10 @@ export type MyUsageSummary = {
   balance: number;
   usedPercent: number;
   remainingPercent: number;
-  /** About how many questions the balance pays for, at a typical question's cost. */
+  /** Questions left: one answer costs one question. */
   remainingQuestions: number;
+  /** When bought questions end; null = never or none bought. */
+  purchasedExpiresAt: string | null;
   includedRemainingPercent: number;
   purchasedRemainingPercent: number;
   periodStartedAt: string | null;
@@ -52,6 +56,7 @@ function serializeSummary(
     usedPercent: budget.usedPercent,
     remainingPercent: budget.remainingPercent,
     remainingQuestions: unitsToQuestions(budget.remainingUnits),
+    purchasedExpiresAt: budget.purchasedExpiresAt?.toISOString() ?? null,
     includedRemainingPercent: budget.includedRemainingPercent,
     purchasedRemainingPercent: budget.purchasedRemainingPercent,
     periodStartedAt: budget.periodStartedAt?.toISOString() ?? null,
@@ -107,6 +112,7 @@ export async function getMyUsage(
         amountPercent:
           Math.sign(row.amountUnits) *
           percentageOf(Math.abs(row.amountUnits), budget.allowanceUnits),
+        amountQuestions: Math.round((row.amountUnits / UNITS_PER_QUESTION) * 10) / 10,
         type: row.type,
         note: row.note,
         referenceType: row.referenceType,
