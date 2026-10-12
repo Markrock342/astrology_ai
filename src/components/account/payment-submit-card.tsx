@@ -116,6 +116,7 @@ export function PaymentSubmitCard({
   currentUsagePercent,
   packageCode,
   packName,
+  acceptsTransfer,
 }: {
   proPrice: number;
   paymentInfo: CmsPaymentInfo;
@@ -126,6 +127,13 @@ export function PaymentSubmitCard({
   /** The package the slip pays for (question packs); else PRO / CREDIT_TOPUP. */
   packageCode?: string;
   packName?: string;
+  /**
+   * The package carries its own transfer details (bank, account) in its
+   * steps. The team writes them there and leaves the site-wide payment
+   * settings as the placeholder — which hid the slip form from every
+   * customer ("ยังไม่เปิดรับโอนเงิน").
+   */
+  acceptsTransfer?: boolean;
 }) {
   const { refresh } = useAppData();
   const [file, setFile] = useState<File | null>(null);
@@ -171,7 +179,8 @@ export function PaymentSubmitCard({
   const isTopUp = variant === "topup";
   const isRenew = variant === "renew";
   const isPack = variant === "pack";
-  const paymentConfigured = isPaymentInfoConfigured(paymentInfo);
+  const bankConfigured = isPaymentInfoConfigured(paymentInfo);
+  const paymentConfigured = bankConfigured || Boolean(acceptsTransfer);
   const topUpPercent = usagePercent ?? 50;
   const remainingPercent = currentUsagePercent ?? 0;
   const projectedPercent = remainingPercent + topUpPercent;
@@ -336,7 +345,7 @@ export function PaymentSubmitCard({
         </>
       )}
 
-      {paymentConfigured ? (
+      {!bankConfigured && acceptsTransfer ? null : bankConfigured ? (
         <section className="mt-6 border-t border-[var(--border)] pt-5">
           <h3 className="text-sm font-semibold text-[var(--foreground)]">
             {isTopUp ? `1. โอนเงิน ${amount} บาท` : "โอนเงินเข้าบัญชีนี้"}

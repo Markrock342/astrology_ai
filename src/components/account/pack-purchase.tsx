@@ -88,6 +88,7 @@ export function PackPurchase({ packs, paymentInfo }: { packs: PurchasablePack[];
         packName={picked.name}
         proPrice={picked.price}
         paymentInfo={paymentInfo}
+        acceptsTransfer={picked.upgradeSteps.some((step) => step.trim())}
       />
     </section>
   );
