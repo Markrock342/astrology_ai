@@ -292,14 +292,31 @@ describe("generateWithFallback (M3 B2)", () => {
     expect(result.rawText).toBe("fallback answer");
   });
 
-  it("never retries the same model", async () => {
-    mocks.findMany.mockResolvedValue([{ ...fallbackRow, id: "twin", modelId: "gemini-primary" }]);
+  it("never retries the same model on the same key", async () => {
+    mocks.findMany.mockResolvedValue([{ ...primaryRow, id: "twin", fallbackConfigId: null }]);
     mocks.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
       where.id === "primary" ? { ...primaryRow, fallbackConfigId: null } : null,
     );
     const result = await generateWithFallback("primary", { systemPrompt: "sys", userPrompt: "user" });
     expect(result.ok).toBe(false);
-    expect(mocks.fallbackGenerate).not.toHaveBeenCalled();
+    expect(mocks.primaryGenerate).toHaveBeenCalledOnce();
+  });
+
+  // A, 12 Oct 2026: a backup key from another account on the same model was
+  // skipped as "the same model", so it never ran.
+  it("tries the same model on another account's key", async () => {
+    const backup = { ...primaryRow, id: "backup", role: "BACKUP", fallbackConfigId: null, secretReference: null, encryptedApiKey: "v1:other-account" };
+    mocks.findMany.mockResolvedValue([backup]);
+    mocks.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
+      where.id === "primary" ? { ...primaryRow, fallbackConfigId: null } : where.id === "backup" ? backup : null,
+    );
+    mocks.primaryGenerate
+      .mockResolvedValueOnce({ ok: false, provider: "GEMINI", modelId: "gemini-primary", latencyMs: 5, errorCode: "PROVIDER_ERROR" })
+      .mockResolvedValueOnce({ ok: true, provider: "GEMINI", modelId: "gemini-primary", rawText: "backup key answer", latencyMs: 5 });
+    const result = await generateWithFallback("primary", { systemPrompt: "sys", userPrompt: "user" });
+    expect(result.ok).toBe(true);
+    expect(result.rawText).toBe("backup key answer");
+    expect(mocks.primaryGenerate).toHaveBeenCalledTimes(2);
   });
 });
 

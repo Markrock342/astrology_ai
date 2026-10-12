@@ -239,7 +239,15 @@ export async function generateWithFallback(
  * overloaded on 1 Oct 2026 every answer failed while Flash Lite sat enabled
  * and unused. At most two extra attempts, never the same model twice.
  */
-async function fallbackChain(config: { id: string; modelId: string; provider: string; fallbackConfigId: string | null }) {
+async function fallbackChain(config: {
+  id: string;
+  modelId: string;
+  provider: string;
+  fallbackConfigId: string | null;
+  encryptedApiKey?: string | null;
+  secretReference?: string | null;
+  baseUrl?: string | null;
+}) {
   const enabled = await prisma.aIProviderConfig.findMany({
     where: { enabled: true, id: { not: config.id } },
     orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
@@ -253,11 +261,16 @@ async function fallbackChain(config: { id: string; modelId: string; provider: st
   const others = enabled
     .filter((c) => c.id !== config.fallbackConfigId && c.role !== "BACKUP")
     .sort((a, b) => Number(isGeminiLiteModel(b.modelId)) - Number(isGeminiLiteModel(a.modelId)));
-  const seen = new Set([config.modelId]);
+  // The same model on a different key (another account's — A, 12 Oct 2026)
+  // is a real second chance: a suspended key or a spent balance belongs to
+  // the account. Skipped before, so a backup key on the main model never ran.
+  const endpoint = (c: { modelId: string; encryptedApiKey?: string | null; secretReference?: string | null; baseUrl?: string | null }) =>
+    `${c.modelId}|${c.encryptedApiKey ?? ""}|${c.secretReference ?? ""}|${c.baseUrl ?? ""}`;
+  const seen = new Set([endpoint(config)]);
   const chain: typeof enabled = [];
   for (const c of [...explicit, ...backups, ...others]) {
-    if (seen.has(c.modelId)) continue;
-    seen.add(c.modelId);
+    if (seen.has(endpoint(c))) continue;
+    seen.add(endpoint(c));
     chain.push(c);
     if (chain.length === 2) break;
   }
