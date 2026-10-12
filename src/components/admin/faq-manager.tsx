@@ -14,8 +14,8 @@ import {
   Field,
   PageHeader,
   SearchInput,
-  Select,
   TextArea,
+  TextInput,
   Toggle,
   adminFetch,
 } from "./ui";
@@ -36,13 +36,22 @@ type FaqItem = FaqSummary & {
   draftAnswer: string | null;
 };
 
+/**
+ * Built-in groups (saved by id on older items). The team can also type a new
+ * group — A (12 Oct 2026) could only pick from these five, two of which
+ * ("เครดิต", "Pro") no longer exist as products.
+ */
 const CATEGORIES = [
   { id: "general", label: "ทั่วไป" },
-  { id: "credits", label: "เครดิต" },
-  { id: "pro", label: "Pro" },
+  { id: "credits", label: "คำถาม & การใช้งาน" },
+  { id: "pro", label: "แพ็กเกจ" },
   { id: "payment", label: "ชำระเงิน" },
   { id: "accuracy", label: "ความแม่นยำ" },
 ];
+
+const categoryLabel = (value: string) => CATEGORIES.find((c) => c.id === value)?.label ?? value;
+/** Typed text → stored value: a built-in label keeps its id, anything else is saved as typed. */
+const categoryValue = (typed: string) => CATEGORIES.find((c) => c.label === typed.trim())?.id ?? typed.trim();
 
 const EMPTY = { question: "", answer: "", category: "general", enabled: true, sortOrder: 0 };
 
@@ -222,17 +231,18 @@ export function FaqManager({ initialItems }: { initialItems?: FaqSummary[] | nul
             />
           )}
           <div className="grid gap-3">
-            <Field label="หมวด">
-              <Select
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
+            <Field label="หมวด" hint="เลือกจากรายการ หรือพิมพ์ชื่อหมวดใหม่ได้เลย">
+              <TextInput
+                list="faq-categories"
+                maxLength={40}
+                value={categoryLabel(form.category)}
+                onChange={(e) => setForm({ ...form, category: categoryValue(e.target.value) })}
+              />
+              <datalist id="faq-categories">
+                {[...new Set([...CATEGORIES.map((c) => c.label), ...items.map((i) => categoryLabel(i.category))])].map((label) => (
+                  <option key={label} value={label} />
                 ))}
-              </Select>
+              </datalist>
             </Field>
             <Field label="คำถาม">
               <TextArea
