@@ -66,7 +66,7 @@ export async function assertCanRequestReading(input: {
   ) {
     throw new AppError(
       "EMAIL_NOT_VERIFIED",
-      "กรุณายืนยันอีเมลก่อนใช้ usage ทดลอง — เราส่งลิงก์ยืนยันไปให้แล้ว",
+      "กรุณายืนยันอีเมลก่อนใช้ คำถามทดลอง — เราส่งลิงก์ยืนยันไปให้แล้ว",
     );
   }
 

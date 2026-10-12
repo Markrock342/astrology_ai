@@ -51,8 +51,9 @@ export const userStatusSchema = z.object({
 });
 
 export const userCreditSchema = z.object({
-  amount: z.number().int().positive(),
-  type: z.enum(["ADMIN_ADD", "ADMIN_DEDUCT", "PROMOTION", "REFUND"]),
+  /** Questions; for SET, the balance to end up with (0 allowed). */
+  amount: z.number().int().min(0),
+  type: z.enum(["ADMIN_ADD", "ADMIN_DEDUCT", "PROMOTION", "REFUND", "SET"]),
   note: z.string().max(300).optional(),
 });
 
@@ -62,6 +63,8 @@ export const userSubscriptionSchema = z.object({
   expiresAt: z.coerce.date().nullish(),
   // Grant the package's creditQuota to the wallet on activation.
   grantCredits: z.boolean().default(false),
+  /** Moving to Free: also remove the questions bought or given. */
+  clearPurchased: z.boolean().default(false),
 });
 
 export const userRoleSchema = z.object({

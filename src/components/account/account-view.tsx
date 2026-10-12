@@ -58,7 +58,7 @@ function displayFeatures(pkg: PublicPackage): string[] {
       feature.startsWith("เครดิต")
         ? pkg.type === "PRO"
           ? "AI usage 100% ต่อรอบแพ็กเกจ"
-          : "AI usage ทดลอง 100%"
+          : "ทดลองถามฟรีหลังยืนยันอีเมล"
         : feature,
     );
   }
@@ -70,8 +70,10 @@ function displayFeatures(pkg: PublicPackage): string[] {
     ];
   }
   return [
-    "AI usage ทดลอง 100%",
-    "หมวด「ตัวตน」กับ「การงาน」",
+    // The free categories are the team's (Admin → หมวดดูดวง); naming two here
+    // went stale when they changed them.
+    "ทดลองถามฟรีหลังยืนยันอีเมล",
+    "ถามได้เฉพาะหมวดฟรี",
     "ถาม–ตอบกับ AI (ยืนยันอีเมลก่อน)",
   ];
 }

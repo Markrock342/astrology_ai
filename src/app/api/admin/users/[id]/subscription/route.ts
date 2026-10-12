@@ -18,6 +18,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
           packageCode: data.packageCode,
           expiresAt: data.expiresAt ?? null,
           grantCredits: data.grantCredits,
+          clearPurchased: data.clearPurchased,
         },
         { id: admin.id, ip },
       ),
