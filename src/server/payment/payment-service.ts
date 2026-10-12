@@ -184,8 +184,16 @@ export async function reviewPayment(
   if (payment.status !== "PENDING") {
     throw new AppError("VALIDATION", "คำขอนี้ถูกตรวจสอบแล้ว");
   }
-  if (actor.id === payment.userId) {
-    throw new AppError("FORBIDDEN", "ไม่สามารถตรวจคำขอชำระเงินของตัวเองได้");
+  // Reviewing your own payment: a SUPER_ADMIN may (the team is small and
+  // test-buys with its own accounts — A, 12 Oct 2026; they can already give
+  // themselves a pack on the user page), marked in the audit row. Anyone
+  // else still needs another admin.
+  const selfReview = actor.id === payment.userId;
+  if (selfReview) {
+    const me = await prisma.user.findUnique({ where: { id: actor.id }, select: { role: true } });
+    if (me?.role !== "SUPER_ADMIN") {
+      throw new AppError("FORBIDDEN", "ไม่สามารถตรวจคำขอชำระเงินของตัวเองได้ — ให้แอดมินคนอื่น หรือ Super Admin ตรวจ");
+    }
   }
 
   // Prefer the package the user selected when submitting. Admin UI must not
@@ -396,6 +404,7 @@ export async function reviewPayment(
           subscription,
           packageCode,
           creditOnly: pkg?.creditOnly ?? false,
+          ...(selfReview ? { selfReview: true } : {}),
           questionPack: pkg?.questionPack ?? false,
           proDurationDays: pkg && !pkg.creditOnly && !pkg.questionPack ? PAYMENT_PRO_DURATION_DAYS : null,
         },

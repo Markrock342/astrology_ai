@@ -144,6 +144,14 @@ export function PaymentsPanel() {
   const [status, setStatus] = useState<"" | "PENDING" | "APPROVED" | "REJECTED">("PENDING");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
+  // Package names by code: the team's Lite is code "PRO", and the column
+  // printed "Pro" for it.
+  const [packageNames, setPackageNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    adminFetch<Array<{ code: string; name: string }>>("/api/admin/packages")
+      .then((rows) => setPackageNames(Object.fromEntries(rows.map((r) => [r.code, r.name]))))
+      .catch(() => {});
+  }, []);
   const [zoomSlip, setZoomSlip] = useState<{ src: string; alt: string } | null>(
     null,
   );
@@ -206,17 +214,18 @@ export function PaymentsPanel() {
     <AdminPage>
       <PageHeader
         title="ตรวจการโอนเงิน"
-        description="ผู้ใช้แจ้งชำระจากหน้าบัญชี — อนุมัติตามแพ็กเกจที่เลือก (Pro หรือเติม usage) อัตโนมัติ"
+        description="ลูกค้าส่งสลิปจากหน้าบัญชี — กดอนุมัติแล้วระบบเติมคำถามตามแพ็กที่ลูกค้าเลือกให้ทันที"
       />
 
       <InfoBox>
-        <strong className="text-[var(--foreground)]">ขั้นตอน:</strong> ตรวจสลิปและคอลัมน์แพ็กเกจ →
-        กด <strong className="text-[var(--foreground)]">อนุมัติ</strong> (ตามแพ็กเกจที่ผู้ใช้เลือก) หรือ{" "}
-        <strong className="text-[var(--foreground)]">ปฏิเสธ</strong> (แจ้งเหตุผลในหมายเหตุได้)
-        · ข้อมูลบัญชีธนาคารแก้ได้ที่{" "}
-        <Link href="/admin/settings" className="text-[var(--primary)] underline">
-          ข้อความเว็บ → วิธีโอนเงิน Pro
+        <strong className="text-[var(--foreground)]">ขั้นตอน:</strong> กด «ดูสลิป» เทียบยอดกับราคาแพ็ก →
+        กด <strong className="text-[var(--foreground)]">อนุมัติ</strong> (คำถามบวกเพิ่มจากที่เหลือ และเปิดทุกหมวดจนแพ็กหมดอายุ) หรือ{" "}
+        <strong className="text-[var(--foreground)]">ปฏิเสธ</strong> (ใส่เหตุผลในหมายเหตุ ลูกค้าจะเห็น)
+        · เลขบัญชีและขั้นตอนการโอนแก้ได้ที่{" "}
+        <Link href="/admin/packages" className="text-[var(--primary)] underline">
+          แพ็กเกจและคำถาม → ขั้นตอนการโอน / ซื้อ
         </Link>
+        {" "}· Super Admin ตรวจคำขอของตัวเองได้ (บันทึกในประวัติ)
       </InfoBox>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
@@ -288,11 +297,10 @@ export function PaymentsPanel() {
                       : "gold"
                   }
                 >
-                  {p.packageCode === "CREDIT_TOPUP" || p.packageCode === "TOPUP"
-                    ? "เติม usage"
-                    : p.packageCode === "PRO"
-                      ? "Pro"
-                      : (p.packageCode ?? "—")}
+                  {(p.packageCode && packageNames[p.packageCode]) ??
+                    (p.packageCode === "CREDIT_TOPUP" || p.packageCode === "TOPUP"
+                      ? "เติม usage"
+                      : (p.packageCode ?? "—"))}
                 </Badge>
               </Td>
               <Td className="text-sm font-medium">฿{p.amount}</Td>
