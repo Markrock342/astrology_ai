@@ -535,12 +535,14 @@ export function UserDetailManager({
                 value={activeSub?.package.name ?? "Free (ไม่มี subscription)"}
               />
               <Row
-                label="สิทธิ์ที่ระบบให้จริง"
+                // Every pack (Lite, Plus…) opens every category; this is that
+                // access, not the package — "PRO" next to "Plus" read as a mistake.
+                label="หมวดที่ใช้ได้ตอนนี้"
                 value={
                   user.effectivePlan === "PRO" ? (
-                    <b className="text-[var(--primary)]">PRO</b>
+                    <b className="text-[var(--secondary-active)]">ทุกหมวด</b>
                   ) : (
-                    <b className="text-[var(--danger)]">FREE</b>
+                    <b className="text-[var(--muted)]">เฉพาะหมวดฟรี (ตัวตน · การงาน)</b>
                   )
                 }
               />
