@@ -296,7 +296,7 @@ export function AccountView({
                 <h3 className="text-sm font-semibold text-[var(--foreground)]">ขั้นตอนอัปเกรดเป็น Pro</h3>
                 <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm leading-6 text-[var(--muted)]">
                   {proPkg.upgradeSteps.map((step) => (
-                    <li key={step}>{step}</li>
+                    <li key={step} className="whitespace-pre-line">{step}</li>
                   ))}
                 </ol>
               </div>

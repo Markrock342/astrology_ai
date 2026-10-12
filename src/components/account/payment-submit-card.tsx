@@ -359,7 +359,7 @@ export function PaymentSubmitCard({
           {!isTopUp && displaySteps.length > 0 ? (
             <ol className="mt-4 list-decimal space-y-1.5 pl-5 text-xs leading-5 text-[var(--muted)]">
               {displaySteps.map((step, i) => (
-                <li key={i}>{step}</li>
+                <li key={i} className="whitespace-pre-line">{step}</li>
               ))}
             </ol>
           ) : null}

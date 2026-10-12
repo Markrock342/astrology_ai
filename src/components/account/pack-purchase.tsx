@@ -76,7 +76,9 @@ export function PackPurchase({ packs, paymentInfo }: { packs: PurchasablePack[];
       </div>
       <ol className="mt-4 list-decimal space-y-1.5 pl-5 text-sm leading-6 text-[var(--muted)]">
         {(picked.upgradeSteps.length ? picked.upgradeSteps : DEFAULT_PACK_STEPS).map((step) => (
-          <li key={step}>{step}</li>
+          <li key={step} className="whitespace-pre-line">
+            {step}
+          </li>
         ))}
       </ol>
       <PaymentSubmitCard

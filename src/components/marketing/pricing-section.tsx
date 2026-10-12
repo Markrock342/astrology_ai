@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CmsLandingPricingSection } from "@/lib/cms-keys";
 import { SectionHeader } from "@/components/marketing/section-header";
+import { DEFAULT_PACK_STEPS } from "@/lib/pack-expiry";
 
 export type MarketingPackage = {
   code: string;
@@ -187,14 +188,15 @@ export function PricingSection({
                     {pkg.name.includes(String(pkg.questions)) ? null : (
                       <p className="text-sm text-[var(--foreground)]">
                         <span className="text-xl font-semibold tabular-nums">{pkg.questions.toLocaleString("th-TH")}</span>{" "}
-                        คำถาม{isFreeTrial ? " ทดลองฟรี" : ""}
+                        คำถาม
                       </p>
                     )}
+                    {/* A's wording (12 Oct 2026); how long a pack lasts goes in its features. */}
                     <p className="mt-0.5 text-xs text-[var(--muted-2)]">
                       {pkg.questionPack
-                        ? `ตกคำถามละ ฿${perQuestion(pkg)} · ${pkg.expiryLabel ?? "ไม่มีวันหมดอายุ"}`
+                        ? `เฉลี่ยคำถามละ ${perQuestion(pkg)} บาท`
                         : isFreeTrial
-                          ? "หลังสมัครและยืนยันอีเมล"
+                          ? "หลังจากสมัครสมาชิกใหม่และยืนยันอีเมลแล้ว"
                           : "ต่อรอบแพ็กเกจ"}
                     </p>
                   </div>
@@ -203,10 +205,27 @@ export function PricingSection({
                   {features.map((f) => (
                     <li key={f} className="flex items-start gap-2">
                       <CheckIcon />
-                      <span>{f}</span>
+                      <span className="whitespace-pre-line">{f}</span>
                     </li>
                   ))}
                 </ul>
+                {/* Each pack's own purchase steps, in its card — most people never
+                    scrolled down to the one shared list (A, 12 Oct 2026). */}
+                {pkg.questionPack && !compact ? (
+                  <div className="mt-5 border-t border-[var(--border)] pt-4">
+                    <p className="text-xs font-semibold text-[var(--foreground)]">วิธีซื้อแพ็กนี้</p>
+                    <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-5 text-[var(--muted)]">
+                      {(pkg.upgradeSteps.filter((step) => step.trim()).length
+                        ? pkg.upgradeSteps.filter((step) => step.trim())
+                        : DEFAULT_PACK_STEPS
+                      ).map((step, i) => (
+                        <li key={i} className="whitespace-pre-line break-words pl-1">
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
                 {(() => {
                   const action = planAction(pkg, viewer, paymentHref);
                   if (!action) return null;
