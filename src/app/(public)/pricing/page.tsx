@@ -13,7 +13,6 @@ import {
 } from "@/lib/cms-keys";
 import { isPaymentInfoConfigured, paymentUnavailableNote } from "@/lib/payment-info";
 import { metadataFromSeo } from "@/lib/seo";
-import { DEFAULT_PACK_STEPS } from "@/lib/pack-expiry";
 import { listPublicPackages } from "@/server/admin/catalog-admin-service";
 import { isPreviewMode } from "@/server/cms/preview-mode";
 import {
@@ -70,7 +69,9 @@ export default async function PricingPage() {
   // come from the first one and the price is the one picked above.
   const packs = packages.filter((p) => p.questionPack);
   const ownSteps = ((packs[0] ?? proPkg)?.upgradeSteps ?? []).filter((s) => s.trim());
-  const upgradeSteps = packs.length > 0 && ownSteps.length === 0 ? DEFAULT_PACK_STEPS : ownSteps;
+  // With packs, each card carries its own steps; the shared list only served
+  // the monthly plan and repeated one pack's steps for all of them.
+  const upgradeSteps = packs.length > 0 ? [] : ownSteps;
   const hasPaymentDetails = paymentConfigured || upgradeSteps.length > 0;
 
   return (
@@ -105,7 +106,8 @@ export default async function PricingPage() {
           </h2>
           {packs.length > 0 ? (
             <p className="mt-3 text-sm text-[var(--muted)]">
-              โอนตามราคาแพ็กที่เลือกด้านบน แล้วส่งสลิปในหน้าบัญชี — คำถามบวกเพิ่มจากที่เหลือ
+              ขั้นตอนการซื้ออยู่ในการ์ดของแต่ละแพ็กด้านบน — โอนตามราคาแพ็กที่เลือก แล้วส่งสลิปในหน้าบัญชี
+              คำถามบวกเพิ่มจากที่เหลือ
             </p>
           ) : proPkg ? (
             <p className="mt-3 flex flex-wrap items-baseline gap-x-2">
@@ -155,7 +157,7 @@ export default async function PricingPage() {
               <p className="text-sm font-medium text-[var(--foreground)]">{packs.length > 0 ? "ขั้นตอนการซื้อ" : "ขั้นตอนอัปเกรด"}</p>
               <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-[var(--muted)]">
                 {upgradeSteps.map((step, i) => (
-                  <li key={i}>
+                  <li key={i} className="whitespace-pre-line">
                     <SimpleMarkdown text={step} />
                   </li>
                 ))}

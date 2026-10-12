@@ -18,6 +18,7 @@ import {
   IconTile,
 } from "../admin/ui";
 import { Archive, CalendarClock, Gift, Package } from "lucide-react";
+import { itemsToLines, linesToItems, onStepKeyDown } from "@/lib/step-lines";
 import {
   questionsToUnits,
   typicalQuestionThb,
@@ -113,12 +114,6 @@ const EMPTY_FORM: FormState = {
   expiresOn: "",
 };
 
-function linesToArray(text: string): string[] {
-  return text
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 export function PackagesManager({
   initialPackages,
@@ -214,8 +209,8 @@ export function PackagesManager({
       monthlyLimit: pkg.monthlyLimit == null ? "" : String(pkg.monthlyLimit),
       enabled: pkg.enabled,
       description: pkg.description ?? "",
-      featuresText: (pkg.features ?? []).join("\n"),
-      upgradeStepsText: (pkg.upgradeSteps ?? []).join("\n"),
+      featuresText: itemsToLines(pkg.features ?? []),
+      upgradeStepsText: itemsToLines(pkg.upgradeSteps ?? []),
       questionPack: Boolean(pkg.questionPack),
       expiryMode: pkg.expiryMode ?? "DEFAULT",
       expiryDays: pkg.expiryDays ? String(pkg.expiryDays) : "30",
@@ -241,8 +236,8 @@ export function PackagesManager({
       monthlyLimit: null,
       enabled: form.enabled,
       description: form.description || undefined,
-      features: linesToArray(form.featuresText),
-      upgradeSteps: linesToArray(form.upgradeStepsText),
+      features: linesToItems(form.featuresText),
+      upgradeSteps: linesToItems(form.upgradeStepsText),
       ...(form.code === "FREE" || form.type === "FREE"
         ? {}
         : {
@@ -472,24 +467,26 @@ export function PackagesManager({
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             <Field
               label="รายการคุณสมบัติ (แสดงในการ์ด)"
-              hint="หนึ่งบรรทัดต่อหนึ่ง bullet"
+              hint="Enter = bullet ใหม่ · Shift+Enter = ขึ้นบรรทัดใหม่ในข้อเดิม"
             >
               <TextArea
                 rows={5}
                 value={form.featuresText}
                 onChange={(e) => setForm({ ...form, featuresText: e.target.value })}
+                onKeyDown={(e) => onStepKeyDown(e, (v) => setForm((f) => ({ ...f, featuresText: v })))}
               />
             </Field>
             <Field
               label="ขั้นตอนการโอน / ซื้อ"
-              hint="หนึ่งบรรทัดต่อหนึ่งขั้นตอน — แสดงเหนือฟอร์มส่งสลิป"
+              hint="Enter = ข้อใหม่ (มีเลขข้อ) · Shift+Enter = ขึ้นบรรทัดใหม่ในข้อเดิม (ไม่มีเลข) — แสดงในการ์ดแพ็กหน้าราคา และเหนือฟอร์มส่งสลิป"
             >
               <TextArea
-                rows={5}
+                rows={8}
                 value={form.upgradeStepsText}
                 onChange={(e) =>
                   setForm({ ...form, upgradeStepsText: e.target.value })
                 }
+                onKeyDown={(e) => onStepKeyDown(e, (v) => setForm((f) => ({ ...f, upgradeStepsText: v })))}
               />
             </Field>
           </div>

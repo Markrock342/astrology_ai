@@ -487,8 +487,9 @@ export const CMS_DEFAULTS: Record<CmsKey, unknown> = {
     ],
   } satisfies CmsLandingHowItWorks,
   [CMS_KEYS.landingPricingSection]: {
-    title: "เลือกแพ็กเกจ",
-    subtitle: "เริ่มฟรี อัปเกรดเมื่อต้องการถามครบทุกหมวด",
+    title: "เลือกแพ็กเกจที่เหมาะกับคุณ",
+    subtitle:
+      "เปิดดวงชะตาฟรีทันทีที่สมัคร! และเมื่อพร้อมเจาะลึกทุกข้อสงสัย เลือกแพ็กเกจเพื่อพูดคุย ปรึกษา และรับคำทำนายแบบส่วนตัว เพื่อเป็นแนวทางในการตัดสินใจของคุณได้ตลอด 24 ชั่วโมง",
     enabled: true,
   } satisfies CmsLandingPricingSection,
   [CMS_KEYS.landingTestimonials]: {
