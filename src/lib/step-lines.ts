@@ -30,9 +30,12 @@ export function onStepKeyDown(
   if (e.key !== "Enter" || !e.shiftKey || e.nativeEvent.isComposing) return;
   e.preventDefault();
   const el = e.currentTarget;
+  // Let the browser insert it: the caret stays put (typing right after it
+  // used to land at the end of the text) and Ctrl+Z still undoes it. The
+  // input event it fires reaches the textarea's onChange.
+  if (typeof document !== "undefined" && document.execCommand?.("insertText", false, `\n${CONTINUATION}`)) return;
   const { selectionStart: start, selectionEnd: end, value } = el;
-  const next = `${value.slice(0, start)}\n${CONTINUATION}${value.slice(end)}`;
-  setValue(next);
+  setValue(`${value.slice(0, start)}\n${CONTINUATION}${value.slice(end)}`);
   const caret = start + 1 + CONTINUATION.length;
   requestAnimationFrame(() => el.setSelectionRange(caret, caret));
 }

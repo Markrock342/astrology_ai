@@ -488,6 +488,19 @@ export function PackagesManager({
                 }
                 onKeyDown={(e) => onStepKeyDown(e, (v) => setForm((f) => ({ ...f, upgradeStepsText: v })))}
               />
+              {/* What customers will see, as they will see it. */}
+              {linesToItems(form.upgradeStepsText).length ? (
+                <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)]/50 px-3 py-2">
+                  <p className="text-[10px] font-medium text-[var(--muted-2)]">ลูกค้าจะเห็นแบบนี้</p>
+                  <ol className="mt-1 list-decimal space-y-1 pl-4 text-xs leading-5 text-[var(--muted)]">
+                    {linesToItems(form.upgradeStepsText).map((step, i) => (
+                      <li key={i} className="whitespace-pre-line pl-1">
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ) : null}
             </Field>
           </div>
           <div className="mt-4 flex items-center gap-3">
