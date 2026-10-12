@@ -72,7 +72,11 @@ export default async function PricingPage() {
   // With packs, each card carries its own steps; the shared list only served
   // the monthly plan and repeated one pack's steps for all of them.
   const upgradeSteps = packs.length > 0 ? [] : ownSteps;
-  const hasPaymentDetails = paymentConfigured || upgradeSteps.length > 0;
+  // Packs carry their transfer details in their own steps (shown in each card).
+  const hasPaymentDetails =
+    paymentConfigured ||
+    upgradeSteps.length > 0 ||
+    packs.some((p) => p.upgradeSteps.some((step) => step.trim()));
 
   return (
     <main className="flex flex-1 flex-col">
