@@ -347,6 +347,8 @@ export type UsageBudgetSnapshot = {
   periodEndsAt: Date | null;
   /** When bought questions end; null = never (or none bought). */
   purchasedExpiresAt: Date | null;
+  includedBalanceUnits: number;
+  purchasedBalanceUnits: number;
 };
 
 export async function getUsageBudgetSnapshot(
@@ -367,6 +369,8 @@ export async function getUsageBudgetSnapshot(
       periodStartedAt: null,
       periodEndsAt: null,
       purchasedExpiresAt: null,
+      includedBalanceUnits: 0,
+      purchasedBalanceUnits: 0,
     };
   }
   // The package allowance is always the 100% denominator. Purchased units are
@@ -403,5 +407,7 @@ export async function getUsageBudgetSnapshot(
     periodStartedAt: wallet.periodStartedAt,
     periodEndsAt: wallet.periodEndsAt,
     purchasedExpiresAt: wallet.purchasedBalanceUnits > 0 ? wallet.purchasedExpiresAt : null,
+    includedBalanceUnits: wallet.includedBalanceUnits,
+    purchasedBalanceUnits: wallet.purchasedBalanceUnits,
   };
 }

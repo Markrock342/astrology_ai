@@ -113,7 +113,7 @@ export async function listUsers(args: ListUsersArgs) {
           where: { status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
           orderBy: [{ package: { type: "desc" } }, { createdAt: "desc" }],
           take: 1,
-          select: { package: { select: { code: true, type: true } }, expiresAt: true },
+          select: { package: { select: { code: true, type: true, name: true } }, expiresAt: true },
         },
   } satisfies Prisma.UserSelect;
   const skip = (args.page - 1) * args.pageSize;
@@ -247,13 +247,17 @@ export async function getUserDetail(userId: string) {
       package?: { code?: string };
       packageCode?: string;
       expiresAt?: string | null;
+      /** A question pack given by hand: how many, and until when. */
+      questionsAdded?: number;
+      questionsEnd?: string | null;
     };
     return {
       action: e.action,
       at: e.createdAt,
       by: e.admin.name ?? e.admin.email,
       packageCode: after.package?.code ?? after.packageCode ?? null,
-      expiresAt: after.expiresAt ?? null,
+      expiresAt: after.expiresAt ?? after.questionsEnd ?? null,
+      questionsAdded: after.questionsAdded ?? null,
     };
   });
   const lastActiveAt =

@@ -36,7 +36,7 @@ type UserRow = {
     purchasedBalanceUnits: number;
   } | null;
   subscriptions: Array<{
-    package: { code: string; type: string };
+    package: { code: string; type: string; name?: string };
     expiresAt: string | null;
   }>;
 };
@@ -245,7 +245,7 @@ export function UsersManager({
                     </Badge>
                   </Td>
                   <Td>
-                    <Badge tone={plan === "PRO" ? "gold" : "muted"}>{plan}</Badge>
+                    <Badge tone={plan === "PRO" ? "gold" : "muted"}>{sub?.package.name ?? plan}</Badge>
                   </Td>
                   <Td>
                     {u.usageWallet
