@@ -9,7 +9,6 @@ import { addCredits } from "@/server/credit/credit-service";
 import {
   addPurchasedUsage,
   availableUsagePercent,
-  deductUsageCost,
   grantIncludedUsage,
   lapseExpiredIncludedUsage,
 } from "@/server/usage/usage-budget-service";
@@ -113,7 +112,7 @@ export async function listUsers(args: ListUsersArgs) {
           where: { status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
           orderBy: [{ package: { type: "desc" } }, { createdAt: "desc" }],
           take: 1,
-          select: { package: { select: { code: true, type: true, name: true } }, expiresAt: true },
+          select: { package: { select: { code: true, type: true, name: true, questionPack: true } }, startsAt: true, expiresAt: true },
         },
   } satisfies Prisma.UserSelect;
   const skip = (args.page - 1) * args.pageSize;
@@ -298,6 +297,15 @@ export async function getUserDetail(userId: string) {
     // (any ACTIVE, unexpired subscription on a PRO-type package). The row
     // label alone could read "Pro" while the package itself was FREE-typed.
     effectivePlan: await getEffectivePlan(userId),
+    // The categories Free can ask about — the team edits them (Admin →
+    // หมวดดูดวง); the page named two that no longer exist (A, 12 Oct 2026).
+    freeCategoryNames: (
+      await prisma.horoscopeCategory.findMany({
+        where: { enabled: true, accessLevel: "FREE" },
+        orderBy: { sortOrder: "asc" },
+        select: { nameTh: true },
+      })
+    ).map((c) => c.nameTh),
   };
 }
 
@@ -517,27 +525,62 @@ export async function adminResetUsageQuota(userId: string, actor: Actor) {
  */
 export async function adjustUserCredits(
   userId: string,
-  input: { amount: number; type: CreditTxnType; note?: string },
+  input: { amount: number; type: CreditTxnType | "SET"; note?: string },
   actor: Actor,
 ) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
-  const amountUnits = questionsToUnits(input.amount);
-  if (amountUnits <= 0) throw new AppError("VALIDATION", "จำนวนคำถามต้องมากกว่า 0");
+  if (input.type !== "SET" && input.amount <= 0) throw new AppError("VALIDATION", "จำนวนคำถามต้องมากกว่า 0");
 
   return prisma.$transaction(async (tx) => {
     const wallet = await lockUsageWalletForUpdate(userId, tx);
+    const have = wallet.includedBalanceUnits + wallet.purchasedBalanceUnits;
+    // SET: "ตั้งยอดคงเหลือเป็น N" — what the team reaches for after giving a
+    // pack twice (A, 12 Oct 2026); worked out as an add or a take.
+    const delta =
+      input.type === "SET"
+        ? questionsToUnits(input.amount) - have
+        : input.type === "ADMIN_DEDUCT"
+          ? -questionsToUnits(input.amount)
+          : questionsToUnits(input.amount);
+    const ledgerType: CreditTxnType = delta >= 0 ? (input.type === "SET" ? "ADMIN_ADD" : (input.type as CreditTxnType)) : "ADMIN_DEDUCT";
     const ref = {
-      type: input.type,
-      note: input.note,
+      type: ledgerType,
+      note: input.note ?? (input.type === "SET" ? `ตั้งยอดคงเหลือเป็น ${input.amount} คำถาม` : undefined),
       createdByAdminId: actor.id,
       referenceType: "admin",
       referenceId: `${actor.id}:${Date.now()}`,
     };
-    if (input.type === "ADMIN_DEDUCT") {
-      await deductUsageCost(userId, amountUnits, ref, tx);
-    } else {
-      await addPurchasedUsage(userId, amountUnits, ref, tx);
+    if (delta > 0) {
+      await addPurchasedUsage(userId, delta, ref, tx);
+    } else if (delta < 0) {
+      // Taking back: what was bought or given goes first, then the package
+      // round — the reverse of spending, which is what a mistaken grant needs.
+      const take = Math.min(-delta, have);
+      const fromPurchased = Math.min(take, wallet.purchasedBalanceUnits);
+      const fromIncluded = take - fromPurchased;
+      await tx.usageWallet.update({
+        where: { userId },
+        data: {
+          purchasedBalanceUnits: { decrement: fromPurchased },
+          includedBalanceUnits: { decrement: fromIncluded },
+          version: { increment: 1 },
+        },
+      });
+      if (take > 0) {
+        await tx.usageTransaction.create({
+          data: {
+            userId,
+            amountUnits: -take,
+            type: "ADMIN_DEDUCT",
+            bucket: fromPurchased > 0 && fromIncluded > 0 ? "MIXED" : fromPurchased > 0 ? "PURCHASED" : "INCLUDED",
+            referenceType: ref.referenceType,
+            referenceId: ref.referenceId,
+            note: ref.note,
+            createdByAdminId: actor.id,
+          },
+        });
+      }
     }
     const updated = await tx.usageWallet.findUniqueOrThrow({ where: { userId } });
     const remainingQuestions = unitsToQuestions(updated.includedBalanceUnits + updated.purchasedBalanceUnits);
@@ -547,7 +590,7 @@ export async function adjustUserCredits(
         action: "user.usage.adjust",
         entityType: "usage_wallet",
         entityId: userId,
-        before: { remainingQuestions: unitsToQuestions(wallet.includedBalanceUnits + wallet.purchasedBalanceUnits) },
+        before: { remainingQuestions: unitsToQuestions(have) },
         after: { amountQuestions: input.amount, type: input.type, note: input.note, remainingQuestions },
         ipAddress: actor.ip,
       },
@@ -596,7 +639,7 @@ export async function adminResetBirthEdits(userId: string, actor: Actor) {
 
 export async function setUserSubscription(
   userId: string,
-  input: { packageCode: string; expiresAt?: Date | null; grantCredits?: boolean },
+  input: { packageCode: string; expiresAt?: Date | null; grantCredits?: boolean; clearPurchased?: boolean },
   actor: Actor,
 ) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
@@ -611,6 +654,9 @@ export async function setUserSubscription(
   if (pkg.creditOnly) {
     throw new AppError("VALIDATION", "แพ็กเกจเติม usage ไม่ใช่แผนสมาชิก — ใช้การเติม usage แทน");
   }
+  // Free does not run out: a date on it only ended the row, and the page then
+  // read "Free ถึง 11 พ.ย." (A, 12 Oct 2026).
+  if (pkg.type === "FREE") input = { ...input, expiresAt: null };
   if (input.expiresAt && input.expiresAt.getTime() <= Date.now()) {
     throw new AppError("VALIDATION", "วันหมดอายุต้องเป็นวันในอนาคต (เว้นว่าง = ไม่มีวันหมดอายุ)");
   }
@@ -740,6 +786,31 @@ export async function setUserSubscription(
         const now = new Date();
         await tx.usageWallet.updateMany({ where: { userId }, data: { periodEndsAt: now } });
         await lapseExpiredIncludedUsage(userId, tx, now);
+      }
+    }
+
+    // Back to Free with "ล้างคำถามที่ซื้อ/ให้ไว้": bought or given questions go
+    // too. Without it they stayed — 80 questions on a Free account after a
+    // pack given twice by mistake.
+    if (pkg.type === "FREE" && input.clearPurchased) {
+      const w = await tx.usageWallet.findUnique({ where: { userId }, select: { purchasedBalanceUnits: true } });
+      if (w && w.purchasedBalanceUnits > 0) {
+        await tx.usageWallet.update({
+          where: { userId },
+          data: { purchasedBalanceUnits: 0, purchasedAllowanceUnits: 0, purchasedExpiresAt: null, version: { increment: 1 } },
+        });
+        await tx.usageTransaction.create({
+          data: {
+            userId,
+            amountUnits: -w.purchasedBalanceUnits,
+            type: "ADMIN_DEDUCT",
+            bucket: "PURCHASED",
+            referenceType: "admin_clear_purchased",
+            referenceId: `${actor.id}:${Date.now()}`,
+            note: "แอดมินเปลี่ยนเป็น Free และล้างคำถามที่ซื้อ/ให้ไว้",
+            createdByAdminId: actor.id,
+          },
+        });
       }
     }
 

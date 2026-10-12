@@ -224,16 +224,16 @@ const ERROR_MESSAGES: Record<string, string> = {
   // The team's wording (Sep 2026); the box adds the button to buy more.
   NO_QUOTA: "คำถามของคุณหมดแล้ว — ซื้อแพ็กคำถามเพื่อถามต่อได้ที่นี่",
   CATEGORY_LOCKED:
-    "หมวดนี้ใช้ได้ใน Pro — แพ็ก Free ใช้หมวด「ตัวตน」กับ「การงาน」ได้",
-  CHAT_REQUIRES_PRO: "ต้องอัปเกรดเป็น Pro ก่อนจึงจะสนทนากับ AI ได้",
+    "หมวดนี้ใช้ได้เมื่อซื้อแพ็กคำถาม — แพ็ก Free ถามได้เฉพาะหมวดฟรี",
+  CHAT_REQUIRES_PRO: "ซื้อแพ็กคำถามก่อนจึงจะสนทนากับ AI ได้",
   CHAT_REQUIRES_PRO_PENDING:
     "สลิปของคุณอยู่ระหว่างตรวจสอบ ปกติภายใน 1–2 วันทำการ — หลังอนุมัติจะแชทได้ทันที",
   TRANSIT_REQUIRES_PRO:
-    "ดวงจรใช้ได้ใน Pro — อัปเกรดแล้วเริ่มถามได้ทุกหมวด",
+    "ดวงจรใช้ได้เมื่อซื้อแพ็กคำถาม — ซื้อแล้วถามได้ทุกหมวด",
   FOLLOWUP_REQUIRES_PRO:
-    "ถามต่อในบทสนทนาเดิมสำหรับสมาชิก Pro — เริ่มคำถามใหม่ได้ตราบใดที่ยังมี usage",
+    "ถามต่อในบทสนทนาเดิมได้เมื่อซื้อแพ็กคำถาม — เริ่มคำถามใหม่ได้ตราบใดที่ยังมีคำถามเหลือ",
   EMAIL_NOT_VERIFIED:
-    "ยืนยันอีเมลก่อนใช้ usage ทดลอง — เช็กกล่องจดหมายของคุณได้เลย",
+    "ยืนยันอีเมลก่อนใช้คำถามทดลอง — เช็กกล่องจดหมายของคุณได้เลย",
   CHART_NOT_READY:
     "ยังคำนวณพื้นดวงไม่สำเร็จ กรุณาตรวจสอบข้อมูลวันเกิดแล้วลองใหม่",
   AI_TIMEOUT: "หมอดูใช้เวลานานเกินไป ลองถามใหม่อีกครั้ง (ไม่ถูกหัก usage)",
@@ -1317,7 +1317,7 @@ export function ChatView() {
     if (!isIntro && user?.needsEmailVerification && user?.plan !== "PRO") {
       setErrorCode("EMAIL_NOT_VERIFIED");
       setErrorText(
-        "ยืนยันอีเมลก่อนใช้ usage ทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน",
+        "ยืนยันอีเมลก่อนใช้คำถามทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน",
       );
       setState("error");
       setPendingRetry(null);
@@ -1338,7 +1338,7 @@ export function ChatView() {
         });
         setErrorCode("CATEGORY_LOCKED");
         setErrorText(
-          `หมวด「${lockedCat.label}」ใช้ได้ใน Pro — อัปเกรดเพื่อถามเรื่องนี้`,
+          `หมวด「${lockedCat.label}」ใช้ได้เมื่อซื้อแพ็กคำถาม — ซื้อแล้วถามเรื่องนี้ได้ทันที`,
         );
         setState("error");
         setPendingRetry(null);
@@ -2757,7 +2757,7 @@ function ErrorBanner({
               ? "ดูแพ็กเกจ / รอวันใหม่"
               : state === "no-quota"
                 ? "ซื้อแพ็กคำถาม"
-                : "อัปเกรดเป็น Pro"}
+                : "ซื้อแพ็กคำถาม"}
           </a>
         )}
         {showBirthProfile && (
@@ -2936,26 +2936,20 @@ function LockedState({ category }: { category?: string }) {
         </svg>
       </div>
       <p className="mb-2 rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-3 py-1 text-[11px] font-medium text-[var(--primary)]">
-        สิทธิ์แพ็กเกจ Pro
+        สำหรับแพ็กคำถาม
       </p>
       <h2 className="text-lg font-semibold text-[var(--foreground)]">
         หมวด{category ? `“${category}”` : "นี้"}ยังไม่รวมใน Free
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-        แพ็กทดลองใช้ได้หมวด「ตัวตน」กับ「การงาน」เท่านั้น · หมวดอื่นและโหมดดวงจรปลดล็อกเมื่ออัปเกรด Pro
+        แพ็ก Free ถามได้เฉพาะหมวดฟรี · หมวดอื่นและโหมดดวงจรเปิดเมื่อซื้อแพ็กคำถาม
       </p>
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
         <a
-          href="/dashboard?cat=self"
-          className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)]"
-        >
-          ไปหมวดตัวตน
-        </a>
-        <a
-          href="/account"
+          href="/account#payment"
           className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
         >
-          ดูแพ็กเกจ Pro
+          ซื้อแพ็กคำถาม
         </a>
       </div>
     </div>
@@ -3136,9 +3130,9 @@ const Composer = forwardRef<
   const placeholder = !aiEnabled
     ? "เปิดให้ใช้งานในเฟสถัดไป"
     : emailGate
-      ? "ยืนยันอีเมลก่อนใช้ usage ทดลอง"
+      ? "ยืนยันอีเมลก่อนใช้คำถามทดลอง"
       : categoryLocked
-        ? "หมวดนี้ใช้ได้ใน Pro — เลือกตัวตน/การงาน หรืออัปเกรด"
+        ? "หมวดนี้ใช้ได้เมื่อซื้อแพ็กคำถาม"
         : coarsePointer
           ? "สอบถามเราได้เลย…"
           : "สอบถามเราได้เลย — Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่";
@@ -3163,7 +3157,7 @@ const Composer = forwardRef<
       {emailGate ? (
         <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
           <span>
-            ยืนยันอีเมลก่อนใช้ usage ทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน
+            ยืนยันอีเมลก่อนใช้คำถามทดลอง — เช็กกล่องจดหมาย หรือกดส่งใหม่ที่แถบด้านบน
           </span>
         </div>
       ) : null}

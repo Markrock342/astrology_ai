@@ -13,6 +13,7 @@ vi.mock("@/server/db", () => ({
     message: { findFirst: mocks.lastMessage },
     horoscopeReading: { findFirst: mocks.lastReading },
     adminAuditLog: { findMany: mocks.auditLogs },
+    horoscopeCategory: { findMany: async () => [{ nameTh: "ดวงทั่วไป" }] },
   },
 }));
 vi.mock("@/server/account/usage-service", () => ({ getMyUsage: vi.fn(async () => null) }));

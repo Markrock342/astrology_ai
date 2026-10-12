@@ -25,7 +25,7 @@ export async function assertQuestionAllowedForPlan(input: {
 
   throw new AppError(
     "CATEGORY_LOCKED",
-    `หมวด「${locked.nameTh}」ใช้ได้ใน Pro — อัปเกรดเพื่อถามเรื่องนี้`,
+    `หมวด「${locked.nameTh}」ใช้ได้เมื่อซื้อแพ็กคำถาม — ซื้อแล้วถามเรื่องนี้ได้ทันที`,
     {
       targetSlug: locked.slug,
       targetLabel: locked.nameTh,

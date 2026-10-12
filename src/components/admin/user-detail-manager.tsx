@@ -39,6 +39,24 @@ type PlanOption = {
   expiresOn?: string | null;
 };
 
+/** The usage ledger's types in the team's words. */
+const LEDGER_TYPE_TH: Record<string, string> = {
+  AI_USAGE: "ถามดวง",
+  ADMIN_ADD: "แอดมินเพิ่ม",
+  ADMIN_DEDUCT: "แอดมินหัก",
+  INITIAL_GRANT: "คำถามทดลองตอนสมัคร",
+  PROMOTION: "โปรโมชัน",
+  PACKAGE_RENEWAL: "เริ่มรอบแพ็กเกจ",
+  TOP_UP: "ซื้อแพ็กคำถาม",
+  REFUND: "คืนคำถาม",
+  MIGRATION: "ย้ายจากระบบเดิม",
+};
+
+/** Minutes since a moment (event handlers only, never during render). */
+function minutesSince(iso: string): number {
+  return (Date.now() - new Date(iso).getTime()) / 60_000;
+}
+
 /** "Lite · แพ็กคำถาม 40 คำถาม · ฿50" — what the select shows. */
 function planOptionLabel(p: PlanOption): string {
   const q = unitsToQuestions(p.usageBudgetUnits);
@@ -118,6 +136,8 @@ type UserDetail = {
     activationSource?: string;
   }>;
   effectivePlan?: "FREE" | "PRO";
+  /** The categories Free can ask about (Admin → หมวดดูดวง). */
+  freeCategoryNames?: string[];
   planHistory?: Array<{
     action: string;
     at: string;
@@ -201,8 +221,11 @@ export function UserDetailManager({
   const [photoOpen, setPhotoOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [creditType, setCreditType] = useState<
-    "ADMIN_ADD" | "ADMIN_DEDUCT" | "PROMOTION" | "REFUND"
+    "ADMIN_ADD" | "ADMIN_DEDUCT" | "PROMOTION" | "REFUND" | "SET"
   >("ADMIN_ADD");
+  const [creditSaved, setCreditSaved] = useState<string | null>(null);
+  // Moving to Free: also remove bought/given questions (on unless turned off).
+  const [clearPurchased, setClearPurchased] = useState(true);
   const [packageCode, setPackageCode] = useState("PRO");
   // The packages the team made (Admin → แพ็กเกจ): the form used to offer only
   // Free and Pro, so a Lite or Plus could not be given by hand (A, 12 Oct 2026).
@@ -317,9 +340,14 @@ export function UserDetailManager({
   }
 
   async function adjustCredits(type: typeof creditType) {
+    const have = user?.usage?.remainingQuestions ?? 0;
+    const after =
+      type === "SET" ? creditAmount : type === "ADMIN_DEDUCT" ? Math.max(0, have - creditAmount) : have + creditAmount;
+    if (!window.confirm(`คำถามคงเหลือ ${have} → ${after} คำถาม ยืนยัน?`)) return;
     setBusy(true);
+    setCreditSaved(null);
     try {
-      await adminFetch(`/api/admin/users/${userId}/credits`, {
+      await adminFetch<{ remainingQuestions?: number }>(`/api/admin/users/${userId}/credits`, {
         method: "POST",
         body: JSON.stringify({
           amount: creditAmount,
@@ -329,8 +357,9 @@ export function UserDetailManager({
       });
       setCreditNote("");
       await load();
+      setCreditSaved(`บันทึกแล้ว — คำถามคงเหลือ ${after} คำถาม`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "ปรับ usage ไม่สำเร็จ");
+      setError(e instanceof Error ? e.message : "ปรับคำถามไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -339,7 +368,19 @@ export function UserDetailManager({
   async function setSubscription() {
     if (givingPack && chosen) {
       const q = unitsToQuestions(chosen.usageBudgetUnits);
-      if (!window.confirm(`ให้แพ็ก ${chosen.name} (+${q} คำถาม) กับผู้ใช้นี้? คำถามจะบวกเพิ่มจากที่เหลือ`)) return;
+      const have = user?.usage?.remainingQuestions ?? 0;
+      // Given twice by mistake (A, 12 Oct 2026): the second press added again.
+      const recent = user?.planHistory?.find(
+        (e) => e.questionsAdded && e.packageCode === chosen.code && minutesSince(e.at) < 30,
+      );
+      if (
+        recent &&
+        !window.confirm(
+          `เพิ่งให้แพ็ก ${chosen.name} กับผู้ใช้นี้ไปเมื่อ ${Math.max(1, Math.round(minutesSince(recent.at)))} นาทีที่แล้ว — ให้ซ้ำอีกครั้งจริงไหม?`,
+        )
+      )
+        return;
+      if (!window.confirm(`ให้แพ็ก ${chosen.name} (+${q} คำถาม)?\nคำถามคงเหลือ ${have} → ${have + q} คำถาม`)) return;
       setBusy(true);
       setSaved(null);
       try {
@@ -357,17 +398,24 @@ export function UserDetailManager({
       }
       return;
     }
-    if (expiryMode === "date" && !expiresAt) {
+    const toFree = chosen ? chosen.type === "FREE" : packageCode === "FREE";
+    if (!toFree && expiryMode === "date" && !expiresAt) {
       setError("เลือกวันหมดอายุ หรือเลือก «ไม่มีวันหมดอายุ»");
       return;
     }
+    const purchased = user?.usage?.purchasedQuestions ?? 0;
+    if (toFree && !window.confirm(
+      clearPurchased && purchased > 0
+        ? `เปลี่ยนเป็น Free และลบคำถามที่ซื้อ/ให้ไว้ ${purchased} คำถาม?`
+        : "เปลี่ยนเป็น Free? (ทุกหมวดจะปิด เหลือเฉพาะหมวดฟรี)",
+    )) return;
     setBusy(true);
     setSaved(null);
     try {
-      const until = subscriptionExpiryPayload(expiryMode, expiresAt);
+      const until = toFree ? null : subscriptionExpiryPayload(expiryMode, expiresAt);
       const res = await adminFetch<{ effectivePlan?: "FREE" | "PRO" }>(`/api/admin/users/${userId}/subscription`, {
         method: "PATCH",
-        body: JSON.stringify({ packageCode, expiresAt: until, grantCredits }),
+        body: JSON.stringify({ packageCode, expiresAt: until, grantCredits: toFree ? false : grantCredits, clearPurchased: toFree && clearPurchased }),
       });
       await load();
       if (res?.effectivePlan && res.effectivePlan !== (packageCode === "FREE" ? "FREE" : "PRO")) {
@@ -375,10 +423,13 @@ export function UserDetailManager({
         return;
       }
       setError(null);
+      const name = chosen?.name ?? packageCode;
       setSaved(
-        expiryMode === "forever"
-          ? `บันทึกแล้ว — ${packageCode} ไม่มีวันหมดอายุ`
-          : `บันทึกแล้ว — ${packageCode} ถึง ${thaiDay(expiresAt)}`,
+        toFree
+          ? `บันทึกแล้ว — ${name}`
+          : expiryMode === "forever"
+            ? `บันทึกแล้ว — ${name} ไม่มีวันหมดอายุ`
+            : `บันทึกแล้ว — ${name} ถึง ${thaiDay(expiresAt)}`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "ตั้งแพ็กเกจไม่สำเร็จ");
@@ -542,7 +593,9 @@ export function UserDetailManager({
                   user.effectivePlan === "PRO" ? (
                     <b className="text-[var(--secondary-active)]">ทุกหมวด</b>
                   ) : (
-                    <b className="text-[var(--muted)]">เฉพาะหมวดฟรี (ตัวตน · การงาน)</b>
+                    <b className="text-[var(--muted)]">
+                      เฉพาะหมวดฟรี{user.freeCategoryNames?.length ? ` (${user.freeCategoryNames.join(" · ")})` : ""}
+                    </b>
                   )
                 }
               />
@@ -610,7 +663,7 @@ export function UserDetailManager({
                 {user.status === "ACTIVE" ? "ระงับบัญชี" : "เปิดใช้งาน"}
               </Button>
               <Button variant="ghost" onClick={resetUsageQuota} disabled={busy}>
-                รีเซ็ตคำถามรอบนี้ให้เต็ม
+                เติมคำถาม Free / รอบแพ็กเกจให้เต็ม
               </Button>
               {user.birthProfile ? (
                 <Button variant="ghost" onClick={resetBirthEdits} disabled={busy}>
@@ -691,6 +744,15 @@ export function UserDetailManager({
                   )}
                   <span className="block text-[11px] text-[var(--muted-2)]">เหมือนลูกค้าซื้อเอง แต่ไม่ต้องมีสลิป — ใช้คืนเงิน ชดเชย หรือขายนอกระบบ</span>
                 </div>
+              ) : chosen?.type === "FREE" || (!chosen && packageCode === "FREE") ? (
+                <div className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs leading-5 text-[var(--muted)]">
+                  Free ไม่มีวันหมดอายุ · ถามได้เฉพาะหมวดฟรี
+                  {(user.usage?.purchasedQuestions ?? 0) > 0 ? (
+                    <span className="block text-[11px] text-[var(--muted-2)]">
+                      มีคำถามที่ซื้อ/ให้ไว้ {user.usage?.purchasedQuestions} คำถาม — เลือกด้านล่างว่าจะลบด้วยไหม
+                    </span>
+                  ) : null}
+                </div>
               ) : (
               <Field label="อายุแพ็กเกจ">
                 <Select
@@ -705,7 +767,7 @@ export function UserDetailManager({
               </Field>
               )}
             </div>
-            {!givingPack && expiryMode === "date" ? (
+            {!givingPack && chosen?.type !== "FREE" && packageCode !== "FREE" && expiryMode === "date" ? (
               <div className="mt-3 sm:max-w-[calc(50%-0.375rem)]">
                 <Field label="วันหมดอายุ" hint="หมดอายุตอนสิ้นวันนั้น (เวลาไทย)">
                   <TextInput
@@ -718,12 +780,25 @@ export function UserDetailManager({
             ) : null}
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               {givingPack ? (
-                <span />
+                <span className="text-[11px] text-[var(--muted-2)]">
+                  ให้เกินหรือผิด? ลดได้ที่การ์ด «เพิ่ม / หักคำถาม» → ตั้งยอดคงเหลือเป็น
+                </span>
+              ) : chosen?.type === "FREE" || (!chosen && packageCode === "FREE") ? (
+                (user.usage?.purchasedQuestions ?? 0) > 0 ? (
+                  <Toggle
+                    checked={clearPurchased}
+                    onChange={setClearPurchased}
+                    label={`ลบคำถามที่ซื้อ/ให้ไว้ ${user.usage?.purchasedQuestions ?? 0} คำถามด้วย (ปิด = ลูกค้าเก็บคำถามไว้ แต่ถามได้เฉพาะหมวดฟรี)`}
+                  />
+                ) : (
+                  <span />
+                )
               ) : (
+                // Only the old monthly Pro has a round to refill.
                 <Toggle
                   checked={grantCredits}
                   onChange={setGrantCredits}
-                  label="รีเซ็ตคำถามเป็นเต็มตามแพ็กเกจ — เปลี่ยนเป็น Pro ใหม่ ระบบเติมให้เองแม้ไม่ติ๊ก · ไม่ติ๊ก + แพ็กเกจเดิม = คำถามคงเดิม"
+                  label={`เติมคำถามให้เต็มรอบ (${chosen ? unitsToQuestions(chosen.usageBudgetUnits) : "—"} คำถาม) — ไม่เปิด = คำถามคงเดิม`}
                 />
               )}
               <Button onClick={setSubscription} disabled={busy}>
@@ -747,11 +822,11 @@ export function UserDetailManager({
                       {e.action === "user.subscription.self_cancel"
                         ? <>ผู้ใช้<b className="text-[var(--danger)]">ยกเลิก Pro เอง</b></>
                         : e.action === "payment.approve"
-                          ? <>อนุมัติสลิป {e.packageCode ?? ""} โดย {e.by}</>
+                          ? <>อนุมัติสลิป {packages.find((p) => p.code === e.packageCode)?.name ?? e.packageCode ?? ""} โดย {e.by}</>
                           : e.questionsAdded
-                            ? <>ให้แพ็ก <b className="text-[var(--foreground)]">{e.packageCode ?? "?"}</b> +{e.questionsAdded} คำถาม{" "}
+                            ? <>ให้แพ็ก <b className="text-[var(--foreground)]">{packages.find((p) => p.code === e.packageCode)?.name ?? e.packageCode ?? "?"}</b> +{e.questionsAdded} คำถาม{" "}
                                 {e.expiresAt ? `ใช้ได้ถึง ${thaiDay(e.expiresAt)}` : "ไม่มีวันหมดอายุ"} โดย {e.by}</>
-                            : <>ตั้งเป็น <b className="text-[var(--foreground)]">{e.packageCode ?? "?"}</b>{" "}
+                            : <>ตั้งเป็น <b className="text-[var(--foreground)]">{packages.find((p) => p.code === e.packageCode)?.name ?? e.packageCode ?? "?"}</b>{" "}
                               {e.expiresAt ? `ถึง ${thaiDay(e.expiresAt)}` : "ไม่มีวันหมดอายุ"} โดย {e.by}</>}
                     </li>
                   ))}
@@ -863,6 +938,9 @@ export function UserDetailManager({
           <Card className="lg:col-span-2">
             <h2 className="flex items-center gap-2.5 text-sm font-semibold">
 <IconTile icon={MessagesSquare} tone="blue" size="sm" />เพิ่ม / หักคำถาม</h2>
+            <p className="mt-1 text-xs text-[var(--muted-2)]">
+              คงเหลือตอนนี้ {user.usage?.remainingQuestions ?? 0} คำถาม · หักจะลดคำถามที่ซื้อ/ให้ไว้ก่อน แล้วจึงลดคำถาม Free
+            </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
               <Field label="ประเภท">
                 <Select
@@ -871,16 +949,17 @@ export function UserDetailManager({
                     setCreditType(e.target.value as typeof creditType)
                   }
                 >
-                  <option value="ADMIN_ADD">เพิ่ม (Admin)</option>
-                  <option value="PROMOTION">โปรโมชัน</option>
-                  <option value="REFUND">คืน usage</option>
-                  <option value="ADMIN_DEDUCT">หัก (Admin)</option>
+                  <option value="ADMIN_ADD">เพิ่ม</option>
+                  <option value="ADMIN_DEDUCT">หัก</option>
+                  <option value="SET">ตั้งยอดคงเหลือเป็น</option>
+                  <option value="PROMOTION">เพิ่ม (โปรโมชัน)</option>
+                  <option value="REFUND">เพิ่ม (คืนคำถาม)</option>
                 </Select>
               </Field>
               <Field label="จำนวน (คำถาม)">
                 <TextInput
                   type="number"
-                  min={1}
+                  min={creditType === "SET" ? 0 : 1}
                   value={creditAmount}
                   onChange={(e) => setCreditAmount(Number(e.target.value))}
                 />
@@ -898,10 +977,15 @@ export function UserDetailManager({
                   onClick={() => adjustCredits(creditType)}
                   disabled={busy}
                 >
-                  {creditType === "ADMIN_DEDUCT" ? "หักคำถาม" : "เพิ่มคำถาม"}
+                  {creditType === "ADMIN_DEDUCT" ? "หักคำถาม" : creditType === "SET" ? "ตั้งยอด" : "เพิ่มคำถาม"}
                 </Button>
               </div>
             </div>
+            {creditSaved ? (
+              <p role="status" className="mt-3 text-xs text-[var(--primary)]">
+                {creditSaved}
+              </p>
+            ) : null}
           </Card>
 
           <Card className="lg:col-span-2">
@@ -917,7 +1001,7 @@ export function UserDetailManager({
                   className="flex justify-between border-b border-[var(--border)]/50 py-2 text-xs"
                 >
                   <span className="text-[var(--muted)]">
-                    {tx.type}
+                    {LEDGER_TYPE_TH[tx.type] ?? tx.type}
                     {tx.note ? ` · ${tx.note}` : ""}
                   </span>
                   <span className={tx.amountPercent >= 0 ? "text-[var(--secondary-active)]" : "text-[var(--danger)]"}>

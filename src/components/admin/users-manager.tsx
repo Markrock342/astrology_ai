@@ -36,10 +36,14 @@ type UserRow = {
     purchasedBalanceUnits: number;
   } | null;
   subscriptions: Array<{
-    package: { code: string; type: string; name?: string };
+    package: { code: string; type: string; name?: string; questionPack?: boolean };
+    startsAt?: string;
     expiresAt: string | null;
   }>;
 };
+
+const shortDay = (iso: string) =>
+  new Date(iso).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "2-digit" });
 
 /** "เมื่อสักครู่" · "12 นาทีที่แล้ว" · "3 ชั่วโมงที่แล้ว" · "5 วันที่แล้ว" · a date past a month. */
 function timeAgo(iso: string): string {
@@ -246,6 +250,13 @@ export function UsersManager({
                   </Td>
                   <Td>
                     <Badge tone={plan === "PRO" ? "gold" : "muted"}>{sub?.package.name ?? plan}</Badge>
+                    {/* When the plan started and ends (A, 12 Oct 2026). Free never ends. */}
+                    {sub && plan === "PRO" ? (
+                      <span className="mt-1 block whitespace-nowrap text-[11px] text-[var(--muted-2)]">
+                        {sub.startsAt ? `${shortDay(sub.startsAt)} – ` : ""}
+                        {sub.expiresAt ? shortDay(sub.expiresAt) : "ไม่มีวันหมด"}
+                      </span>
+                    ) : null}
                   </Td>
                   <Td>
                     {u.usageWallet
