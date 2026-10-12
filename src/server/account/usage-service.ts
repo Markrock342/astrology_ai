@@ -28,6 +28,10 @@ export type MyUsageSummary = {
   remainingQuestions: number;
   /** When bought questions end; null = never or none bought. */
   purchasedExpiresAt: string | null;
+  /** Of the questions left: from the package round (Free, monthly Pro) … */
+  includedQuestions: number;
+  /** … and bought or added (packs, admin). */
+  purchasedQuestions: number;
   includedRemainingPercent: number;
   purchasedRemainingPercent: number;
   periodStartedAt: string | null;
@@ -57,6 +61,8 @@ function serializeSummary(
     remainingPercent: budget.remainingPercent,
     remainingQuestions: unitsToQuestions(budget.remainingUnits),
     purchasedExpiresAt: budget.purchasedExpiresAt?.toISOString() ?? null,
+    includedQuestions: unitsToQuestions(budget.includedBalanceUnits),
+    purchasedQuestions: unitsToQuestions(budget.purchasedBalanceUnits),
     includedRemainingPercent: budget.includedRemainingPercent,
     purchasedRemainingPercent: budget.purchasedRemainingPercent,
     periodStartedAt: budget.periodStartedAt?.toISOString() ?? null,

@@ -17,9 +17,35 @@ import {
   TextInput,
   Toggle,
   adminFetch, IconTile } from "./ui";
+
 import { ConfirmModal } from "@/components/app/confirm-modal";
 import { largeAvatarUrl, UserAvatar } from "@/components/app/user-avatar";
 import { formatThb, usdToThb } from "@/config/ai-pricing";
+import { unitsToQuestions } from "@/lib/usage-budget-display";
+import { FALLBACK_PACK_EXPIRY, packExpiryLabel, packExpiryRule, type PackExpiryRule } from "@/lib/pack-expiry";
+
+
+type PlanOption = {
+  code: string;
+  name: string;
+  type: "FREE" | "PRO";
+  price: number;
+  enabled: boolean;
+  usageBudgetUnits: number;
+  creditOnly?: boolean;
+  questionPack?: boolean;
+  expiryMode?: "DEFAULT" | "NONE" | "DAYS" | "DATE";
+  expiryDays?: number | null;
+  expiresOn?: string | null;
+};
+
+/** "Lite · แพ็กคำถาม 40 คำถาม · ฿50" — what the select shows. */
+function planOptionLabel(p: PlanOption): string {
+  const q = unitsToQuestions(p.usageBudgetUnits);
+  if (p.questionPack) return `${p.name} · แพ็กคำถาม ${q} คำถาม · ฿${p.price}`;
+  if (p.type === "FREE") return `${p.name} (ฟรี)`;
+  return `${p.name} · ${q} คำถามต่อรอบ · ฿${p.price}`;
+}
 
 type UserDetail = {
   id: string;
@@ -51,6 +77,9 @@ type UserDetail = {
     usedPercent: number;
     remainingPercent: number;
     remainingQuestions?: number;
+    includedQuestions?: number;
+    purchasedQuestions?: number;
+    purchasedExpiresAt?: string | null;
     includedRemainingPercent: number;
     purchasedRemainingPercent: number;
     dailyLimit: number | null;
@@ -95,6 +124,7 @@ type UserDetail = {
     by: string;
     packageCode: string | null;
     expiresAt: string | null;
+    questionsAdded?: number | null;
   }>;
 };
 
@@ -174,6 +204,18 @@ export function UserDetailManager({
     "ADMIN_ADD" | "ADMIN_DEDUCT" | "PROMOTION" | "REFUND"
   >("ADMIN_ADD");
   const [packageCode, setPackageCode] = useState("PRO");
+  // The packages the team made (Admin → แพ็กเกจ): the form used to offer only
+  // Free and Pro, so a Lite or Plus could not be given by hand (A, 12 Oct 2026).
+  const [packages, setPackages] = useState<PlanOption[]>([]);
+  const [defaultExpiry, setDefaultExpiry] = useState<PackExpiryRule>(FALLBACK_PACK_EXPIRY);
+  useEffect(() => {
+    adminFetch<PlanOption[]>("/api/admin/packages")
+      .then((rows) => setPackages(rows.filter((p) => !p.creditOnly)))
+      .catch(() => {});
+    adminFetch<PackExpiryRule>("/api/admin/packages/default-expiry").then(setDefaultExpiry).catch(() => {});
+  }, []);
+  const chosen = packages.find((p) => p.code === packageCode) ?? null;
+  const givingPack = Boolean(chosen?.questionPack);
   const [expiresAt, setExpiresAt] = useState("");
   /** "date" = ends on the chosen day · "forever" = no expiry at all. */
   const [expiryMode, setExpiryMode] = useState<"date" | "forever">("date");
@@ -194,7 +236,7 @@ export function UserDetailManager({
       if (active) {
         // By code: a PRO package the form bug had flipped to FREE-type made
         // this preselect Free, and saving "ตลอดไป" then set Free forever.
-        setPackageCode(active.package.code === "FREE" ? "FREE" : "PRO");
+        setPackageCode(active.package.code);
         setExpiryMode(active.expiresAt ? "date" : "forever");
         setExpiresAt(active.expiresAt ? active.expiresAt.slice(0, 10) : "");
       }
@@ -295,6 +337,26 @@ export function UserDetailManager({
   }
 
   async function setSubscription() {
+    if (givingPack && chosen) {
+      const q = unitsToQuestions(chosen.usageBudgetUnits);
+      if (!window.confirm(`ให้แพ็ก ${chosen.name} (+${q} คำถาม) กับผู้ใช้นี้? คำถามจะบวกเพิ่มจากที่เหลือ`)) return;
+      setBusy(true);
+      setSaved(null);
+      try {
+        await adminFetch(`/api/admin/users/${userId}/subscription`, {
+          method: "PATCH",
+          body: JSON.stringify({ packageCode, expiresAt: null, grantCredits: false }),
+        });
+        await load();
+        setError(null);
+        setSaved(`ให้แพ็ก ${chosen.name} แล้ว — +${q} คำถาม`);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "ให้แพ็กไม่สำเร็จ");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (expiryMode === "date" && !expiresAt) {
       setError("เลือกวันหมดอายุ หรือเลือก «ไม่มีวันหมดอายุ»");
       return;
@@ -447,25 +509,26 @@ export function UserDetailManager({
                 }
               />
               <Row
-                label="usage คงเหลือ"
-                // A asked for questions here too, matching what the user now sees.
+                label="คำถามคงเหลือ"
                 value={
-                  user.usage
-                    ? `${user.usage.remainingPercent}%${
-                        typeof user.usage.remainingQuestions === "number"
-                          ? ` · ≈ ${user.usage.remainingQuestions.toLocaleString("th-TH")} คำถาม`
-                          : ""
-                      }`
+                  user.usage && typeof user.usage.remainingQuestions === "number"
+                    ? `${user.usage.remainingQuestions.toLocaleString("th-TH")} คำถาม`
                     : "—"
                 }
               />
               <Row
-                label="usage จากรอบแพ็กเกจ"
-                value={user.usage ? `${user.usage.includedRemainingPercent}%` : "—"}
+                label="จากแพ็กเกจ (Free / รอบเดิม)"
+                value={typeof user.usage?.includedQuestions === "number" ? `${user.usage.includedQuestions.toLocaleString("th-TH")} คำถาม` : "—"}
               />
               <Row
-                label="usage เติมเพิ่ม"
-                value={user.usage ? `${user.usage.purchasedRemainingPercent}%` : "—"}
+                label="ซื้อ / เพิ่มให้"
+                value={
+                  typeof user.usage?.purchasedQuestions === "number"
+                    ? `${user.usage.purchasedQuestions.toLocaleString("th-TH")} คำถาม${
+                        user.usage.purchasedExpiresAt ? ` · ถึง ${thaiDay(user.usage.purchasedExpiresAt)}` : ""
+                      }`
+                    : "—"
+                }
               />
               <Row
                 label="แพ็กเกจ"
@@ -545,7 +608,7 @@ export function UserDetailManager({
                 {user.status === "ACTIVE" ? "ระงับบัญชี" : "เปิดใช้งาน"}
               </Button>
               <Button variant="ghost" onClick={resetUsageQuota} disabled={busy}>
-                คืน usage รอบนี้เป็น 100%
+                รีเซ็ตคำถามรอบนี้ให้เต็ม
               </Button>
               {user.birthProfile ? (
                 <Button variant="ghost" onClick={resetBirthEdits} disabled={busy}>
@@ -589,10 +652,44 @@ export function UserDetailManager({
                   value={packageCode}
                   onChange={(e) => setPackageCode(e.target.value)}
                 >
-                  <option value="FREE">Free</option>
-                  <option value="PRO">Pro</option>
+                  {packages.length === 0 ? (
+                    <>
+                      <option value="FREE">Free</option>
+                      <option value="PRO">Pro</option>
+                    </>
+                  ) : (
+                    <>
+                      {packages.filter((p) => p.enabled).map((p) => (
+                        <option key={p.code} value={p.code}>
+                          {planOptionLabel(p)}
+                        </option>
+                      ))}
+                      {packages.some((p) => !p.enabled) ? (
+                        <optgroup label="ปิดขายแล้ว">
+                          {packages.filter((p) => !p.enabled).map((p) => (
+                            <option key={p.code} value={p.code}>
+                              {planOptionLabel(p)}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
+                    </>
+                  )}
                 </Select>
               </Field>
+              {givingPack && chosen ? (
+                <div className="rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/6 px-3 py-2 text-xs leading-5 text-[var(--muted)]">
+                  <b className="text-[var(--foreground)]">+{unitsToQuestions(chosen.usageBudgetUnits).toLocaleString("th-TH")} คำถาม</b>{" "}
+                  บวกเพิ่มจากที่เหลือ · เปิดทุกหมวด ·{" "}
+                  {packExpiryLabel(
+                    packExpiryRule(
+                      { expiryMode: chosen.expiryMode ?? "DEFAULT", expiryDays: chosen.expiryDays ?? null, expiresOn: chosen.expiresOn ?? null },
+                      defaultExpiry,
+                    ),
+                  )}
+                  <span className="block text-[11px] text-[var(--muted-2)]">เหมือนลูกค้าซื้อเอง แต่ไม่ต้องมีสลิป — ใช้คืนเงิน ชดเชย หรือขายนอกระบบ</span>
+                </div>
+              ) : (
               <Field label="อายุแพ็กเกจ">
                 <Select
                   value={expiryMode}
@@ -604,8 +701,9 @@ export function UserDetailManager({
                   <option value="forever">ใช้ได้ตลอดไป (ไม่มีวันหมดอายุ)</option>
                 </Select>
               </Field>
+              )}
             </div>
-            {expiryMode === "date" ? (
+            {!givingPack && expiryMode === "date" ? (
               <div className="mt-3 sm:max-w-[calc(50%-0.375rem)]">
                 <Field label="วันหมดอายุ" hint="หมดอายุตอนสิ้นวันนั้น (เวลาไทย)">
                   <TextInput
@@ -617,13 +715,17 @@ export function UserDetailManager({
               </div>
             ) : null}
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Toggle
-                checked={grantCredits}
-                onChange={setGrantCredits}
-                label="รีเซ็ต usage เป็นเต็มตามแพ็กเกจ — เปลี่ยนเป็น Pro ใหม่ ระบบเติมให้เองแม้ไม่ติ๊ก · ไม่ติ๊ก + แพ็กเกจเดิม = usage คงเดิม"
-              />
+              {givingPack ? (
+                <span />
+              ) : (
+                <Toggle
+                  checked={grantCredits}
+                  onChange={setGrantCredits}
+                  label="รีเซ็ตคำถามเป็นเต็มตามแพ็กเกจ — เปลี่ยนเป็น Pro ใหม่ ระบบเติมให้เองแม้ไม่ติ๊ก · ไม่ติ๊ก + แพ็กเกจเดิม = คำถามคงเดิม"
+                />
+              )}
               <Button onClick={setSubscription} disabled={busy}>
-                บันทึกแพ็กเกจ
+                {givingPack ? "ให้แพ็กนี้" : "บันทึกแพ็กเกจ"}
               </Button>
             </div>
             {saved ? (
@@ -644,7 +746,10 @@ export function UserDetailManager({
                         ? <>ผู้ใช้<b className="text-[var(--danger)]">ยกเลิก Pro เอง</b></>
                         : e.action === "payment.approve"
                           ? <>อนุมัติสลิป {e.packageCode ?? ""} โดย {e.by}</>
-                          : <>ตั้งเป็น <b className="text-[var(--foreground)]">{e.packageCode ?? "?"}</b>{" "}
+                          : e.questionsAdded
+                            ? <>ให้แพ็ก <b className="text-[var(--foreground)]">{e.packageCode ?? "?"}</b> +{e.questionsAdded} คำถาม{" "}
+                                {e.expiresAt ? `ใช้ได้ถึง ${thaiDay(e.expiresAt)}` : "ไม่มีวันหมดอายุ"} โดย {e.by}</>
+                            : <>ตั้งเป็น <b className="text-[var(--foreground)]">{e.packageCode ?? "?"}</b>{" "}
                               {e.expiresAt ? `ถึง ${thaiDay(e.expiresAt)}` : "ไม่มีวันหมดอายุ"} โดย {e.by}</>}
                     </li>
                   ))}
