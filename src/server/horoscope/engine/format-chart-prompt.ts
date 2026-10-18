@@ -1,4 +1,4 @@
-import { normalizeSignName } from "@/lib/chart-theme";
+import { formatDivisionalPosition, normalizeSignName } from "@/lib/chart-theme";
 import "@/server/horoscope/engine/taksa-boundaries";
 import { fillSamrapRows } from "@/lib/samrap-derive";
 import { dignityLabel } from "@/lib/thai-dignity";
@@ -66,7 +66,7 @@ function formatSamrapTable(rows: MyhoraNatalPlanet[]): string[] {
         : "—";
     lines.push([
       `- ${r.planet}: ราศี ${r.zodiac}, ${deg}, เรือน ${r.house || "—"}`,
-      `ตรียางค์ ${r.triyang || "—"}, พิษ ${r.poison || "—"}, นวางศ์ ${r.nawamang || "—"}`,
+      `ตรียางค์ ${formatDivisionalPosition(r.triyang) || "—"}, พิษ ${r.poison || "—"}, นวางศ์ ${formatDivisionalPosition(r.nawamang) || "—"}`,
       `ฤกษ์:นาที ${r.rerk || "—"}, นักษัตร ${r.rerkName || "—"}, บาท ${r.baht || "—"}`,
       `ฤกษ์ ${r.rerk2 || "—"}, ฤกษ์ใหญ่ ${r.rerkBig || "—"}, เจ้าเรือน ${r.rerkOwner || "—"}`,
       `มาตรฐาน/เกณฑ์ ${r.rerkStandard || "—"}`,
@@ -275,8 +275,9 @@ export function formatChartForPrompt(
 }
 
 /**
- * Compact natal block for follow-up turns — keeps [natal] marker and planet
- * positions without full samrap/taksa/triwai tables (~10 lines vs ~50+).
+ * Compact natal block for follow-up turns — keeps [natal], planet positions,
+ * and the divisional evidence users can ask about without the full
+ * taksa/triwai tables (~10 lines vs ~50+).
  */
 export function formatChartCompactForPrompt(
   chart: ChartJson,
@@ -298,9 +299,17 @@ export function formatChartCompactForPrompt(
     : chart.myhora?.natalPlanets;
 
   if (samrap?.length) {
-    for (const r of samrap) {
+    const rows = fillSamrapRows(samrap, lagna === "—" ? null : lagna);
+    for (const r of rows) {
       lines.push(
-        `${r.planet}: ${r.zodiac} เรือน${r.house ?? "—"}${r.rerkStandard ? ` (${r.rerkStandard})` : ""}`,
+        [
+          `${r.planet}: ${r.zodiac} เรือน${r.house ?? "—"}`,
+          `ตรียางค์ ${formatDivisionalPosition(r.triyang) || "—"}`,
+          `นวางศ์ ${formatDivisionalPosition(r.nawamang) || "—"}`,
+          r.rerkStandard ? `มาตรฐาน ${r.rerkStandard}` : null,
+        ]
+          .filter(Boolean)
+          .join(" | "),
       );
     }
   } else {

@@ -78,6 +78,42 @@ describe("natal chart engine (formula path)", () => {
     expect(text).not.toContain("ทักษา");
   });
 
+  it("keeps full-sign triyang and nawamsa evidence in every compact chat turn", () => {
+    const chart = computeNatalChartFormula({
+      day: 1,
+      month: 1,
+      year: 1990,
+      time: "10:00",
+      country: "ไทย",
+      province: "เชียงใหม่",
+      district: "เมืองเชียงใหม่",
+    });
+    chart.myhora = {
+      lagnaSign: "กันย์",
+      summaryNatal: null,
+      summaryTransit: null,
+      natalPlanets: [
+        {
+          planet: "๓.อังคาร",
+          zodiac: "09 : มก",
+          degree: "20",
+          minute: "55",
+          house: "ปุตตะ",
+          triyang: "3 : 4 : กน",
+          nawamang: "7 : 2 : กฎ",
+        },
+      ],
+      taksa: [],
+      triwaiNatal: [],
+      triwaiTransit: [],
+    };
+
+    const text = formatChartCompactForPrompt(chart);
+    expect(text).toContain("ตรียางค์ 3 : 4 : กันย์");
+    expect(text).toContain("นวางศ์ 7 : 2 : กรกฎ");
+    expect(text).not.toContain("นวางค์");
+  });
+
   it("computes a distinct transit chart for another moment", () => {
     const natal = computeNatalChartSync({ ...SAMPLE_INPUT });
     const transit = computeNatalChartSync({

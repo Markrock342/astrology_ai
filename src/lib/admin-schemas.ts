@@ -65,6 +65,8 @@ export const userSubscriptionSchema = z.object({
   grantCredits: z.boolean().default(false),
   /** Moving to Free: also remove the questions bought or given. */
   clearPurchased: z.boolean().default(false),
+  /** Why an admin changed the package; retained in the audit snapshot. */
+  reason: z.string().trim().max(300).optional(),
 });
 
 export const userRoleSchema = z.object({
@@ -376,11 +378,21 @@ export const paymentListQuerySchema = listQuerySchema.extend({
   status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
 });
 
-export const paymentReviewSchema = z.object({
-  status: z.enum(["APPROVED", "REJECTED"]),
-  note: z.string().max(300).optional(),
-  packageCode: z.string().min(1).optional(),
-});
+export const paymentReviewSchema = z
+  .object({
+    status: z.enum(["APPROVED", "REJECTED"]),
+    note: z.string().trim().max(300).optional(),
+    packageCode: z.string().min(1).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.status === "REJECTED" && !value.note) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["note"],
+        message: "กรุณาระบุเหตุผลก่อนปฏิเสธสลิป",
+      });
+    }
+  });
 
 export const categoryCreateSchema = z.object({
   slug: z

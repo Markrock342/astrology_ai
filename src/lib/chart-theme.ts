@@ -142,9 +142,38 @@ export const SIGN_LABEL: Record<(typeof SIGNS)[number], string> = {
   มีน: "มีน",
 };
 
+const SIGN_ABBR: Record<string, (typeof SIGNS)[number]> = {
+  มษ: "เมษ",
+  พษ: "พฤษภ",
+  พภ: "พฤษภ",
+  มถ: "มิถุน",
+  กฎ: "กรกฎ",
+  สห: "สิงห์",
+  กย: "กันย์",
+  กน: "กันย์",
+  ตล: "ตุลย์",
+  พจ: "พิจิก",
+  ธน: "ธนู",
+  มก: "มกร",
+  กภ: "กุมภ",
+  มี: "มีน",
+  มน: "มีน",
+};
+
 export function signLabel(sign: string): string {
-  const normalized = normalizeSignName(sign);
+  const raw = sign.trim();
+  const candidate = raw.includes(":") ? raw.split(":").at(-1)?.trim() ?? raw : raw;
+  const normalized = SIGN_ABBR[candidate] ?? normalizeSignName(candidate);
   return SIGN_LABEL[normalized as (typeof SIGNS)[number]] ?? normalized;
+}
+
+/** Expand the abbreviated sign at the end of a divisional position. */
+export function formatDivisionalPosition(value: string | null | undefined): string {
+  if (!value) return "";
+  const parts = value.split(":").map((part) => part.trim());
+  if (parts.length < 2) return signLabel(value);
+  const sign = parts.pop() ?? "";
+  return [...parts, signLabel(sign)].join(" : ");
 }
 
 /** One-line plain-Thai meaning per planet — for tap-to-learn on the wheel. */

@@ -62,7 +62,7 @@ export function ConfirmModal({
       >
         <h3 className="text-sm font-semibold text-[var(--foreground)]">{title}</h3>
         {message ? (
-          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-[var(--muted)]">
             {message}
           </p>
         ) : null}

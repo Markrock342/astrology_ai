@@ -428,13 +428,27 @@ describe("payment-service (M4)", () => {
     };
     mocks.transaction.mockImplementation(async (fn) => fn(tx));
 
-    await reviewPayment("pay-2", { status: "REJECTED" }, { id: "admin-1" });
+    await reviewPayment(
+      "pay-2",
+      { status: "REJECTED", note: "ยอดหรือสลิปไม่ตรง" },
+      { id: "admin-1" },
+    );
 
     expect(mocks.addCredits).not.toHaveBeenCalled();
     expect(mocks.writeAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: "payment.reject" }),
       tx,
     );
+  });
+
+  it("reviewPayment rejects a rejection without a visible reason", async () => {
+    await expect(
+      reviewPayment("pay-2", { status: "REJECTED" }, { id: "admin-1" }),
+    ).rejects.toMatchObject({
+      code: "VALIDATION",
+      message: "กรุณาระบุเหตุผลก่อนปฏิเสธสลิป",
+    });
+    expect(mocks.findUnique).not.toHaveBeenCalled();
   });
 
   it("reviewPayment second concurrent approve loses CAS and does not grant", async () => {

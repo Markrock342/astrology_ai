@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { packageUpdateSchema, knowledgeUpdateSchema, categoryUpdateSchema } from "@/lib/admin-schemas";
+import {
+  categoryUpdateSchema,
+  knowledgeUpdateSchema,
+  packageUpdateSchema,
+  paymentReviewSchema,
+} from "@/lib/admin-schemas";
 
 describe("admin update schemas touch only the fields sent", () => {
   it("saving a package from the form (no type sent) keeps it PRO", () => {
@@ -19,5 +24,13 @@ describe("admin update schemas touch only the fields sent", () => {
 
   it("still validates what is sent", () => {
     expect(packageUpdateSchema.safeParse({ type: "GOLD" }).success).toBe(false);
+  });
+
+  it("requires a reason only when rejecting a payment", () => {
+    expect(paymentReviewSchema.safeParse({ status: "APPROVED" }).success).toBe(true);
+    expect(paymentReviewSchema.safeParse({ status: "REJECTED" }).success).toBe(false);
+    expect(
+      paymentReviewSchema.safeParse({ status: "REJECTED", note: "สลิปไม่ตรงยอด" }).success,
+    ).toBe(true);
   });
 });

@@ -19,6 +19,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
           expiresAt: data.expiresAt ?? null,
           grantCredits: data.grantCredits,
           clearPurchased: data.clearPurchased,
+          reason: data.reason,
         },
         { id: admin.id, ip },
       ),

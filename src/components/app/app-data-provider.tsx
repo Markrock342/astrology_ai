@@ -20,6 +20,9 @@ export type AppUser = {
   email: string;
   image: string | null;
   plan: "FREE" | "PRO";
+  /** Purchased/admin-granted package identity shown in the shell. */
+  packageCode?: string | null;
+  packageName?: string | null;
   /** ISO expiry of active Pro subscription, if any. */
   proExpiresAt?: string | null;
   proNeverExpires?: boolean;
@@ -133,6 +136,8 @@ function mapMe(me: Record<string, unknown>): AppUser {
     email: String(me.email ?? ""),
     image: (me.image as string | null | undefined) ?? null,
     plan: (me.plan as "FREE" | "PRO") ?? "FREE",
+    packageCode: (me.packageCode as string | null | undefined) ?? null,
+    packageName: (me.packageName as string | null | undefined) ?? null,
     proExpiresAt: (me.proExpiresAt as string | null | undefined) ?? null,
     proNeverExpires: Boolean(me.proNeverExpires),
     promotionEndsAt:

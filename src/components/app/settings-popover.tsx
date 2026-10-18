@@ -9,6 +9,7 @@ import {
   isOutsideSettingsPopover,
 } from "./settings-popover-outside";
 import { TextSizeSettingsControl, ThemeSettingsControl } from "./theme-picker";
+import type { CmsFooterLink } from "@/lib/cms-keys";
 
 // Total birthday settings allowed = 1 initial + 1 edit (design shows x/2).
 const BIRTH_TOTAL = 2;
@@ -20,12 +21,14 @@ export function SettingsPopover({
   onOpenModal,
   onNavigate,
   anchorRef,
+  footerLinks = [],
 }: {
   onClose: () => void;
   onOpenModal: (m: SettingsModal) => void;
   /** Close drawer / settings before leaving /dashboard (account, onboarding, admin). */
   onNavigate?: () => void;
   anchorRef?: React.RefObject<HTMLElement | null>;
+  footerLinks?: CmsFooterLink[];
 }) {
   const router = useRouter();
   const { user } = useAppData();
@@ -216,6 +219,23 @@ export function SettingsPopover({
           label="จัดการแพ็กเกจ"
           onClick={() => go("/account")}
         />
+        {footerLinks.length > 0 ? (
+          <div className="mt-1 border-t border-[var(--border)]/70 pt-2">
+            <p className="px-3 pb-1 text-[11px] font-medium text-[var(--muted-2)]">
+              เมนูช่วยเหลือ
+            </p>
+            {footerLinks.map((link) => (
+              <button
+                key={`${link.href}-${link.label}`}
+                type="button"
+                onClick={() => go(link.href)}
+                className="flex min-h-11 w-full items-center rounded-xl px-3 py-2 text-left text-sm text-[var(--muted)] transition hover:bg-[var(--background)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+              >
+                {link.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <Row
           icon={<LogoutIcon />}
           label="ออกจากระบบ"

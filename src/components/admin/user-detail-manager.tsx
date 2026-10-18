@@ -245,6 +245,7 @@ export function UserDetailManager({
   // Off by default: on, it resets usage to the package's full budget, and
   // being on by default reset users to 100% on every plan or expiry change.
   const [grantCredits, setGrantCredits] = useState(false);
+  const [packageReason, setPackageReason] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   const [role, setRole] = useState("");
   const [confirmReset2fa, setConfirmReset2fa] = useState(false);
@@ -386,10 +387,16 @@ export function UserDetailManager({
       try {
         await adminFetch(`/api/admin/users/${userId}/subscription`, {
           method: "PATCH",
-          body: JSON.stringify({ packageCode, expiresAt: null, grantCredits: false }),
+          body: JSON.stringify({
+            packageCode,
+            expiresAt: null,
+            grantCredits: false,
+            reason: packageReason || undefined,
+          }),
         });
         await load();
         setError(null);
+        setPackageReason("");
         setSaved(`ให้แพ็ก ${chosen.name} แล้ว — +${q} คำถาม`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "ให้แพ็กไม่สำเร็จ");
@@ -415,7 +422,13 @@ export function UserDetailManager({
       const until = toFree ? null : subscriptionExpiryPayload(expiryMode, expiresAt);
       const res = await adminFetch<{ effectivePlan?: "FREE" | "PRO" }>(`/api/admin/users/${userId}/subscription`, {
         method: "PATCH",
-        body: JSON.stringify({ packageCode, expiresAt: until, grantCredits: toFree ? false : grantCredits, clearPurchased: toFree && clearPurchased }),
+        body: JSON.stringify({
+          packageCode,
+          expiresAt: until,
+          grantCredits: toFree ? false : grantCredits,
+          clearPurchased: toFree && clearPurchased,
+          reason: packageReason || undefined,
+        }),
       });
       await load();
       if (res?.effectivePlan && res.effectivePlan !== (packageCode === "FREE" ? "FREE" : "PRO")) {
@@ -423,6 +436,7 @@ export function UserDetailManager({
         return;
       }
       setError(null);
+      setPackageReason("");
       const name = chosen?.name ?? packageCode;
       setSaved(
         toFree
@@ -701,6 +715,9 @@ export function UserDetailManager({
             <p className="mt-1 text-xs text-[var(--muted-2)]">
               ตอนนี้: {currentPlanLabel}
             </p>
+            <p className="mt-1 text-[11px] leading-5 text-[var(--muted-2)]">
+              ทุกการเปลี่ยนแพ็กเกจจะเก็บประวัติเดิมไว้ — ถ้าแก้จากการกดผิด ให้ใส่เหตุผลเพื่อให้ทีมตรวจสอบย้อนหลังได้
+            </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <Field label="แพ็กเกจ">
                 <Select
@@ -778,6 +795,16 @@ export function UserDetailManager({
                 </Field>
               </div>
             ) : null}
+            <div className="mt-3">
+              <Field label="เหตุผล / หมายเหตุการแก้ไข" hint="แนะนำเมื่อแก้จากการตั้งแพ็กเกจผิด">
+                <TextInput
+                  value={packageReason}
+                  maxLength={300}
+                  onChange={(e) => setPackageReason(e.target.value)}
+                  placeholder="เช่น แก้จากการกดแพ็กผิด — ไม่เติมคำถามซ้ำ"
+                />
+              </Field>
+            </div>
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               {givingPack ? (
                 <span className="text-[11px] text-[var(--muted-2)]">
