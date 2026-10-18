@@ -100,7 +100,7 @@ export function ContactForm({ destination }: ContactFormProps) {
             minLength={10}
             maxLength={2_000}
             rows={6}
-            className="resize-y rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-3 text-base leading-6 text-[var(--foreground)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+            className="resize-y rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-3 text-base leading-6 text-[var(--foreground)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
           />
         </div>
         <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
