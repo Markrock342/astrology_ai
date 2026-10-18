@@ -13,4 +13,11 @@ describe("contact form text persistence", () => {
     expect(source).not.toContain('value={message}');
     expect(source).not.toContain('onChange={(event) => setMessage');
   });
+
+  it("keeps the multiline field out of the capsule radius that clips its first line", () => {
+    const textarea = source.match(/<textarea[\s\S]*?\/>/)?.[0] ?? "";
+
+    expect(textarea).toContain("rounded-2xl");
+    expect(textarea).not.toContain("rounded-xl");
+  });
 });
