@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PublicPageHeader } from "@/components/marketing/public-page-header";
+import { ContactForm } from "@/components/marketing/contact-form";
 import {
   CMS_KEYS,
   type CmsContact,
@@ -57,6 +58,8 @@ export default async function ContactPage() {
           {contact.email}
         </a>
       </div>
+
+      <ContactForm destination={contact.email} />
 
       {footer.socialLinks.length > 0 ? (
         <div className="mt-10 text-center">

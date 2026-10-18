@@ -19,6 +19,7 @@ import {
   assertOwnedProofPath,
   deletePaymentProofBlob,
 } from "@/server/payment/payment-proof";
+import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 
 type Actor = { id: string; ip?: string };
 
@@ -176,6 +177,9 @@ export async function reviewPayment(
   input: { status: "APPROVED" | "REJECTED"; note?: string; packageCode?: string },
   actor: Actor,
 ) {
+  if (input.status === "REJECTED" && !input.note?.trim()) {
+    throw new AppError("VALIDATION", "กรุณาระบุเหตุผลก่อนปฏิเสธสลิป");
+  }
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
     include: { user: { select: { id: true, email: true } } },
@@ -421,6 +425,11 @@ export async function reviewPayment(
   if (input.status === "REJECTED") {
     void deletePaymentProofBlob(payment.proofUrl);
   }
+
+  // The sidebar and account shell cache plan/package data. Bust it as soon as
+  // a payment leaves PENDING so approved package names and the pending banner
+  // update on the user's next refresh instead of lingering for the TTL.
+  invalidateUserBootstrap(payment.userId);
 
   try {
     const notifyResult = await notifyUserPaymentReviewed({

@@ -639,7 +639,13 @@ export async function adminResetBirthEdits(userId: string, actor: Actor) {
 
 export async function setUserSubscription(
   userId: string,
-  input: { packageCode: string; expiresAt?: Date | null; grantCredits?: boolean; clearPurchased?: boolean },
+  input: {
+    packageCode: string;
+    expiresAt?: Date | null;
+    grantCredits?: boolean;
+    clearPurchased?: boolean;
+    reason?: string;
+  },
   actor: Actor,
 ) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
@@ -664,6 +670,7 @@ export async function setUserSubscription(
   // A question pack given by hand works like a bought one: its questions add
   // to what is left, Pro runs while they last. The form's expiry is the pack's.
   if (pkg.questionPack) {
+    const reason = input.reason?.trim();
     const given = await prisma.$transaction(async (tx) => {
       await lockUsageWalletForUpdate(userId, tx);
       const applied = await applyQuestionPack(tx, {
@@ -674,7 +681,7 @@ export async function setUserSubscription(
           type: "ADMIN_ADD",
           referenceType: "admin_pack",
           referenceId: `${actor.id}:${Date.now()}`,
-          note: `แอดมินให้แพ็กคำถาม ${pkg.code}`,
+          note: `แอดมินให้แพ็กคำถาม ${pkg.code}${reason ? ` — ${reason}` : ""}`,
           createdByAdminId: actor.id,
         },
       });
@@ -684,7 +691,12 @@ export async function setUserSubscription(
           action: "user.subscription.set",
           entityType: "user_subscription",
           entityId: userId,
-          after: { packageCode: pkg.code, questionsAdded: applied.questionsAdded, questionsEnd: applied.questionsEnd },
+          after: {
+            packageCode: pkg.code,
+            questionsAdded: applied.questionsAdded,
+            questionsEnd: applied.questionsEnd,
+            reason: reason ?? null,
+          },
           ipAddress: actor.ip,
         },
         tx,
@@ -695,6 +707,7 @@ export async function setUserSubscription(
     return { ...given, grantedCredits: 0, effectivePlan: await getEffectivePlan(userId) };
   }
 
+  const reason = input.reason?.trim();
   const result = await prisma.$transaction(async (tx) => {
     // Serialised with payment approvals for the same user (see payment-service).
     await lockUsageWalletForUpdate(userId, tx);
@@ -748,7 +761,7 @@ export async function setUserSubscription(
           type: "PACKAGE_RENEWAL",
           referenceType: "user_subscription",
           referenceId: created.id,
-          note: `เปิดแพ็กเกจ ${pkg.code} โดยแอดมิน`,
+          note: `เปิดแพ็กเกจ ${pkg.code} โดยแอดมิน${reason ? ` — ${reason}` : ""}`,
           createdByAdminId: actor.id,
         },
         tx,
@@ -763,7 +776,7 @@ export async function setUserSubscription(
           type: "PACKAGE_RENEWAL",
           referenceType: "user_subscription",
           referenceId: `usage:${created.id}`,
-          note: `เปิดรอบ usage แพ็กเกจ ${pkg.code} โดยแอดมิน`,
+          note: `เปิดรอบ usage แพ็กเกจ ${pkg.code} โดยแอดมิน${reason ? ` — ${reason}` : ""}`,
           createdByAdminId: actor.id,
         },
         { startsAt: new Date(), endsAt: input.expiresAt ?? null },
@@ -821,7 +834,7 @@ export async function setUserSubscription(
         entityType: "user_subscription",
         entityId: userId,
         before,
-        after: { ...created, grantedCredits },
+        after: { ...created, grantedCredits, reason: reason ?? null },
         ipAddress: actor.ip,
       },
       tx,

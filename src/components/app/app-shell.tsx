@@ -39,8 +39,8 @@ import { UserAvatar } from "./user-avatar";
 import { ThemePicker } from "./theme-picker";
 import { TransitFormModal } from "./transit-form-modal";
 import { NatalDossier } from "./natal-dossier";
-import { SiteFooter } from "@/components/marketing/site-footer";
-import type { CmsSiteFooter } from "@/lib/cms-keys";
+import type { CmsFooterLink } from "@/lib/cms-keys";
+import { appPlanLabel } from "@/lib/app-plan-label";
 import {
   clearThreadCache,
   invalidateCachedThread,
@@ -50,11 +50,11 @@ import { OPEN_TRANSIT_EVENT, natalAtlasHref, readOpenTransitDetail } from "@/lib
 
 export function AppShell({
   children,
-  footer,
+  footerLinks = [],
 }: {
   children: React.ReactNode;
-  /** Site footer (CMS); sits below the composer, reached by scrolling past it. */
-  footer?: CmsSiteFooter | null;
+  /** CMS menu links live in settings inside the app, not below the composer. */
+  footerLinks?: CmsFooterLink[];
 }) {
   const searchParams = useChatRouteSearchParams();
   const [collapsed, setCollapsed] = useState(false);
@@ -243,14 +243,7 @@ export function AppShell({
   }
 
   const displayName = user?.name ?? (loading ? "…" : loadError ? "—" : "ผู้ใช้");
-  const isStaff = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
-  const planLabel = isStaff
-    ? user?.role === "SUPER_ADMIN"
-      ? "Super Admin"
-      : "Admin"
-    : user?.plan === "PRO"
-      ? "Pro"
-      : "Free";
+  const planLabel = appPlanLabel(user);
   const openMobile = useCallback(() => {
     // Cancel a pending unmount — otherwise open-after-close within 240ms
     // gets killed by the previous close timer (feels like taps don't stick).
@@ -484,6 +477,7 @@ export function AppShell({
             onOpenModal={openModal}
             onNavigate={onSettingsNavigate}
             anchorRef={anchorRef}
+            footerLinks={footerLinks}
           />
         )}
         <div className="flex items-center gap-1 rounded-xl px-1 py-1">
@@ -827,9 +821,8 @@ export function AppShell({
         // focus, no clicks reach it, so the drawer is a real modal.
         inert={mobileShown}
       >
-      {/* The page itself scrolls — no inner scroll box. That is what lets a
-          phone browser collapse its address bar as you read, and it puts the
-          site footer below the composer at the true end of the document. */}
+      {/* The page itself scrolls — no inner scroll box. That lets a phone
+          browser collapse its address bar while reading. */}
       <div className="flex min-h-[100dvh] min-w-0 flex-col">
         {/* Mobile top bar — gives the menu a home + brand context without a
             floating button overlapping page content. */}
@@ -864,7 +857,6 @@ export function AppShell({
           {children}
         </main>
       </div>
-      {footer ? <SiteFooter footer={footer} /> : null}
       </div>
 
       <ConfirmModal

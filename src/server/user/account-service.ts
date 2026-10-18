@@ -72,7 +72,12 @@ export async function getMe(userId: string) {
         },
         orderBy: { expiresAt: "desc" },
         take: 1,
-        select: { id: true, expiresAt: true, activationSource: true },
+        select: {
+          id: true,
+          expiresAt: true,
+          activationSource: true,
+          package: { select: { code: true, name: true } },
+        },
       },
     },
   });
@@ -86,6 +91,7 @@ export async function getMe(userId: string) {
   const purchasedUsageBalance = user.usageWallet?.purchasedBalanceUnits ?? 0;
   const usageAllowance = user.usageWallet?.includedAllowanceUnits ?? 0;
   const ownSub = user.subscriptions[0] ?? null;
+  const visibleOwnSub = isSilentPromotionSubscription(ownSub) ? null : ownSub;
   const proExpiry = resolveProExpiry({
     subscription: isSilentPromotionSubscription(ownSub) ? null : ownSub,
     promotionActive,
@@ -115,6 +121,9 @@ export async function getMe(userId: string) {
     birthEditsRemaining: editsRemaining,
     birthEditsUnlimited: isStaffRole(user.role),
     plan,
+    /** Human package identity for the app shell (e.g. Plus), not just PRO. */
+    packageCode: visibleOwnSub?.package.code ?? null,
+    packageName: visibleOwnSub?.package.name ?? null,
     proExpiresAt,
     proNeverExpires: proExpiry.neverExpires,
     // Hidden for an account whose own Pro already outlasts the promotion —

@@ -187,6 +187,7 @@ export function PaymentsPanel() {
 
   async function review(paymentId: string, decision: "APPROVED" | "REJECTED") {
     if (decision === "REJECTED" && !(reviewNote[paymentId] ?? "").trim()) {
+      setConfirmReview(null);
       setError("กรุณาระบุเหตุผลในหมายเหตุก่อนปฏิเสธ");
       return;
     }
@@ -206,6 +207,27 @@ export function PaymentsPanel() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  function openReviewConfirm(
+    payment: Payment,
+    decision: "APPROVED" | "REJECTED",
+  ) {
+    if (decision === "REJECTED" && !(reviewNote[payment.id] ?? "").trim()) {
+      setError("กรุณาระบุเหตุผลในหมายเหตุก่อนปฏิเสธ");
+      document
+        .querySelector<HTMLInputElement>(`[data-review-note="${payment.id}"]`)
+        ?.focus();
+      return;
+    }
+    setError(null);
+    setConfirmReview({
+      id: payment.id,
+      decision,
+      amount: payment.amount,
+      email: payment.user.email,
+      packageCode: payment.packageCode,
+    });
   }
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
@@ -344,39 +366,27 @@ export function PaymentsPanel() {
                     <Field label="หมายเหตุการตรวจ">
                       <TextInput
                         aria-label="หมายเหตุการตรวจ"
+                        data-review-note={p.id}
                         placeholder="จำเป็นเมื่อปฏิเสธ"
                         value={reviewNote[p.id] ?? ""}
-                        onChange={(e) =>
-                          setReviewNote({ ...reviewNote, [p.id]: e.target.value })
-                        }
+                        onChange={(e) => {
+                          setReviewNote({ ...reviewNote, [p.id]: e.target.value });
+                          if (error === "กรุณาระบุเหตุผลในหมายเหตุก่อนปฏิเสธ") {
+                            setError(null);
+                          }
+                        }}
                       />
                     </Field>
                     <div className="flex gap-2">
                       <Button
-                        onClick={() =>
-                          setConfirmReview({
-                            id: p.id,
-                            decision: "APPROVED",
-                            amount: p.amount,
-                            email: p.user.email,
-                            packageCode: p.packageCode,
-                          })
-                        }
+                        onClick={() => openReviewConfirm(p, "APPROVED")}
                         disabled={busyId === p.id}
                       >
                         อนุมัติ
                       </Button>
                       <Button
                         variant="danger"
-                        onClick={() =>
-                          setConfirmReview({
-                            id: p.id,
-                            decision: "REJECTED",
-                            amount: p.amount,
-                            email: p.user.email,
-                            packageCode: p.packageCode,
-                          })
-                        }
+                        onClick={() => openReviewConfirm(p, "REJECTED")}
                         disabled={busyId === p.id}
                       >
                         ปฏิเสธ
@@ -434,7 +444,14 @@ export function PaymentsPanel() {
         }
         message={
           confirmReview
-            ? `฿${confirmReview.amount} · ${confirmReview.email} · แพ็ก ${confirmReview.packageCode ?? "—"}`
+            ? [
+                `฿${confirmReview.amount} · ${confirmReview.email} · แพ็ก ${confirmReview.packageCode ?? "—"}`,
+                confirmReview.decision === "REJECTED"
+                  ? `เหตุผล: ${reviewNote[confirmReview.id]?.trim()}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join("\n")
             : undefined
         }
         confirmLabel={

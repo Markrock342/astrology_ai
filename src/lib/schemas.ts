@@ -117,6 +117,15 @@ export const resendVerificationSchema = z.object({
   turnstileToken: z.string().optional(),
 });
 
+export const contactFormSchema = z.object({
+  name: z.string().trim().min(1, "กรุณากรอกชื่อ").max(80),
+  email: z.string().trim().email("กรุณากรอกอีเมลให้ถูกต้อง").max(160),
+  message: z.string().trim().min(10, "รายละเอียดควรมีอย่างน้อย 10 ตัวอักษร").max(2_000),
+  turnstileToken: z.string().optional(),
+  /** Honeypot: real users never see or fill this field. */
+  website: z.string().max(200).optional(),
+});
+
 export const verifyEmailSchema = z.object({
   token: z.string().min(16),
 });

@@ -3,7 +3,7 @@
 import { memo, useEffect, useId, useMemo, useState } from "react";
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
-import { houseFromLagna, normalizeSignName, SIGNS } from "@/lib/chart-theme";
+import { formatDivisionalPosition, houseFromLagna, normalizeSignName, SIGNS } from "@/lib/chart-theme";
 import { formatMyhoraDegreeText, resolveLagnaDegreeInSign } from "@/lib/chart-derivations";
 import {
   collectAstrologyStandards,
@@ -217,13 +217,13 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
                     <p className="mt-1 text-[12px] text-[var(--muted)]">
                       {degreeText(r)}
                       {r.resolvedHouse ? ` · เรือน${r.resolvedHouse}` : ""}
-                      {r.nawamang ? ` · นวางศ์ ${r.nawamang}` : ""}
+                      {r.nawamang ? ` · นวางศ์ ${formatDivisionalPosition(r.nawamang)}` : ""}
                       {r.rerkName || r.rerk
                         ? ` · ฤกษ์ ${r.rerkName || "—"}${r.rerk ? ` (${r.rerk})` : ""}`
                         : ""}
                     </p>
                     <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-[var(--border)]/70 pt-2 text-[11px] text-[var(--muted)]">
-                      <div><dt className="text-[var(--muted-2)]">ตรียางค์</dt><dd>{r.triyang || "—"}</dd></div>
+                      <div><dt className="text-[var(--muted-2)]">ตรียางค์</dt><dd>{formatDivisionalPosition(r.triyang) || "—"}</dd></div>
                       <div><dt className="text-[var(--muted-2)]">พิษ</dt><dd>{r.poison || "—"}</dd></div>
                       <div><dt className="text-[var(--muted-2)]">บาท / ฤกษ์</dt><dd>{[r.baht, r.rerk2, r.rerkBig].filter(Boolean).join(" · ") || "—"}</dd></div>
                       <div><dt className="text-[var(--muted-2)]">เจ้าเรือน</dt><dd>{r.rerkOwner || "—"}</dd></div>
@@ -276,9 +276,9 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
                       <td className="px-3 py-2">{normalizeSignName(r.zodiac)}</td>
                       <td className="px-3 py-2">{degreeText(r)}</td>
                       <td className="px-3 py-2">{r.resolvedHouse || "—"}</td>
-                      <td className="px-3 py-2">{r.triyang || "—"}</td>
+                      <td className="px-3 py-2">{formatDivisionalPosition(r.triyang) || "—"}</td>
                       <td className="px-3 py-2">{r.poison || "—"}</td>
-                      <td className="px-3 py-2">{r.nawamang || "—"}</td>
+                      <td className="px-3 py-2">{formatDivisionalPosition(r.nawamang) || "—"}</td>
                       <td className="px-3 py-2">{r.rerk || "—"}</td>
                       <td className="px-3 py-2">{r.rerkName || "—"}</td>
                       <td className="px-3 py-2">{r.baht || "—"}</td>

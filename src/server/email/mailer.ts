@@ -11,6 +11,7 @@ import { env } from "@/config/env";
 
 export type SendEmailInput = {
   to: string;
+  replyTo?: string;
   subject: string;
   /** Plain-text body (always provided). */
   text: string;
@@ -75,6 +76,7 @@ async function sendViaResend(
       body: JSON.stringify({
         from,
         to: input.to,
+        ...(input.replyTo ? { reply_to: input.replyTo } : {}),
         subject: input.subject,
         text: input.text,
         html: input.html,

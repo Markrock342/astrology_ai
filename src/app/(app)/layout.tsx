@@ -39,7 +39,7 @@ export default async function AppLayout({
         hasBirthProfile={shell.hasBirthProfile}
       >
         <Suspense fallback={null}>
-          <AppShell footer={footer}>{children}</AppShell>
+          <AppShell footerLinks={footer.links}>{children}</AppShell>
         </Suspense>
       </BirthProfileGate>
     </AppDataProvider>
