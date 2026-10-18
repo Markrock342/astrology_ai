@@ -6,10 +6,6 @@ import { TurnstileField, turnstileRequired } from "@/components/auth/turnstile-f
 type ContactFormProps = { destination: string };
 
 export function ContactForm({ destination }: ContactFormProps) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
-  const [website, setWebsite] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(
     turnstileRequired() ? null : "",
   );
@@ -19,6 +15,15 @@ export function ContactForm({ destination }: ContactFormProps) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const payload = {
+      name: String(data.get("name") ?? ""),
+      email: String(data.get("email") ?? ""),
+      message: String(data.get("message") ?? ""),
+      website: String(data.get("website") ?? ""),
+      turnstileToken: turnstileToken ?? undefined,
+    };
     setState("loading");
     setFeedback(null);
 
@@ -32,7 +37,7 @@ export function ContactForm({ destination }: ContactFormProps) {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, message, website, turnstileToken: turnstileToken ?? undefined }),
+        body: JSON.stringify(payload),
       });
       const json = (await response.json()) as { ok?: boolean; error?: { message?: string } };
       if (!response.ok || !json.ok) {
@@ -44,10 +49,7 @@ export function ContactForm({ destination }: ContactFormProps) {
       }
       setState("success");
       setFeedback("ส่งข้อความแล้ว ทีมงานจะติดต่อกลับทางอีเมลที่แจ้งไว้ครับ");
-      setName("");
-      setEmail("");
-      setMessage("");
-      setWebsite("");
+      form.reset();
     } catch {
       setState("error");
       setFeedback(`เชื่อมต่อไม่ได้ — หากเร่งด่วนส่งอีเมลไปที่ ${destination} ได้โดยตรง`);
@@ -67,8 +69,6 @@ export function ContactForm({ destination }: ContactFormProps) {
           <input
             id="contact-name"
             name="name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
             autoComplete="name"
             required
             maxLength={80}
@@ -83,8 +83,6 @@ export function ContactForm({ destination }: ContactFormProps) {
             id="contact-email"
             name="email"
             type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
             autoComplete="email"
             required
             maxLength={160}
@@ -98,8 +96,6 @@ export function ContactForm({ destination }: ContactFormProps) {
           <textarea
             id="contact-message"
             name="message"
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
             required
             minLength={10}
             maxLength={2_000}
@@ -112,8 +108,6 @@ export function ContactForm({ destination }: ContactFormProps) {
           <input
             id="contact-website"
             name="website"
-            value={website}
-            onChange={(event) => setWebsite(event.target.value)}
             tabIndex={-1}
             autoComplete="off"
           />
