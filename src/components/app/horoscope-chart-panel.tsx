@@ -240,7 +240,7 @@ export const HoroscopeChartPanel = memo(function HoroscopeChartPanel({
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-xs font-medium text-[var(--primary)] marker:content-none [&::-webkit-details-marker]:hidden">
           <span>ผังวิเคราะห์เพิ่ม</span>
           <span className="text-[11px] font-normal text-[var(--muted)]">
-            นวางศ์ · ตรียางศ์ · ตรีวัย <span aria-hidden>＋</span>
+            นวางค์ · ตรียางค์ · ตรีวัย <span aria-hidden>＋</span>
           </span>
         </summary>
         <div className="border-t border-[var(--border)] px-3 py-4">
@@ -248,19 +248,19 @@ export const HoroscopeChartPanel = memo(function HoroscopeChartPanel({
             <div className={`grid gap-4 ${compact ? "grid-cols-1" : reference ? "grid-cols-[repeat(auto-fit,minmax(260px,1fr))]" : "grid-cols-[repeat(auto-fit,minmax(190px,1fr))]"}`}>
               <ThaiChakraChart
                 chart={d9}
-                title="นวางศ์จักร"
+                title="นวางค์จักร"
                 size={extraSize}
               />
               <ThaiChakraChart
                 chart={d3}
-                title="ตรียางศ์จักร"
+                title="ตรียางค์จักร"
                 size={extraSize}
               />
             </div>
           ) : (
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)]/55 px-4 py-5 text-center">
               <p className="text-sm font-medium text-[var(--foreground)]">
-                ยังไม่แสดงนวางศ์และตรียางศ์
+                ยังไม่แสดงนวางค์และตรียางค์
               </p>
               <p className="mx-auto mt-1 max-w-lg text-xs leading-5 text-[var(--muted)]">
                 ผังสองชุดนี้ต้องใช้องศาและลิปดาของลัคนากับดาวครบทุกดวง

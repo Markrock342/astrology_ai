@@ -141,6 +141,9 @@ export function PaymentSubmitCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [transferredAt, setTransferredAt] = useState(() =>
+    new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date()),
+  );
   const [history, setHistory] = useState<PaymentRow[]>([]);
   const [nowMs] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
@@ -211,6 +214,7 @@ export function PaymentSubmitCard({
           amount,
           packageCode: packageCode ?? (isTopUp ? "CREDIT_TOPUP" : "PRO"),
           proofPath,
+          transferredAt,
         }),
       });
       const json = await res.json();
@@ -437,6 +441,15 @@ export function PaymentSubmitCard({
             onSubmit={submit}
             className="mt-4 grid gap-3"
           >
+            <Field label="วันที่ชำระเงิน" hint="วันที่ที่โอนตามรายการธนาคาร">
+              <TextInput
+                type="date"
+                value={transferredAt}
+                max={new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date())}
+                onChange={(event) => setTransferredAt(event.target.value)}
+                required
+              />
+            </Field>
             {!isTopUp ? (
               <Field
                 label="จำนวนเงิน (บาท)"

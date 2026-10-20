@@ -31,4 +31,11 @@ describe("resolvePromptParts plan block", () => {
     expect(parts.plan).toBe(PLAN_HINT_PRO);
     expect(parts.plan).toContain("อ่านให้ครบทุกสัญญาณ");
   });
+
+  it("uses the neutral astrologer persona when the CMS has no override", async () => {
+    const parts = await resolvePromptParts({ plan: "PRO", categoryName: "ดวงชีวิต" });
+    expect(parts.persona).toContain("อาจารย์โหราศาสตร์");
+    expect(parts.persona).not.toContain("แม่หมอ");
+    expect(parts.persona).not.toContain("โหราจารย์หญิง");
+  });
 });

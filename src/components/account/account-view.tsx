@@ -39,6 +39,12 @@ type MyPackage = {
   /** When Pro ends; null when it never does (admin-granted "ไม่มีวันหมดอายุ"). */
   proEndsAt?: string | null;
   proNeverExpires?: boolean;
+  latestPurchase?: {
+    packageCode: string | null;
+    packageName: string | null;
+    purchasedAt: string;
+    expiresAt: string | null;
+  } | null;
   subscription: {
     status?: string;
     startsAt?: string;
@@ -179,10 +185,19 @@ export function AccountView({
         />
 
         <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
-          <p className="text-xs text-[var(--muted-2)]">แพ็กเกจปัจจุบัน</p>
+          <p className="text-xs text-[var(--muted-2)]">สิทธิ์ใช้งานปัจจุบัน</p>
           <p className="mt-1 text-lg font-semibold text-[var(--primary)]">
-            {myPackage.subscription?.package.name ?? (isPro ? "Pro" : "Free")}
+            {isPro ? "Pro · เปิดทุกหมวด" : "Free"}
           </p>
+          {myPackage.latestPurchase ? (
+            <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+              แพ็กล่าสุด <strong className="text-[var(--foreground)]">{myPackage.latestPurchase.packageName}</strong>
+              {" · ซื้อเมื่อ "}{formatExpiry(myPackage.latestPurchase.purchasedAt)}
+              {myPackage.latestPurchase.expiresAt
+                ? ` · คำถามใช้ได้ถึง ${formatExpiry(myPackage.latestPurchase.expiresAt)}`
+                : ""}
+            </p>
+          ) : null}
           {isPro && expiresAt ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <p

@@ -104,7 +104,14 @@ export async function listUsers(args: ListUsersArgs) {
             includedBalanceUnits: true,
             includedAllowanceUnits: true,
             purchasedBalanceUnits: true,
+            purchasedExpiresAt: true,
           },
+        },
+        payments: {
+          where: { status: "APPROVED", packageCode: { not: null } },
+          orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
+          take: 1,
+          select: { packageCode: true, paidAt: true, createdAt: true },
         },
         // Live rows only, Pro first: an expired Pro row still marked ACTIVE
         // showed a gold PRO badge on a Free user.
@@ -115,6 +122,28 @@ export async function listUsers(args: ListUsersArgs) {
           select: { package: { select: { code: true, type: true, name: true, questionPack: true } }, startsAt: true, expiresAt: true },
         },
   } satisfies Prisma.UserSelect;
+
+  async function withLatestPurchase<T extends { payments: Array<{ packageCode: string | null; paidAt: Date | null; createdAt: Date }> }>(items: T[]) {
+    const codes = [...new Set(items.map((item) => item.payments[0]?.packageCode).filter((code): code is string => Boolean(code)))];
+    const packages = codes.length
+      ? await prisma.package.findMany({ where: { code: { in: codes } }, select: { code: true, name: true } })
+      : [];
+    const names = new Map(packages.map((pkg) => [pkg.code, pkg.name]));
+    return items.map((row) => {
+      const { payments, ...item } = row;
+      const payment = payments[0];
+      return {
+        ...(item as Omit<T, "payments">),
+        latestPurchase: payment
+          ? {
+              packageCode: payment.packageCode,
+              packageName: payment.packageCode ? names.get(payment.packageCode) ?? payment.packageCode : null,
+              purchasedAt: payment.paidAt ?? payment.createdAt,
+            }
+          : null,
+      };
+    });
+  }
   const skip = (args.page - 1) * args.pageSize;
   const total = await prisma.user.count({ where });
 
@@ -131,7 +160,7 @@ export async function listUsers(args: ListUsersArgs) {
       total,
       page: args.page,
       pageSize: args.pageSize,
-      items: items.map((u) => ({ ...u, lastActiveAt: active.get(u.id) ?? null })),
+      items: await withLatestPurchase(items.map((u) => ({ ...u, lastActiveAt: active.get(u.id) ?? null }))),
     };
   }
 
@@ -153,7 +182,7 @@ export async function listUsers(args: ListUsersArgs) {
     const u = byId.get(r.id);
     return u ? [{ ...u, lastActiveAt: r.lastActiveAt }] : [];
   });
-  return { total, page: args.page, pageSize: args.pageSize, items };
+  return { total, page: args.page, pageSize: args.pageSize, items: await withLatestPurchase(items) };
 }
 
 export async function getUserDetail(userId: string) {

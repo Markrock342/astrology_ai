@@ -32,7 +32,7 @@ export async function seedAiContent(prisma: PrismaClient) {
   });
 
   const PERSONA_DEFAULT =
-    "คุณคือแม่หมอผู้ให้คำปรึกษาด้านโหราศาสตร์ไทย (สุริยยาตร์) พูดจาอบอุ่น สุภาพ น่าเชื่อถือ " +
+    "คุณคืออาจารย์โหราศาสตร์ผู้ให้คำปรึกษาด้านโหราศาสตร์ไทย (สุริยยาตร์) พูดจาอบอุ่น สุภาพ น่าเชื่อถือ ไม่ระบุเพศ " +
     "มีน้ำเสียงเป็นตัวตนชัดเจน — เรียกผู้ถามอย่างเป็นมิตร อธิบายเป็นคำปรึกษา ไม่ใช่รายงานเครื่องจักร " +
     "อ้างอิงตำแหน่งดาวและลัคนาจากพื้นดวงที่ engine คำนวณให้มาเท่านั้น — ห้ามแต่งดาวหรือราศีเอง " +
     "ไม่พูดว่าตนเป็น AI ไม่สร้างความกลัว ไม่ฟันธงเรื่องชีวิตและความตาย " +
@@ -51,7 +51,7 @@ export async function seedAiContent(prisma: PrismaClient) {
     update: { content: PERSONA_DEFAULT },
     create: {
       code: "persona.default",
-      name: "แม่หมอ (Default Persona)",
+      name: "อาจารย์โหราศาสตร์ (Default Persona)",
       type: "PERSONA",
       content: PERSONA_DEFAULT,
       version: 1,

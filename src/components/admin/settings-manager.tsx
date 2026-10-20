@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type {
   CmsContact,
+  CmsChatUi,
   CmsDocument,
   CmsKey,
   CmsMaintenance,
@@ -427,6 +428,51 @@ function SettingEditor({
           <TextInput
             value={v.label ?? ""}
             onChange={(e) => onChange({ ...v, label: e.target.value })}
+          />
+        </Field>
+      </div>
+    );
+  }
+  if (settingKey === CMS_KEYS.chatUi) {
+    const v = value as CmsChatUi;
+    return (
+      <div className="grid gap-4">
+        <Field label="หัวข้อคู่มือครั้งแรก">
+          <TextInput
+            value={v.guideTitle}
+            onChange={(e) => onChange({ ...v, guideTitle: e.target.value })}
+          />
+        </Field>
+        <div className="grid gap-3">
+          {v.guideSteps.map((step, index) => (
+            <div key={index} className="grid gap-2 border-b border-[var(--border)] pb-3 sm:grid-cols-[180px_1fr]">
+              <TextInput
+                aria-label={`หัวข้อขั้นตอน ${index + 1}`}
+                value={step.title}
+                onChange={(e) => {
+                  const guideSteps = [...v.guideSteps];
+                  guideSteps[index] = { ...step, title: e.target.value };
+                  onChange({ ...v, guideSteps });
+                }}
+              />
+              <TextArea
+                rows={2}
+                aria-label={`รายละเอียดขั้นตอน ${index + 1}`}
+                value={step.body}
+                onChange={(e) => {
+                  const guideSteps = [...v.guideSteps];
+                  guideSteps[index] = { ...step, body: e.target.value };
+                  onChange({ ...v, guideSteps });
+                }}
+              />
+            </div>
+          ))}
+        </div>
+        <Field label="ข้อความเตือนสั้นใต้ช่องถาม">
+          <TextArea
+            rows={2}
+            value={v.compactDisclaimer}
+            onChange={(e) => onChange({ ...v, compactDisclaimer: e.target.value })}
           />
         </Field>
       </div>

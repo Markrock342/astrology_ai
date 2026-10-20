@@ -20,6 +20,12 @@ export type CmsContact = { email: string; label?: string };
 
 export type CmsMaintenance = { enabled: boolean; message: string };
 
+export type CmsChatUi = {
+  guideTitle: string;
+  guideSteps: Array<{ title: string; body: string }>;
+  compactDisclaimer: string;
+};
+
 export type CmsPaymentInfo = {
   title: string;
   bankName: string;
@@ -137,6 +143,7 @@ export const CMS_KEYS = {
   consentBirthPrivacy: "consent_birth_privacy",
   consentBirthEditLimit: "consent_birth_edit_limit",
   contact: "contact",
+  chatUi: "chat_ui",
   maintenanceMode: "maintenance_mode",
   siteTheme: "site_theme",
   paymentInfo: "payment_info",
@@ -376,6 +383,16 @@ export const CMS_DEFAULTS: Record<CmsKey, unknown> = {
     email: "support@horasard.com",
     label: "ทีมงาน HoraSard",
   } satisfies CmsContact,
+  [CMS_KEYS.chatUi]: {
+    guideTitle: "เริ่มถามดวงใน 1 นาที",
+    guideSteps: [
+      { title: "พิมพ์คำถาม", body: "บอกเรื่องและช่วงเวลา เช่น “เดือนหน้าเรื่องงานเป็นอย่างไร” เพื่อให้คำตอบตรงประเด็น" },
+      { title: "เลือกวันจร", body: "ใช้ปุ่มปฏิทินใต้ช่องพิมพ์ เมื่อต้องการดูวันสำคัญ เช่น วันสัมภาษณ์" },
+      { title: "ดูดวงสมพงษ์", body: "ใส่วันเกิดของคู่หรือคนในครอบครัว แล้วถามเรื่องความสัมพันธ์" },
+      { title: "จำนวนคำถาม", body: "การส่งหนึ่งครั้งใช้หนึ่งคำถาม หมดแล้วซื้อแพ็กเพิ่มได้ในหน้าบัญชี" },
+    ],
+    compactDisclaimer: "คำตอบเป็นแนวทางจากข้อมูลดวงและอาจคลาดเคลื่อนได้ โปรดใช้วิจารณญาณ",
+  } satisfies CmsChatUi,
   [CMS_KEYS.maintenanceMode]: {
     enabled: false,
     message: "ระบบอยู่ระหว่างปรับปรุง กรุณากลับมาใหม่ภายหลัง",
@@ -499,7 +516,7 @@ export const CMS_DEFAULTS: Record<CmsKey, unknown> = {
     items: [
       {
         name: "นภัส",
-        quote: "อ่านง่าย อบอุ่น เหมือนคุยกับแม่หมอจริง ๆ — ช่วยให้คิดเรื่องงานได้ชัดขึ้น",
+        quote: "อ่านง่าย อบอุ่น เหมือนคุยกับอาจารย์โหราศาสตร์จริง ๆ — ช่วยให้คิดเรื่องงานได้ชัดขึ้น",
         stars: 5,
       },
       {
@@ -547,6 +564,7 @@ export const CMS_LABELS: Record<CmsKey, string> = {
   [CMS_KEYS.consentBirthPrivacy]: "ฟอร์มวันเกิด — ยอมรับนโยบาย",
   [CMS_KEYS.consentBirthEditLimit]: "ฟอร์มวันเกิด — แจ้งแก้ได้ 1 ครั้ง",
   [CMS_KEYS.contact]: "อีเมลติดต่อทีมงาน",
+  [CMS_KEYS.chatUi]: "ข้อความหน้าสนทนา",
   [CMS_KEYS.maintenanceMode]: "ปิดระบบชั่วคราว",
   [CMS_KEYS.siteTheme]: "โลโก้ & ธีม",
   [CMS_KEYS.paymentInfo]: "วิธีโอนเงิน Pro",
@@ -632,6 +650,12 @@ export const CMS_META: Record<CmsKey, CmsMeta> = {
     help: "อีเมลที่ผู้ใช้ติดต่อทีมงาน",
     where: "หน้า /contact · หน้านโยบาย",
     previewPath: "/contact",
+  },
+  [CMS_KEYS.chatUi]: {
+    group: "system",
+    help: "หัวข้อแนะนำผู้ใช้ครั้งแรกและข้อความเตือนสั้นใต้ช่องถาม",
+    where: "หน้าแชท /dashboard",
+    previewPath: "/dashboard",
   },
   [CMS_KEYS.maintenanceMode]: {
     group: "system",

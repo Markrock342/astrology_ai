@@ -110,8 +110,8 @@ describe("natal chart engine (formula path)", () => {
 
     const text = formatChartCompactForPrompt(chart);
     expect(text).toContain("ตรียางค์ 3 : 4 : กันย์");
-    expect(text).toContain("นวางศ์ 7 : 2 : กรกฎ");
-    expect(text).not.toContain("นวางค์");
+    expect(text).toContain("นวางค์ 7 : 2 : กรกฎ");
+    expect(text).not.toContain("นวางศ์");
   });
 
   it("computes a distinct transit chart for another moment", () => {

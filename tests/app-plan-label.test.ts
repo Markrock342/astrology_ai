@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { appPlanLabel } from "@/lib/app-plan-label";
 
 describe("appPlanLabel", () => {
-  it("shows the purchased package name instead of the generic Pro tier", () => {
+  it("shows the access tier instead of the latest question-pack name", () => {
     expect(
       appPlanLabel({ role: "USER", plan: "PRO", packageName: "Plus" }),
-    ).toBe("Plus");
+    ).toBe("Pro");
   });
 
   it("keeps staff roles and safe fallbacks", () => {

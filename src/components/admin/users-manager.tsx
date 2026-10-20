@@ -34,6 +34,12 @@ type UserRow = {
     includedBalanceUnits: number;
     includedAllowanceUnits: number;
     purchasedBalanceUnits: number;
+    purchasedExpiresAt: string | null;
+  } | null;
+  latestPurchase: {
+    packageCode: string | null;
+    packageName: string | null;
+    purchasedAt: string;
   } | null;
   subscriptions: Array<{
     package: { code: string; type: string; name?: string; questionPack?: boolean };
@@ -205,7 +211,10 @@ export function UsersManager({
             <tr>
               <Th>ผู้ใช้</Th>
               <Th>บทบาท</Th>
-              <Th>แพ็กเกจ</Th>
+              <Th>สิทธิ์</Th>
+              <Th>แพ็กล่าสุด</Th>
+              <Th>ซื้อเมื่อ</Th>
+              <Th>คำถามหมดอายุ</Th>
               <Th>คำถามเหลือ</Th>
               <Th>สถานะ</Th>
               <Th>ใช้งานล่าสุด</Th>
@@ -249,14 +258,26 @@ export function UsersManager({
                     </Badge>
                   </Td>
                   <Td>
-                    <Badge tone={plan === "PRO" ? "gold" : "muted"}>{sub?.package.name ?? plan}</Badge>
-                    {/* When the plan started and ends (A, 12 Oct 2026). Free never ends. */}
-                    {sub && plan === "PRO" ? (
-                      <span className="mt-1 block whitespace-nowrap text-[11px] text-[var(--muted-2)]">
-                        {sub.startsAt ? `${shortDay(sub.startsAt)} – ` : ""}
-                        {sub.expiresAt ? shortDay(sub.expiresAt) : "ไม่มีวันหมด"}
-                      </span>
-                    ) : null}
+                    <Badge tone={plan === "PRO" ? "gold" : "muted"}>
+                      {plan === "PRO" ? "Pro" : "Free"}
+                    </Badge>
+                  </Td>
+                  <Td>
+                    {u.latestPurchase?.packageName ? (
+                      <Badge tone="gold">{u.latestPurchase.packageName}</Badge>
+                    ) : (
+                      <span className="text-[var(--muted-2)]">—</span>
+                    )}
+                  </Td>
+                  <Td className="whitespace-nowrap text-xs text-[var(--muted)]">
+                    {u.latestPurchase?.purchasedAt ? shortDay(u.latestPurchase.purchasedAt) : "—"}
+                  </Td>
+                  <Td className="whitespace-nowrap text-xs text-[var(--muted)]">
+                    {u.usageWallet?.purchasedExpiresAt
+                      ? shortDay(u.usageWallet.purchasedExpiresAt)
+                      : u.usageWallet && u.usageWallet.purchasedBalanceUnits > 0
+                        ? "ไม่มีวันหมด"
+                        : "—"}
                   </Td>
                   <Td>
                     {u.usageWallet
@@ -295,7 +316,7 @@ export function UsersManager({
             })}
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-[var(--muted)]">
+                <td colSpan={11} className="px-4 py-8 text-center text-[var(--muted)]">
                   ไม่พบผู้ใช้
                 </td>
               </tr>

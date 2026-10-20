@@ -26,6 +26,7 @@ type Payment = {
   note: string | null;
   proofUrl: string | null;
   packageCode: string | null;
+  transferredAt: string | null;
   reviewedAt: string | null;
   createdAt: string;
   user: { id: string; email: string; name: string | null };
@@ -277,7 +278,7 @@ export function PaymentsPanel() {
       <TableShell>
         <thead>
           <tr>
-            <Th>วันที่</Th>
+            <Th>วันที่แจ้ง / วันที่โอน</Th>
             <Th>ผู้ใช้</Th>
             <Th>แพ็กเกจ</Th>
             <Th>จำนวน</Th>
@@ -302,6 +303,9 @@ export function PaymentsPanel() {
                   dateStyle: "short",
                   timeStyle: "short",
                 })}
+                <span className="mt-1 block text-[11px] text-[var(--muted-2)]">
+                  โอน {p.transferredAt ? new Date(p.transferredAt).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" }) : "—"}
+                </span>
               </Td>
               <Td>
                 <Link

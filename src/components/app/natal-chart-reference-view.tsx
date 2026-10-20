@@ -127,7 +127,7 @@ export function NatalChartReferenceView() {
       <HoroscopeChartPanel
         natal={chart}
         presentation="reference"
-        description="ตำแหน่งลัคนา ดาว เรือน นวางศ์ ตรียางศ์ และทักษา ชุดเดียวกับที่ใช้วิเคราะห์คำตอบ"
+        description="ตำแหน่งลัคนา ดาว เรือน นวางค์ ตรียางค์ และทักษา ชุดเดียวกับที่ใช้วิเคราะห์คำตอบ"
       />
 
       <div className="mt-5">

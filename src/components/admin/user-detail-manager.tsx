@@ -968,6 +968,10 @@ export function UserDetailManager({
             <p className="mt-1 text-xs text-[var(--muted-2)]">
               คงเหลือตอนนี้ {user.usage?.remainingQuestions ?? 0} คำถาม · หักจะลดคำถามที่ซื้อ/ให้ไว้ก่อน แล้วจึงลดคำถาม Free
             </p>
+            <p className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-[11px] leading-5 text-[var(--muted)]">
+              หากให้แพ็กหรือคำถามผิด ให้เลือก “ตั้งยอดคงเหลือเป็น” แล้วกรอกยอดที่ถูกต้อง พร้อมระบุเหตุผล
+              ระบบจะปรับเฉพาะยอดคงเหลือและเก็บประวัติการแก้ไขไว้ตรวจสอบ
+            </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
               <Field label="ประเภท">
                 <Select

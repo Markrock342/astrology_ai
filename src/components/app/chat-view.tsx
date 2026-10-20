@@ -55,6 +55,7 @@ import {
   type FutureDatePromptTrigger,
   suggestedFutureDateKey,
 } from "@/lib/reading-intent";
+import type { CmsChatUi } from "@/lib/cms-keys";
 
 // Behind a click / a route flag — keep them out of the first dashboard chunk.
 const NatalChartReferenceView = dynamic(
@@ -400,7 +401,7 @@ function applyApiError(
   }
 }
 
-export function ChatView() {
+export function ChatView({ chatUi }: { chatUi: CmsChatUi }) {
   const searchParams = useChatRouteSearchParams();
   const catSlug = searchParams.get("cat");
   const threadId = searchParams.get("thread");
@@ -2246,6 +2247,7 @@ export function ChatView() {
               plan={user?.plan ?? "FREE"}
               onPick={send}
               emailGate={emailGate}
+              chatUi={chatUi}
             />
             {(state === "error" || state === "no-quota") && (
               <div className="mt-4 w-full max-w-md">
@@ -2649,6 +2651,7 @@ export function ChatView() {
               onTransitDateChange={setTransitDateInput}
               companions={companionsInput}
               onCompanionsChange={setCompanionsInput}
+              compactDisclaimer={chatUi.compactDisclaimer}
             />
         </div>
       )}
@@ -2788,7 +2791,7 @@ const STARTER_GROUPS: Array<{ topic: string; questions: string[]; pro?: boolean 
 const GUIDE_SEEN_KEY = "horasard.firstVisitGuide.v1";
 
 /** A one-time card on how the chat works. Dismissed for good on this device. */
-function FirstVisitGuide() {
+function FirstVisitGuide({ copy }: { copy: CmsChatUi }) {
   const [show, setShow] = useState(false);
   useEffect(() => {
     try {
@@ -2807,28 +2810,23 @@ function FirstVisitGuide() {
       /* private mode: shows again next time, harmless */
     }
   };
-  const steps: Array<[string, string]> = [
-    ["พิมพ์คำถาม", "บอกเรื่องและช่วงเวลา เช่น “เดือนหน้าเรื่องงานเป็นยังไง” จะได้คำตอบตรงกว่าถามกว้าง ๆ"],
-    ["ดูดวงของวันที่ต้องการทราบ (เลือกวันจร)", "ปุ่มรูปปฏิทินใต้ช่องพิมพ์ ใช้ดูวันสำคัญ เช่น วันสัมภาษณ์ — ไม่ใช่การจองคิว"],
-    ["ดูดวงสมพงษ์ (ดวงคู่)", "ใส่วันเกิดแฟนหรือคนในครอบครัว แล้วถามว่าเข้ากันไหม"],
-    ["เหลือ … คำถาม", "ถาม 1 ครั้งใช้ 1 คำถาม ไม่ว่าคำตอบจะยาวแค่ไหน — หมดแล้วซื้อแพ็กเพิ่มได้ในหน้าบัญชี"],
-  ];
+  const steps = copy.guideSteps;
   return (
     <div className="animate-fade-up mt-5 w-full rounded-2xl border border-[var(--primary)]/35 bg-[var(--primary)]/8 p-4 text-left">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-[var(--primary)]">ใช้งานครั้งแรก? ดู 4 อย่างนี้</p>
+        <p className="text-sm font-semibold text-[var(--primary)]">{copy.guideTitle}</p>
         <button type="button" onClick={close} className="rounded-md px-2 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]">
           เข้าใจแล้ว
         </button>
       </div>
       <ol className="space-y-1.5 text-[13px] leading-6 text-[var(--foreground)]">
-        {steps.map(([title, body], i) => (
-          <li key={title} className="flex gap-2">
+        {steps.map((step, i) => (
+          <li key={`${step.title}-${i}`} className="flex gap-2">
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[11px] font-semibold text-[var(--primary-foreground)]">
               {i + 1}
             </span>
             <span>
-              <b>{title}</b> — <span className="text-[var(--muted)]">{body}</span>
+              <b>{step.title}</b> — <span className="text-[var(--muted)]">{step.body}</span>
             </span>
           </li>
         ))}
@@ -2841,6 +2839,7 @@ function EmptyState({
   plan,
   onPick,
   emailGate = false,
+  chatUi,
 }: {
   categories: Array<{
     slug: string;
@@ -2850,6 +2849,7 @@ function EmptyState({
   plan: "FREE" | "PRO";
   onPick: (q: string) => void;
   emailGate?: boolean;
+  chatUi: CmsChatUi;
 }) {
   const groups = STARTER_GROUPS.filter((g) => plan === "PRO" || !g.pro);
 
@@ -2859,9 +2859,9 @@ function EmptyState({
         ถามดวงได้เลย
       </h1>
       <p className="animate-fade-up stagger-1 mt-2 text-sm leading-relaxed text-[var(--muted)]">
-        ถามให้เจาะจง: <b className="text-[var(--foreground)]">เรื่องอะไร + ช่วงไหน</b> แล้วแม่หมอจะดูดวงจรของช่วงนั้นให้
+        ถามให้เจาะจง: <b className="text-[var(--foreground)]">เรื่องอะไร + ช่วงไหน</b> แล้วอาจารย์จะดูดวงจรของช่วงนั้นให้
       </p>
-      <FirstVisitGuide />
+      <FirstVisitGuide copy={chatUi} />
       <div className="mt-5 w-full space-y-2.5 text-left">
         {groups.map((g, gi) => (
           <div key={g.topic} className={`animate-fade-up stagger-${Math.min(gi + 2, 6)} flex flex-wrap items-center gap-2`}>
@@ -3044,6 +3044,7 @@ const Composer = forwardRef<
     onTransitDateChange?: (value: string) => void;
     companions?: Companion[];
     onCompanionsChange?: (value: Companion[]) => void;
+    compactDisclaimer: string;
   }
 >(function Composer(
   {
@@ -3062,6 +3063,7 @@ const Composer = forwardRef<
     onTransitDateChange,
     companions = [],
     onCompanionsChange,
+    compactDisclaimer,
   },
   ref,
 ) {
@@ -3266,7 +3268,7 @@ const Composer = forwardRef<
         data-compact-hide
         className="mt-1.5 text-center text-[10px] leading-4 text-[var(--muted-2)] md:text-[11px]"
       >
-        Horasard อาจให้ข้อมูลที่ไม่ถูกต้องเสมอไป โปรดใช้วิจารณญาณ ·{" "}
+        {compactDisclaimer} ·{" "}
         <a href="/disclaimer" className="underline hover:text-[var(--muted)]">
           ข้อจำกัดความรับผิด
         </a>

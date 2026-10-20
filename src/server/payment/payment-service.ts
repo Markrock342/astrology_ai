@@ -34,6 +34,7 @@ export type SubmitPaymentInput = {
   amount: number;
   proofPath: string;
   packageCode?: string;
+  transferredAt?: Date;
 };
 
 const paymentListSelect = {
@@ -44,6 +45,7 @@ const paymentListSelect = {
   note: true,
   proofUrl: true,
   packageCode: true,
+  transferredAt: true,
   reviewedAt: true,
   notifiedAt: true,
   notifyError: true,
@@ -103,6 +105,7 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
         userId,
         amount: input.amount,
         packageCode: input.packageCode,
+        transferredAt: input.transferredAt ?? new Date(),
         proofUrl: proofPath,
         status: "PENDING",
       },
@@ -111,6 +114,7 @@ export async function submitManualPayment(userId: string, input: SubmitPaymentIn
         amount: true,
         status: true,
         packageCode: true,
+        transferredAt: true,
         proofUrl: true,
         createdAt: true,
       },

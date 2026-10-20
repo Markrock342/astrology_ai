@@ -95,17 +95,47 @@ export async function applyQuestionPack(
   // user already has running (a monthly plan, an admin grant).
   const running = await tx.userSubscription.findMany({
     where: { userId, status: "ACTIVE", package: { type: "PRO" }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-    select: { expiresAt: true },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      expiresAt: true,
+      package: { select: { code: true, questionPack: true } },
+    },
   });
   const proEnd =
     questionsEnd === null || running.some((s) => s.expiresAt === null)
       ? null
       : running.reduce<Date>((max, s) => (s.expiresAt! > max ? s.expiresAt! : max), questionsEnd);
 
-  await tx.userSubscription.updateMany({ where: { userId, status: "ACTIVE" }, data: { status: "CANCELLED" } });
-  const subscription = await tx.userSubscription.create({
-    data: { userId, packageId: pkg.id, status: "ACTIVE", activationSource: input.activationSource, startsAt: now, expiresAt: proEnd },
-    select: { id: true, expiresAt: true, package: { select: { code: true } } },
+  // A pack is a purchase, not the account's identity. Keep an existing Pro
+  // entitlement (prefer a real membership/admin grant over an older pack) and
+  // only extend its access window. The old cancel-and-create behaviour made a
+  // Plus account become "Lite" merely because Lite was the latest top-up.
+  const keeper = [...running].sort((a, b) => {
+    if (a.package.questionPack !== b.package.questionPack) {
+      return a.package.questionPack ? 1 : -1;
+    }
+    if (a.expiresAt === null && b.expiresAt !== null) return -1;
+    if (a.expiresAt !== null && b.expiresAt === null) return 1;
+    return (b.expiresAt?.getTime() ?? 0) - (a.expiresAt?.getTime() ?? 0);
+  })[0];
+
+  const subscription = keeper
+    ? await tx.userSubscription.update({
+        where: { id: keeper.id },
+        data: { expiresAt: proEnd },
+        select: { id: true, expiresAt: true, package: { select: { code: true } } },
+      })
+    : await tx.userSubscription.create({
+        data: { userId, packageId: pkg.id, status: "ACTIVE", activationSource: input.activationSource, startsAt: now, expiresAt: proEnd },
+        select: { id: true, expiresAt: true, package: { select: { code: true } } },
+      });
+
+  // Normalise legacy accounts that already accumulated multiple ACTIVE rows.
+  // The kept row retains the original entitlement/package identity.
+  await tx.userSubscription.updateMany({
+    where: { userId, status: "ACTIVE", id: { not: subscription.id } },
+    data: { status: "CANCELLED" },
   });
   return {
     subscription,

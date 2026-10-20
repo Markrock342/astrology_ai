@@ -46,7 +46,7 @@ describe("full chart evidence table", () => {
     for (const value of [
       "ตรียางค์",
       "สุนัข",
-      "นวางศ์",
+      "นวางค์",
       "21 : 49",
       "ศรวณะ",
       "จตุตถ",

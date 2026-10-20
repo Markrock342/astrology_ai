@@ -29,6 +29,7 @@ export function AdminPushEnable() {
   const [publicKey, setPublicKey] = useState("");
   const [status, setStatus] = useState<"idle" | "on" | "busy" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [registeredDevices, setRegisteredDevices] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -37,6 +38,7 @@ export function AdminPushEnable() {
       if (json?.ok) {
         setConfigured(Boolean(json.data.configured));
         setPublicKey(String(json.data.publicKey ?? ""));
+        setRegisteredDevices(Number(json.data.registeredDevices ?? 0));
       }
       if ("serviceWorker" in navigator) {
         const reg = await navigator.serviceWorker.getRegistration("/");
@@ -95,6 +97,7 @@ export function AdminPushEnable() {
       }
       setStatus("on");
       setMessage("เปิดการแจ้งเตือนบนเครื่องนี้แล้ว");
+      await load();
     } catch (e) {
       setStatus("error");
       setMessage(e instanceof Error ? e.message : "เปิดการแจ้งเตือนไม่สำเร็จ");
@@ -110,7 +113,7 @@ export function AdminPushEnable() {
         แจ้งเตือนมือถือเมื่อมีสลิปใหม่
       </p>
       <p className="mt-1 text-[11px] text-[var(--muted)]">
-        เปิดหน้านี้บนมือถือ แล้วกดปุ่มและอนุญาตการแจ้งเตือน
+        ส่งเฉพาะสลิปใหม่ถึงอุปกรณ์ของ Admin/Super Admin ที่กดเปิดไว้ · ลงทะเบียนแล้ว {registeredDevices.toLocaleString("th-TH")} อุปกรณ์
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Button
