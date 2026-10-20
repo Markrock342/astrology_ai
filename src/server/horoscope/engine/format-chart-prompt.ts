@@ -66,7 +66,7 @@ function formatSamrapTable(rows: MyhoraNatalPlanet[]): string[] {
         : "—";
     lines.push([
       `- ${r.planet}: ราศี ${r.zodiac}, ${deg}, เรือน ${r.house || "—"}`,
-      `ตรียางค์ ${formatDivisionalPosition(r.triyang) || "—"}, พิษ ${r.poison || "—"}, นวางศ์ ${formatDivisionalPosition(r.nawamang) || "—"}`,
+      `ตรียางค์ ${formatDivisionalPosition(r.triyang) || "—"}, พิษ ${r.poison || "—"}, นวางค์ ${formatDivisionalPosition(r.nawamang) || "—"}`,
       `ฤกษ์:นาที ${r.rerk || "—"}, นักษัตร ${r.rerkName || "—"}, บาท ${r.baht || "—"}`,
       `ฤกษ์ ${r.rerk2 || "—"}, ฤกษ์ใหญ่ ${r.rerkBig || "—"}, เจ้าเรือน ${r.rerkOwner || "—"}`,
       `มาตรฐาน/เกณฑ์ ${r.rerkStandard || "—"}`,
@@ -305,7 +305,7 @@ export function formatChartCompactForPrompt(
         [
           `${r.planet}: ${r.zodiac} เรือน${r.house ?? "—"}`,
           `ตรียางค์ ${formatDivisionalPosition(r.triyang) || "—"}`,
-          `นวางศ์ ${formatDivisionalPosition(r.nawamang) || "—"}`,
+          `นวางค์ ${formatDivisionalPosition(r.nawamang) || "—"}`,
           r.rerkStandard ? `มาตรฐาน ${r.rerkStandard}` : null,
         ]
           .filter(Boolean)

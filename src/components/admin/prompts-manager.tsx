@@ -263,7 +263,7 @@ export function PromptsManager() {
               <TextInput
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="เช่น แม่หมอหลัก"
+                placeholder="เช่น อาจารย์โหราศาสตร์หลัก"
               />
             </Field>
             <Field label="ประเภท">
@@ -282,7 +282,7 @@ export function PromptsManager() {
           <div className="mt-3">
             <Field
               label="เนื้อหา prompt"
-              hint="บอกนิสัย โทนเสียง กฎการตอบ เช่น 'คุณคือแม่หมอ... ห้ามทำนายเรื่องความตาย...'"
+              hint="บอกนิสัย โทนเสียง กฎการตอบ เช่น 'คุณคืออาจารย์โหราศาสตร์... ห้ามทำนายเรื่องความตาย...'"
             >
               <TextArea
                 rows={10}

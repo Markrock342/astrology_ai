@@ -7,11 +7,12 @@ const source = readFileSync(
 );
 
 describe("contact form text persistence", () => {
-  it("leaves field values in the browser so captcha rerenders cannot erase Thai IME text", () => {
+  it("keeps a browser-local draft so captcha rerenders cannot erase Thai IME text", () => {
     expect(source).toContain("const data = new FormData(form)");
     expect(source).toContain("form.reset()");
-    expect(source).not.toContain('value={message}');
-    expect(source).not.toContain('onChange={(event) => setMessage');
+    expect(source).toContain('value={message}');
+    expect(source).toContain("sessionStorage.setItem(CONTACT_DRAFT_KEY, next)");
+    expect(source).toContain("sessionStorage.removeItem(CONTACT_DRAFT_KEY)");
   });
 
   it("keeps the multiline field out of the capsule radius that clips its first line", () => {

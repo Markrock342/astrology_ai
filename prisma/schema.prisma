@@ -917,6 +917,8 @@ model Payment {
   currency          String        @default("THB")
   paymentMethod     String?
   status            PaymentStatus @default(PENDING)
+  /// Date/time the customer says the bank transfer occurred.
+  transferredAt     DateTime?
   paidAt            DateTime?
   proofUrl          String?
   reference         String?
@@ -1075,4 +1077,3 @@ model UserMemoryFact {
   @@index([userId, updatedAt])
   @@map("user_memory_facts")
 }
-

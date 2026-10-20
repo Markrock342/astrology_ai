@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-logo";
+import { PublicBackButton } from "./public-back-button";
 
 /**
  * One header for every public content page (pricing, help, contact, legal,
@@ -8,7 +9,8 @@ import { BrandMark } from "@/components/brand-logo";
  */
 export function PublicPageHeader({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex justify-center ${className}`}>
+    <div className={`relative flex min-h-14 items-center justify-center ${className}`}>
+      <PublicBackButton />
       <Link
         href="/"
         aria-label="กลับหน้าแรก"

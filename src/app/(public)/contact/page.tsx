@@ -3,7 +3,6 @@ import { PublicPageHeader } from "@/components/marketing/public-page-header";
 import { ContactForm } from "@/components/marketing/contact-form";
 import {
   CMS_KEYS,
-  type CmsContact,
   type CmsSeo,
   type CmsSiteFooter,
 } from "@/lib/cms-keys";
@@ -29,10 +28,7 @@ export default async function ContactPage() {
   const cms = <K extends typeof CMS_KEYS[keyof typeof CMS_KEYS]>(key: K) =>
     preview ? getDraftSetting(key) : getPublishedSetting(key);
 
-  const [contact, footer] = await Promise.all([
-    cms(CMS_KEYS.contact) as Promise<CmsContact>,
-    cms(CMS_KEYS.siteFooter) as Promise<CmsSiteFooter>,
-  ]);
+  const footer = (await cms(CMS_KEYS.siteFooter)) as CmsSiteFooter;
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col px-6 py-16">
@@ -45,21 +41,7 @@ export default async function ContactPage() {
         สอบถามเรื่องบัญชี การชำระเงิน หรือข้อเสนอแนะ — ทีมงานพร้อมช่วยเหลือ
       </p>
 
-      <div className="mt-10 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center sm:p-8">
-        {contact.label ? (
-          <p className="text-xs font-medium uppercase tracking-wider text-[var(--muted-2)]">
-            {contact.label}
-          </p>
-        ) : null}
-        <a
-          href={`mailto:${contact.email}`}
-          className="mt-3 inline-block text-lg font-semibold text-[var(--primary)] underline-offset-2 hover:underline"
-        >
-          {contact.email}
-        </a>
-      </div>
-
-      <ContactForm destination={contact.email} />
+      <ContactForm />
 
       {footer.socialLinks.length > 0 ? (
         <div className="mt-10 text-center">

@@ -1,17 +1,27 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { TurnstileField, turnstileRequired } from "@/components/auth/turnstile-field";
 
-type ContactFormProps = { destination: string };
+const CONTACT_DRAFT_KEY = "horasard.contact.message.v1";
 
-export function ContactForm({ destination }: ContactFormProps) {
+export function ContactForm() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(
     turnstileRequired() ? null : "",
   );
   const [captchaRound, setCaptchaRound] = useState(0);
   const [state, setState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- restore a browser-local draft after hydration
+      setMessage(window.sessionStorage.getItem(CONTACT_DRAFT_KEY) ?? "");
+    } catch {
+      /* Storage can be unavailable in strict/private browser modes. */
+    }
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,9 +60,15 @@ export function ContactForm({ destination }: ContactFormProps) {
       setState("success");
       setFeedback("ส่งข้อความแล้ว ทีมงานจะติดต่อกลับทางอีเมลที่แจ้งไว้ครับ");
       form.reset();
+      setMessage("");
+      try {
+        window.sessionStorage.removeItem(CONTACT_DRAFT_KEY);
+      } catch {
+        /* no-op */
+      }
     } catch {
       setState("error");
-      setFeedback(`เชื่อมต่อไม่ได้ — หากเร่งด่วนส่งอีเมลไปที่ ${destination} ได้โดยตรง`);
+      setFeedback("เชื่อมต่อไม่ได้ ข้อความยังถูกเก็บไว้ในเครื่องนี้ กรุณาลองส่งอีกครั้ง");
     }
   }
 
@@ -100,8 +116,21 @@ export function ContactForm({ destination }: ContactFormProps) {
             minLength={10}
             maxLength={2_000}
             rows={6}
+            value={message}
+            onChange={(event) => {
+              const next = event.target.value;
+              setMessage(next);
+              try {
+                window.sessionStorage.setItem(CONTACT_DRAFT_KEY, next);
+              } catch {
+                /* no-op */
+              }
+            }}
             className="resize-y rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-3 text-base leading-6 text-[var(--foreground)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
           />
+          <p className="text-right text-[11px] tabular-nums text-[var(--muted-2)]">
+            {message.length.toLocaleString("th-TH")} / 2,000
+          </p>
         </div>
         <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
           <label htmlFor="contact-website">เว็บไซต์</label>

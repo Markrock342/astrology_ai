@@ -219,6 +219,12 @@ export function SettingsPopover({
           label="จัดการแพ็กเกจ"
           onClick={() => go("/account")}
         />
+        <Row
+          icon={<PaymentIcon />}
+          label="แจ้งการชำระเงิน"
+          hint="(เลือกแพ็ก / แนบสลิป)"
+          onClick={() => go("/account#payment")}
+        />
         {footerLinks.length > 0 ? (
           <div className="mt-1 border-t border-[var(--border)]/70 pt-2">
             <p className="px-3 pb-1 text-[11px] font-medium text-[var(--muted-2)]">
@@ -353,6 +359,15 @@ function PackageIcon() {
       <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" {...LINE} />
       <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" {...LINE} />
       <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" {...LINE} />
+    </svg>
+  );
+}
+
+function PaymentIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18M7 15h4" />
     </svg>
   );
 }

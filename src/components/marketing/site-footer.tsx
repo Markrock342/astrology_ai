@@ -5,6 +5,12 @@ import type { CmsSiteFooter } from "@/lib/cms-keys";
 const DESIGN_CREDIT_HREF = "https://limitcode.shop";
 
 export function SiteFooter({ footer }: { footer: CmsSiteFooter }) {
+  const menuLinks = footer.links.some((link) => link.href.includes("#payment"))
+    ? footer.links
+    : [
+        ...footer.links,
+        { label: "แจ้งการชำระเงิน", href: "/account#payment" },
+      ];
   return (
     <footer className="mt-auto border-t border-[var(--border)] bg-[var(--surface)]">
       <div className="mx-auto grid max-w-5xl gap-10 px-6 py-12 sm:grid-cols-[1.2fr_1fr]">
@@ -19,13 +25,13 @@ export function SiteFooter({ footer }: { footer: CmsSiteFooter }) {
         </div>
 
         <div className="grid gap-8 sm:grid-cols-2">
-          {footer.links.length > 0 && (
+          {menuLinks.length > 0 && (
             <nav aria-label="ลิงก์ส่วนท้าย">
               <p className="text-xs font-semibold text-[var(--muted-2)]">
                 เมนู
               </p>
               <ul className="mt-3 space-y-2">
-                {footer.links.map((link) => (
+                {menuLinks.map((link) => (
                   <li key={`${link.href}-${link.label}`}>
                     <Link
                       href={link.href}

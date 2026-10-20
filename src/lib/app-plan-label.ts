@@ -4,10 +4,10 @@ export type AppPlanLabelUser = {
   packageName?: string | null;
 };
 
-/** Shell label: staff role wins; paid users see the real package name. */
+/** Shell label: staff role wins; question-pack names belong in purchase history. */
 export function appPlanLabel(user: AppPlanLabelUser | null | undefined): string {
   if (user?.role === "SUPER_ADMIN") return "Super Admin";
   if (user?.role === "ADMIN") return "Admin";
-  if (user?.plan === "PRO") return user.packageName?.trim() || "Pro";
+  if (user?.plan === "PRO") return "Pro";
   return "Free";
 }

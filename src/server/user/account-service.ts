@@ -180,11 +180,22 @@ export async function getMyPackage(userId: string) {
     },
   });
 
-  const [plan, balance, usageBudget] = await Promise.all([
+  const [plan, balance, usageBudget, latestPayment] = await Promise.all([
     getEffectivePlan(userId),
     getBalance(userId),
     getUsageBudgetSnapshot(userId),
+    prisma.payment.findFirst({
+      where: { userId, status: "APPROVED", packageCode: { not: null } },
+      orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
+      select: { packageCode: true, paidAt: true, createdAt: true },
+    }),
   ]);
+  const latestPurchasedPackage = latestPayment?.packageCode
+    ? await prisma.package.findUnique({
+        where: { code: latestPayment.packageCode },
+        select: { name: true },
+      })
+    : null;
 
   // Prefer the effective Pro subscription for expiry display (skip expired rows).
   const effectiveSub =
@@ -238,6 +249,14 @@ export async function getMyPackage(userId: string) {
     proEndsAt: proExpiry.endsAt?.toISOString() ?? null,
     proNeverExpires: proExpiry.neverExpires,
     canChat: plan === "PRO",
+    latestPurchase: latestPayment
+      ? {
+          packageCode: latestPayment.packageCode,
+          packageName: latestPurchasedPackage?.name ?? latestPayment.packageCode,
+          purchasedAt: (latestPayment.paidAt ?? latestPayment.createdAt).toISOString(),
+          expiresAt: usageBudget.purchasedExpiresAt?.toISOString() ?? null,
+        }
+      : null,
     subscription: effectiveSub
       ? {
           ...effectiveSub,

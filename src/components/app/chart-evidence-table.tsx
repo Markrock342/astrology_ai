@@ -217,7 +217,7 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
                     <p className="mt-1 text-[12px] text-[var(--muted)]">
                       {degreeText(r)}
                       {r.resolvedHouse ? ` · เรือน${r.resolvedHouse}` : ""}
-                      {r.nawamang ? ` · นวางศ์ ${formatDivisionalPosition(r.nawamang)}` : ""}
+                      {r.nawamang ? ` · นวางค์ ${formatDivisionalPosition(r.nawamang)}` : ""}
                       {r.rerkName || r.rerk
                         ? ` · ฤกษ์ ${r.rerkName || "—"}${r.rerk ? ` (${r.rerk})` : ""}`
                         : ""}
@@ -244,7 +244,7 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
                     <th className="px-3 py-2 font-medium">เรือน</th>
                     <th className="px-3 py-2 font-medium">ตรียางค์</th>
                     <th className="px-3 py-2 font-medium">พิษ</th>
-                    <th className="px-3 py-2 font-medium">นวางศ์</th>
+                    <th className="px-3 py-2 font-medium">นวางค์</th>
                     <th className="px-3 py-2 font-medium">ฤกษ์:นาที</th>
                     <th className="px-3 py-2 font-medium">นักษัตรฤกษ์</th>
                     <th className="px-3 py-2 font-medium">บาท</th>
