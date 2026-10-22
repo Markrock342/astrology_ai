@@ -30,7 +30,9 @@ const TOPICS: Array<QuestionTopic & { re: RegExp }> = [
 ];
 
 export function questionTopics(question: string): QuestionTopic[] {
-  const hits = TOPICS.filter((t) => t.re.test(question));
+  // Colloquial emphasis is not a reference to someone's mother.
+  const topicText = question.replace(/แม่ง/g, " ");
+  const hits = TOPICS.filter((t) => t.re.test(topicText));
   return hits.map(({ label, houses }) => ({ label, houses }));
 }
 
