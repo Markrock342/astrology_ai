@@ -25,6 +25,7 @@ import {
   TIMELINE_RULE,
   PAST_TIMELINE_RULE,
   ANSWER_CONTRACT,
+  SINGLE_TRANSIT_TIMING_RULE,
   CHAT_SUMMARY_RULE,
   isChatSummaryRequest,
   NO_PARTNER_CHART_RULE,
@@ -702,6 +703,12 @@ async function runReading(
     systemPrompt = `${systemPrompt}\n\n${ANSWER_CONTRACT}`;
   }
   const intakeAnswers = parseIntakeAnswers(intakeRow?.answers);
+  if (!timelineText && !dayScanText && transitWindow.intent === "transit") {
+    systemPrompt = `${systemPrompt}\n\n${SINGLE_TRANSIT_TIMING_RULE}`;
+  }
+  if (readingPlan.correction) {
+    systemPrompt += "\n\nผู้ใช้กำลังท้วงคำตอบก่อนหน้า: ยอมรับว่าตีความผิด ถอนข้อสรุปที่ตอบผิดเรื่อง และตอบเฉพาะเรื่องกับช่วงเวลาที่ผู้ใช้ยืนยันล่าสุด ห้ามใช้คำตอบเดิมเป็นหลักฐาน";
+  }
   const { conversationHistory, userPrompt } = buildConversationHistory(
     priorMessages ?? [],
     snapshot,

@@ -405,6 +405,15 @@ export function normalizeQuestionForRouting(question: string): string {
 
 export function questionInContext(question: string, priorUserNewestFirst: string[] = []): string {
   const q = question.trim();
+  // A topicless "when does it leave?" inherits the active period as well as
+  // its subject. A new named period or life milestone remains independent.
+  if (isFollowUpQuestion(q) && !questionTopics(q).length &&
+      /เมื่อไหร่|เมื่อไร|ตอนไหน/.test(q) && !resolveTimeKeyword(q) &&
+      !parseRelativeSpan(q) && detectFutureDatePromptTrigger(q) !== "explicit_date" &&
+      !LIFE_SCALE_PATTERN.test(q)) {
+    const previous = priorUserNewestFirst.find((u) => resolveTimeKeyword(u) || parseRelativeSpan(u));
+    if (previous) return `${previous} · ${q}`;
+  }
   // "งั้นดูหน่อยถึงสิ้นเดือนเลยมีเกณไหม" after a money question names a period
   // but no topic, and was answered about love. It keeps the topic asked
   // before — the words only, so the earlier question's period can't override.
@@ -737,7 +746,10 @@ export function isTimelineQuestion(question: string): boolean {
   const q = question.trim();
   if (!TIMELINE_PATTERN.test(q)) return false;
   const named = resolveTimeKeyword(q);
-  if (named && named.days !== 0) return false;
+  if (named) return false;
+  // Planetary ingress/aspect timing is not a person's life milestone.
+  if (/ดาว|กาลกิณี|พ้น.*(?:กุม|ทับ)|ย้ายราศี/.test(q) &&
+      /ออก|ย้าย|พ้น|เลิกทับ/.test(q) && !LIFE_SCALE_PATTERN.test(q)) return false;
   if (parseRelativeSpan(q)) return false;
   if (detectFutureDatePromptTrigger(q) === "explicit_date") return false;
   return true;
@@ -759,7 +771,7 @@ export function isPastEventQuestion(question: string): boolean {
 }
 
 /** "ผิดแล้ว เอาใหม่", "ไม่ใช่ช่วงนั้น" — the user says the last answer was wrong. */
-const CORRECTION = /ผิด(?:แล้ว|นะ|อ่ะ|อะ|ครับ|ค่ะ|\s|$)|ไม่ใช่(?:นะ|แล้ว|ช่วง|ปี|ตอน|อายุ|\s|$)|ไม่ตรง|ไม่ถูก|เอาใหม่|ไม่จริง|มั่ว/;
+const CORRECTION = /ผิด(?:แล้ว|นะ|อ่ะ|อะ|ครับ|ค่ะ|\s|$)|ไม่ใช่(?:นะ|แล้ว|ช่วง|ปี|ตอน|อายุ|\s|$)|ไม่ตรง|ไม่ถูก|เอาใหม่|ไม่จริง|มั่ว|ข้ามปีทำไม|ไม่ได้ถาม|ตอบคนละเรื่อง|ถามอีกอย่าง|งงไปหมด/;
 export function isCorrectionMessage(message: string): boolean {
   return CORRECTION.test(message.trim());
 }
