@@ -56,6 +56,7 @@ import {
   suggestedFutureDateKey,
 } from "@/lib/reading-intent";
 import type { CmsChatUi } from "@/lib/cms-keys";
+import { SocialFollowLinks } from "./social-follow-links";
 
 // Behind a click / a route flag — keep them out of the first dashboard chunk.
 const NatalChartReferenceView = dynamic(
@@ -3273,6 +3274,7 @@ const Composer = forwardRef<
           ข้อจำกัดความรับผิด
         </a>
       </p>
+      <SocialFollowLinks />
       <ChatDisclaimerNotice />
     </div>
   );

@@ -9,6 +9,7 @@ import {
 } from "@/server/auth/session-guard";
 import { CMS_DEFAULTS, CMS_KEYS, type CmsSiteFooter } from "@/lib/cms-keys";
 import { getPublishedSetting } from "@/server/settings/settings-service";
+import { SocialLinksProvider } from "@/components/app/social-follow-links";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,9 @@ export default async function AppLayout({
         hasBirthProfile={shell.hasBirthProfile}
       >
         <Suspense fallback={null}>
-          <AppShell footerLinks={footer.links}>{children}</AppShell>
+          <SocialLinksProvider links={footer.socialLinks ?? []}>
+            <AppShell footerLinks={footer.links}>{children}</AppShell>
+          </SocialLinksProvider>
         </Suspense>
       </BirthProfileGate>
     </AppDataProvider>

@@ -10,6 +10,7 @@ import {
 } from "./settings-popover-outside";
 import { TextSizeSettingsControl, ThemeSettingsControl } from "./theme-picker";
 import type { CmsFooterLink } from "@/lib/cms-keys";
+import { SocialFollowLinks } from "./social-follow-links";
 
 // Total birthday settings allowed = 1 initial + 1 edit (design shows x/2).
 const BIRTH_TOTAL = 2;
@@ -242,6 +243,7 @@ export function SettingsPopover({
             ))}
           </div>
         ) : null}
+        <SocialFollowLinks menu />
         <Row
           icon={<LogoutIcon />}
           label="ออกจากระบบ"
