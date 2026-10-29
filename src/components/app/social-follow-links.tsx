@@ -5,6 +5,31 @@ import type { CmsFooterLink } from "@/lib/cms-keys";
 
 const SocialLinksContext = createContext<CmsFooterLink[]>([]);
 
+function isFacebookLink(href: string) {
+  const hostname = new URL(href).hostname.toLowerCase();
+  return hostname === "facebook.com" || hostname.endsWith(".facebook.com")
+    || hostname === "fb.me";
+}
+
+function FacebookIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+      className="size-4 shrink-0"
+    >
+      <circle cx="12" cy="12" r="12" fill="#0866FF" />
+      <path
+        fill="white"
+        d="M13.5 20v-7h2.35l.35-2.73h-2.7V8.53c0-.79.22-1.33 1.35-1.33h1.44V4.76A19.2 19.2 0 0 0 14.19 4c-2.08 0-3.5 1.27-3.5 3.6v2.67H8.34V13h2.35v7z"
+      />
+    </svg>
+  );
+}
+
 export function SocialLinksProvider({
   links,
   children,
@@ -48,9 +73,10 @@ export function SocialFollowLinks({ menu = false }: { menu?: boolean }) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`${link.label} (เปิดแท็บใหม่)`}
-            className="inline-block py-1 font-medium text-[var(--primary)] underline underline-offset-2 hover:text-[var(--primary-hover)] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            className="inline-flex items-center gap-1 align-middle py-1 font-medium text-[var(--primary)] underline underline-offset-2 hover:text-[var(--primary-hover)] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
           >
-            {link.label}
+            {isFacebookLink(link.href) ? <FacebookIcon /> : null}
+            <span>{link.label}</span>
           </a>
         </span>
       ))}
