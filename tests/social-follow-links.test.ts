@@ -20,6 +20,7 @@ describe("published social links in the app", () => {
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener noreferrer"');
     expect(html).toContain("Facebook (เปิดแท็บใหม่)");
+    expect(html).toMatch(/<a [^>]*><svg[^>]*aria-hidden="true"[^>]*>.*<\/svg><span>Facebook<\/span><\/a>/);
   });
 
   it("renders nothing when no social link is configured", () => {
@@ -50,5 +51,14 @@ describe("published social links in the app", () => {
       { label: "LINE", href: "https://line.me/example" },
     ]);
     expect(html.match(/<a /g)).toHaveLength(2);
+    expect(html.match(/<svg /g)).toHaveLength(1);
+  });
+
+  it.each(["https://facebook.com/page", "https://m.facebook.com/page", "https://fb.me/page"])("recognises Facebook URL %s even with a custom label", (href) => {
+    expect(render([{ label: "ติดตามเพจ", href }])).toContain("<svg");
+  });
+
+  it.each(["https://example.com/facebook.com", "https://facebook.com.example.com", "https://notfacebook.com"])("does not label unrelated URL %s with the Facebook icon", (href) => {
+    expect(render([{ label: "Facebook", href }])).not.toContain("<svg");
   });
 });
