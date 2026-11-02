@@ -19,6 +19,10 @@ import {
 } from "./ui";
 import { ConfirmModal } from "@/components/app/confirm-modal";
 
+import { PageJump, SortableTh } from "./table-controls";
+
+type PaymentSort = "createdAt" | "transferredAt" | "name" | "packageCode" | "amount" | "status";
+
 type Payment = {
   id: string;
   amount: number;
@@ -143,6 +147,21 @@ export function PaymentsPanel() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<"" | "PENDING" | "APPROVED" | "REJECTED">("PENDING");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [packageCode, setPackageCode] = useState("");
+  const [sort, setSort] = useState<PaymentSort>("createdAt");
+  const [direction, setDirection] = useState<"asc" | "desc">("desc");
+  const requestId = useRef(0);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+  function changeSort(field: PaymentSort) {
+    setDirection(sort === field && direction === "asc" ? "desc" : "asc");
+    setSort(field);
+    setPage(1);
+  }
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
   // Package names by code: the team's Lite is code "PRO", and the column
@@ -165,6 +184,7 @@ export function PaymentsPanel() {
   } | null>(null);
 
   const load = useCallback(async () => {
+    const id = ++requestId.current;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -172,14 +192,21 @@ export function PaymentsPanel() {
         pageSize: String(PAGE_SIZE),
       });
       if (status) params.set("status", status);
-      setData(await adminFetch<PaymentList>(`/api/admin/payments?${params}`));
+      params.set("sort", sort);
+      params.set("direction", direction);
+      if (packageCode) params.set("packageCode", packageCode);
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      const result = await adminFetch<PaymentList>(`/api/admin/payments?${params}`);
+      if (id !== requestId.current) return;
+      setData(result);
+      setPage(result.page);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
+      if (id === requestId.current) setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, [page, status]);
+  }, [page, status, sort, direction, packageCode, debouncedSearch]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -254,6 +281,14 @@ export function PaymentsPanel() {
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        <TextInput aria-label="ค้นหาชื่อหรืออีเมล" placeholder="ค้นหาชื่อหรืออีเมล…" value={search}
+          className="max-w-xs" onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+        <Select aria-label="แพ็กเกจ" value={packageCode} className="max-w-[200px]"
+          onChange={(e) => { setPackageCode(e.target.value); setPage(1); }}>
+          <option value="">ทุกแพ็กเกจ</option>
+          {Object.entries(packageNames).map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+        </Select>
+        <PageJump key={`${page}-${totalPages}`} page={page} totalPages={totalPages} disabled={loading} onPage={setPage} />
         <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
           <span>แสดง:</span>
           <Select
@@ -278,19 +313,20 @@ export function PaymentsPanel() {
       <TableShell>
         <thead>
           <tr>
-            <Th>วันที่แจ้ง / วันที่โอน</Th>
-            <Th>ผู้ใช้</Th>
-            <Th>แพ็กเกจ</Th>
-            <Th>จำนวน</Th>
+            <SortableTh label="วันที่แจ้ง" active={sort === "createdAt"} direction={direction} onClick={() => changeSort("createdAt")} />
+            <SortableTh label="วันที่โอน" active={sort === "transferredAt"} direction={direction} onClick={() => changeSort("transferredAt")} />
+            <SortableTh label="ผู้ใช้" active={sort === "name"} direction={direction} onClick={() => changeSort("name")} />
+            <SortableTh label="แพ็กเกจ" active={sort === "packageCode"} direction={direction} onClick={() => changeSort("packageCode")} />
+            <SortableTh label="จำนวน" active={sort === "amount"} direction={direction} onClick={() => changeSort("amount")} />
             <Th>สลิป</Th>
-            <Th>สถานะ</Th>
+            <SortableTh label="สถานะ" active={sort === "status"} direction={direction} onClick={() => changeSort("status")} />
             <Th>ดำเนินการ</Th>
           </tr>
         </thead>
         <tbody>
           {data && data.items.length === 0 && (
             <tr>
-              <Td colSpan={7} className="text-center text-xs text-[var(--muted)]">
+              <Td colSpan={8} className="text-center text-xs text-[var(--muted)]">
                 ไม่มีรายการ
               </Td>
             </tr>
@@ -303,14 +339,15 @@ export function PaymentsPanel() {
                   dateStyle: "short",
                   timeStyle: "short",
                 })}
-                <span className="mt-1 block text-[11px] text-[var(--muted-2)]">
-                  โอน {p.transferredAt ? new Date(p.transferredAt).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" }) : "—"}
-                </span>
+              </Td>
+              <Td className="whitespace-nowrap text-xs text-[var(--muted)]">
+                  {p.transferredAt ? new Date(p.transferredAt).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" }) : "—"}
               </Td>
               <Td>
                 <Link
                   href={`/admin/users/${p.user.id}`}
-                  className="text-xs text-[var(--primary)] hover:underline"
+                  title={`${p.user.name ?? ""} · ${p.user.email}`}
+                  className="block w-48 max-w-48 truncate text-xs text-[var(--primary)] hover:underline"
                 >
                   {p.user.name ?? p.user.email}
                 </Link>
@@ -417,14 +454,14 @@ export function PaymentsPanel() {
           <Button
             variant="ghost"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
+            disabled={loading || page <= 1}
           >
             ←
           </Button>
           <Button
             variant="ghost"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
+            disabled={loading || page >= totalPages}
           >
             →
           </Button>

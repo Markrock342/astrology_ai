@@ -155,25 +155,52 @@ export type ListPaymentsArgs = {
   page: number;
   pageSize: number;
   status?: "PENDING" | "APPROVED" | "REJECTED";
+  search?: string;
+  packageCode?: string;
+  sort?: "createdAt" | "transferredAt" | "name" | "packageCode" | "amount" | "status";
+  direction?: "asc" | "desc";
 };
 
+export function paymentListOrder(args: ListPaymentsArgs): Prisma.Sql {
+  const columns = {
+    createdAt: Prisma.sql`p."createdAt"`,
+    transferredAt: Prisma.sql`p."transferredAt"`,
+    name: Prisma.sql`LOWER(COALESCE(NULLIF(u.name, ''), u.email))`,
+    packageCode: Prisma.sql`COALESCE(pkg.name, p."packageCode")`,
+    amount: Prisma.sql`p.amount`,
+    status: Prisma.sql`p.status::text`,
+  };
+  return Prisma.sql`${columns[args.sort ?? "createdAt"]} ${args.direction === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`} NULLS LAST, p."createdAt" DESC, p.id ASC`;
+}
+
 export async function listPayments(args: ListPaymentsArgs) {
-  const where = args.status ? { status: args.status } : {};
-  const [total, items] = await Promise.all([
-    prisma.payment.count({ where }),
-    prisma.payment.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip: (args.page - 1) * args.pageSize,
-      take: args.pageSize,
-      select: {
-        ...paymentListSelect,
-        user: { select: { id: true, email: true, name: true } },
-        reviewer: { select: { email: true, name: true } },
-      },
-    }),
-  ]);
-  return { total, page: args.page, pageSize: args.pageSize, items };
+  const filters: Prisma.Sql[] = [Prisma.sql`TRUE`];
+  if (args.status) filters.push(Prisma.sql`p.status = ${args.status}::"PaymentStatus"`);
+  if (args.packageCode) filters.push(Prisma.sql`p."packageCode" = ${args.packageCode}`);
+  if (args.search) {
+    const search = `%${args.search.replace(/[\\%_]/g, "\\$&")}%`;
+    filters.push(Prisma.sql`(u.name ILIKE ${search} OR u.email ILIKE ${search})`);
+  }
+  const from = Prisma.sql`FROM payments p JOIN users u ON u.id = p."userId"
+    LEFT JOIN packages pkg ON pkg.code = p."packageCode" WHERE ${Prisma.join(filters, " AND ")}`;
+  const counts = await prisma.$queryRaw<Array<{total: bigint}>>`SELECT COUNT(*) AS total ${from}`;
+  const total = Number(counts[0]?.total ?? 0);
+  const page = Math.min(args.page, Math.max(1, Math.ceil(total / args.pageSize)));
+  const rows = await prisma.$queryRaw<Array<{id: string}>>`SELECT p.id ${from}
+    ORDER BY ${paymentListOrder(args)} LIMIT ${args.pageSize} OFFSET ${(page - 1) * args.pageSize}`;
+  const items = await prisma.payment.findMany({
+    where: { id: { in: rows.map((r) => r.id) } },
+    select: {
+      ...paymentListSelect,
+      user: { select: { id: true, email: true, name: true } },
+      reviewer: { select: { email: true, name: true } },
+    },
+  });
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return { total, page, pageSize: args.pageSize, items: rows.flatMap((r) => {
+    const item = byId.get(r.id);
+    return item ? [item] : [];
+  }) };
 }
 
 export async function reviewPayment(

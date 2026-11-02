@@ -495,7 +495,7 @@ export function AppShell({
               <p className="max-w-[120px] truncate text-sm font-medium text-[var(--foreground)]">
                 {displayName}
               </p>
-              <p className="text-[11px] text-[var(--muted-2)]">{planLabel}</p>
+              {planLabel ? <p className="text-[11px] text-[var(--muted-2)]">{planLabel}</p> : null}
             </div>
           </button>
           {user != null && (
