@@ -53,11 +53,26 @@ const LAST_ACTIVE_SQL = Prisma.sql`GREATEST(
   (SELECT MAX(r."createdAt") FROM horoscope_readings r WHERE r."userId" = u.id)
 )`;
 
-function userFilterSql(args: ListUsersArgs): Prisma.Sql {
+function userFilterSql(args: ListUsersArgs, now: Date): Prisma.Sql {
   const parts: Prisma.Sql[] = [Prisma.sql`TRUE`];
   if (args.status) parts.push(Prisma.sql`u.status = ${args.status}::"UserStatus"`);
   if (args.role) parts.push(Prisma.sql`u.role = ${args.role}::"Role"`);
-  if (args.packageCode) parts.push(Prisma.sql`lp."packageCode" = ${args.packageCode}`);
+  // A purchase is history, not access: new users have no payment and an old
+  // paid purchase stays on the record after its subscription has expired.
+  if (args.packageCode === "FREE") {
+    parts.push(Prisma.sql`NOT EXISTS (
+      SELECT 1 FROM user_subscriptions s JOIN packages current_pkg ON current_pkg.id = s."packageId"
+      WHERE s."userId" = u.id AND s.status = 'ACTIVE' AND current_pkg.type = 'PRO'
+        AND (s."expiresAt" IS NULL OR s."expiresAt" > ${now})
+    )`);
+  } else if (args.packageCode) {
+    parts.push(Prisma.sql`EXISTS (
+      SELECT 1 FROM user_subscriptions s JOIN packages current_pkg ON current_pkg.id = s."packageId"
+      WHERE s."userId" = u.id AND s.status = 'ACTIVE' AND current_pkg.type = 'PRO'
+        AND current_pkg.code = ${args.packageCode}
+        AND (s."expiresAt" IS NULL OR s."expiresAt" > ${now})
+    )`);
+  }
   if (args.search) {
     const like = `%${likeLiteral(args.search)}%`;
     parts.push(Prisma.sql`(u.email ILIKE ${like} OR u.name ILIKE ${like})`);
@@ -96,6 +111,8 @@ export function likeLiteral(text: string): string {
 }
 
 export async function listUsers(args: ListUsersArgs) {
+  // Freeze the expiry boundary for count, page selection and row hydration.
+  const now = new Date();
   const select = {
         id: true,
         name: true,
@@ -121,7 +138,7 @@ export async function listUsers(args: ListUsersArgs) {
         // Live rows only, Pro first: an expired Pro row still marked ACTIVE
         // showed a gold PRO badge on a Free user.
         subscriptions: {
-          where: { status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+          where: { status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
           orderBy: [{ package: { type: "desc" } }, { createdAt: "desc" }],
           take: 1,
           select: { package: { select: { code: true, type: true, name: true, questionPack: true } }, startsAt: true, expiresAt: true },
@@ -150,7 +167,7 @@ export async function listUsers(args: ListUsersArgs) {
     });
   }
   const counts = await prisma.$queryRaw<Array<{ total: bigint }>>`
-    SELECT COUNT(*) AS total FROM users u ${args.packageCode ? USER_LIST_JOINS : Prisma.empty} WHERE ${userFilterSql(args)}`;
+    SELECT COUNT(*) AS total FROM users u WHERE ${userFilterSql(args, now)}`;
   const total = Number(counts[0]?.total ?? 0);
   const page = Math.min(args.page, Math.max(1, Math.ceil(total / args.pageSize)));
   const skip = (page - 1) * args.pageSize;
@@ -162,7 +179,7 @@ export async function listUsers(args: ListUsersArgs) {
     SELECT u.id, ${LAST_ACTIVE_SQL} AS "lastActiveAt"
       FROM users u
       ${USER_LIST_JOINS}
-     WHERE ${userFilterSql(args)}
+     WHERE ${userFilterSql(args, now)}
      ORDER BY ${userListOrder(args)}
      LIMIT ${args.pageSize} OFFSET ${skip}`;
   const rows = await prisma.user.findMany({

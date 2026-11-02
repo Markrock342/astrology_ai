@@ -18,7 +18,7 @@ function query(index: number) {
 beforeEach(() => vi.resetAllMocks());
 
 describe("admin list pagination and filtering", () => {
-  it("preserves database order, clamps an obsolete page, and filters the latest approved purchase", async () => {
+  it("preserves database order, clamps an obsolete page, and filters current package access", async () => {
     mocks.raw.mockResolvedValueOnce([{ total: BigInt(21) }]).mockResolvedValueOnce([
       { id: "b", lastActiveAt: null }, { id: "a", lastActiveAt: null },
     ]);
@@ -27,12 +27,28 @@ describe("admin list pagination and filtering", () => {
     expect(result.page).toBe(2);
     expect(result.items.map((r) => r.id)).toEqual(["b", "a"]);
     const count = query(0), page = query(1);
-    expect(count.text).toContain('lp."packageCode" =');
-    expect(count.text).toContain("p.status = 'APPROVED'");
+    expect(count.text).toContain('current_pkg.code =');
+    expect(count.text).toContain("s.status = 'ACTIVE'");
+    expect(count.text).not.toContain("FROM payments");
     expect(count.values).toContain("PLUS");
     expect(count.values).toContain("%\\_\\%%");
     expect(page.text).toContain('COALESCE(w."purchasedBalanceUnits", 0) ASC NULLS LAST');
     expect(page.values.slice(-2)).toEqual([20, 20]);
+  });
+
+  it("Free excludes only live Pro access and shares one expiry instant across the page", async () => {
+    mocks.raw.mockResolvedValueOnce([{ total: BigInt(0) }]).mockResolvedValueOnce([]);
+    mocks.users.mockResolvedValue([]);
+    await listUsers({ page: 1, pageSize: 20, packageCode: "FREE" });
+    const count = query(0), page = query(1);
+    expect(count.text).toContain("NOT EXISTS");
+    expect(count.text).toContain("current_pkg.type = 'PRO'");
+    expect(count.text).toContain('s."expiresAt" >');
+    expect(count.text).not.toContain("FROM payments");
+    const instant = count.values.find((value) => value instanceof Date);
+    expect(instant).toBeInstanceOf(Date);
+    expect(page.values).toContain(instant);
+    expect(mocks.users.mock.calls[0][0].select.subscriptions.where.OR[1].expiresAt.gt).toBe(instant);
   });
 
   it("filters payment status, package and literal search before pagination", async () => {
