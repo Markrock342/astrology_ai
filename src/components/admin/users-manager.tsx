@@ -86,10 +86,10 @@ export function UsersManager({
   const [sort, setSort] = useState<UserSort>("recent");
   const [direction, setDirection] = useState<"asc" | "desc">("desc");
   const [packageCode, setPackageCode] = useState("");
-  const [packages, setPackages] = useState<Array<{code: string; name: string}>>([]);
+  const [packages, setPackages] = useState<Array<{code: string; name: string; type: string; creditOnly: boolean}>>([]);
   const requestId = useRef(0);
   useEffect(() => {
-    adminFetch<Array<{code: string; name: string}>>("/api/admin/packages").then(setPackages).catch(() => {});
+    adminFetch<Array<{code: string; name: string; type: string; creditOnly: boolean}>>("/api/admin/packages").then(setPackages).catch(() => {});
   }, []);
   function changeSort(field: UserSort) {
     setDirection(sort === field && direction === "asc" ? "desc" : "asc");
@@ -206,10 +206,11 @@ export function UsersManager({
           <option value="ACTIVE">ใช้งาน</option>
           <option value="DISABLED">ระงับ</option>
         </Select>
-        <Select aria-label="แพ็กที่ซื้อล่าสุด" value={packageCode} className="max-w-[200px]"
+        <Select aria-label="แพ็กเกจปัจจุบัน" value={packageCode} className="max-w-[200px]"
           onChange={(e) => { setPackageCode(e.target.value); setPage(1); }}>
-          <option value="">ทุกแพ็กที่ซื้อล่าสุด</option>
-          {packages.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
+          <option value="">ทุกแพ็กเกจปัจจุบัน</option>
+          <option value="FREE">Free (ฟรี)</option>
+          {packages.filter((p) => p.type === "PRO" && !p.creditOnly).map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
         </Select>
         <PageJump key={`${page}-${totalPages}`} page={page} totalPages={totalPages} disabled={loading} onPage={setPage} />
         <Button variant="ghost" onClick={() => void load()}>
@@ -217,6 +218,9 @@ export function UsersManager({
         </Button>
       </div>
 
+      <p className="mb-3 text-xs text-[var(--muted-foreground)]">
+        Free รวมผู้สมัครใหม่และผู้ที่แพ็กหมดอายุ · คอลัมน์แพ็กล่าสุดแสดงประวัติซื้อ
+      </p>
       {error && <p className="mb-3 text-sm text-[var(--danger)]">{error}</p>}
 
       {loading ? (

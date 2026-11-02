@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration:admin-users": "node scripts/test-admin-users-integration.mjs",
     "ci": "node scripts/ci-local.mjs",
     "migrations:check": "tsx scripts/check-migrations.ts",
     "ci:e2e": "playwright test",
