@@ -2,7 +2,7 @@
 
 import { unitsToQuestions } from "@/lib/usage-budget-display";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { UserAvatar } from "@/components/app/user-avatar";
 import {
   AdminPage,
@@ -19,6 +19,10 @@ import {
   Th,
   adminFetch,
 } from "./ui";
+
+import { PageJump, SortableTh } from "./table-controls";
+
+type UserSort = "recent" | "newest" | "name" | "role" | "package" | "purchasedAt" | "expiresAt" | "balance" | "status";
 
 type UserRow = {
   id: string;
@@ -79,7 +83,19 @@ export function UsersManager({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState<"" | "ACTIVE" | "DISABLED">("");
-  const [sort, setSort] = useState<"recent" | "newest">("recent");
+  const [sort, setSort] = useState<UserSort>("recent");
+  const [direction, setDirection] = useState<"asc" | "desc">("desc");
+  const [packageCode, setPackageCode] = useState("");
+  const [packages, setPackages] = useState<Array<{code: string; name: string}>>([]);
+  const requestId = useRef(0);
+  useEffect(() => {
+    adminFetch<Array<{code: string; name: string}>>("/api/admin/packages").then(setPackages).catch(() => {});
+  }, []);
+  function changeSort(field: UserSort) {
+    setDirection(sort === field && direction === "asc" ? "desc" : "asc");
+    setSort(field);
+    setPage(1);
+  }
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,6 +114,7 @@ export function UsersManager({
   }, [search]);
 
   const load = useCallback(async () => {
+    const id = ++requestId.current;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -107,14 +124,19 @@ export function UsersManager({
       if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
       if (status) params.set("status", status);
       params.set("sort", sort);
-      setData(await adminFetch<UsersResponse>(`/api/admin/users?${params}`));
+      params.set("direction", direction);
+      if (packageCode) params.set("packageCode", packageCode);
+      const result = await adminFetch<UsersResponse>(`/api/admin/users?${params}`);
+      if (id !== requestId.current) return;
+      setData(result);
+      setPage(result.page);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
+      if (id === requestId.current) setError(e instanceof Error ? e.message : "โหลดไม่สำเร็จ");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, [page, debouncedSearch, status, sort]);
+  }, [page, debouncedSearch, status, sort, direction, packageCode]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -184,18 +206,12 @@ export function UsersManager({
           <option value="ACTIVE">ใช้งาน</option>
           <option value="DISABLED">ระงับ</option>
         </Select>
-        <Select
-          value={sort}
-          onChange={(e) => {
-            setSort(e.target.value as typeof sort);
-            setPage(1);
-          }}
-          className="max-w-[200px]"
-          aria-label="เรียงลำดับ"
-        >
-          <option value="recent">เรียง: ใช้งานล่าสุด</option>
-          <option value="newest">เรียง: สมัครล่าสุด</option>
+        <Select aria-label="แพ็กที่ซื้อล่าสุด" value={packageCode} className="max-w-[200px]"
+          onChange={(e) => { setPackageCode(e.target.value); setPage(1); }}>
+          <option value="">ทุกแพ็กที่ซื้อล่าสุด</option>
+          {packages.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
         </Select>
+        <PageJump key={`${page}-${totalPages}`} page={page} totalPages={totalPages} disabled={loading} onPage={setPage} />
         <Button variant="ghost" onClick={() => void load()}>
           รีเฟรช
         </Button>
@@ -209,31 +225,29 @@ export function UsersManager({
         <TableShell>
           <thead>
             <tr>
-              <Th>ผู้ใช้</Th>
-              <Th>บทบาท</Th>
-              <Th>สิทธิ์</Th>
-              <Th>แพ็กล่าสุด</Th>
-              <Th>ซื้อเมื่อ</Th>
-              <Th>คำถามหมดอายุ</Th>
-              <Th>คำถามเหลือ</Th>
-              <Th>สถานะ</Th>
-              <Th>ใช้งานล่าสุด</Th>
-              <Th>สมัครเมื่อ</Th>
+              <SortableTh label="ผู้ใช้" active={sort === "name"} direction={direction} onClick={() => changeSort("name")} />
+              <SortableTh label="บทบาท" active={sort === "role"} direction={direction} onClick={() => changeSort("role")} />
+              <SortableTh label="แพ็กล่าสุด" active={sort === "package"} direction={direction} onClick={() => changeSort("package")} />
+              <SortableTh label="ซื้อเมื่อ" active={sort === "purchasedAt"} direction={direction} onClick={() => changeSort("purchasedAt")} />
+              <SortableTh label="คำถามหมดอายุ" active={sort === "expiresAt"} direction={direction} onClick={() => changeSort("expiresAt")} />
+              <SortableTh label="คำถามเหลือ" active={sort === "balance"} direction={direction} onClick={() => changeSort("balance")} />
+              <SortableTh label="สถานะ" active={sort === "status"} direction={direction} onClick={() => changeSort("status")} />
+              <SortableTh label="ใช้งานล่าสุด" active={sort === "recent"} direction={direction} onClick={() => changeSort("recent")} />
+              <SortableTh label="สมัครเมื่อ" active={sort === "newest"} direction={direction} onClick={() => changeSort("newest")} />
               <Th className="text-right">จัดการ</Th>
             </tr>
           </thead>
           <tbody>
             {data?.items.map((u) => {
-              const sub = u.subscriptions[0];
-              const plan = sub?.package.type ?? "FREE";
               return (
                 <tr key={u.id} className="group hover:bg-[var(--surface-2)]/50">
-                  <Td>
+                  <Td className="whitespace-nowrap">
                     {/* The whole person opens their profile — not only the
                         small "รายละเอียด" link at the far end of the row. */}
                     <Link
                       href={`/admin/users/${u.id}`}
-                      className="-m-1 flex items-center gap-3 rounded-lg p-1 transition hover:bg-[var(--surface-2)]"
+                      title={`${u.name ?? ""} · ${u.email}`}
+                      className="-m-1 flex w-60 max-w-60 items-center gap-3 rounded-lg p-1 transition hover:bg-[var(--surface-2)]"
                     >
                       <UserAvatar name={u.name} image={u.image} size={36} className="shrink-0" />
                       <div className="min-w-0">
@@ -244,7 +258,7 @@ export function UsersManager({
                       </div>
                     </Link>
                   </Td>
-                  <Td>
+                  <Td className="whitespace-nowrap">
                     <Badge
                       tone={
                         u.role === "SUPER_ADMIN"
@@ -257,12 +271,7 @@ export function UsersManager({
                       {u.role}
                     </Badge>
                   </Td>
-                  <Td>
-                    <Badge tone={plan === "PRO" ? "gold" : "muted"}>
-                      {plan === "PRO" ? "Pro" : "Free"}
-                    </Badge>
-                  </Td>
-                  <Td>
+                  <Td className="whitespace-nowrap">
                     {u.latestPurchase?.packageName ? (
                       <Badge tone="gold">{u.latestPurchase.packageName}</Badge>
                     ) : (
@@ -279,14 +288,14 @@ export function UsersManager({
                         ? "ไม่มีวันหมด"
                         : "—"}
                   </Td>
-                  <Td>
+                  <Td className="whitespace-nowrap">
                     {u.usageWallet
                       ? `${unitsToQuestions(
                           u.usageWallet.includedBalanceUnits + u.usageWallet.purchasedBalanceUnits,
                         ).toLocaleString("th-TH")} คำถาม`
                       : "—"}
                   </Td>
-                  <Td>
+                  <Td className="whitespace-nowrap">
                     <Badge tone={u.status === "ACTIVE" ? "green" : "red"}>
                       {u.status === "ACTIVE" ? "ใช้งาน" : "ระงับ"}
                     </Badge>
@@ -303,7 +312,7 @@ export function UsersManager({
                   <Td className="text-xs text-[var(--muted)]">
                     {new Date(u.createdAt).toLocaleDateString("th-TH")}
                   </Td>
-                  <Td className="text-right">
+                  <Td className="whitespace-nowrap text-right">
                     <Link
                       href={`/admin/users/${u.id}`}
                       className="text-xs font-medium text-[var(--primary)] hover:underline"
@@ -316,7 +325,7 @@ export function UsersManager({
             })}
             {data?.items.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-[var(--muted)]">
+                <td colSpan={10} className="px-4 py-8 text-center text-[var(--muted)]">
                   ไม่พบผู้ใช้
                 </td>
               </tr>
@@ -330,12 +339,12 @@ export function UsersManager({
           ทั้งหมด {data?.total ?? 0} คน · หน้า {page}/{totalPages}
         </span>
         <div className="flex gap-2">
-          <Button variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+          <Button variant="ghost" disabled={loading || page <= 1} onClick={() => setPage((p) => p - 1)}>
             ก่อนหน้า
           </Button>
           <Button
             variant="ghost"
-            disabled={page >= totalPages}
+            disabled={loading || page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
             ถัดไป

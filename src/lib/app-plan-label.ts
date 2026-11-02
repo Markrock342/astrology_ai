@@ -8,6 +8,5 @@ export type AppPlanLabelUser = {
 export function appPlanLabel(user: AppPlanLabelUser | null | undefined): string {
   if (user?.role === "SUPER_ADMIN") return "Super Admin";
   if (user?.role === "ADMIN") return "Admin";
-  if (user?.plan === "PRO") return "Pro";
-  return "Free";
+  return "";
 }

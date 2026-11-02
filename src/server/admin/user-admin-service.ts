@@ -36,7 +36,9 @@ export type ListUsersArgs = {
   search?: string;
   status?: UserStatus;
   role?: "USER" | "ADMIN" | "SUPER_ADMIN";
-  sort?: "recent" | "newest";
+  sort?: "recent" | "newest" | "name" | "role" | "package" | "purchasedAt" | "expiresAt" | "balance" | "status";
+  direction?: "asc" | "desc";
+  packageCode?: string;
 };
 
 /**
@@ -55,20 +57,37 @@ function userFilterSql(args: ListUsersArgs): Prisma.Sql {
   const parts: Prisma.Sql[] = [Prisma.sql`TRUE`];
   if (args.status) parts.push(Prisma.sql`u.status = ${args.status}::"UserStatus"`);
   if (args.role) parts.push(Prisma.sql`u.role = ${args.role}::"Role"`);
+  if (args.packageCode) parts.push(Prisma.sql`lp."packageCode" = ${args.packageCode}`);
   if (args.search) {
-    const like = `%${args.search}%`;
+    const like = `%${likeLiteral(args.search)}%`;
     parts.push(Prisma.sql`(u.email ILIKE ${like} OR u.name ILIKE ${like})`);
   }
   return Prisma.join(parts, " AND ");
 }
 
-async function lastActiveFor(ids: string[]): Promise<Map<string, Date | null>> {
-  if (!ids.length) return new Map();
-  const rows = await prisma.$queryRaw<Array<{ id: string; lastActiveAt: Date | null }>>`
-    SELECT u.id, ${LAST_ACTIVE_SQL} AS "lastActiveAt"
-      FROM users u
-     WHERE u.id IN (${Prisma.join(ids)})`;
-  return new Map(rows.map((r) => [r.id, r.lastActiveAt]));
+const USER_LIST_JOINS = Prisma.sql`
+  LEFT JOIN usage_wallets w ON w."userId" = u.id
+  LEFT JOIN LATERAL (
+    SELECT p."packageCode", COALESCE(p."paidAt", p."createdAt") AS "purchasedAt"
+    FROM payments p WHERE p."userId" = u.id AND p.status = 'APPROVED' AND p."packageCode" IS NOT NULL
+    ORDER BY p."paidAt" DESC NULLS LAST, p."createdAt" DESC, p.id DESC LIMIT 1
+  ) lp ON TRUE
+  LEFT JOIN packages pkg ON pkg.code = lp."packageCode"`;
+
+export function userListOrder(args: ListUsersArgs): Prisma.Sql {
+  const fields = {
+    recent: LAST_ACTIVE_SQL,
+    newest: Prisma.sql`u."createdAt"`,
+    name: Prisma.sql`LOWER(COALESCE(NULLIF(u.name, ''), u.email))`,
+    role: Prisma.sql`u.role::text`,
+    package: Prisma.sql`COALESCE(pkg.name, lp."packageCode")`,
+    purchasedAt: Prisma.sql`lp."purchasedAt"`,
+    expiresAt: Prisma.sql`w."purchasedExpiresAt"`,
+    balance: Prisma.sql`COALESCE(w."includedBalanceUnits", 0) + COALESCE(w."purchasedBalanceUnits", 0)`,
+    status: Prisma.sql`u.status::text`,
+  };
+  const direction = args.direction === "asc" ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+  return Prisma.sql`${fields[args.sort ?? "recent"]} ${direction} NULLS LAST, u."createdAt" DESC, u.id ASC`;
 }
 
 /** Prisma passes `contains` to ILIKE as is: "_" matched every user, "%" too. */
@@ -77,20 +96,6 @@ export function likeLiteral(text: string): string {
 }
 
 export async function listUsers(args: ListUsersArgs) {
-  const search = args.search ? likeLiteral(args.search) : "";
-  const where: Prisma.UserWhereInput = {
-    ...(args.status ? { status: args.status } : {}),
-    ...(args.role ? { role: args.role } : {}),
-    ...(args.search
-      ? {
-          OR: [
-            { email: { contains: search, mode: "insensitive" } },
-            { name: { contains: search, mode: "insensitive" } },
-          ],
-        }
-      : {}),
-  };
-
   const select = {
         id: true,
         name: true,
@@ -109,7 +114,7 @@ export async function listUsers(args: ListUsersArgs) {
         },
         payments: {
           where: { status: "APPROVED", packageCode: { not: null } },
-          orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
+          orderBy: [{ paidAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }, { id: "desc" }],
           take: 1,
           select: { packageCode: true, paidAt: true, createdAt: true },
         },
@@ -144,25 +149,11 @@ export async function listUsers(args: ListUsersArgs) {
       };
     });
   }
-  const skip = (args.page - 1) * args.pageSize;
-  const total = await prisma.user.count({ where });
-
-  if ((args.sort ?? "recent") === "newest") {
-    const items = await prisma.user.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: args.pageSize,
-      select,
-    });
-    const active = await lastActiveFor(items.map((u) => u.id));
-    return {
-      total,
-      page: args.page,
-      pageSize: args.pageSize,
-      items: await withLatestPurchase(items.map((u) => ({ ...u, lastActiveAt: active.get(u.id) ?? null }))),
-    };
-  }
+  const counts = await prisma.$queryRaw<Array<{ total: bigint }>>`
+    SELECT COUNT(*) AS total FROM users u ${args.packageCode ? USER_LIST_JOINS : Prisma.empty} WHERE ${userFilterSql(args)}`;
+  const total = Number(counts[0]?.total ?? 0);
+  const page = Math.min(args.page, Math.max(1, Math.ceil(total / args.pageSize)));
+  const skip = (page - 1) * args.pageSize;
 
   // Prisma cannot order by a value computed from other tables, so the page of
   // ids comes from SQL (never-active users last, newest sign-up first among
@@ -170,8 +161,9 @@ export async function listUsers(args: ListUsersArgs) {
   const ordered = await prisma.$queryRaw<Array<{ id: string; lastActiveAt: Date | null }>>`
     SELECT u.id, ${LAST_ACTIVE_SQL} AS "lastActiveAt"
       FROM users u
+      ${USER_LIST_JOINS}
      WHERE ${userFilterSql(args)}
-     ORDER BY "lastActiveAt" DESC NULLS LAST, u."createdAt" DESC
+     ORDER BY ${userListOrder(args)}
      LIMIT ${args.pageSize} OFFSET ${skip}`;
   const rows = await prisma.user.findMany({
     where: { id: { in: ordered.map((r) => r.id) } },
@@ -182,7 +174,7 @@ export async function listUsers(args: ListUsersArgs) {
     const u = byId.get(r.id);
     return u ? [{ ...u, lastActiveAt: r.lastActiveAt }] : [];
   });
-  return { total, page: args.page, pageSize: args.pageSize, items: await withLatestPurchase(items) };
+  return { total, page, pageSize: args.pageSize, items: await withLatestPurchase(items) };
 }
 
 export async function getUserDetail(userId: string) {

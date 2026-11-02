@@ -43,7 +43,9 @@ export const userListQuerySchema = listQuerySchema.extend({
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
   role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"]).optional(),
   /** recent = last asked first (default); newest = last signed up first. */
-  sort: z.enum(["recent", "newest"]).optional(),
+  sort: z.enum(["recent", "newest", "name", "role", "package", "purchasedAt", "expiresAt", "balance", "status"]).optional(),
+  direction: z.enum(["asc", "desc"]).default("desc"),
+  packageCode: z.string().trim().min(1).max(100).optional(),
 });
 
 export const userStatusSchema = z.object({
@@ -377,6 +379,9 @@ export const submitPaymentSchema = z.object({
 
 export const paymentListQuerySchema = listQuerySchema.extend({
   status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+  sort: z.enum(["createdAt", "transferredAt", "name", "packageCode", "amount", "status"]).default("createdAt"),
+  direction: z.enum(["asc", "desc"]).default("desc"),
+  packageCode: z.string().trim().min(1).max(100).optional(),
 });
 
 export const paymentReviewSchema = z
