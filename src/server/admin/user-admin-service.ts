@@ -248,7 +248,7 @@ export async function getUserDetail(userId: string) {
     prisma.adminAuditLog.findMany({
       where: {
         OR: [
-          { action: { in: ["user.subscription.set", "user.subscription.self_cancel"] }, entityId: userId },
+          { action: { in: ["user.subscription.set", "user.subscription.self_cancel", "user.expiry.set"] }, entityId: userId },
           { action: "payment.approve", afterJson: { path: ["userId"], equals: userId } },
         ],
       },
@@ -266,6 +266,7 @@ export async function getUserDetail(userId: string) {
     const after = (e.afterJson ?? {}) as {
       package?: { code?: string };
       packageCode?: string;
+      reason?: string;
       expiresAt?: string | null;
       /** A question pack given by hand: how many, and until when. */
       questionsAdded?: number;
@@ -273,6 +274,7 @@ export async function getUserDetail(userId: string) {
     };
     return {
       action: e.action,
+      reason: after.reason ?? null,
       at: e.createdAt,
       by: e.admin.name ?? e.admin.email,
       packageCode: after.package?.code ?? after.packageCode ?? null,

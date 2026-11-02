@@ -18,6 +18,7 @@ import {
   Toggle,
   adminFetch, IconTile } from "./ui";
 
+import { UserExpiryEditor } from "./user-expiry-editor";
 import { ConfirmModal } from "@/components/app/confirm-modal";
 import { largeAvatarUrl, UserAvatar } from "@/components/app/user-avatar";
 import { formatThb, usdToThb } from "@/config/ai-pricing";
@@ -140,6 +141,7 @@ type UserDetail = {
   freeCategoryNames?: string[];
   planHistory?: Array<{
     action: string;
+    reason?: string | null;
     at: string;
     by: string;
     packageCode: string | null;
@@ -709,6 +711,8 @@ export function UserDetailManager({
             </div>
           </Card>
 
+          <UserExpiryEditor key={userId} userId={userId} onSaved={load} />
+
           <Card>
             <h2 className="flex items-center gap-2.5 text-sm font-semibold">
 <IconTile icon={Package} tone="gold" size="sm" />ตั้งแพ็กเกจ</h2>
@@ -846,7 +850,9 @@ export function UserDetailManager({
                       <span className="tabular-nums text-[var(--muted-2)]">
                         {new Date(e.at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
                       </span>{" "}
-                      {e.action === "user.subscription.self_cancel"
+                      {e.action === "user.expiry.set"
+                        ? <>แก้วันหมดอายุ {e.expiresAt ? `ถึง ${thaiDay(e.expiresAt)}` : "เป็นไม่มีวันหมดอายุ"} โดย {e.by}{e.reason ? ` · ${e.reason}` : ""}</>
+                        : e.action === "user.subscription.self_cancel"
                         ? <>ผู้ใช้<b className="text-[var(--danger)]">ยกเลิก Pro เอง</b></>
                         : e.action === "payment.approve"
                           ? <>อนุมัติสลิป {packages.find((p) => p.code === e.packageCode)?.name ?? e.packageCode ?? ""} โดย {e.by}</>
