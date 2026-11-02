@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   ListChecks,
   Megaphone,
+  Mail,
   MessageSquareHeart,
   Orbit,
   Package,
@@ -76,6 +77,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/faq", label: "คำถามที่พบบ่อย", icon: CircleHelp, group: "content" },
   { href: "/admin/announcements", label: "ประกาศแบนเนอร์", icon: Megaphone, group: "content" },
 
+  { href: "/admin/email-history", label: "ประวัติส่งอีเมล", icon: Mail, group: "system" },
   { href: "/admin/errors", label: "Error ของระบบ", icon: TriangleAlert, group: "system" },
   { href: "/admin/audit-logs", label: "ประวัติแอดมิน", icon: History, group: "system" },
 ];

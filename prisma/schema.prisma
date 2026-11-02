@@ -1077,3 +1077,34 @@ model UserMemoryFact {
   @@index([userId, updatedAt])
   @@map("user_memory_facts")
 }
+
+// Metadata only: never retain message bodies, reset links or verification tokens.
+model EmailDelivery {
+  id          String   @id @default(cuid())
+  providerId  String?  @unique
+  recipient   String
+  subject     String
+  category    String   @default("SYSTEM")
+  status      String   @default("PENDING")
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  statusAt    DateTime @default(now())
+
+  @@index([createdAt, id])
+  @@index([status, createdAt])
+  @@index([category, createdAt])
+  @@map("email_deliveries")
+}
+
+// Independent event inbox also handles a webhook arriving before the send response.
+model EmailDeliveryEvent {
+  id          String   @id
+  providerId  String
+  status      String
+  occurredAt  DateTime
+  receivedAt  DateTime @default(now())
+
+  @@index([providerId, occurredAt])
+  @@map("email_delivery_events")
+}
