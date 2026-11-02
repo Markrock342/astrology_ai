@@ -32,7 +32,7 @@ export default async function LoginPage() {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(201,162,75,0.07),transparent_65%)]"
         aria-hidden
       />
-      <PublicPageHeader className="relative mb-8" />
+      <PublicPageHeader className="relative mb-8 max-w-[420px]" />
       <div className="relative w-full flex justify-center">
         <AuthPanels
           googleEnabled={googleEnabled}
