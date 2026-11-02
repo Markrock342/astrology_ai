@@ -1,3 +1,4 @@
+import { recordDeliveryEvent } from "@/server/email/delivery-history";
 import { handle, ok, fail } from "@/lib/http";
 import { env } from "@/config/env";
 import {
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
     const secret = env.RESEND_WEBHOOK_SECRET?.trim();
     const raw = await req.text();
     if (!secret) {
-      return fail("FEATURE_DISABLED", "Inbound email is not configured", 503);
+      return fail("FEATURE_DISABLED", "Email webhook is not configured", 503);
     }
     if (!verifyResendWebhook(raw, req.headers, secret)) {
       return fail("UNAUTHENTICATED", "Invalid webhook signature", 401);
@@ -27,6 +28,10 @@ export async function POST(req: Request) {
       return fail("VALIDATION", "Invalid JSON", 422);
     }
 
+    const tracked = await recordDeliveryEvent(payload, req.headers.get("svix-id")!);
+    if (tracked.tracked) return ok(tracked);
+    // Outbound events must never be forwarded into the support inbox.
+    if ((payload as {type?: string})?.type !== "email.received") return ok({ignored:true});
     const result = await forwardInboundSupport(
       payload as Parameters<typeof forwardInboundSupport>[0],
     );

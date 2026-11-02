@@ -1,3 +1,5 @@
+import { prisma } from "@/server/db";
+import { attachEmailProvider } from "./delivery-history";
 import { env } from "@/config/env";
 
 /**
@@ -11,6 +13,7 @@ import { env } from "@/config/env";
 
 export type SendEmailInput = {
   to: string;
+  category?: "WEEKLY_DAYS" | "SYSTEM";
   replyTo?: string;
   subject: string;
   /** Plain-text body (always provided). */
@@ -26,6 +29,21 @@ export type SendEmailResult = { ok: true; via: "resend" | "dev" } | { ok: false;
 const DEFAULT_FROM = "HoraSard <onboarding@resend.dev>";
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
+  let log;
+  try {
+    log = await prisma.emailDelivery.create({data:{recipient:input.to,subject:input.subject,category:input.category ?? "SYSTEM"}});
+  } catch {
+    return {ok:false,error:"Unable to record email send attempt"};
+  }
+  const result = await deliverEmail(input, log.id);
+  try {
+    if (!result.ok) await prisma.emailDelivery.update({where:{id:log.id},data:{status:"FAILED",error:result.error,statusAt:new Date()}});
+    else if (result.via === "dev") await prisma.emailDelivery.update({where:{id:log.id},data:{status:"DEV",statusAt:new Date()}});
+  } catch { console.error("[mailer] delivery history update failed",log.id); }
+  return result;
+}
+
+async function deliverEmail(input: SendEmailInput, logId: string): Promise<SendEmailResult> {
   const from = env.EMAIL_FROM || DEFAULT_FROM;
 
   if (env.RESEND_API_KEY) {
@@ -37,7 +55,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         "[mailer] EMAIL_FROM is missing or still the Resend sandbox sender — emails may not reach customers",
       );
     }
-    return sendViaResend(input, from, env.RESEND_API_KEY);
+    return sendViaResend(input, from, env.RESEND_API_KEY, logId);
   }
 
   if (env.NODE_ENV === "production") {
@@ -65,6 +83,7 @@ async function sendViaResend(
   input: SendEmailInput,
   from: string,
   apiKey: string,
+  logId: string,
 ): Promise<SendEmailResult> {
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -89,6 +108,11 @@ async function sendViaResend(
       console.error("Resend send failed:", res.status, body);
       return { ok: false, error: `Resend responded ${res.status}` };
     }
+    const body = await res.json().catch(() => ({})) as {id?: string};
+    if (typeof body.id === "string" && body.id) {
+      try { await attachEmailProvider(logId, body.id); }
+      catch { console.error("[mailer] provider accepted but history update failed",logId,body.id); }
+    } else console.error("[mailer] provider response missing email id",logId);
     return { ok: true, via: "resend" };
   } catch (err) {
     console.error("Resend send error:", err);

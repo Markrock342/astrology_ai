@@ -136,7 +136,7 @@ export async function runWeeklyDaysEmails(opts: { limit?: number; now?: Date } =
       skipped += 1;
       continue;
     }
-    const result = await sendEmail({ to: u.email, ...mail });
+    const result = await sendEmail({ to: u.email, category: "WEEKLY_DAYS", ...mail });
     if (result.ok) {
       sent += 1;
     } else {
