@@ -9,7 +9,7 @@ import { PublicBackButton } from "./public-back-button";
  */
 export function PublicPageHeader({ className = "" }: { className?: string }) {
   return (
-    <div className={`relative flex min-h-14 items-center justify-center ${className}`}>
+    <div className={`relative flex min-h-14 w-full items-center justify-center ${className}`}>
       <PublicBackButton />
       <Link
         href="/"
