@@ -43,7 +43,7 @@ export function UserExpiryEditor({userId,onSaved}:{userId:string;onSaved:()=>Pro
  return <Card>
  <h2 className="text-sm font-semibold">แก้วันหมดอายุรายคน</h2>
  <p className="mt-2 text-xs leading-5 text-[var(--muted)]">กำหนดวันหมดอายุได้ทั้งบัญชี Free และบัญชีที่ซื้อแพ็ก จำนวนคำถามคงเหลือไม่เปลี่ยน และไม่เติมคำถามเพิ่ม</p>
- {state?.scope==="FREE"&&<p className="mt-2 text-xs text-[var(--muted)]">Free เริ่มต้นไม่มีวันหมดอายุ · ตั้งวันสิ้นสุดคำถามรายคนได้ โดยบัญชียังเป็น Free เมื่อถึงกำหนด คำถามส่วนนั้นจะหมดอายุ ไม่ใช่การระงับบัญชี</p>}
+ {state?.scope==="FREE"&&<p className="mt-2 text-xs text-[var(--muted)]">วันหมดอายุ Free ใช้ค่าที่ตั้งในแพ็กเกจตอนสมัคร · แก้วันรายคนได้ โดยบัญชียังเป็น Free เมื่อถึงกำหนด คำถามส่วนนั้นจะหมดอายุ ไม่ใช่การระงับบัญชี</p>}
  <p className="mt-2 text-xs">ปัจจุบัน: {!loading&&state?(state.expiresAt?new Date(state.expiresAt).toLocaleDateString("th-TH",{timeZone:"Asia/Bangkok"}):"ไม่มีวันหมดอายุ"):"กำลังโหลด…"}</p>
  {state&&!state.canEdit&&<p className="mt-2 text-xs text-[var(--muted)]">ไม่สามารถแก้วันหมดอายุได้ กรุณาโหลดข้อมูลใหม่</p>}
  <form noValidate className="mt-3 space-y-3" onSubmit={e=>{e.preventDefault();requestSave()}}>

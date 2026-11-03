@@ -767,7 +767,7 @@ export function UserDetailManager({
                 </div>
               ) : chosen?.type === "FREE" || (!chosen && packageCode === "FREE") ? (
                 <div className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs leading-5 text-[var(--muted)]">
-                  Free ไม่มีวันหมดอายุ · ถามได้เฉพาะหมวดฟรี
+                  Free · ถามได้เฉพาะหมวดฟรี · แก้วันรายคนที่ช่องแก้วันหมดอายุ
                   {(user.usage?.purchasedQuestions ?? 0) > 0 ? (
                     <span className="block text-[11px] text-[var(--muted-2)]">
                       มีคำถามที่ซื้อ/ให้ไว้ {user.usage?.purchasedQuestions} คำถาม — เลือกด้านล่างว่าจะลบด้วยไหม

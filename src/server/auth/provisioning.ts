@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { addCredits } from "@/server/credit/credit-service";
 import { grantIncludedUsage } from "@/server/usage/usage-budget-service";
 import { DEFAULTS } from "@/config/constants";
+import { freeSignupExpiry } from "@/lib/free-expiry";
 import {
   getLaunchPromotionCreditReferenceId,
   getLaunchPromotionUsageReferenceId,
@@ -36,9 +37,9 @@ export async function provisionUser(input: {
       },
     });
     await tx.creditWallet.create({ data: { userId: created.id, balance: 0 } });
-    await tx.usageWallet.create({ data: { userId: created.id } });
-
     const freePkg = await tx.package.findUnique({ where: { code: "FREE" } });
+    const freeExpiresAt = freePkg ? freeSignupExpiry(freePkg, created.createdAt) : null;
+    await tx.usageWallet.create({ data: { userId: created.id, periodStartedAt: created.createdAt, periodEndsAt: freeExpiresAt } });
     if (freePkg) {
       await tx.userSubscription.create({
         data: {
@@ -46,6 +47,8 @@ export async function provisionUser(input: {
           packageId: freePkg.id,
           status: "ACTIVE",
           activationSource: "SYSTEM_DEFAULT",
+          startsAt: created.createdAt,
+          expiresAt: freeExpiresAt,
         },
       });
       if (freePkg.usageBudgetUnits > 0) {
@@ -58,7 +61,7 @@ export async function provisionUser(input: {
             referenceId: `free-signup:${created.id}`,
             note: "สิทธิ์ทดลองใช้งาน AI",
           },
-          { startsAt: new Date(), endsAt: null },
+          { startsAt: created.createdAt, endsAt: freeExpiresAt },
           tx,
         );
       }

@@ -4,7 +4,7 @@ The save button used to be silently disabled until the trimmed reason had at lea
 
 ## Free-only regression
 
-The initial coverage missed a Free user with only included questions and zero purchased questions. The old service returned `canEdit: false` for that account. Every existing user can now edit the deadline, including a zero-balance Free account. Free signup defaults remain open-ended; no automatic 30-day trial has been introduced.
+The initial coverage missed a Free user with only included questions and zero purchased questions. The old service returned `canEdit: false` for that account. Every existing user can now edit the deadline, including a zero-balance Free account. Signup expiry is separately configurable on the Free package (see `ops_free_signup_expiry.md`); changing it never rewrites existing accounts.
 
 Free deadlines are stored in the active Free subscription and mirrored in the included wallet period. If metadata is missing, only an empty wallet/Free record is initialized, with no grant or Pro access. Expired paid subscriptions are not revived when editing a currently Free account. At the chosen deadline, only the scheduled Free included pool lapses to zero, without being refilled to the default Free allowance or extended by a newly purchased pack; purchased questions follow their own date. This is expiry of questions/entitlements, not account suspension. Clearing the date before expiry keeps the remaining questions; already consumed or expired questions are not restored.
 
