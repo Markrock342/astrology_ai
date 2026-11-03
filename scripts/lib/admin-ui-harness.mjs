@@ -3,7 +3,7 @@ import {existsSync} from "node:fs";
 import {createServer} from "node:http";
 import path from "node:path";
 import {build} from "vite";
-import {chromium} from "playwright";
+import {chromium} from "@playwright/test";
 
 /** Real components + repository CSS. Only navigation/HTTP are test boundaries. */
 export async function startAdminUiHarness({imports,render,mockNavigation=false}){

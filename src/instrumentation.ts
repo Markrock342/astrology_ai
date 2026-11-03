@@ -5,9 +5,12 @@
  * platform cron calls /api/cron/* instead.
  */
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  if (process.env.NODE_ENV !== "production") return;
-  if (process.env.INTERNAL_SCHEDULER === "off") return;
-  const { startInternalScheduler } = await import("@/server/internal-scheduler");
-  startInternalScheduler();
+  // Keep the import inside a positive runtime branch so webpack can exclude
+  // Node-only crypto/scheduler modules from its Edge instrumentation bundle.
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    if (process.env.NODE_ENV === "production" && process.env.INTERNAL_SCHEDULER !== "off") {
+      const { startInternalScheduler } = await import("@/server/internal-scheduler");
+      startInternalScheduler();
+    }
+  }
 }
