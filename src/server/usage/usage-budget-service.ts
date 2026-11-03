@@ -171,9 +171,31 @@ export async function lapseExpiredIncludedUsage(
 ): Promise<void> {
   const wallet = await client.usageWallet.findUnique({
     where: { userId },
-    select: { includedBalanceUnits: true, periodEndsAt: true },
+    select: { includedBalanceUnits: true, includedAllowanceUnits: true, periodEndsAt: true },
   });
   if (!wallet?.periodEndsAt || wallet.periodEndsAt > now) return;
+  // A dated Free entitlement is an explicit admin trial deadline, not a Pro
+  // period reverting to Free. Consume only its included pool; paid questions
+  // remain governed by purchasedExpiresAt, even if a question pack opens Pro.
+  const datedFree = await client.userSubscription.findFirst({
+    where: { userId, status: "ACTIVE", package: { type: "FREE" }, expiresAt: wallet.periodEndsAt },
+    select: { id: true },
+  });
+  if (datedFree) {
+    if (wallet.includedBalanceUnits === 0 && wallet.includedAllowanceUnits === 0) return;
+    const expired = await client.usageWallet.updateMany({
+      where: { userId, periodEndsAt: wallet.periodEndsAt, includedBalanceUnits: wallet.includedBalanceUnits },
+      data: { includedBalanceUnits: 0, includedAllowanceUnits: 0 },
+    });
+    if (expired.count > 0 && wallet.includedBalanceUnits > 0) {
+      await client.usageTransaction.create({ data: {
+        userId, amountUnits: -wallet.includedBalanceUnits, type: "ADMIN_DEDUCT", bucket: "INCLUDED",
+        referenceType: "free_period_end", referenceId: `free-expired:${wallet.periodEndsAt.toISOString()}`,
+        note: "คำถาม Free หมดอายุตามวันที่แอดมินกำหนด",
+      } });
+    }
+    return;
+  }
   // A paid or admin-given Pro that is still running outlives a period set by
   // something else — the September promotion set every wallet's period to end
   // 1 Oct, and paying Pro users were dropped to the Free budget the next day

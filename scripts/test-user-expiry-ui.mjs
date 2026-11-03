@@ -7,21 +7,27 @@ const root=process.cwd();
 const artifacts=path.resolve(process.env.ADMIN_UI_ARTIFACT_DIR??path.join(root,"output/admin-ui-tests"));
 await mkdir(artifacts,{recursive:true});
 const harness=await startAdminUiHarness({
-  imports:`import {UserExpiryEditor} from '${path.join(root,"src/components/admin/user-expiry-editor")}';`,
-  render:'<main className="mx-auto max-w-2xl p-6"><UserExpiryEditor userId="test-only" onSaved={async()=>{}}/></main>',
+  imports:`import {StrictMode} from 'react';import {UserExpiryEditor} from '${path.join(root,"src/components/admin/user-expiry-editor")}';`,
+  render:'<StrictMode><main className="mx-auto max-w-2xl p-6"><UserExpiryEditor userId="test-only" onSaved={async()=>{}}/></main></StrictMode>',
 });
 const {page,errors}=harness;
 try {
   let expiresAt=null, canEdit=true, fail=false;
+  let getCount=0, releaseOld;
+  const oldResponse=new Promise(resolve=>{releaseOld=resolve});
   const writes=[];
   const futureDay=new Date(Date.now()+7*86400000).toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"});
   await page.route("**/api/admin/users/test-only/expiry", async route=>{
+    if(route.request().method()==="GET"&&++getCount===1){
+      await oldResponse;
+      return route.fulfill({json:{ok:true,data:{revision:"a".repeat(64),canEdit:true,expiresAt:null,scope:"FREE"}}});
+    }
     if(route.request().method()==="PATCH"){
       const body=route.request().postDataJSON();writes.push(body);
       if(fail)return route.fulfill({status:400,json:{ok:false,error:{message:"ข้อมูลผู้ใช้เปลี่ยนแล้ว กรุณาโหลดวันหมดอายุใหม่ก่อนบันทึก"}}});
       expiresAt=body.expiresAt;
     }
-    await route.fulfill({json:{ok:true,data:{revision:"a".repeat(64),canEdit,expiresAt}}});
+    await route.fulfill({json:{ok:true,data:{revision:"a".repeat(64),canEdit,expiresAt,scope:"FREE"}}});
   });
   const open=async()=>{await page.goto(harness.origin);await page.getByText("ปัจจุบัน:",{exact:false}).waitFor();await page.getByRole("button",{name:"โหลดวันหมดอายุใหม่"}).click();await page.waitForFunction(()=>!document.body.textContent.includes("กำลังโหลด…"));};
   const save=()=>page.getByRole("button",{name:"บันทึกวันหมดอายุ",exact:true});
@@ -32,6 +38,11 @@ try {
   await page.evaluate(()=>document.fonts.ready);
   await page.getByLabel("ระยะเวลาใช้งานรายคน").selectOption("date");
   await page.getByLabel("วันหมดอายุใหม่",{exact:true}).fill(futureDay);
+  const delayedResponse=page.waitForResponse(r=>r.url().endsWith("/expiry")&&r.request().method()==="GET");
+  releaseOld();await delayedResponse;
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.equal(await page.getByLabel("ระยะเวลาใช้งานรายคน").inputValue(),"date");
+  console.log("PASS a delayed stale load cannot overwrite the selected Free expiry mode");
   assert.equal(await save().isEnabled(),true);
   for(const value of ["","ab","   "]){
     await reason().fill(value);await submit();
@@ -69,7 +80,7 @@ try {
   await page.getByRole("alert").filter({hasText:"ข้อมูลผู้ใช้เปลี่ยนแล้ว"}).waitFor();
   assert.equal(await page.getByRole("status").count(),0);
   console.log("PASS stale revision error remains visible, no false success");
-  canEdit=false;await page.reload();await page.getByText("บัญชีนี้ไม่มีสิทธิ์สมาชิกหรือคำถามที่ซื้อ/ให้ไว้ให้แก้วันหมดอายุ").waitFor();
+  canEdit=false;await page.reload();await page.getByText("ไม่สามารถแก้วันหมดอายุได้ กรุณาโหลดข้อมูลใหม่").waitFor();
   assert.equal(await save().isDisabled(),true);
   assert.deepEqual(errors,[]);
   console.log("PASS ineligible account stays disabled; no browser errors");

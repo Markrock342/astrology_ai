@@ -17,6 +17,7 @@
     "test:ui:user-expiry": "node scripts/test-user-expiry-ui.mjs",
     "test:ui:admin-2fa": "node scripts/test-admin-2fa-ui.mjs",
     "test:ui:admin": "npm run test:ui:user-expiry && npm run test:ui:admin-2fa",
+    "test:e2e:free-expiry": "node --import tsx scripts/test-free-expiry-e2e.mjs",
     "ci": "node scripts/ci-local.mjs",
     "migrations:check": "tsx scripts/check-migrations.ts",
     "ci:e2e": "playwright test",

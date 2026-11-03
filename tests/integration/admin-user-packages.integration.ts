@@ -79,7 +79,7 @@ describe("expiry editor persistence against real PostgreSQL", () => {
         for(const key of ["includedBalanceUnits","purchasedBalanceUnits","includedAllowanceUnits","purchasedAllowanceUnits"] as const)expect(after[key]).toBe(before[key]);
         expect(after.purchasedExpiresAt).toEqual(expiresAt);
         const sub=await db.userSubscription.findFirstOrThrow({where:{userId:id}});
-        expect(sub.expiresAt).toEqual(pro?expiresAt:null);
+        expect(sub.expiresAt).toEqual(expiresAt);
         expect(await db.userSubscription.count({where:{userId:id}})).toBe(1);
       }
       expect(await db.adminAuditLog.count({where:{entityId:id,action:"user.expiry.set"}})).toBe(2);
