@@ -10,6 +10,8 @@ Free deadlines are stored in the active Free subscription and mirrored in the in
 
 Tests must include Free included-only, Free zero balance, expired paid to Free, missing wallet/metadata, actual deadline enforcement, default open-ended behavior, and rollback. `npm run test:e2e:free-expiry` uses an actual Next.js page/API backed by the isolated local test DB, authenticated synthetic admin fixtures, and actual clicks/select/save/reload. It does not mock the expiry endpoint. It rejects non-local/non-test database targets, pins both database URLs, disables external email/AI/Redis, and cleans up its users and server process. Chromium must be installed. GitHub admin CI runs this test after the database suite; Coolify never runs this database-backed test against production.
 
+CI runs this E2E with an actual `next build` / `next start` bundle against its disposable database, with the internal scheduler off. This avoids development Fast Refresh replacing the document during reload assertions. Locally it defaults to webpack dev for faster iteration; set `FREE_EXPIRY_E2E_PRODUCTION=1` for the same production build test. Test failures save a page screenshot along with the server log. No assertions are retried at suite level or skipped.
+
 Verification:
 
 - `npm run ci`
