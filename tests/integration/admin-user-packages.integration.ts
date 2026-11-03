@@ -11,6 +11,7 @@ if (!["127.0.0.1", "localhost"].includes(url.hostname)
 const db = new PrismaClient({ datasources: { db: { url: url.href } } });
 vi.mock("@/server/db", () => ({ get prisma() { return db; } }));
 const { listUsers } = await import("@/server/admin/user-admin-service");
+const { getUserExpiry, setUserExpiry } = await import("@/server/admin/user-expiry-service");
 const now = new Date("2026-11-02T12:00:00.000Z");
 const past = new Date(now.getTime() - 86400000);
 const future = new Date(now.getTime() + 86400000);
@@ -56,9 +57,45 @@ beforeAll(async () => {
 
 afterAll(async () => {
   vi.useRealTimers();
+  await db.adminAuditLog.deleteMany({ where: { adminUserId: { startsWith: prefix } } });
   await db.user.deleteMany({ where: { id: { startsWith: prefix } } });
   await db.package.deleteMany({ where: { code: { in: ["FILTER_PLUS", "FILTER_LITE"] } } });
   await db.$disconnect();
+});
+
+describe("expiry editor persistence against real PostgreSQL", () => {
+  it("saves dated and indefinite expiry for Free with purchased questions and Pro, without changing credits", async () => {
+    const adminId=await user("expiry-admin");
+    await db.user.update({where:{id:adminId},data:{role:"ADMIN"}});
+    try{for(const pro of [false,true]){
+      const id=await user(`expiry-${pro?"pro":"free-purchased"}`,{subs:[{packageId:pro?plusId:freeId,expiresAt:null}]});
+      await db.usageWallet.create({data:{userId:id,includedBalanceUnits:300,purchasedBalanceUnits:1000,includedAllowanceUnits:500,purchasedAllowanceUnits:1000}});
+      const before=await db.usageWallet.findUniqueOrThrow({where:{userId:id}});
+      for(const expiresAt of [new Date("2099-11-07T16:59:59Z"),null]){
+        const state=await getUserExpiry(id);expect(state.canEdit).toBe(true);
+        await setUserExpiry(id,{expiresAt,reason:"Expiry regression",revision:state.revision},{id:adminId});
+        expect((await getUserExpiry(id)).expiresAt).toEqual(expiresAt);
+        const after=await db.usageWallet.findUniqueOrThrow({where:{userId:id}});
+        for(const key of ["includedBalanceUnits","purchasedBalanceUnits","includedAllowanceUnits","purchasedAllowanceUnits"] as const)expect(after[key]).toBe(before[key]);
+        expect(after.purchasedExpiresAt).toEqual(expiresAt);
+        const sub=await db.userSubscription.findFirstOrThrow({where:{userId:id}});
+        expect(sub.expiresAt).toEqual(pro?expiresAt:null);
+        expect(await db.userSubscription.count({where:{userId:id}})).toBe(1);
+      }
+      expect(await db.adminAuditLog.count({where:{entityId:id,action:"user.expiry.set"}})).toBe(2);
+      expect(await db.usageTransaction.count({where:{userId:id}})).toBe(0);
+      const stale=await getUserExpiry(id);
+      await db.usageWallet.update({where:{userId:id},data:{version:{increment:1}}});
+      await expect(setUserExpiry(id,{expiresAt:null,reason:"Stale form",revision:stale.revision},{id:adminId})).rejects.toThrow(/เปลี่ยนแล้ว/);
+      const fresh=await getUserExpiry(id),wallet=await db.usageWallet.findUniqueOrThrow({where:{userId:id}});
+      await expect(setUserExpiry(id,{expiresAt:new Date("2099-12-01T16:59:59Z"),reason:"Audit rollback",revision:fresh.revision},{id:"nonexistent-admin"})).rejects.toThrow();
+      expect(await db.usageWallet.findUniqueOrThrow({where:{userId:id}})).toEqual(wallet);
+      expect((await getUserExpiry(id)).expiresAt).toBeNull();
+    }}finally{
+      await db.adminAuditLog.deleteMany({where:{adminUserId:adminId}});
+      await db.user.deleteMany({where:{id:{in:[adminId,prefix+"expiry-pro",prefix+"expiry-free-purchased"]}}});
+    }
+  });
 });
 
 describe("current package filters against real PostgreSQL", () => {
