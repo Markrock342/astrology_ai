@@ -17,20 +17,31 @@ const ids=[prefix+"free-only",prefix+"free-zero"],secret="local-free-expiry-e2e-
 const artifacts=path.resolve(process.env.ADMIN_UI_ARTIFACT_DIR??"output/admin-ui-tests");await mkdir(artifacts,{recursive:true});
 const log=createWriteStream(path.join(artifacts,"free-expiry-next-server.log"),{mode:0o600});
 const agentsBefore=await readFile("AGENTS.md","utf8").catch(()=>null);
-let child,browser;
+let child,browser,activePage;
 try{
   const free=await db.package.upsert({where:{code:"FREE"},create:{code:"FREE",name:"Free",type:"FREE",usageBudgetUnits:75000},update:{}});
   const admin=await db.user.create({data:{id:adminId,email:`${adminId}@example.invalid`,name:"Regression Admin",role:"ADMIN",status:"ACTIVE",totpSecretEnc:"local-fixture-2fa-only",totpEnabledAt:new Date()}});
   for(const [index,id] of ids.entries())await db.user.create({data:{id,email:`${id}@example.invalid`,name:index?"Free Zero Balance Test":"Free Only Test",subscriptions:{create:{packageId:free.id,status:"ACTIVE"}},usageWallet:{create:{includedBalanceUnits:index?0:30000,includedAllowanceUnits:75000,purchasedBalanceUnits:0}}}});
   const portServer=createServer();await new Promise(resolve=>portServer.listen(0,"127.0.0.1",resolve));
   const port=portServer.address().port;await new Promise(resolve=>portServer.close(resolve));const origin=`http://127.0.0.1:${port}`;
-  const env={...process.env,NODE_ENV:"development",DATABASE_URL:raw,DIRECT_URL:raw,AUTH_SECRET:secret,AUTH_URL:origin,NEXTAUTH_URL:origin,AUTH_TRUST_HOST:"true",NEXT_TELEMETRY_DISABLED:"1",UPSTASH_REDIS_REST_URL:"https://redis-disabled.invalid",UPSTASH_REDIS_REST_TOKEN:"",AUTH_GOOGLE_ID:"",AUTH_GOOGLE_SECRET:"",RESEND_API_KEY:"",GEMINI_API_KEY:"",OPENAI_API_KEY:"",AI_SECRET_ENC_KEY:"",INTERNAL_SCHEDULER:"off"};
-  if(existsSync(".next/dev/lock"))throw new Error("Stop the existing Next dev server before this isolated E2E run");
+  const production=process.env.CI==="true"||process.env.FREE_EXPIRY_E2E_PRODUCTION==="1";
+  const env={...process.env,NODE_ENV:production?"production":"development",DATABASE_URL:raw,DIRECT_URL:raw,AUTH_SECRET:secret,AUTH_URL:origin,NEXTAUTH_URL:origin,AUTH_TRUST_HOST:"true",NEXT_TELEMETRY_DISABLED:"1",UPSTASH_REDIS_REST_URL:"https://redis-disabled.invalid",UPSTASH_REDIS_REST_TOKEN:"",AUTH_GOOGLE_ID:"",AUTH_GOOGLE_SECRET:"",RESEND_API_KEY:"",GEMINI_API_KEY:"",OPENAI_API_KEY:"",AI_SECRET_ENC_KEY:"",INTERNAL_SCHEDULER:"off"};
+  if(existsSync(".next/dev/lock")||existsSync(".next/lock"))throw new Error("Stop the existing Next dev/build process before this isolated E2E run");
   // A killed dev compilation can leave partial JSON manifests on external
   // macOS volumes. Start with fresh generated dev output, never source files.
-  await rm(".next/dev",{recursive:true,force:true});
-  child=spawn(process.execPath,["node_modules/next/dist/bin/next","dev","--webpack","--hostname","127.0.0.1","--port",String(port)],{env,detached:true,stdio:["ignore","pipe","pipe"]});
-  child.stdout.pipe(log);child.stderr.pipe(log);
+  if(production){
+    // CI must exercise the production bundle: dev Fast Refresh can replace the
+    // document mid-assertion after type/manifest generation and hide controls.
+    console.log("Building the actual production bundle for isolated Free E2E");
+    // Linux CI uses the deployed Turbopack build. Local external macOS volumes
+    // can corrupt Turbopack's persistence DB; webpack still builds real prod.
+    child=spawn(process.execPath,["node_modules/next/dist/bin/next","build",...(process.env.CI==="true"?[]:["--webpack"])],{env,detached:true,stdio:["ignore","pipe","pipe"]});
+    child.stdout.pipe(log,{end:false});child.stderr.pipe(log,{end:false});
+    await new Promise((resolve,reject)=>{child.once("error",reject);child.once("exit",code=>code===0?resolve():reject(new Error("Isolated production build failed; see server log")))});
+    child=undefined;
+  }else await rm(".next/dev",{recursive:true,force:true});
+  child=spawn(process.execPath,["node_modules/next/dist/bin/next",...(production?["start"]:["dev","--webpack"]),"--hostname","127.0.0.1","--port",String(port)],{env,detached:true,stdio:["ignore","pipe","pipe"]});
+  child.stdout.pipe(log,{end:false});child.stderr.pipe(log,{end:false});
   let ready=false;const deadline=Date.now()+180000;
   while(Date.now()<deadline){
     if(child.exitCode!==null)throw new Error("Next test server exited; see local server log");
@@ -44,7 +55,7 @@ try{
   const session=await encode({token:{sub:adminId,role:"ADMIN",status:"ACTIVE",name:admin.name,email:admin.email},secret,salt:sessionName,maxAge:3600});
   const proof=issueAdmin2faToken(admin,"session",secret);
   await context.addCookies([{name:sessionName,value:session,url:origin,httpOnly:true,sameSite:"Lax"},{name:"horasard_admin_2fa",value:proof.value,url:origin,httpOnly:true,sameSite:"Lax"}]);
-  const page=await context.newPage();page.setDefaultTimeout(60000);
+  const page=await context.newPage();activePage=page;page.setDefaultTimeout(60000);
   const futureDay=new Date(Date.now()+7*86400000).toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"});
   for(const [index,id] of ids.entries()){
     const pageResponse=await page.goto(origin+`/admin/users/${id}`,{timeout:180000});
@@ -72,6 +83,12 @@ try{
     assert.equal((await db.usageWallet.findUniqueOrThrow({where:{userId:id}})).periodEndsAt,null);
     console.log(`PASS real Next.js + authenticated API + PostgreSQL: Free ${index?"zero":"included-only"} date/null, reload, unchanged balances, no Pro/grants`);
   }
+}catch(error){
+  if(activePage&&!activePage.isClosed()){
+    console.error("Free E2E failed at",activePage.url());
+    await activePage.screenshot({path:path.join(artifacts,"free-expiry-e2e-failure.png"),fullPage:true}).catch(()=>{});
+  }
+  throw error;
 }finally{
   await browser?.close();
   if(child&&child.exitCode===null&&!child.signalCode){
