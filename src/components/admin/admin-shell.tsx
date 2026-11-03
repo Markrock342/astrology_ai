@@ -10,6 +10,7 @@ import { groupedAdminNav } from "@/config/admin-nav";
 import { ArrowLeft, Menu, X } from "lucide-react";
 import { Badge } from "./ui";
 import { ProviderAlertBanner } from "./provider-alert-banner";
+import { Admin2faDeviceControl } from "./admin-2fa-device-control";
 
 export function AdminShell({
   children,
@@ -178,6 +179,7 @@ export function AdminShell({
           </div>
           {/* Always visible — was `hidden sm:inline-flex`, so phones had no way
               back to /dashboard (desktop sidebar link is lg-only). */}
+          <Admin2faDeviceControl />
           <Link
             href="/dashboard"
             className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)]"

@@ -7,11 +7,13 @@ import {
   confirmTotpEnrollment,
   getAdmin2faStatus,
   verifyTotpLogin,
+  forgetAdmin2faDevice,
 } from "@/server/auth/admin-2fa-service";
 import { z } from "zod";
 
 const codeSchema = z.object({
   code: z.string().min(6).max(64),
+  rememberDevice: z.boolean().default(false),
 });
 
 /** GET /api/admin/2fa — enrollment + cookie verification status. */
@@ -26,9 +28,14 @@ export async function GET() {
 export async function POST(req: Request) {
   return handle(async () => {
     const admin = await requireAdmin({ skip2fa: true });
-    const body = (await req.json()) as { action?: string; code?: string };
+    const body = (await req.json()) as { action?: string; code?: string; rememberDevice?: boolean };
     const action = body.action ?? "verify";
     const ip = clientIp(req);
+
+    if(action==="forget"){
+      await forgetAdmin2faDevice();
+      return ok({forgotten:true});
+    }
 
     if (action === "begin") {
       return ok(await beginTotpEnrollment(admin.id));
@@ -37,13 +44,13 @@ export async function POST(req: Request) {
       // Throttle code submission — without this the 6-digit TOTP / 32-bit backup
       // codes are brute-forceable by anyone holding a stolen admin session.
       await rateLimit(`2fa-code:${admin.id}`, 8, 5 * 60_000);
-      const { code } = codeSchema.parse(body);
-      return ok(await confirmTotpEnrollment(admin.id, code, ip));
+      const { code, rememberDevice } = codeSchema.parse(body);
+      return ok(await confirmTotpEnrollment(admin.id, code, ip, rememberDevice));
     }
     if (action === "verify") {
       await rateLimit(`2fa-code:${admin.id}`, 8, 5 * 60_000);
-      const { code } = codeSchema.parse(body);
-      await verifyTotpLogin(admin.id, code);
+      const { code, rememberDevice } = codeSchema.parse(body);
+      await verifyTotpLogin(admin.id, code, rememberDevice);
       return ok({ verified: true });
     }
     throw new AppError("VALIDATION", "Unknown 2FA action");

@@ -1,4 +1,5 @@
-import { ADMIN_2FA_COOKIE } from "@/server/auth/admin-2fa-cookie";
+import { ADMIN_2FA_COOKIE, ADMIN_2FA_DEVICE_COOKIE } from "@/server/auth/admin-2fa-cookie";
+import { ADMIN_2FA_DEVICE_TTL_MS, issueAdmin2faToken, verifyAdmin2faToken, type Admin2faIdentity } from "./admin-2fa-token";
 import { Prisma } from "@prisma/client";
 import {
   createHmac,
@@ -56,31 +57,7 @@ function signPayload(payload: string): string {
   return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
-function buildCookieValue(userId: string, exp: number): string {
-  const payload = `${userId}.${exp}`;
-  return `${payload}.${signPayload(payload)}`;
-}
-
-function parseCookieValue(
-  value: string | undefined,
-): { userId: string; exp: number } | null {
-  if (!value) return null;
-  const parts = value.split(".");
-  if (parts.length !== 3) return null;
-  const [userId, expStr, sig] = parts;
-  const exp = Number(expStr);
-  if (!userId || !Number.isFinite(exp) || exp < Date.now()) return null;
-  const payload = `${userId}.${exp}`;
-  const expected = signPayload(payload);
-  try {
-    const a = Buffer.from(sig);
-    const b = Buffer.from(expected);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  } catch {
-    return null;
-  }
-  return { userId, exp };
-}
+const identitySelect = {id:true,role:true,status:true,passwordHash:true,totpSecretEnc:true,totpEnabledAt:true} as const;
 
 function buildPendingValue(
   userId: string,
@@ -131,17 +108,18 @@ function parsePendingValue(
 export async function getAdmin2faStatus(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { totpEnabledAt: true, role: true },
+    select: identitySelect,
   });
   if (!user) throw new AppError("NOT_FOUND", "User not found");
   const jar = await cookies();
-  const verified = parseCookieValue(jar.get(COOKIE_NAME)?.value);
+  const secret=process.env.AUTH_SECRET?.trim()??"";
+  const verified=verifyAdmin2faToken(jar.get(COOKIE_NAME)?.value,user,"session",secret);
+  const remembered=verifyAdmin2faToken(jar.get(ADMIN_2FA_DEVICE_COOKIE)?.value,user,"device",secret);
   return {
     enrolled: Boolean(user.totpEnabledAt),
-    verified:
-      Boolean(verified) &&
-      verified!.userId === userId &&
-      verified!.exp > Date.now(),
+    verified: verified!==null || remembered!==null,
+    rememberedDevice: remembered!==null,
+    rememberedUntil: remembered===null?null:new Date(remembered).toISOString(),
   };
 }
 
@@ -194,6 +172,7 @@ export async function confirmTotpEnrollment(
   userId: string,
   code: string,
   actorIp?: string,
+  rememberDevice = false,
 ) {
   const jar = await cookies();
   const secretBase32 = parsePendingValue(
@@ -220,7 +199,7 @@ export async function confirmTotpEnrollment(
     backupPlain.map((c) => bcrypt.hash(c, 10)),
   );
 
-  await prisma.user.update({
+  const enrolled = await prisma.user.update({
     where: { id: userId },
     data: {
       totpSecretEnc: encryptTotpSecret(secretBase32),
@@ -230,10 +209,11 @@ export async function confirmTotpEnrollment(
       // pass a login verification.
       totpLastStep: currentTotpStep() + delta,
     },
+    select: identitySelect,
   });
 
   jar.delete(PENDING_COOKIE);
-  await setAdmin2faCookie(userId);
+  await setAdmin2faCookie(enrolled,rememberDevice);
   await writeAudit({
     adminUserId: userId,
     action: "admin.2fa.enroll",
@@ -250,10 +230,12 @@ export async function confirmTotpEnrollment(
 export async function verifyTotpLogin(
   userId: string,
   code: string,
+  rememberDevice = false,
 ): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
+      ...identitySelect,
       totpSecretEnc: true,
       totpBackupCodesJson: true,
       totpLastStep: true,
@@ -280,11 +262,12 @@ export async function verifyTotpLogin(
     if (user.totpLastStep != null && step <= user.totpLastStep) {
       throw new AppError("VALIDATION", "รหัส 2FA นี้ถูกใช้ไปแล้ว กรุณารอรหัสถัดไป");
     }
-    await prisma.user.update({
-      where: { id: userId },
+    const accepted=await prisma.user.updateMany({
+      where: { id: userId,totpSecretEnc:user.totpSecretEnc,totpLastStep:user.totpLastStep },
       data: { totpLastStep: step },
     });
-    await setAdmin2faCookie(userId);
+    if(accepted.count!==1)throw new AppError("VALIDATION","รหัส 2FA นี้ถูกใช้ไปแล้ว กรุณารอรหัสถัดไป");
+    await setAdmin2faCookie(user,rememberDevice);
     return;
   }
 
@@ -298,13 +281,13 @@ export async function verifyTotpLogin(
       // Spend the code only if the list is still the one we read: three
       // parallel requests with the same code all succeeded before.
       const spent = await prisma.user.updateMany({
-        where: { id: userId, totpBackupCodesJson: { equals: hashes } },
+        where: { id: userId, totpSecretEnc:user.totpSecretEnc, totpBackupCodesJson: { equals: hashes } },
         data: { totpBackupCodesJson: next },
       });
       if (spent.count === 0) {
         throw new AppError("VALIDATION", "รหัสสำรองนี้ถูกใช้ไปแล้ว");
       }
-      await setAdmin2faCookie(userId);
+      await setAdmin2faCookie(user,rememberDevice);
       return;
     }
   }
@@ -312,16 +295,26 @@ export async function verifyTotpLogin(
   throw new AppError("VALIDATION", "รหัส 2FA ไม่ถูกต้อง");
 }
 
-async function setAdmin2faCookie(userId: string): Promise<void> {
+async function setAdmin2faCookie(user: Admin2faIdentity, rememberDevice:boolean): Promise<void> {
   const jar = await cookies();
-  const exp = Date.now() + ADMIN_2FA_TTL_MS;
-  jar.set(COOKIE_NAME, buildCookieValue(userId, exp), {
+  const secret=process.env.AUTH_SECRET?.trim()??"";
+  const options={
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: Math.floor(ADMIN_2FA_TTL_MS / 1000),
-  });
+  } as const;
+  jar.set(COOKIE_NAME,issueAdmin2faToken(user,"session",secret).value,{...options,maxAge:ADMIN_2FA_TTL_MS/1000});
+  if(rememberDevice){
+    jar.set(ADMIN_2FA_DEVICE_COOKIE,issueAdmin2faToken(user,"device",secret).value,{...options,maxAge:ADMIN_2FA_DEVICE_TTL_MS/1000});
+  }else jar.delete(ADMIN_2FA_DEVICE_COOKIE);
+}
+
+/** Forget this browser only; password/2FA reset invalidates all its proofs. */
+export async function forgetAdmin2faDevice(){
+  const jar=await cookies();
+  jar.delete(ADMIN_2FA_DEVICE_COOKIE);
+  jar.delete(COOKIE_NAME);
 }
 
 /** Super Admin resets another admin's 2FA (forces re-enroll). */
@@ -348,6 +341,7 @@ export async function resetAdminTotp(
         totpSecretEnc: null,
         totpEnabledAt: null,
         totpBackupCodesJson: Prisma.DbNull,
+        totpLastStep: null,
       },
     });
     await writeAudit(

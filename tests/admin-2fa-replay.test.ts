@@ -7,11 +7,12 @@ const FIXED_NOW = 1_770_000_000_000; // ms
 const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
   update: vi.fn(),
+  updateMany: vi.fn(),
   cookieSet: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
-  prisma: { user: { findUnique: mocks.findUnique, update: mocks.update } },
+  prisma: { user: { findUnique: mocks.findUnique, update: mocks.update,updateMany:mocks.updateMany } },
 }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ set: mocks.cookieSet, get: () => undefined, delete: () => {} }),
@@ -28,6 +29,7 @@ vi.mock("@/lib/crypto/secret-box", () => ({
 import { verifyTotpLogin } from "@/server/auth/admin-2fa-service";
 
 const secret = new OTPAuth.Secret({ size: 20 });
+const identity={id:"admin-1",role:"ADMIN",status:"ACTIVE",passwordHash:"hash",totpEnabledAt:new Date(FIXED_NOW-10000)};
 const totp = new OTPAuth.TOTP({
   algorithm: "SHA1",
   digits: 6,
@@ -39,6 +41,7 @@ describe("verifyTotpLogin replay guard", () => {
   beforeEach(() => {
     process.env.AUTH_SECRET = "x".repeat(44);
     vi.clearAllMocks();
+    mocks.updateMany.mockResolvedValue({count:1});
     vi.spyOn(Date, "now").mockReturnValue(FIXED_NOW);
   });
   afterEach(() => vi.restoreAllMocks());
@@ -49,12 +52,13 @@ describe("verifyTotpLogin replay guard", () => {
 
     // First use: no prior step → accepted, records the step.
     mocks.findUnique.mockResolvedValueOnce({
+      ...identity,
       totpSecretEnc: secret.base32,
       totpBackupCodesJson: [],
       totpLastStep: null,
     });
     await expect(verifyTotpLogin("admin-1", code)).resolves.toBeUndefined();
-    expect(mocks.update).toHaveBeenCalledWith(
+    expect(mocks.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { totpLastStep: step } }),
     );
     expect(mocks.cookieSet).toHaveBeenCalled();
@@ -62,6 +66,7 @@ describe("verifyTotpLogin replay guard", () => {
     // Replay: same code, stored step == this code's step → rejected.
     mocks.cookieSet.mockClear();
     mocks.findUnique.mockResolvedValueOnce({
+      ...identity,
       totpSecretEnc: secret.base32,
       totpBackupCodesJson: [],
       totpLastStep: step,
@@ -74,6 +79,7 @@ describe("verifyTotpLogin replay guard", () => {
 
   it("rejects a wrong code outright", async () => {
     mocks.findUnique.mockResolvedValueOnce({
+      ...identity,
       totpSecretEnc: secret.base32,
       totpBackupCodesJson: [],
       totpLastStep: null,
@@ -81,5 +87,12 @@ describe("verifyTotpLogin replay guard", () => {
     await expect(verifyTotpLogin("admin-1", "000000")).rejects.toMatchObject({
       code: "VALIDATION",
     });
+  });
+
+  it("rejects a parallel redemption when another request already consumed the step",async()=>{
+    mocks.findUnique.mockResolvedValue({...identity,totpSecretEnc:secret.base32,totpBackupCodesJson:[],totpLastStep:null});
+    mocks.updateMany.mockResolvedValue({count:0});
+    await expect(verifyTotpLogin("admin-1",totp.generate({timestamp:FIXED_NOW}),true)).rejects.toMatchObject({code:"VALIDATION"});
+    expect(mocks.cookieSet).not.toHaveBeenCalled();
   });
 });

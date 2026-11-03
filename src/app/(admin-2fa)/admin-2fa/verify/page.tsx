@@ -15,6 +15,7 @@ export default function Admin2faVerifyPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const inFlightRef = useRef(false);
 
@@ -29,7 +30,7 @@ export default function Admin2faVerifyPage() {
       const res = await fetch("/api/admin/2fa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify", code: value }),
+        body: JSON.stringify({ action: "verify", code: value, rememberDevice }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? "ยืนยันไม่สำเร็จ");
@@ -78,6 +79,10 @@ export default function Admin2faVerifyPage() {
           {error}
         </p>
       ) : null}
+      <label className="mt-6 flex items-start gap-3 text-sm text-[var(--foreground)]">
+        <input type="checkbox" checked={rememberDevice} disabled={busy} onChange={e=>setRememberDevice(e.target.checked)} className="mt-1 h-4 w-4 accent-[var(--primary)]"/>
+        <span>จดจำอุปกรณ์นี้ 30 วัน<span className="mt-1 block text-xs text-[var(--muted)]">เลือกก่อนกรอกรหัส · ใช้เฉพาะอุปกรณ์ส่วนตัว ยังต้องล็อกอินตามปกติ</span></span>
+      </label>
       <label className="mt-6 block text-xs text-[var(--muted)]">
         {mode === "totp" ? "รหัส 6 หลัก" : "รหัสสำรอง"}
         <input
