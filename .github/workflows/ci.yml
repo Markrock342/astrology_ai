@@ -38,7 +38,7 @@ jobs:
       - run: npx vitest run
 
   admin-regression:
-    name: admin expiry UI · PostgreSQL regression
+    name: admin expiry + 2FA UI · PostgreSQL regression
     runs-on: ubuntu-latest
     needs: check
     timeout-minutes: 15
@@ -65,7 +65,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps --only-shell chromium
-      - run: npm run test:ui:user-expiry
+      - run: npm run test:ui:admin
       - run: npm run test:integration:admin-users
       - if: always()
         uses: actions/upload-artifact@v4

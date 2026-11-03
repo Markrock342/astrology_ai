@@ -11,6 +11,7 @@ export default function Admin2faSetupPage() {
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -48,7 +49,7 @@ export default function Admin2faSetupPage() {
       const res = await fetch("/api/admin/2fa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "confirm", code }),
+        body: JSON.stringify({ action: "confirm", code, rememberDevice }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? "ยืนยันไม่สำเร็จ");
@@ -108,6 +109,10 @@ export default function Admin2faSetupPage() {
               หรือใส่รหัสด้วยมือ: {secret}
             </p>
           ) : null}
+          <label className="flex items-start gap-3 text-sm text-[var(--foreground)]">
+            <input type="checkbox" checked={rememberDevice} disabled={busy} onChange={e=>setRememberDevice(e.target.checked)} className="mt-1 h-4 w-4 accent-[var(--primary)]"/>
+            <span>จดจำอุปกรณ์นี้ 30 วัน<span className="mt-1 block text-xs text-[var(--muted)]">ใช้เฉพาะอุปกรณ์ส่วนตัว ยังต้องล็อกอินตามปกติ</span></span>
+          </label>
           <label className="block text-xs text-[var(--muted)]">
             รหัสจากแอป
             <input

@@ -1,47 +1,17 @@
 // Real Chromium + real React editor; only the HTTP boundary is stubbed.
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, rm, mkdir } from "node:fs/promises";
-import { createServer } from "node:http";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { build } from "vite";
-import { chromium } from "playwright";
-import { existsSync } from "node:fs";
-
-const root = process.cwd();
+import { startAdminUiHarness } from "./lib/admin-ui-harness.mjs";
+const root=process.cwd();
 const artifacts=path.resolve(process.env.ADMIN_UI_ARTIFACT_DIR??path.join(root,"output/admin-ui-tests"));
 await mkdir(artifacts,{recursive:true});
-await mkdir(path.join(root,"tmp"),{recursive:true});
-const temp = await mkdtemp(path.join(root, "tmp/expiry-ui-"));
-let server, browser, page;
+const harness=await startAdminUiHarness({
+  imports:`import {UserExpiryEditor} from '${path.join(root,"src/components/admin/user-expiry-editor")}';`,
+  render:'<main className="mx-auto max-w-2xl p-6"><UserExpiryEditor userId="test-only" onSaved={async()=>{}}/></main>',
+});
+const {page,errors}=harness;
 try {
-  const entry = path.join(temp, "entry.tsx");
-  await writeFile(entry, `import {createRoot} from 'react-dom/client';
-import '@fontsource-variable/noto-sans-thai';
-import '${path.join(root,"src/app/globals.css")}';
-import {UserExpiryEditor} from '${path.join(root, "src/components/admin/user-expiry-editor")}';
-createRoot(document.getElementById('root')!).render(<main className="mx-auto max-w-2xl p-6"><UserExpiryEditor userId="test-only" onSaved={async()=>{}}/></main>);`);
-  const bundle = await build({
-    configFile: false, logLevel: "error", root,
-    resolve: { alias: { "@": path.join(root, "src") } },
-    esbuild: { jsx: "automatic", jsxDev: false },
-    define: { "process.env.NODE_ENV": '"development"', "process.env": "{}" },
-    build: { write: false, minify: false, lib: { entry, formats: ["iife"], name: "ExpiryUI" } },
-  });
-  const output=(Array.isArray(bundle) ? bundle[0] : bundle).output;
-  const js=output.find(o=>o.type==="chunk").code;
-  const css=output.filter(o=>o.type==="asset"&&o.fileName.endsWith(".css")).map(o=>String(o.source)).join("\n");
-  console.log("Harness bundled");
-  server = createServer((req,res)=>{
-    res.setHeader("Content-Type", req.url==="/app.js" ? "text/javascript" : req.url==="/style.css"?"text/css":"text/html; charset=utf-8");
-    res.end(req.url==="/app.js" ? js : req.url==="/style.css"?css:'<!doctype html><html lang="th" data-theme="dark"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>');
-  });
-  await new Promise((resolve,reject)=>{server.once("error",reject);server.listen(0,"127.0.0.1",resolve)});
-  const installedBrowser=process.env.PLAYWRIGHT_EXECUTABLE_PATH??(!existsSync(chromium.executablePath())&&existsSync("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser")?"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser":undefined);
-  browser = await chromium.launch({executablePath:installedBrowser,timeout:20000});
-  console.log("Browser launched");
-  page = await browser.newPage({viewport:{width:900,height:850},locale:"th-TH"});
-  page.setDefaultTimeout(15000);
-  const errors=[];page.on("pageerror",e=>{errors.push(e.message);console.error("Browser error:",e.message)});
   let expiresAt=null, canEdit=true, fail=false;
   const writes=[];
   const futureDay=new Date(Date.now()+7*86400000).toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"});
@@ -53,7 +23,7 @@ createRoot(document.getElementById('root')!).render(<main className="mx-auto max
     }
     await route.fulfill({json:{ok:true,data:{revision:"a".repeat(64),canEdit,expiresAt}}});
   });
-  const open=async()=>{await page.goto(`http://127.0.0.1:${server.address().port}`);await page.getByText("ปัจจุบัน:",{exact:false}).waitFor();await page.getByRole("button",{name:"โหลดวันหมดอายุใหม่"}).click();await page.waitForFunction(()=>!document.body.textContent.includes("กำลังโหลด…"));};
+  const open=async()=>{await page.goto(harness.origin);await page.getByText("ปัจจุบัน:",{exact:false}).waitFor();await page.getByRole("button",{name:"โหลดวันหมดอายุใหม่"}).click();await page.waitForFunction(()=>!document.body.textContent.includes("กำลังโหลด…"));};
   const save=()=>page.getByRole("button",{name:"บันทึกวันหมดอายุ",exact:true});
   const reason=()=>page.getByRole("textbox",{name:"เหตุผลการแก้วันหมดอายุ",exact:true});
   const submit=async()=>{await save().click();};
@@ -108,7 +78,5 @@ createRoot(document.getElementById('root')!).render(<main className="mx-auto max
   if(page&&!page.isClosed())await page.screenshot({path:path.join(artifacts,"failure.png"),fullPage:true}).catch(()=>{});
   throw error;
 } finally {
-  await browser?.close();
-  if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve))}
-  await rm(temp,{recursive:true,force:true});
+  await harness.close();
 }

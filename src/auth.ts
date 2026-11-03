@@ -31,8 +31,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers,
   events: {
-    // The admin 2FA pass outlived the session: the next person to sign in on
-    // the same browser walked into /admin without a code.
+    // End the short proof on logout. An explicitly opted-in device proof stays
+    // until its fixed expiry and is bound to the same user's current credentials;
+    // another account on this browser cannot use it.
     async signOut() {
       try {
         (await cookies()).delete(ADMIN_2FA_COOKIE);
