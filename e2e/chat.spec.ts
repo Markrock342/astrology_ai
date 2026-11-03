@@ -35,9 +35,10 @@ test("natal chart view fills the main pane and hides the composer", async ({
   await expect(page.getByRole("heading", { name: "ถามดวงได้เลย" })).toHaveCount(0);
   await expect(page.getByRole("textbox")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "ดวงชะตา" })).toBeVisible();
-  await expect(
-    page.getByText(/กำลังเปิดดวงจักรกำเนิด|กำลังวางลัคนา|ดวงจักรกำเนิด|ผังดวงชะตา|ยังเปิดดวงจักร/),
-  ).toBeVisible();
+  await expect(page.getByRole("main").getByText("กำลังดู: พื้นดวงเดิม", { exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("status").filter({
+    hasText: /กำลังดึงพื้นดวง|กำลังวางลัคนา|ใช้เวลานานกว่าปกติ/,
+  })).toBeVisible();
 });
 
 test("preset chips always exist, even when the API sends none", async ({
@@ -177,15 +178,8 @@ test("a thumbs verdict reaches the SERVER and is persisted", async ({
   const res = await waitForVerdict;
   expect(res.request().postDataJSON()).toEqual({ value: "DOWN" });
 
-  expect(
-    res.status(),
-    "500 = the message_feedback table is missing; the migration never ran",
-  ).not.toBe(500);
-  expect([200, 404]).toContain(res.status());
-
-  if (res.status() === 404) {
-    await expect(page.getByText(/บันทึกฟีดแบ็กไม่สำเร็จ/)).toBeVisible();
-  }
+  expect(res.status(), "Feedback must be stored for the seeded assistant message").toBe(200);
+  expect((await res.json()).data).toMatchObject({ messageId: ASSISTANT_MSG_ID, value: "DOWN" });
 });
 
 test("a long answer starts at its first line instead of scrolling past it", async ({

@@ -12,9 +12,8 @@ import { defineConfig, devices } from "@playwright/test";
  * a run is deterministic, costs nothing, and takes seconds. What we are testing
  * is OUR code, not Gemini's.
  *
- * Requires a real signed-in session (the app shell is server-guarded), so set:
- *   E2E_EMAIL=... E2E_PASSWORD=...   (a test account on the target DB)
- * Specs skip with a clear message when it is missing.
+ * `npm run test:e2e:chat` provisions an isolated local PostgreSQL fixture and
+ * signs in through the actual credentials API. No production secrets needed.
  */
 export default defineConfig({
   testDir: "./e2e",
@@ -25,13 +24,14 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   timeout: 45_000,
 
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH },
   },
 
   projects: [
