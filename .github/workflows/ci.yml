@@ -75,56 +75,41 @@ jobs:
           path: output/admin-ui-tests/
           retention-days: 7
 
-  # The gate that actually would have caught this cycle's regressions: it drives
-  # the real UI in a browser. The AI is stubbed at the network boundary, so this
-  # costs no credits and never flakes on Gemini — but it does need a real signed
-  # -in session, because the app shell is guarded on the server.
-  #
-  # Required repo secrets: DATABASE_URL, AUTH_SECRET, E2E_EMAIL, E2E_PASSWORD
-  # (DIRECT_URL too if your Prisma setup uses it). Without them the job skips
-  # instead of failing, so forks and contributors aren't blocked.
+  # No production DB or saved user credentials: migrate and seed a local fixture.
   e2e:
     name: e2e (chat flow)
     runs-on: ubuntu-latest
     needs: [check, admin-regression]
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: hora_chat_test_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d hora_chat_test_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/hora_chat_test_ci
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/hora_chat_test_ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Are E2E credentials configured?
-        id: guard
-        env:
-          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
-        run: |
-          if [ -n "$E2E_EMAIL" ]; then
-            echo "ok=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ok=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::E2E secrets not set — skipping. Add E2E_EMAIL / E2E_PASSWORD / DATABASE_URL / AUTH_SECRET to enable."
-          fi
-
-      - if: steps.guard.outputs.ok == 'true'
-        run: npm ci
-
-      - if: steps.guard.outputs.ok == 'true'
-        run: npx playwright install --with-deps chromium
-
-      # playwright.config.ts's webServer builds and starts the app itself.
-      - if: steps.guard.outputs.ok == 'true'
-        run: npx playwright test
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
-          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-
-      - if: failure() && steps.guard.outputs.ok == 'true'
+      - run: npm ci
+      - run: npx playwright install --with-deps --only-shell chromium
+      - run: npm run test:e2e:chat
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: chat-playwright-report
+          path: |
+            playwright-report/
+            test-results/
+            output/chat-ui-tests/
           retention-days: 7
