@@ -1,4 +1,5 @@
 import { test as setup, expect } from "@playwright/test";
+import { stubChartStatus } from "./helpers/sse";
 
 const AUTH_FILE = "e2e/.auth/user.json";
 
@@ -29,7 +30,16 @@ setup("authenticate", async ({ page }) => {
     `Login failed (${res.status()}): ${await res.text()}`,
   ).toBeTruthy();
 
+  // Prove the cookie is accepted by Auth.js and the protected API, not just
+  // that the custom login route returned 200.
+  const session = await page.request.get("/api/auth/session");
+  expect(session.ok()).toBeTruthy();
+  expect((await session.json()).user?.email).toBe(email);
+  const me = await page.request.get("/api/me");
+  expect(me.ok(), "The session must authorize the real protected API").toBeTruthy();
+
   // Prove the session actually lands on the guarded shell before we bank it.
+  await stubChartStatus(page);
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/dashboard/);
 

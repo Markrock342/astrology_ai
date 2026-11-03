@@ -1,8 +1,8 @@
 import type { Page, Route } from "@playwright/test";
 
-export const THREAD_ID = "e2e-thread-1";
-export const USER_MSG_ID = "e2e-msg-user";
-export const ASSISTANT_MSG_ID = "e2e-msg-assistant";
+export const THREAD_ID = process.env.E2E_THREAD_ID ?? "e2e-thread-1";
+export const USER_MSG_ID = process.env.E2E_USER_MSG_ID ?? "e2e-msg-user";
+export const ASSISTANT_MSG_ID = process.env.E2E_ASSISTANT_MSG_ID ?? "e2e-msg-assistant";
 
 type SseEvent = Record<string, unknown>;
 
@@ -80,6 +80,9 @@ export async function stubChat(page: Page, opts: StubOptions = {}) {
   const events = opts.events ?? happyTurn(answer);
   const messages = opts.messages ?? [];
 
+  // Chart scraping is an external dependency, outside the chat regressions.
+  await stubChartStatus(page);
+
   await page.route("**/api/conversations", async (route) => {
     if (route.request().method() === "POST") {
       return json(route, { id: THREAD_ID });
@@ -118,4 +121,10 @@ export async function stubChat(page: Page, opts: StubOptions = {}) {
   });
 
   return { answer };
+}
+
+export async function stubChartStatus(page: Page) {
+  await page.route("**/api/me/natal-chart/status*", route =>
+    json(route, { status: "PENDING", note: null }),
+  );
 }
