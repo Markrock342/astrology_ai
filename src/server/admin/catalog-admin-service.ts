@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 import { writeAudit } from "@/server/audit/audit-service";
 import { getDefaultPackExpiry } from "@/server/catalog/question-pack-service";
 import { packExpiryLabel, packExpiryRule } from "@/lib/pack-expiry";
+import { freeSignupExpiryLabel } from "@/lib/free-expiry";
 import { unitsToQuestions } from "@/lib/usage-budget-display";
 
 /**
@@ -56,6 +57,10 @@ export type PackageCreateInput = {
  * a PRO row; and the Free package — what a sign-up gets — cannot be one.
  */
 function packRules<T extends PackageUpdateInput>(input: T, code: string | undefined): T {
+  if(code==="FREE"||input.type==="FREE"){
+    if(input.expiryMode==="DAYS"&&(!Number.isInteger(input.expiryDays)||!input.expiryDays||input.expiryDays<1||input.expiryDays>3650))throw new AppError("VALIDATION","กรุณาระบุจำนวนวัน Free ระหว่าง 1–3650 วัน");
+    if(input.expiryMode==="DATE"&&(!input.expiresOn||new Date(input.expiresOn)<=new Date()))throw new AppError("VALIDATION","กรุณาเลือกวันสิ้นสุด Free ในอนาคต");
+  }
   if (!input.questionPack) return input;
   if (code === "FREE") throw new AppError("VALIDATION", "แพ็กเกจ Free เป็นแพ็กคำถามไม่ได้");
   return { ...input, type: "PRO", creditOnly: false };
@@ -168,7 +173,7 @@ export async function listPublicPackages() {
   return rows.map(({ expiryMode, expiryDays, expiresOn, ...pkg }) => ({
     ...pkg,
     questions: unitsToQuestions(pkg.usageBudgetUnits),
-    expiryLabel: pkg.questionPack ? packExpiryLabel(packExpiryRule({ expiryMode, expiryDays, expiresOn }, fallback)) : null,
+    expiryLabel: pkg.type==="FREE"?freeSignupExpiryLabel({expiryMode,expiryDays,expiresOn}):pkg.questionPack ? packExpiryLabel(packExpiryRule({ expiryMode, expiryDays, expiresOn }, fallback)) : null,
   }));
 }
 

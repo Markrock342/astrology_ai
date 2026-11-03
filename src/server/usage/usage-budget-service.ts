@@ -221,11 +221,18 @@ export async function lapseExpiredIncludedUsage(
     where: { code: "FREE" },
     select: { usageBudgetUnits: true },
   });
-  const cap = Math.max(0, free?.usageBudgetUnits ?? 0);
+  // A paid/promotion period ending must not reset the original Free signup
+  // deadline. Keep that account's stored deadline, never today's package rule.
+  const freeSubscription = await client.userSubscription.findFirst({
+    where:{userId,status:"ACTIVE",package:{type:"FREE"}},
+    orderBy:[{createdAt:"desc"},{id:"desc"}],select:{expiresAt:true},
+  });
+  const freeEndsAt=freeSubscription?.expiresAt??null;
+  const cap = freeEndsAt&&freeEndsAt<=now?0:Math.max(0, free?.usageBudgetUnits ?? 0);
   const keep = Math.min(Math.max(0, wallet.includedBalanceUnits), cap);
   const lapsed = await client.usageWallet.updateMany({
     where: { userId, periodEndsAt: wallet.periodEndsAt, includedBalanceUnits: wallet.includedBalanceUnits },
-    data: { includedBalanceUnits: keep, includedAllowanceUnits: cap, periodEndsAt: null },
+    data: { includedBalanceUnits: keep, includedAllowanceUnits: cap, periodEndsAt: freeEndsAt },
   });
   if (lapsed.count === 0 || keep === wallet.includedBalanceUnits) return;
   await client.usageTransaction.create({

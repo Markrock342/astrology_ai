@@ -700,8 +700,8 @@ export async function setUserSubscription(
   if (pkg.creditOnly) {
     throw new AppError("VALIDATION", "แพ็กเกจเติม usage ไม่ใช่แผนสมาชิก — ใช้การเติม usage แทน");
   }
-  // Free does not run out: a date on it only ended the row, and the page then
-  // read "Free ถึง 11 พ.ย." (A, 12 Oct 2026).
+  // An existing account being assigned Free does not receive a new signup
+  // trial automatically. Per-account dates are managed by the expiry editor.
   if (pkg.type === "FREE") input = { ...input, expiresAt: null };
   if (input.expiresAt && input.expiresAt.getTime() <= Date.now()) {
     throw new AppError("VALIDATION", "วันหมดอายุต้องเป็นวันในอนาคต (เว้นว่าง = ไม่มีวันหมดอายุ)");

@@ -19,6 +19,7 @@ import {
 } from "../admin/ui";
 import { Archive, CalendarClock, Gift, Package } from "lucide-react";
 import { itemsToLines, linesToItems, onStepKeyDown } from "@/lib/step-lines";
+import { freeSignupExpiryLabel } from "@/lib/free-expiry";
 import {
   questionsToUnits,
   typicalQuestionThb,
@@ -239,7 +240,7 @@ export function PackagesManager({
       features: linesToItems(form.featuresText),
       upgradeSteps: linesToItems(form.upgradeStepsText),
       ...(form.code === "FREE" || form.type === "FREE"
-        ? {}
+        ? {expiryMode:form.expiryMode,expiryDays:form.expiryMode==="DAYS"?Number(form.expiryDays):null,expiresOn:form.expiryMode==="DATE"&&form.expiresOn?endOfDayIso(form.expiresOn):null}
         : {
             questionPack: form.questionPack,
             expiryMode: form.expiryMode,
@@ -247,7 +248,7 @@ export function PackagesManager({
             expiresOn: form.expiryMode === "DATE" && form.expiresOn ? endOfDayIso(form.expiresOn) : null,
           }),
     };
-    if (form.questionPack && form.expiryMode === "DATE" && !form.expiresOn) {
+    if ((form.questionPack || form.code==="FREE" || form.type==="FREE") && form.expiryMode === "DATE" && !form.expiresOn) {
       setBusy(false);
       setError("เลือกวันหมดอายุของแพ็กนี้");
       return;
@@ -421,7 +422,23 @@ export function PackagesManager({
               />
             </Field>
           </div>
-          {form.code !== "FREE" && form.type !== "FREE" ? (
+          {form.code === "FREE" || form.type === "FREE" ? (
+            <div className="mt-3 space-y-3">
+              <InfoBox>ใช้กับผู้สมัครใหม่ทั้งอีเมลและ Google เท่านั้น · การเปลี่ยนค่านี้ไม่แก้วันหมดอายุหรือเติมคำถามให้บัญชีเดิม</InfoBox>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <Field label="วันหมดอายุ Free สำหรับผู้สมัครใหม่">
+                  <Select value={form.expiryMode} onChange={e=>setForm({...form,expiryMode:e.target.value as ExpiryMode})}>
+                    <option value="DEFAULT">ค่าเดิม (ไม่มีวันหมดอายุ)</option>
+                    <option value="NONE">ไม่มีวันหมดอายุ</option>
+                    <option value="DAYS">หมดอายุหลังสมัคร … วัน</option>
+                    <option value="DATE">วันสิ้นสุดเดียวกันทุกบัญชีใหม่</option>
+                  </Select>
+                </Field>
+                {form.expiryMode==="DAYS"&&<Field label="จำนวนวันหลังสมัคร" hint="เช่น 30 วัน นับจากเวลาที่สมัครสำเร็จ"><TextInput type="number" min={1} max={3650} value={form.expiryDays} onChange={e=>setForm({...form,expiryDays:e.target.value})}/></Field>}
+                {form.expiryMode==="DATE"&&<Field label="วันสิ้นสุด Free (เวลาไทย)"><TextInput type="date" value={form.expiresOn} onChange={e=>setForm({...form,expiresOn:e.target.value})}/></Field>}
+              </div>
+            </div>
+          ) : (
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
               <div className="flex items-end">
                 <Toggle
@@ -463,7 +480,7 @@ export function PackagesManager({
                 </Field>
               ) : null}
             </div>
-          ) : null}
+          )}
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             <Field
               label="รายการคุณสมบัติ (แสดงในการ์ด)"
@@ -552,6 +569,7 @@ export function PackagesManager({
                   </Badge>
                 );
               })()}
+              {pkg.type==="FREE"?<Badge>{freeSignupExpiryLabel({expiryMode:pkg.expiryMode??"DEFAULT",expiryDays:pkg.expiryDays??null,expiresOn:pkg.expiresOn??null})} · ผู้สมัครใหม่</Badge>:null}
               {pkg.questionPack ? (
                 <Badge>
                   {packExpiryLabel(
