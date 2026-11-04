@@ -97,4 +97,26 @@ describe("real DB member export and private chat summary", () => {
       expect((await getChatInsights()).status).toBe("error"); expect(prompts.length - before).toBe(1);
     } finally { failProvider = false; }
   });
+  it("includes standalone legacy readings but never duplicates chat or resurfaces deleted conversations", async () => {
+    const id = prefix + "legacy-chat";
+    await db.user.create({ data: { id, email: `${id}@example.invalid`, name: "PrivateLegacyName" } });
+    await db.horoscopeReading.create({ data: { userId: id, categoryId, birthProfileSnapshotJson: {}, question: "PrivateLegacyName อยากวางแผนงาน", responseText: "วางแผนงานและพัฒนาทักษะ", status: "SUCCESS" } });
+    await db.horoscopeReading.create({ data: { userId: id, categoryId, birthProfileSnapshotJson: {}, idempotencyKey: prefix + "orphaned", question: "Orphan original question", responseText: "Orphan original answer", status: "SUCCESS" } });
+    const conversation = await db.conversation.findFirstOrThrow({ where: { userId: prefix + "chat-0" } });
+    for (const deleted of [false, true]) {
+      const key = `${prefix}linked-${deleted}`;
+      const existing = deleted ? null : await db.message.findFirstOrThrow({ where: { conversationId: conversation.id, role: "ASSISTANT", deletedAt: null } });
+      if (existing) await db.message.update({ where: { id: existing.id }, data: { idempotencyKey: key } });
+      else await db.message.create({ data: { conversationId: conversation.id, role: "ASSISTANT", content: "Hidden original answer", idempotencyKey: key, deletedAt: new Date() } });
+      await db.horoscopeReading.create({ data: { userId: conversation.userId, categoryId, birthProfileSnapshotJson: {}, idempotencyKey: key, question: "Hidden original question", responseText: "Hidden original answer", status: "SUCCESS" } });
+    }
+    const before = prompts.length;
+    await runChatInsights(await startChatInsights({ id: admin }), admin);
+    const result = await getChatInsights();
+    expect(result.status).toBe("ready");
+    expect(result.summary).toMatchObject({ questionsAnalyzed: 4, answersAnalyzed: 4, questions: [{ count: 4 }], answers: [{ count: 4 }] });
+    expect(prompts.slice(before).join(" ")).not.toContain("Hidden original");
+    expect(prompts.slice(before).join(" ")).not.toContain("Orphan original");
+    expect(prompts.slice(before).join(" ")).not.toContain("PrivateLegacyName");
+  });
 });

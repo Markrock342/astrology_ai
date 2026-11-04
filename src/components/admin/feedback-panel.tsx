@@ -28,11 +28,11 @@ export function FeedbackPanel() {
   }
   const summary = data?.summary, stats = data?.stats;
   return <AdminPage>
-    <PageHeader title="ภาพรวมคำถามและคำตอบ" description="AI จัดกลุ่มหัวข้อที่พบบ่อยจากบทสนทนาทั้งหมด โดยแสดงเฉพาะภาพรวม" />
+    <PageHeader title="ภาพรวมคำถามและคำตอบ" description="AI จัดกลุ่มหัวข้อที่พบบ่อยจากคำถามและคำตอบทั้งหมด โดยแสดงเฉพาะภาพรวม" />
     {stats && <div className="grid gap-3 sm:grid-cols-3"><StatCard label="👍 ดี" value={stats.up} tone="green" /><StatCard label="👎 ไม่ดี" value={stats.down} /><StatCard label="ความพึงพอใจ" value={stats.satisfactionPct == null ? "—" : `${stats.satisfactionPct.toFixed(0)}%`} /></div>}
     <Card className="mt-4">
       <p className="text-sm">แสดงสูงสุดฝั่งละ 50 หัวข้อ · ตัดข้อมูลระบุตัวตนก่อนส่งสรุป · ซ่อนหัวข้อที่มาจากสมาชิกน้อยกว่า 3 คน</p>
-      <p className="mt-2 text-xs leading-5 text-[var(--muted)]">จำนวนครั้งนับจากข้อความจริงที่ไม่ถูกลบ ณ เวลาเริ่มประมวลผล คำตอบนับเฉพาะที่สำเร็จ แสดงข้อความสรุปแทนบทสนทนารายคน หากข้อมูลไม่พอจะไม่สร้างหัวข้อเพิ่มให้ครบ 50</p>
+      <p className="mt-2 text-xs leading-5 text-[var(--muted)]">นับจากประวัติที่ยังอยู่และคำทำนายเก่าที่ระบุแหล่งได้ ณ เวลาเริ่มประมวลผล คำตอบนับเฉพาะที่สำเร็จ แสดงข้อความสรุปแทนบทสนทนารายคน หากข้อมูลไม่พอจะไม่สร้างหัวข้อเพิ่มให้ครบ 50</p>
       <div className="mt-3 flex flex-wrap items-center gap-3"><Button disabled={starting || data?.status === "running"} onClick={() => void generate()}>{starting || data?.status === "running" ? "กำลังประมวลผล…" : "ประมวลผลข้อมูลล่าสุด"}</Button>
       {summary && <span className="text-xs text-[var(--muted)]">อัปเดต {adminDay(summary.generatedAt)} · คำถาม {summary.questionsAnalyzed.toLocaleString()} · คำตอบ {summary.answersAnalyzed.toLocaleString()}</span>}</div>
       {data?.status === "running" && <p role="status" className="mt-3 text-xs">กำลังจัดกลุ่ม {data.processed?.toLocaleString() ?? 0} ข้อความ สามารถออกจากหน้านี้แล้วกลับมาดูผลได้</p>}

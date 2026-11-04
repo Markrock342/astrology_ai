@@ -87,14 +87,38 @@ export async function runChatInsights(job: InsightState, actorId: string) {
     const lists: Record<"USER" | "ASSISTANT", ReturnType<typeof topInsights>> = { USER: [], ASSISTANT: [] };
     for (const role of ["USER", "ASSISTANT"] as const) {
       const groups: InsightGroup[] = []; let cursor: string | undefined;
+      async function consume(entries: InsightGroup[]) {
+        totals[role] += entries.length;
+        if (entries.length) groups.push(...await cluster(entries, role));
+        job = { ...job, processed: totals.USER + totals.ASSISTANT }; await store(job);
+      }
       for (;;) {
         const rows = await prisma.message.findMany({ where: { role, deletedAt: null, status: "SUCCESS", content: { not: "" }, createdAt: { lte: cutoff }, ...(cursor ? { id: { gt: cursor } } : {}) }, orderBy: { id: "asc" }, take: 80, select: { id: true, content: true, conversation: { select: { userId: true } } } });
         if (!rows.length) break;
         cursor = rows.at(-1)!.id;
         const entries = rows.filter(r => r.content.trim()).map(r => ({ label: redactInsightText(r.content, names).slice(0, role === "USER" ? 800 : 2000), count: 1, members: new Set([r.conversation.userId]) }));
-        totals[role] += entries.length;
-        if (entries.length) groups.push(...await cluster(entries, role));
-        job = { ...job, processed: totals.USER + totals.ASSISTANT }; await store(job);
+        await consume(entries);
+      }
+      // Unkeyed legacy readings are distinct from the keyed chat flow. A keyed
+      // orphan may belong to a hard-deleted conversation; never resurrect it.
+      cursor = undefined;
+      for (;;) {
+        const rows: Array<{ id: string; userId: string; question: string; responseText: string | null; responseJson: Prisma.JsonValue | null }> = await prisma.$queryRaw`
+          SELECT r.id, r."userId", r.question, r."responseText", r."responseJson"
+          FROM horoscope_readings r
+          WHERE r.status = 'SUCCESS' AND r."createdAt" <= ${cutoff}
+            AND r."idempotencyKey" IS NULL
+            ${cursor ? Prisma.sql`AND r.id > ${cursor}` : Prisma.empty}
+            AND NOT EXISTS (
+              SELECT 1 FROM messages m JOIN conversations c ON c.id = m."conversationId"
+              WHERE c."userId" = r."userId" AND m."idempotencyKey" = r."idempotencyKey"
+            )
+          ORDER BY r.id ASC LIMIT 80`;
+        if (!rows.length) break;
+        cursor = rows.at(-1)!.id;
+        const entries = rows.map(row => ({ row, text: role === "USER" ? row.question : row.responseText?.trim() || (row.responseJson ? JSON.stringify(row.responseJson) : "") }))
+          .filter(({ text }) => text.trim()).map(({ row, text }) => ({ label: redactInsightText(text, names).slice(0, role === "USER" ? 800 : 2000), count: 1, members: new Set([row.userId]) }));
+        await consume(entries);
       }
       lists[role] = topInsights(await merge(groups, role));
     }
