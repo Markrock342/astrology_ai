@@ -8,16 +8,19 @@ export type InsightSummary = z.infer<typeof insightSummarySchema>;
 export type InsightState = { status: "idle" | "running" | "ready" | "error"; runId?: string; startedAt?: string; processed?: number; error?: string; summary?: InsightSummary };
 
 /** Remove known member identifiers and common identifier formats BEFORE AI. */
+const identityPatterns = new WeakMap<string[], RegExp | null>();
 export function redactInsightText(text: string, identities: string[]): string {
   let result = text.normalize("NFKC");
-  for (const name of identities) {
-    if (name.trim().length < 3) continue;
-    result = result.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu"), "[บุคคล]");
+  if (!identityPatterns.has(identities)) {
+    const escaped = identities.filter(name => name.trim().length >= 3).map(name => name.normalize("NFKC").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    identityPatterns.set(identities, escaped.length ? new RegExp(escaped.join("|"), "giu") : null);
   }
+  const pattern = identityPatterns.get(identities);
+  if (pattern) result = result.replace(pattern, "[บุคคล]");
   return result
     .replace(/https?:\/\/\S+|www\.\S+/giu, "[ลิงก์]")
     .replace(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/giu, "[อีเมล]")
-    .replace(/(?:นาย|นางสาว|นาง|ชื่อจริง|ชื่อเล่น)\s*[^\s,.:;\n]{2,40}/gu, "[บุคคล]")
+    .replace(/(^|[\s:])(?:นาย|นางสาว|นาง|ชื่อจริง|ชื่อเล่น)\s*[^\s,.:;\n]{2,40}/gu, "$1[บุคคล]")
     .replace(/[0-9๐-๙][0-9๐-๙\s+().:/-]*/gu, "[ตัวเลข]")
     .replace(/\s+/gu, " ").trim();
 }
