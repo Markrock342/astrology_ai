@@ -15,7 +15,7 @@ cmds = ["npm ci"]
 # outside; SOURCE_COMMIT is provided by Coolify itself.
 # Gate the actual Coolify build too: its Git webhook does not wait for Actions.
 # Each command must succeed before Next builds and the running app is replaced.
-cmds = ["npm run ci", "npx playwright install --with-deps --only-shell chromium", "npm run test:ui:admin", "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) npm run build"]
+cmds = ["npm run ci", "npx playwright install --with-deps --only-shell chromium", "npm run test:visual:charts", "npm run test:ui:admin", "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) npm run build"]
 
 [start]
 cmd = "npx prisma migrate deploy && npm run start"

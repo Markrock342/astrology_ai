@@ -6,7 +6,7 @@ import {build} from "vite";
 import {chromium} from "@playwright/test";
 
 /** Real components + repository CSS. Only navigation/HTTP are test boundaries. */
-export async function startAdminUiHarness({imports,render,mockNavigation=false}){
+export async function startAdminUiHarness({imports,render,mockNavigation=false,systemBrowserFallback=true}){
   const root=process.cwd();await mkdir(path.join(root,"tmp"),{recursive:true});
   const temp=await mkdtemp(path.join(root,"tmp/admin-ui-harness-"));
   let server,browser;
@@ -25,12 +25,21 @@ export async function startAdminUiHarness({imports,render,mockNavigation=false})
     const output=(Array.isArray(result)?result[0]:result).output;
     const js=output.find(o=>o.type==="chunk").code;
     const css=output.filter(o=>o.type==="asset"&&o.fileName.endsWith(".css")).map(o=>String(o.source)).join("\n");
+    const assets=new Map(output.filter(o=>o.type==="asset").map(o=>[`/${o.fileName}`,o.source]));
     server=createServer((req,res)=>{
+      const pathname=new URL(req.url,"http://localhost").pathname;
+      if(assets.has(pathname)){
+        res.setHeader("Content-Type",pathname.endsWith(".woff2")?"font/woff2":"application/octet-stream");
+        return res.end(assets.get(pathname));
+      }
+      // Navigation fixtures (e.g. the 2FA /setup screen) share this entry point.
+      const fixtureRoute=mockNavigation&&!path.posix.extname(pathname);
+      if(!["/","/app.js","/style.css"].includes(pathname)&&!fixtureRoute){res.statusCode=404;return res.end("Not found")}
       res.setHeader("Content-Type",req.url==="/app.js"?"text/javascript":req.url==="/style.css"?"text/css":"text/html; charset=utf-8");
       res.end(req.url==="/app.js"?js:req.url==="/style.css"?css:'<!doctype html><html lang="th" data-theme="dark"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>');
     });
     await new Promise((resolve,reject)=>{server.once("error",reject);server.listen(0,"127.0.0.1",resolve)});
-    const executablePath=process.env.PLAYWRIGHT_EXECUTABLE_PATH??(!existsSync(chromium.executablePath())&&existsSync("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser")?"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser":undefined);
+    const executablePath=process.env.PLAYWRIGHT_EXECUTABLE_PATH??(systemBrowserFallback&&!existsSync(chromium.executablePath())&&existsSync("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser")?"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser":undefined);
     browser=await chromium.launch({executablePath,timeout:20000});
     const page=await browser.newPage({viewport:{width:900,height:850},locale:"th-TH"});
     page.setDefaultTimeout(15000);

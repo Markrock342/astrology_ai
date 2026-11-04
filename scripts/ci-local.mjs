@@ -32,7 +32,7 @@ if (gen.status !== 0) {
 }
 
 run("typecheck", "npx", ["tsc", "--noEmit"]);
-run("lint", "npx", ["eslint", "src", "e2e"]);
+run("lint", "npx", ["eslint", "src", "e2e", "visual-tests", "playwright.charts.config.ts", "scripts/lib/admin-ui-harness.mjs"]);
 run("unit tests", "npx", ["vitest", "run"]);
 
 console.log("==> CI check OK");
