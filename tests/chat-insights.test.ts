@@ -4,6 +4,7 @@ describe("privacy-preserving chat insights", () => {
   it("redacts known identities, email, phone, dates and URLs before processing", () => {
     const result = redactInsightText("ผม สมชาย ใจดี test@example.com โทร 081-234-5678 เกิด 04/11/2026 https://example.com/user", ["สมชาย ใจดี"]);
     for (const raw of ["สมชาย", "test@example.com", "081", "04/11", "example.com"]) expect(result).not.toContain(raw);
+    expect(redactInsightText("ช่วยทำนายเรื่องงาน", [])).toBe("ช่วยทำนายเรื่องงาน");
   });
   it("counts verified source IDs and suppresses groups from fewer than 3 distinct members", () => {
     const source = ["one", "two", "three"].map(id => ({ label: "เปลี่ยนงาน", count: 2, members: new Set([id]) }));
