@@ -17,6 +17,7 @@ try {
   const oldResponse=new Promise(resolve=>{releaseOld=resolve});
   const writes=[];
   const futureDay=new Date(Date.now()+7*86400000).toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"});
+  const displayFutureDay=futureDay.split("-").reverse().join("/");
   await page.route("**/api/admin/users/test-only/expiry", async route=>{
     if(route.request().method()==="GET"&&++getCount===1){
       await oldResponse;
@@ -37,12 +38,20 @@ try {
   await open();
   await page.evaluate(()=>document.fonts.ready);
   await page.getByLabel("ระยะเวลาใช้งานรายคน").selectOption("date");
-  await page.getByLabel("วันหมดอายุใหม่",{exact:true}).fill(futureDay);
+  await page.getByLabel("วันหมดอายุใหม่",{exact:true}).fill(displayFutureDay);
   const delayedResponse=page.waitForResponse(r=>r.url().endsWith("/expiry")&&r.request().method()==="GET");
   releaseOld();await delayedResponse;
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   assert.equal(await page.getByLabel("ระยะเวลาใช้งานรายคน").inputValue(),"date");
   console.log("PASS a delayed stale load cannot overwrite the selected Free expiry mode");
+  const novemberYear=new Date().getFullYear()+1;
+  await page.getByLabel("เลือกวันหมดอายุใหม่จากปฏิทิน",{exact:true}).fill(`${novemberYear}-11-04`);
+  assert.equal(await page.getByLabel("วันหมดอายุใหม่",{exact:true}).inputValue(),`04/11/${novemberYear}`);
+  await page.getByLabel("วันหมดอายุใหม่",{exact:true}).fill(`04/11/${novemberYear}`);
+  assert.equal(await page.getByLabel("เลือกวันหมดอายุใหม่จากปฏิทิน",{exact:true}).inputValue(),`${novemberYear}-11-04`);
+  await page.getByLabel("วันหมดอายุใหม่",{exact:true}).fill(displayFutureDay);
+  console.log("PASS calendar and dd/mm/yyyy both interpret 04/11 as 4 November, never 11 April");
+
   assert.equal(await save().isEnabled(),true);
   for(const value of ["","ab","   "]){
     await reason().fill(value);await submit();
@@ -54,21 +63,21 @@ try {
   console.log("PASS empty/short/whitespace reasons give visible feedback, focus field, and send no request");
   await page.getByLabel("ระยะเวลาใช้งานรายคน").selectOption("date");
   await reason().fill("กำหนดวันสิ้นสุดบัญชีทดลองใช้");
-  for(const value of ["","2020-01-01"]){
+  for(const value of ["","01/01/2020","31/02/2027"]){
     await page.getByLabel("วันหมดอายุใหม่",{exact:true}).fill(value);await submit();
     await page.getByRole("alert").filter({hasText:"วันนี้หรือวันในอนาคต"}).waitFor();
     assert.equal(writes.length,0);
   }
   console.log("PASS missing/past dates blocked before confirmation");
-  await page.getByLabel("วันหมดอายุใหม่",{exact:true}).fill(futureDay);
+  await page.getByLabel("วันหมดอายุใหม่",{exact:true}).fill(displayFutureDay);
   await submit();await page.getByRole("dialog").getByRole("button",{name:"ยกเลิก",exact:true}).click();
   assert.equal(writes.length,0);
   await submit();await confirm();await page.getByRole("status").waitFor();
   await page.locator("main").screenshot({path:path.join(artifacts,"dated-saved.png")});
   assert.equal(writes.at(-1).expiresAt,`${futureDay}T16:59:59.000Z`);
-  assert.equal(await page.getByLabel("วันหมดอายุใหม่",{exact:true}).inputValue(),futureDay);
+  assert.equal(await page.getByLabel("วันหมดอายุใหม่",{exact:true}).inputValue(),displayFutureDay);
   await page.reload();await page.getByLabel("วันหมดอายุใหม่",{exact:true}).waitFor();
-  assert.equal(await page.getByLabel("วันหมดอายุใหม่",{exact:true}).inputValue(),futureDay);
+  assert.equal(await page.getByLabel("วันหมดอายุใหม่",{exact:true}).inputValue(),displayFutureDay);
   console.log("PASS cancel sends nothing; dated save uses Bangkok end-of-day and reloads saved date");
   await page.getByLabel("ระยะเวลาใช้งานรายคน").selectOption("forever");
   await reason().fill("  ไม่มีวันหมดอายุ  ");await submit();await confirm();await page.getByRole("status").waitFor();

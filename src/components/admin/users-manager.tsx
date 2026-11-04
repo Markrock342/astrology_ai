@@ -1,5 +1,6 @@
 "use client";
 
+import { adminDay, questionExpiry } from "@/lib/admin-dates";
 import { unitsToQuestions } from "@/lib/usage-budget-display";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,6 +21,7 @@ import {
   adminFetch,
 } from "./ui";
 
+import { MemberExport } from "./member-export";
 import { PageJump, SortableTh } from "./table-controls";
 
 type UserSort = "recent" | "newest" | "name" | "role" | "package" | "purchasedAt" | "expiresAt" | "balance" | "status";
@@ -39,6 +41,7 @@ type UserRow = {
     includedAllowanceUnits: number;
     purchasedBalanceUnits: number;
     purchasedExpiresAt: string | null;
+    periodEndsAt: string | null;
   } | null;
   latestPurchase: {
     packageCode: string | null;
@@ -184,6 +187,7 @@ export function UsersManager({
         }
       />
 
+      <MemberExport search={search} status={status} />
       <div className="mb-4 flex flex-wrap gap-2">
         <TextInput
           placeholder="ค้นหาชื่อหรืออีเมล…"
@@ -286,9 +290,9 @@ export function UsersManager({
                     {u.latestPurchase?.purchasedAt ? shortDay(u.latestPurchase.purchasedAt) : "—"}
                   </Td>
                   <Td className="whitespace-nowrap text-xs text-[var(--muted)]">
-                    {u.usageWallet?.purchasedExpiresAt
-                      ? shortDay(u.usageWallet.purchasedExpiresAt)
-                      : u.usageWallet && u.usageWallet.purchasedBalanceUnits > 0
+                    {questionExpiry(u.usageWallet)
+                      ? adminDay(questionExpiry(u.usageWallet))
+                      : u.usageWallet && u.usageWallet.includedBalanceUnits + u.usageWallet.purchasedBalanceUnits > 0
                         ? "ไม่มีวันหมด"
                         : "—"}
                   </Td>
