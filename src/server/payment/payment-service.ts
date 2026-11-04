@@ -20,6 +20,8 @@ import {
   deletePaymentProofBlob,
 } from "@/server/payment/payment-proof";
 import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
+import { unitsToQuestions } from "@/lib/usage-budget-display";
+import type { PaymentReceipt } from "@/lib/payment-history";
 
 type Actor = { id: string; ip?: string };
 
@@ -213,7 +215,7 @@ export async function reviewPayment(
   }
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
-    include: { user: { select: { id: true, email: true } } },
+    include: { user: { select: { id: true, email: true, name: true } } },
   });
   if (!payment) throw new AppError("NOT_FOUND", "Payment not found");
   if (payment.status !== "PENDING") {
@@ -243,12 +245,13 @@ export async function reviewPayment(
   }
 
   const pkg =
-    input.status === "APPROVED" && packageCode
+    packageCode
       ? await prisma.package.findUnique({
           where: { code: packageCode },
           select: {
             id: true,
             code: true,
+            name: true,
             price: true,
             creditQuota: true,
             usageBudgetUnits: true,
@@ -270,10 +273,12 @@ export async function reviewPayment(
     );
   }
 
+  const reviewer = await prisma.user.findUniqueOrThrow({ where: { id: actor.id }, select: { name: true, email: true } });
   const result = await prisma.$transaction(async (tx) => {
     // One plan change per user at a time: an approval racing an admin
     // set-plan left two ACTIVE subscriptions (both cancel-then-create).
     if (input.status === "APPROVED") await lockUsageWalletForUpdate(payment.userId, tx);
+    const reviewedAt = new Date();
     const cas = await tx.payment.updateMany({
       where: { id: paymentId, status: "PENDING" },
       data: {
@@ -281,8 +286,8 @@ export async function reviewPayment(
         note: input.note ?? payment.note,
         packageCode: packageCode ?? payment.packageCode,
         reviewedByAdminId: actor.id,
-        reviewedAt: new Date(),
-        paidAt: input.status === "APPROVED" ? new Date() : null,
+        reviewedAt,
+        paidAt: input.status === "APPROVED" ? reviewedAt : null,
       },
     });
     if (cas.count === 0) {
@@ -301,6 +306,18 @@ export async function reviewPayment(
       },
     });
 
+    const receipt: PaymentReceipt = {
+      version: 1,
+      member: { id: payment.userId, name: payment.user.name ?? null, email: payment.user.email },
+      reviewer: { id: actor.id, name: reviewer.name, email: reviewer.email },
+      packageCode, packageName: pkg?.name ?? pkg?.code ?? packageCode,
+      amount: payment.amount, decision: input.status,
+      kind: input.status === "REJECTED" ? "REJECTED" : pkg?.questionPack ? "QUESTION_PACK" : pkg?.creditOnly ? "USAGE_TOPUP" : "SUBSCRIPTION",
+      questionsAdded: input.status === "APPROVED" ? unitsToQuestions(pkg?.usageBudgetUnits ?? 0) : 0,
+      creditsAdded: input.status === "APPROVED" && !pkg?.questionPack ? Math.max(0, pkg?.creditQuota ?? 0) : 0,
+      startsAt: null, expiresAt: null, expiryRule: null,
+      note: input.note ?? payment.note,
+    };
     let subscription = null;
     if (input.status === "APPROVED" && pkg) {
       if (pkg.questionPack) {
@@ -317,7 +334,13 @@ export async function reviewPayment(
           },
         });
         subscription = applied.subscription;
+        receipt.questionsAdded = applied.questionsAdded;
+        receipt.startsAt = applied.startsAt.toISOString();
+        receipt.expiresAt = applied.questionsEnd?.toISOString() ?? null;
+        receipt.expiryRule = applied.expiryRule;
       } else if (pkg.creditOnly) {
+        receipt.startsAt = reviewedAt.toISOString();
+        receipt.expiryRule = { mode: "INHERIT" };
         if (pkg.usageBudgetUnits > 0) {
           await addPurchasedUsage(
             payment.userId,
@@ -331,6 +354,8 @@ export async function reviewPayment(
             },
             tx,
           );
+          const wallet = await tx.usageWallet.findUnique({ where: { userId: payment.userId }, select: { purchasedExpiresAt: true } });
+          receipt.expiresAt = wallet?.purchasedExpiresAt?.toISOString() ?? null;
         }
         if (pkg.creditQuota > 0) {
           await addCredits(
@@ -369,6 +394,9 @@ export async function reviewPayment(
         const newExpiresAt = hasLifetime
           ? null
           : addUtcDays(base, PAYMENT_PRO_DURATION_DAYS);
+        receipt.startsAt = now.toISOString();
+        receipt.expiresAt = newExpiresAt?.toISOString() ?? null;
+        receipt.expiryRule = { mode: "DAYS", days: PAYMENT_PRO_DURATION_DAYS };
 
         await tx.userSubscription.updateMany({
           where: { userId: payment.userId, status: "ACTIVE" },
@@ -441,7 +469,8 @@ export async function reviewPayment(
           creditOnly: pkg?.creditOnly ?? false,
           ...(selfReview ? { selfReview: true } : {}),
           questionPack: pkg?.questionPack ?? false,
-          proDurationDays: pkg && !pkg.creditOnly && !pkg.questionPack ? PAYMENT_PRO_DURATION_DAYS : null,
+          proDurationDays: input.status === "APPROVED" && pkg && !pkg.creditOnly && !pkg.questionPack ? PAYMENT_PRO_DURATION_DAYS : null,
+          receipt,
         },
         ipAddress: actor.ip,
       },
