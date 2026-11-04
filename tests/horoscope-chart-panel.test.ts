@@ -50,6 +50,13 @@ describe("horoscope chart evidence grids", () => {
     expect(html).toContain("วัยเทียบ");
     expect(html).toContain("นับตรีวัยจาก");
     expect(html).toContain("ตนุเศษ");
+    expect(html).toContain("๕");
+    expect(html).toContain("พฤหัสบดี");
+    expect(html).toContain("๘");
+    expect(html).toContain("ราหู");
+    expect(html).toContain("๖");
+    expect(html).toContain("ศุกร์");
+    expect(html).not.toMatch(/[☉☽♂☿♃♀♄☊☋♅]/u);
   });
 
   it("renders the gold template grid for Sunday natal (บริวาร at ๑)", () => {
