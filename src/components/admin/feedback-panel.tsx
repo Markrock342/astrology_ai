@@ -34,7 +34,7 @@ export function FeedbackPanel() {
       <p className="text-sm">แสดงสูงสุดฝั่งละ 50 หัวข้อ · ตัดข้อมูลระบุตัวตนก่อนส่งสรุป · ซ่อนหัวข้อที่มาจากสมาชิกน้อยกว่า 3 คน</p>
       <p className="mt-2 text-xs leading-5 text-[var(--muted)]">นับจากประวัติที่ยังอยู่และคำทำนายเก่าที่ระบุแหล่งได้ ณ เวลาเริ่มประมวลผล คำตอบนับเฉพาะที่สำเร็จ แสดงข้อความสรุปแทนบทสนทนารายคน หากข้อมูลไม่พอจะไม่สร้างหัวข้อเพิ่มให้ครบ 50</p>
       <div className="mt-3 flex flex-wrap items-center gap-3"><Button disabled={starting || data?.status === "running"} onClick={() => void generate()}>{starting || data?.status === "running" ? "กำลังประมวลผล…" : "ประมวลผลข้อมูลล่าสุด"}</Button>
-      {summary && <span className="text-xs text-[var(--muted)]">อัปเดต {adminDay(summary.generatedAt)} · คำถาม {summary.questionsAnalyzed.toLocaleString()} · คำตอบ {summary.answersAnalyzed.toLocaleString()}</span>}</div>
+      {summary && <span className="text-xs text-[var(--muted)]">อัปเดต {adminDay(summary.generatedAt)} · ข้อความผู้ใช้ {summary.questionsAnalyzed.toLocaleString()} · คำตอบ {summary.answersAnalyzed.toLocaleString()}</span>}</div>
       {data?.status === "running" && <p role="status" className="mt-3 text-xs">กำลังจัดกลุ่ม {data.processed?.toLocaleString() ?? 0} ข้อความ สามารถออกจากหน้านี้แล้วกลับมาดูผลได้</p>}
       {(error || data?.error) && <p role="alert" className="mt-3 text-sm text-[var(--danger)]">{error || data?.error}</p>}
     </Card>
