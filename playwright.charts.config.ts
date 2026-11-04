@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-if ((process.env.CI || process.env.CHART_VISUAL_MUTATION === "1") && process.argv.some(arg => arg.startsWith("--update-snapshots"))) {
+if ((process.env.CI || process.env.CHART_VISUAL_MUTATION === "1") && process.argv.some(arg => arg.startsWith("--update-snapshots") || arg === "-u" || arg.startsWith("-u="))) {
   throw new Error("Review and update chart baselines locally; CI must never approve its own screenshots.");
 }
 

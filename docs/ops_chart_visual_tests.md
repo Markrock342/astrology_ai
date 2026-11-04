@@ -11,7 +11,7 @@ GitHub Actions uploads expected/actual/diff images and an HTML report on failure
 1. Run `npm run test:visual:charts` and inspect the generated HTML report under `output/chart-visual-tests/report/`.
 2. Verify that names, numerals, colors and layout are correct at every viewport and theme.
 3. Run `npm run test:visual:charts:update` only after review. Commit the changed PNGs in `visual-tests/snapshots/` with the code change.
-4. Run the comparison again and verify CI before merging. CI blocks `--update-snapshots`; it never replaces baselines automatically.
+4. Run the comparison again and verify CI before merging. CI blocks `--update-snapshots` and its `-u` alias; it never replaces baselines automatically.
 
 Baselines are separated by OS because font rasterization differs. Linux baselines gate GitHub Actions and Coolify; macOS baselines allow local comparisons. Use the lockfile's Playwright/browser version. A browser/font upgrade requires reviewing baselines again, not increasing tolerance to hide changes.
 
