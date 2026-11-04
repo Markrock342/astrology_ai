@@ -22,7 +22,7 @@ let child,browser,activePage;
 try{
   const free=await db.package.upsert({where:{code:"FREE"},create:{code:"FREE",name:"Free",type:"FREE",usageBudgetUnits:75000},update:{}});
   const admin=await db.user.create({data:{id:adminId,email:`${adminId}@example.invalid`,name:"Regression Admin",role:"ADMIN",status:"ACTIVE",totpSecretEnc:"local-fixture-2fa-only",totpEnabledAt:new Date()}});
-  for(const [index,id] of ids.entries())await db.user.create({data:{id,email:`${id}@example.invalid`,name:index?"Free Zero Balance Test":"Free Only Test",subscriptions:{create:{packageId:free.id,status:"ACTIVE"}},usageWallet:{create:{includedBalanceUnits:index?0:30000,includedAllowanceUnits:75000,purchasedBalanceUnits:0}}}});
+  for(const [index,id] of ids.entries())await db.user.create({data:{id,email:`${id}@example.invalid`,name:index?"Free Zero Balance Test":"Free Only Test",subscriptions:{create:{packageId:free.id,status:"ACTIVE"}},usageWallet:{create:{includedBalanceUnits:index?0:30000,includedAllowanceUnits:75000,purchasedBalanceUnits:0,purchasedExpiresAt:new Date(Date.now()+30*86400000)}}}});
   const portServer=createServer();await new Promise(resolve=>portServer.listen(0,"127.0.0.1",resolve));
   const port=portServer.address().port;await new Promise(resolve=>portServer.close(resolve));const origin=`http://127.0.0.1:${port}`;
   const production=process.env.CI==="true"||process.env.FREE_EXPIRY_E2E_PRODUCTION==="1";
@@ -60,11 +60,12 @@ try{
   await context.addCookies([{name:sessionName,value:session,url:origin,httpOnly:true,sameSite:"Lax"},{name:"horasard_admin_2fa",value:proof.value,url:origin,httpOnly:true,sameSite:"Lax"}]);
   const page=await context.newPage();activePage=page;page.setDefaultTimeout(60000);
   const futureDay=new Date(Date.now()+7*86400000).toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"});
+  const displayFutureDay=futureDay.split("-").reverse().join("/");
   for(const [index,id] of ids.entries()){
     const pageResponse=await page.goto(origin+`/admin/users/${id}`,{timeout:180000});
     assert.equal(pageResponse.status(),200,"Actual Next admin page must render successfully");
     const mode=page.getByLabel("ระยะเวลาใช้งานรายคน");await expect(mode).toBeEnabled({timeout:60000});
-    await mode.selectOption("date");await page.getByLabel("วันหมดอายุใหม่",{exact:true}).fill(futureDay);
+    await mode.selectOption("date");await page.getByLabel("วันหมดอายุใหม่",{exact:true}).fill(displayFutureDay);
     await page.getByLabel("เหตุผลการแก้วันหมดอายุ",{exact:true}).fill("ทดสอบ Free โดยไม่เติมคำถาม");
     const response=page.waitForResponse(r=>r.url().endsWith(`/api/admin/users/${id}/expiry`)&&r.request().method()==="PATCH");
     await page.getByRole("button",{name:"บันทึกวันหมดอายุ",exact:true}).click();
@@ -75,8 +76,10 @@ try{
     assert.equal(w.periodEndsAt.toISOString(),`${futureDay}T16:59:59.000Z`);
     assert.equal(await db.userSubscription.count({where:{userId:id,package:{type:"PRO"}}}),0);
     assert.equal(await db.usageTransaction.count({where:{userId:id}}),0);
+    await expect(page.getByText("จากแพ็กเกจ (Free / รอบเดิม)",{exact:true}).locator("..")).toContainText(displayFutureDay);
+    await expect(page.getByText("ซื้อ / เพิ่มให้",{exact:true}).locator("..")).not.toContainText("ถึง");
     if(index===0)await page.screenshot({path:path.join(artifacts,"free-only-real-next-saved.png"),fullPage:true});
-    await page.reload();await expect(mode).toBeEnabled({timeout:60000});await expect(page.getByLabel("วันหมดอายุใหม่",{exact:true})).toHaveValue(futureDay);
+    await page.reload();await expect(mode).toBeEnabled({timeout:60000});await expect(page.getByLabel("วันหมดอายุใหม่",{exact:true})).toHaveValue(displayFutureDay);
     await mode.selectOption("forever");await page.getByLabel("เหตุผลการแก้วันหมดอายุ",{exact:true}).fill("ยกเลิกวันหมดอายุโดยไม่เติมคำถาม");
     await expect(mode).toHaveValue("forever");
     const indefinite=page.waitForResponse(r=>r.url().endsWith(`/api/admin/users/${id}/expiry`)&&r.request().method()==="PATCH");
@@ -111,6 +114,26 @@ try{
   assert.equal(signupWallet.purchasedBalanceUnits,0);assert.equal(await db.userSubscription.count({where:{userId:created.id,package:{type:"PRO"}}}),0);
   await signupContext.close();
   console.log("PASS real package UI saves Free 30 days; real registration API applies it; existing account dates/balances unchanged");
+  await page.goto(origin+"/admin/users");
+  await page.getByLabel("ช่วงวันที่สมัครสำหรับดาวน์โหลด").selectOption("7");
+  const downloadEvent=page.waitForEvent("download");
+  await page.getByRole("button",{name:"ดาวน์โหลด CSV",exact:true}).click();
+  const download=await downloadEvent;const csvPath=path.join(artifacts,"members-fixture.csv");await download.saveAs(csvPath);
+  const csv=await readFile(csvPath,"utf8");
+  assert.ok(csv.includes("Email")&&csv.includes("แพ็กล่าสุด"));
+  assert.ok(csv.includes(`${ids[0]}@example.invalid`));assert.ok(!csv.includes(admin.email));
+  const unauthorized=await browser.newContext();
+  assert.equal((await unauthorized.request.get(origin+"/api/admin/users/export?range=all")).status(),401);await unauthorized.close();
+  await db.appSetting.upsert({where:{key:"admin.chatInsights.v1"},create:{key:"admin.chatInsights.v1",valueJson:{status:"ready",summary:{generatedAt:new Date().toISOString(),cutoff:new Date().toISOString(),questionsAnalyzed:3,answersAnalyzed:3,questions:[{label:"ควรเปลี่ยนงานช่วงไหน",count:3}],answers:[{label:"เตรียมความพร้อมก่อนเปลี่ยนงาน",count:3}]}}},update:{}});
+  await page.goto(origin+"/admin/feedback");
+  await expect(page.getByRole("heading",{name:"ภาพรวมคำถามและคำตอบ",exact:true})).toBeVisible();
+  await expect(page.getByText("ควรเปลี่ยนงานช่วงไหน",{exact:true})).toBeVisible();
+  await expect(page.getByText(`${ids[0]}@example.invalid`,{exact:true})).toHaveCount(0);
+  const summaryResponse=await context.request.get(origin+"/api/admin/feedback");const summaryBody=await summaryResponse.text();
+  assert.ok(!summaryBody.includes('"email"')&&!summaryBody.includes('"content"')&&!summaryBody.includes('"messageId"'));
+  await page.screenshot({path:path.join(artifacts,"private-chat-insights.png"),fullPage:true});
+  console.log("PASS real member CSV download, anonymous access denied, and aggregate-only feedback UI/API");
+
 }catch(error){
   if(activePage&&!activePage.isClosed()){
     console.error("Free E2E failed at",activePage.url());
@@ -133,5 +156,6 @@ try{
     if(current!==null&&withoutBlock(current)===withoutBlock(agentsBefore))await writeFile("AGENTS.md",agentsBefore);
   }
   await db.adminAuditLog.deleteMany({where:{adminUserId:adminId}});
+  await db.appSetting.deleteMany({where:{key:"admin.chatInsights.v1"}});
   await db.user.deleteMany({where:{OR:[{id:{in:[adminId,...ids]}},{email:{startsWith:prefix}}]}});await db.$disconnect();
 }

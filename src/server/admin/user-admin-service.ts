@@ -97,7 +97,7 @@ export function userListOrder(args: ListUsersArgs): Prisma.Sql {
     role: Prisma.sql`u.role::text`,
     package: Prisma.sql`COALESCE(pkg.name, lp."packageCode")`,
     purchasedAt: Prisma.sql`lp."purchasedAt"`,
-    expiresAt: Prisma.sql`w."purchasedExpiresAt"`,
+    expiresAt: Prisma.sql`CASE WHEN COALESCE(w."purchasedBalanceUnits", 0) <= 0 THEN w."periodEndsAt" WHEN COALESCE(w."includedBalanceUnits", 0) <= 0 THEN w."purchasedExpiresAt" ELSE LEAST(w."periodEndsAt", w."purchasedExpiresAt") END`,
     balance: Prisma.sql`COALESCE(w."includedBalanceUnits", 0) + COALESCE(w."purchasedBalanceUnits", 0)`,
     status: Prisma.sql`u.status::text`,
   };
@@ -127,6 +127,7 @@ export async function listUsers(args: ListUsersArgs) {
             includedAllowanceUnits: true,
             purchasedBalanceUnits: true,
             purchasedExpiresAt: true,
+            periodEndsAt: true,
           },
         },
         payments: {
