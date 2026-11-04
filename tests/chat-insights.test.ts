@@ -9,7 +9,16 @@ describe("privacy-preserving chat insights", () => {
     expect(specificInsightLabel("ควรเตรียมทักษะและเงินสำรองก่อนเปลี่ยนงาน", "ASSISTANT")).toBe(true);
     expect(specificInsightLabel("มีโอกาสได้รับความช่วยเหลือจากผู้ใหญ่", "ASSISTANT")).toBe(true);
     expect(specificInsightLabel("ไม่สามารถอ่านดวงนวางค์ได้เมื่อไม่มีข้อมูลตำแหน่งดาว", "ASSISTANT")).toBe(true);
+    expect(specificInsightLabel("การเปลี่ยนงานควรมีเงินสำรองรองรับ", "ASSISTANT")).toBe(true);
     expect(insightSystemPrompt("USER")).toContain("never collapse");
+  });
+  it("validates the sentence before masking words that also happen to be member names", () => {
+    const source = [{ label: "anonymized source", count: 3, members: new Set(["a", "b", "c"]) }];
+    const raw = JSON.stringify({ groups: [{ label: "พัฒนาทักษะก่อนเปลี่ยนงาน", ids: [0] }] });
+    const result = combineInsightGroups(raw, source, ["พัฒนา"], "ASSISTANT");
+    expect(result[0].label).not.toContain("พัฒนา");
+    expect(topInsights(result)[0].count).toBe(3);
+    expect(() => combineInsightGroups(JSON.stringify({ groups: [{ label: "ดวงการงาน อาชีพ และการศึกษา", ids: [0] }] }), source, [], "ASSISTANT")).toThrow("Invalid insight sentence");
   });
   it("retains 80 distinct intents in a batch and excludes smalltalk before selecting the top 50", () => {
     const source = Array.from({ length: 80 }, (_, i) => ({ label: `ควรถามหัวข้อ ${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + i % 26)} อย่างไร?`, count: 1, members: new Set(["a", "b", "c"]) }));
