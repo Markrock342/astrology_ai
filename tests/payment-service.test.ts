@@ -39,7 +39,7 @@ vi.mock("@/server/db", () => ({
       update: mocks.update,
     },
     package: { findUnique: mocks.findPackage, findFirst: mocks.findFirstPackage },
-    user: { findUnique: mocks.userFindUnique },
+    user: { findUnique: mocks.userFindUnique, findUniqueOrThrow: mocks.userFindUnique },
     userSubscription: {
       updateMany: mocks.updateMany,
       create: mocks.subscriptionCreate,
@@ -326,6 +326,7 @@ describe("payment-service (M4)", () => {
       packageCode: "CREDIT_TOPUP",
     };
     const tx = {
+      usageWallet: { findUnique: vi.fn().mockResolvedValue({ purchasedExpiresAt: null }) },
       payment: {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findUniqueOrThrow: vi.fn().mockResolvedValue(updated),
