@@ -30,7 +30,9 @@ export function specificInsightLabel(label: string, role: "USER" | "ASSISTANT"):
   if (label === INSIGHT_OTHER) return true;
   label = label.replace(/\u0e4d\u0e32/giu, "ำ");
   if (role === "USER") return label.endsWith("?") && /ไหม|หรือ|อย่างไร|อะไร|เมื่อไหร่|เมื่อไร|ไหน|ใด|กี่|เท่าไหร่|ทำไม|เพราะ|^ควร|^จะ|^มีโอกาส|^สามารถ|^ต้อง/u.test(label);
-  return /^(ควร|มี|อาจ|ต้อง|สามารถ|จะ|ได้|เป็น|ให้|เตรียม|วางแผน|พัฒนา|สื่อสาร|ดูแล|ตรวจสอบ|ปรับ|หลีกเลี่ยง|เลือก|ลด|ใช้|โฟกัส|พัก|ไม่สามารถ|ไม่พบ|ไม่มี|ยัง|ขอ|โปรด)/u.test(label) && !label.endsWith("?");
+  // Thai statements can start with their subject, e.g. "การเปลี่ยนงานควร...".
+  // Check the predicate rather than requiring a fixed first word.
+  return /ควร|มี|อาจ|ต้อง|สามารถ|จะ|ได้|เป็น|ให้|เตรียม|วางแผน|พัฒนา|สื่อสาร|ดูแล|ตรวจสอบ|ปรับ|หลีกเลี่ยง|เลือก|ลด|ใช้|โฟกัส|พัก|ไม่สามารถ|ไม่พบ|ไม่มี|ยัง|ขอ|โปรด/u.test(label) && !label.endsWith("?");
 }
 export function insightSystemPrompt(role: "USER" | "ASSISTANT"): string {
   const labels = role === "USER"
@@ -50,10 +52,13 @@ export function mergeInsightLabels(groups: InsightGroup[]): InsightGroup[] {
 }
 const groupsSchema = z.object({ groups: z.array(z.object({ label: z.string().min(3).max(200), ids: z.array(z.number().int().nonnegative()).min(1) })).min(1).max(80) });
 /** The model may group IDs, but counts and membership always come from DB. */
-export function combineInsightGroups(raw: string, source: InsightGroup[], identities: string[]): InsightGroup[] {
+export function combineInsightGroups(raw: string, source: InsightGroup[], identities: string[], role?: "USER" | "ASSISTANT"): InsightGroup[] {
   const parsed = groupsSchema.parse(JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")));
   const seen = new Set<number>();
   const result = parsed.groups.map(group => {
+    // A real name can also be an ordinary Thai word. Validate the generated
+    // sentence before conservative identity masking replaces that word.
+    if (role && !specificInsightLabel(group.label, role)) throw new Error("Invalid insight sentence");
     const members = new Set<string>(); let count = 0;
     for (const id of group.ids) {
       if (id >= source.length || seen.has(id)) throw new Error("Invalid or duplicate insight ID");
