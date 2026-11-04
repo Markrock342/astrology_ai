@@ -59,8 +59,9 @@ describe("payment receipts and history against PostgreSQL", () => {
     const row = (await listPaymentHistory(query({ status: "REJECTED", reviewerId: other }))).items[0];
     expect(row).toMatchObject({ id: p.id, status: "REJECTED", note: "Transfer amount does not match", receipt: { kind: "REJECTED", questionsAdded: 0, startsAt: null, expiresAt: null, expiryRule: null } });
     expect(await db.usageWallet.findUnique({ where: { userId: p.userId } })).toBeNull();
-    await db.payment.create({ data: { id: prefix + "legacy", userId: prefix + 2, amount: 10, packageCode: prefix + "pack", status: "APPROVED", reviewedByAdminId: admin, reviewedAt: new Date() } });
-    expect((await listPaymentHistory(query())).items.find(x => x.id.endsWith("legacy"))?.receipt).toBeNull();
+    await db.payment.create({ data: { id: prefix + "legacy", userId: prefix + 2, amount: 10, packageCode: prefix + "pack", status: "APPROVED", reviewedByAdminId: admin } });
+    const legacy = (await listPaymentHistory(query())).items.find(x => x.id.endsWith("legacy"));
+    expect(legacy?.receipt).toBeNull(); expect(legacy?.reviewedAt).toBeNull();
   });
   it("filters by Bangkok review day, member snapshot, admin and status with stable pagination", async () => {
     await db.payment.createMany({ data: [

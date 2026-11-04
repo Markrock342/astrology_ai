@@ -5,7 +5,7 @@ import { paymentReceiptSchema, type PaymentHistoryItem, type PaymentHistoryList 
 import { prisma } from "@/server/db";
 
 type HistoryQuery = z.infer<typeof paymentHistoryQuerySchema>;
-const reviewedTime = Prisma.sql`COALESCE(p."reviewedAt", a."createdAt", p."createdAt")`;
+const reviewedTime = Prisma.sql`COALESCE(p."reviewedAt", a."createdAt")`;
 const base = Prisma.sql`FROM payments p JOIN users u ON u.id = p."userId"
   LEFT JOIN LATERAL (
     SELECT l."afterJson", l."adminUserId", l."createdAt" FROM admin_audit_logs l
@@ -17,7 +17,7 @@ const base = Prisma.sql`FROM payments p JOIN users u ON u.id = p."userId"
 
 type Row = {
   id: string; status: "APPROVED" | "REJECTED"; amount: number; packageCode: string | null; note: string | null;
-  createdAt: Date; transferredAt: Date | null; reviewedAt: Date;
+  createdAt: Date; transferredAt: Date | null; reviewedAt: Date | null;
   userId: string; memberName: string | null; memberEmail: string;
   reviewerId: string | null; reviewerName: string | null; reviewerEmail: string | null;
   reviewData: Prisma.JsonValue | null;
@@ -47,7 +47,7 @@ export async function listPaymentHistory(q: HistoryQuery): Promise<PaymentHistor
     const rows = await tx.$queryRaw<Row[]>`SELECT p.id, p.status, p.amount, p."packageCode", p.note, p."createdAt", p."transferredAt",
       ${reviewedTime} AS "reviewedAt", p."userId", u.name AS "memberName", u.email AS "memberEmail",
       r.id AS "reviewerId", r.name AS "reviewerName", r.email AS "reviewerEmail", a."afterJson" AS "reviewData"
-      ${base} ${where} ORDER BY ${reviewedTime} DESC, p.id DESC LIMIT ${q.pageSize} OFFSET ${(page - 1) * q.pageSize}`;
+      ${base} ${where} ORDER BY ${reviewedTime} DESC NULLS LAST, p."createdAt" DESC, p.id DESC LIMIT ${q.pageSize} OFFSET ${(page - 1) * q.pageSize}`;
     const reviewers = await tx.$queryRaw<PaymentHistoryList["reviewers"]>`SELECT DISTINCT r.id, r.name, r.email ${base}
       WHERE p.status IN ('APPROVED', 'REJECTED') AND r.id IS NOT NULL ORDER BY r.name NULLS LAST, r.email`;
     const items: PaymentHistoryItem[] = rows.map(row => {
@@ -56,7 +56,7 @@ export async function listPaymentHistory(q: HistoryQuery): Promise<PaymentHistor
       const receipt = parsed.success && parsed.data.decision === row.status && parsed.data.member.id === row.userId
         && parsed.data.reviewer.id === row.reviewerId ? parsed.data : null;
       return {
-        id: row.id, status: row.status, reviewedAt: row.reviewedAt.toISOString(), submittedAt: row.createdAt.toISOString(), transferredAt: row.transferredAt?.toISOString() ?? null,
+        id: row.id, status: row.status, reviewedAt: row.reviewedAt?.toISOString() ?? null, submittedAt: row.createdAt.toISOString(), transferredAt: row.transferredAt?.toISOString() ?? null,
         member: receipt?.member ?? { id: row.userId, name: row.memberName, email: row.memberEmail },
         reviewer: receipt?.reviewer ?? (row.reviewerId ? { id: row.reviewerId, name: row.reviewerName, email: row.reviewerEmail ?? "" } : null),
         amount: receipt?.amount ?? row.amount, packageCode: receipt?.packageCode ?? row.packageCode, note: receipt?.note ?? row.note,

@@ -87,7 +87,7 @@ export function PaymentHistory({ refreshKey = 0 }: { refreshKey?: number }) {
         <caption className="sr-only">ประวัติการดำเนินการตรวจการโอนเงิน</caption>
         <thead><tr><Th>วันเวลาตรวจ</Th><Th>ผู้แจ้ง</Th><Th>รายการ / ยอดเงิน</Th><Th>ผลตรวจ</Th><Th>จำนวนที่ได้รับ</Th><Th>ระยะเวลา / วันหมดอายุ</Th><Th>ผู้ตรวจ</Th><Th>หมายเหตุ</Th></tr></thead>
         <tbody>{data?.items.map(item => <tr key={item.id}>
-          <Td className="whitespace-nowrap text-xs"><p>{moment(item.reviewedAt)}</p><p className="mt-1 text-[var(--muted)]">แจ้ง {moment(item.submittedAt)}</p><p className="text-[var(--muted)]">โอน {moment(item.transferredAt)}</p></Td>
+          <Td className="whitespace-nowrap text-xs"><p>{item.reviewedAt ? moment(item.reviewedAt) : "ไม่ได้บันทึกเวลาตรวจไว้"}</p><p className="mt-1 text-[var(--muted)]">แจ้ง {moment(item.submittedAt)}</p><p className="text-[var(--muted)]">โอน {moment(item.transferredAt)}</p></Td>
           <Td><Link href={`/admin/users/${item.member.id}`} className="block max-w-48 break-words text-xs text-[var(--primary)] hover:underline">{item.member.name || item.member.email}</Link><p className="mt-1 max-w-48 break-all text-[10px] text-[var(--muted)]">{item.member.email}</p></Td>
           <Td><p className="max-w-48 break-words text-xs">{item.receipt?.packageName || (item.packageCode ? `แพ็กเดิม (รหัส ${item.packageCode})` : "ไม่ระบุแพ็ก")}</p><p className="mt-1 text-sm font-medium">฿{item.amount.toLocaleString("th-TH")}</p><p className="mt-1 max-w-40 break-all text-[10px] text-[var(--muted)]">{item.id}</p></Td>
           <Td className="whitespace-nowrap"><Badge tone={item.status === "APPROVED" ? "green" : "red"}>{item.status === "APPROVED" ? "อนุมัติแล้ว" : "ปฏิเสธแล้ว"}</Badge></Td>

@@ -24,7 +24,7 @@ export const paymentReceiptSchema = z.object({
 });
 export type PaymentReceipt = z.infer<typeof paymentReceiptSchema>;
 export type PaymentHistoryItem = {
-  id: string; reviewedAt: string; submittedAt: string; transferredAt: string | null;
+  id: string; reviewedAt: string | null; submittedAt: string; transferredAt: string | null;
   member: { id: string; name: string | null; email: string };
   reviewer: { id: string; name: string | null; email: string } | null;
   status: "APPROVED" | "REJECTED"; amount: number; packageCode: string | null;
