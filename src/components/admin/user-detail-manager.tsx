@@ -3,6 +3,7 @@
 import { History, MessagesSquare, Package, Trash2, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { adminDay } from "@/lib/admin-dates";
 import { subscriptionExpiryPayload } from "@/lib/pro-expiry";
 import {
   AdminPage,
@@ -18,6 +19,7 @@ import {
   Toggle,
   adminFetch, IconTile } from "./ui";
 
+import { AdminDateInput } from "./date-input";
 import { UserExpiryEditor } from "./user-expiry-editor";
 import { ConfirmModal } from "@/components/app/confirm-modal";
 import { largeAvatarUrl, UserAvatar } from "@/components/app/user-avatar";
@@ -99,6 +101,7 @@ type UserDetail = {
     includedQuestions?: number;
     purchasedQuestions?: number;
     purchasedExpiresAt?: string | null;
+    periodEndsAt?: string | null;
     includedRemainingPercent: number;
     purchasedRemainingPercent: number;
     dailyLimit: number | null;
@@ -585,14 +588,14 @@ export function UserDetailManager({
               />
               <Row
                 label="จากแพ็กเกจ (Free / รอบเดิม)"
-                value={typeof user.usage?.includedQuestions === "number" ? `${user.usage.includedQuestions.toLocaleString("th-TH")} คำถาม` : "—"}
+                value={typeof user.usage?.includedQuestions === "number" ? `${user.usage.includedQuestions.toLocaleString("th-TH")} คำถาม${user.usage.periodEndsAt ? ` · ถึง ${adminDay(user.usage.periodEndsAt)}` : ""}` : "—"}
               />
               <Row
                 label="ซื้อ / เพิ่มให้"
                 value={
                   typeof user.usage?.purchasedQuestions === "number"
                     ? `${user.usage.purchasedQuestions.toLocaleString("th-TH")} คำถาม${
-                        user.usage.purchasedExpiresAt ? ` · ถึง ${thaiDay(user.usage.purchasedExpiresAt)}` : ""
+                        user.usage.purchasedQuestions > 0 && user.usage.purchasedExpiresAt ? ` · ถึง ${adminDay(user.usage.purchasedExpiresAt)}` : ""
                       }`
                     : "—"
                 }
@@ -791,11 +794,7 @@ export function UserDetailManager({
             {!givingPack && chosen?.type !== "FREE" && packageCode !== "FREE" && expiryMode === "date" ? (
               <div className="mt-3 sm:max-w-[calc(50%-0.375rem)]">
                 <Field label="วันหมดอายุ" hint="หมดอายุตอนสิ้นวันนั้น (เวลาไทย)">
-                  <TextInput
-                    type="date"
-                    value={expiresAt}
-                    onChange={(e) => setExpiresAt(e.target.value)}
-                  />
+                  <AdminDateInput label="วันหมดอายุแพ็กเกจ" value={expiresAt} onChange={setExpiresAt} />
                 </Field>
               </div>
             ) : null}

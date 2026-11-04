@@ -1,4 +1,5 @@
 "use client";
+import { AdminDateInput } from "./date-input";
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -329,11 +330,7 @@ export function PackagesManager({
           ) : null}
           {expiryDraft.mode === "DATE" ? (
             <Field label="วันที่ (สิ้นวัน เวลาไทย)">
-              <TextInput
-                type="date"
-                value={expiryDraft.date}
-                onChange={(e) => setExpiryDraft({ ...expiryDraft, date: e.target.value })}
-              />
+              <AdminDateInput label="วันสิ้นสุดค่าเริ่มต้น" value={expiryDraft.date} onChange={value => setExpiryDraft({ ...expiryDraft, date: value })} />
             </Field>
           ) : null}
           <Button onClick={() => void saveDefaultExpiry()} disabled={busy || (expiryDraft.mode === "DATE" && !expiryDraft.date)}>
@@ -435,7 +432,7 @@ export function PackagesManager({
                   </Select>
                 </Field>
                 {form.expiryMode==="DAYS"&&<Field label="จำนวนวันหลังสมัคร" hint="เช่น 30 วัน นับจากเวลาที่สมัครสำเร็จ"><TextInput type="number" min={1} max={3650} value={form.expiryDays} onChange={e=>setForm({...form,expiryDays:e.target.value})}/></Field>}
-                {form.expiryMode==="DATE"&&<Field label="วันสิ้นสุด Free (เวลาไทย)"><TextInput type="date" value={form.expiresOn} onChange={e=>setForm({...form,expiresOn:e.target.value})}/></Field>}
+                {form.expiryMode==="DATE"&&<Field label="วันสิ้นสุด Free (เวลาไทย)"><AdminDateInput label="วันสิ้นสุด Free (เวลาไทย)" value={form.expiresOn} onChange={value=>setForm({...form,expiresOn:value})}/></Field>}
               </div>
             </div>
           ) : (
@@ -472,11 +469,7 @@ export function PackagesManager({
               ) : null}
               {form.questionPack && form.expiryMode === "DATE" ? (
                 <Field label="วันที่ (สิ้นวัน เวลาไทย)">
-                  <TextInput
-                    type="date"
-                    value={form.expiresOn}
-                    onChange={(e) => setForm({ ...form, expiresOn: e.target.value })}
-                  />
+                  <AdminDateInput label="วันสิ้นสุดแพ็กคำถาม" value={form.expiresOn} onChange={value => setForm({ ...form, expiresOn: value })} />
                 </Field>
               ) : null}
             </div>
