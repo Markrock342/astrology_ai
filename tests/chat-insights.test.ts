@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { combineInsightGroups, redactInsightText, topInsights } from "@/lib/chat-insights";
+import { combineInsightGroups, mergeInsightLabels, redactInsightText, topInsights } from "@/lib/chat-insights";
 describe("privacy-preserving chat insights", () => {
   it("redacts known identities, email, phone, dates and URLs before processing", () => {
     const result = redactInsightText("ผม สมชาย ใจดี test@example.com โทร 081-234-5678 เกิด 04/11/2026 https://example.com/user", ["สมชาย ใจดี"]);
@@ -12,6 +12,14 @@ describe("privacy-preserving chat insights", () => {
     expect(topInsights(combined)).toEqual([{ label: "ควรเปลี่ยนงานช่วงไหน", count: 6 }]);
     expect(topInsights(source)).toEqual([]);
     expect(topInsights([{ ...combined[0], members: new Set(["only-one"]) }])).toEqual([]);
+  });
+  it("merges identical labels across retries while preserving counts and unique-member privacy", () => {
+    const merged = mergeInsightLabels([
+      { label: "เรื่องงาน", count: 2, members: new Set(["a", "b"]) },
+      { label: "เรื่องงาน", count: 3, members: new Set(["b", "c"]) },
+    ]);
+    expect(merged).toHaveLength(1); expect(merged[0].members.size).toBe(3);
+    expect(topInsights(merged)).toEqual([{ label: "เรื่องงาน", count: 5 }]);
   });
   it("rejects hallucinated, duplicate and missing IDs rather than displaying invented counts", () => {
     const source = [{ label: "งาน", count: 1, members: new Set(["one"]) }];
