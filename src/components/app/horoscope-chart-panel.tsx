@@ -79,8 +79,9 @@ export function EvidenceGrid({
                         <span aria-hidden>๙</span>
                       </span>
                     ) : theme ? (
-                      <span className="text-sm" style={{ color: theme.color }}>
-                        {theme.symbol}
+                      <span className="flex flex-wrap items-baseline justify-center gap-x-1" style={{ color: theme.color }}>
+                        <span className="text-sm font-semibold">{theme.numeral}</span>
+                        <span className="text-[11px]">{planet}</span>
                       </span>
                     ) : null}
                     {cell.ageRange ? (

@@ -5,9 +5,14 @@ if (!["localhost", "127.0.0.1"].includes(url.hostname) || !/^\/hora_admin_filter
 const db = new PrismaClient({ datasources: { db: { url: url.href } } });
 vi.mock("@/server/db", () => ({ get prisma() { return db; } }));
 const prompts: string[] = [];
+let invalidNextGrouping = false;
+let invalidAllGroupings = false;
+let failProvider = false;
 vi.mock("@/server/ai/router", () => ({ resolveConfig: async () => ({ id: "test-only" }), generateOnce: async (_id: string, input: { userPrompt: string }) => {
-  prompts.push(input.userPrompt);const rows = JSON.parse(input.userPrompt) as { id: number }[];
-  return { ok: true, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, rawText: JSON.stringify({ groups: [{ label: "แนวโน้มด้านการงานโดยรวม", ids: rows.map(r => r.id) }] }) };
+  prompts.push(input.userPrompt);const payload = JSON.parse(input.userPrompt) as { role: string; items: { id: number }[] }; const rows = payload.items;
+  if (failProvider) return { ok: false, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, errorCode: "OVERLOADED" };
+  if (invalidNextGrouping || invalidAllGroupings) { invalidNextGrouping = false; return { ok: true, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, rawText: '{"groups":[{"label":"หัวข้อทดสอบ","ids":[0,0]}]}' }; }
+  return { ok: true, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, rawText: JSON.stringify({ groups: [{ label: payload.role === "USER" ? "ควรเปลี่ยนงานเมื่อไหร่?" : "ควรเตรียมความพร้อมก่อนเปลี่ยนงาน", ids: rows.map(r => r.id) }] }) };
 } }));
 const { exportMembers } = await import("@/server/admin/member-export-service");
 const { getChatInsights, startChatInsights, runChatInsights } = await import("@/server/admin/chat-insights-service");
@@ -62,5 +67,56 @@ describe("real DB member export and private chat summary", () => {
     }
     expect(output).not.toContain("userId"); expect(output).not.toContain("messageId"); expect(output).not.toContain("content");
     expect(await db.aIUsageLog.count({ where: { userId: admin } })).toBeGreaterThan(0);
+  });
+  it("retries invalid AI ID coverage in smaller batches without dropping or double-counting messages", async () => {
+    const before = prompts.length;
+    invalidNextGrouping = true;
+    const job = await startChatInsights({ id: admin });
+    await runChatInsights(job, admin);
+    const result = await getChatInsights();
+    expect(result.status).toBe("ready");
+    expect(result.summary).toMatchObject({ questionsAnalyzed: 3, answersAnalyzed: 3, questions: [{ count: 3 }], answers: [{ count: 3 }] });
+    const sizes = prompts.slice(before).map(p => (JSON.parse(p).items as unknown[]).length);
+    expect(sizes).toContain(1); expect(sizes).toContain(2);
+  });
+  it("bounds invalid-output retries and retains the previous aggregate instead of publishing partial counts", async () => {
+    const previous = (await getChatInsights()).summary;
+    const before = prompts.length;
+    invalidAllGroupings = true;
+    try {
+      await runChatInsights(await startChatInsights({ id: admin }), admin);
+      const result = await getChatInsights();
+      expect(result.status).toBe("error"); expect(result.summary).toEqual(previous);
+      expect(prompts.length - before).toBeLessThanOrEqual(4);
+    } finally { invalidAllGroupings = false; }
+  });
+  it("does not multiply provider failures into smaller requests", async () => {
+    const before = prompts.length; failProvider = true;
+    try {
+      await runChatInsights(await startChatInsights({ id: admin }), admin);
+      expect((await getChatInsights()).status).toBe("error"); expect(prompts.length - before).toBe(1);
+    } finally { failProvider = false; }
+  });
+  it("includes standalone legacy readings but never duplicates chat or resurfaces deleted conversations", async () => {
+    const id = prefix + "legacy-chat";
+    await db.user.create({ data: { id, email: `${id}@example.invalid`, name: "PrivateLegacyName" } });
+    await db.horoscopeReading.create({ data: { userId: id, categoryId, birthProfileSnapshotJson: {}, question: "PrivateLegacyName อยากวางแผนงาน", responseText: "วางแผนงานและพัฒนาทักษะ", status: "SUCCESS" } });
+    await db.horoscopeReading.create({ data: { userId: id, categoryId, birthProfileSnapshotJson: {}, idempotencyKey: prefix + "orphaned", question: "Orphan original question", responseText: "Orphan original answer", status: "SUCCESS" } });
+    const conversation = await db.conversation.findFirstOrThrow({ where: { userId: prefix + "chat-0" } });
+    for (const deleted of [false, true]) {
+      const key = `${prefix}linked-${deleted}`;
+      const existing = deleted ? null : await db.message.findFirstOrThrow({ where: { conversationId: conversation.id, role: "ASSISTANT", deletedAt: null } });
+      if (existing) await db.message.update({ where: { id: existing.id }, data: { idempotencyKey: key } });
+      else await db.message.create({ data: { conversationId: conversation.id, role: "ASSISTANT", content: "Hidden original answer", idempotencyKey: key, deletedAt: new Date() } });
+      await db.horoscopeReading.create({ data: { userId: conversation.userId, categoryId, birthProfileSnapshotJson: {}, idempotencyKey: key, question: "Hidden original question", responseText: "Hidden original answer", status: "SUCCESS" } });
+    }
+    const before = prompts.length;
+    await runChatInsights(await startChatInsights({ id: admin }), admin);
+    const result = await getChatInsights();
+    expect(result.status).toBe("ready");
+    expect(result.summary).toMatchObject({ questionsAnalyzed: 4, answersAnalyzed: 4, questions: [{ count: 4 }], answers: [{ count: 4 }] });
+    expect(prompts.slice(before).join(" ")).not.toContain("Hidden original");
+    expect(prompts.slice(before).join(" ")).not.toContain("Orphan original");
+    expect(prompts.slice(before).join(" ")).not.toContain("PrivateLegacyName");
   });
 });
