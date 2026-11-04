@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
-import { combineInsightGroups, insightSummarySchema, insightSystemPrompt, mergeInsightLabels, redactInsightText, specificInsightLabel, topInsights, type InsightGroup, type InsightState } from "@/lib/chat-insights";
+import { combineInsightGroups, insightSummarySchema, insightSystemPrompt, mergeInsightLabels, redactInsightText, topInsights, type InsightGroup, type InsightState } from "@/lib/chat-insights";
 import { generateOnce, resolveConfig } from "@/server/ai/router";
 import { logUsage } from "@/server/ai/usage-logger";
 import { writeAudit } from "@/server/audit/audit-service";
@@ -62,8 +62,7 @@ export async function runChatInsights(job: InsightState, actorId: string) {
       phase = "validate-groups";
       try {
         if (result.truncated) throw new Error("Truncated grouping");
-        const groups = combineInsightGroups(result.rawText, items, names);
-        if (groups.some(group => !specificInsightLabel(group.label, role))) throw new Error("Broad category instead of a specific question/answer");
+        const groups = combineInsightGroups(result.rawText, items, names, role);
         for (const group of groups) vocabulary[role].set(group.label, (vocabulary[role].get(group.label) ?? 0) + group.count);
         return groups;
       } catch {
