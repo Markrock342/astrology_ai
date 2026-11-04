@@ -20,6 +20,7 @@ import {
 import { ConfirmModal } from "@/components/app/confirm-modal";
 
 import { PageJump, SortableTh } from "./table-controls";
+import { PaymentHistory } from "./payment-history";
 
 type PaymentSort = "createdAt" | "transferredAt" | "name" | "packageCode" | "amount" | "status";
 
@@ -163,6 +164,7 @@ export function PaymentsPanel() {
     setPage(1);
   }
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [historyRevision, setHistoryRevision] = useState(0);
   const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
   // Package names by code: the team's Lite is code "PRO", and the column
   // printed "Pro" for it.
@@ -229,6 +231,7 @@ export function PaymentsPanel() {
         }),
       });
       setConfirmReview(null);
+      setHistoryRevision(value => value + 1);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "ดำเนินการไม่สำเร็จ");
@@ -467,6 +470,7 @@ export function PaymentsPanel() {
           </Button>
         </div>
       </div>
+      <PaymentHistory refreshKey={historyRevision}/>
       {zoomSlip ? (
         <SlipLightbox
           src={zoomSlip.src}

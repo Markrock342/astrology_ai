@@ -141,5 +141,7 @@ export async function applyQuestionPack(
     subscription,
     questionsAdded: unitsToQuestions(pkg.usageBudgetUnits),
     questionsEnd,
+    expiryRule: rule,
+    startsAt: now,
   };
 }
