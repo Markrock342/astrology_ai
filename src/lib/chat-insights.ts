@@ -25,6 +25,16 @@ export function redactInsightText(text: string, identities: string[]): string {
     .replace(/\s+/gu, " ").trim();
 }
 export type InsightGroup = { label: string; count: number; members: Set<string> };
+export function mergeInsightLabels(groups: InsightGroup[]): InsightGroup[] {
+  const merged = new Map<string, InsightGroup>();
+  for (const group of groups) {
+    const key = group.label.normalize("NFKC").trim().toLowerCase();
+    const previous = merged.get(key);
+    if (!previous) merged.set(key, { ...group, members: new Set(group.members) });
+    else { previous.count += group.count; for (const member of group.members) previous.members.add(member); }
+  }
+  return [...merged.values()];
+}
 const groupsSchema = z.object({ groups: z.array(z.object({ label: z.string().min(3).max(200), ids: z.array(z.number().int().nonnegative()).min(1) })).min(1).max(50) });
 /** The model may group IDs, but counts and membership always come from DB. */
 export function combineInsightGroups(raw: string, source: InsightGroup[], identities: string[]): InsightGroup[] {

@@ -5,8 +5,13 @@ if (!["localhost", "127.0.0.1"].includes(url.hostname) || !/^\/hora_admin_filter
 const db = new PrismaClient({ datasources: { db: { url: url.href } } });
 vi.mock("@/server/db", () => ({ get prisma() { return db; } }));
 const prompts: string[] = [];
+let invalidNextGrouping = false;
+let invalidAllGroupings = false;
+let failProvider = false;
 vi.mock("@/server/ai/router", () => ({ resolveConfig: async () => ({ id: "test-only" }), generateOnce: async (_id: string, input: { userPrompt: string }) => {
   prompts.push(input.userPrompt);const rows = JSON.parse(input.userPrompt) as { id: number }[];
+  if (failProvider) return { ok: false, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, errorCode: "OVERLOADED" };
+  if (invalidNextGrouping || invalidAllGroupings) { invalidNextGrouping = false; return { ok: true, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, rawText: '{"groups":[{"label":"หัวข้อทดสอบ","ids":[0,0]}]}' }; }
   return { ok: true, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, rawText: JSON.stringify({ groups: [{ label: "แนวโน้มด้านการงานโดยรวม", ids: rows.map(r => r.id) }] }) };
 } }));
 const { exportMembers } = await import("@/server/admin/member-export-service");
@@ -62,5 +67,34 @@ describe("real DB member export and private chat summary", () => {
     }
     expect(output).not.toContain("userId"); expect(output).not.toContain("messageId"); expect(output).not.toContain("content");
     expect(await db.aIUsageLog.count({ where: { userId: admin } })).toBeGreaterThan(0);
+  });
+  it("retries invalid AI ID coverage in smaller batches without dropping or double-counting messages", async () => {
+    const before = prompts.length;
+    invalidNextGrouping = true;
+    const job = await startChatInsights({ id: admin });
+    await runChatInsights(job, admin);
+    const result = await getChatInsights();
+    expect(result.status).toBe("ready");
+    expect(result.summary).toMatchObject({ questionsAnalyzed: 3, answersAnalyzed: 3, questions: [{ count: 3 }], answers: [{ count: 3 }] });
+    const sizes = prompts.slice(before).map(p => (JSON.parse(p) as unknown[]).length);
+    expect(sizes).toContain(1); expect(sizes).toContain(2);
+  });
+  it("bounds invalid-output retries and retains the previous aggregate instead of publishing partial counts", async () => {
+    const previous = (await getChatInsights()).summary;
+    const before = prompts.length;
+    invalidAllGroupings = true;
+    try {
+      await runChatInsights(await startChatInsights({ id: admin }), admin);
+      const result = await getChatInsights();
+      expect(result.status).toBe("error"); expect(result.summary).toEqual(previous);
+      expect(prompts.length - before).toBeLessThanOrEqual(4);
+    } finally { invalidAllGroupings = false; }
+  });
+  it("does not multiply provider failures into smaller requests", async () => {
+    const before = prompts.length; failProvider = true;
+    try {
+      await runChatInsights(await startChatInsights({ id: admin }), admin);
+      expect((await getChatInsights()).status).toBe("error"); expect(prompts.length - before).toBe(1);
+    } finally { failProvider = false; }
   });
 });
