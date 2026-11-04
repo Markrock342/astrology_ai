@@ -17,6 +17,8 @@
     "test:ui:user-expiry": "node scripts/test-user-expiry-ui.mjs",
     "test:ui:admin-2fa": "node scripts/test-admin-2fa-ui.mjs",
     "test:ui:admin": "npm run test:ui:user-expiry && npm run test:ui:admin-2fa",
+    "test:visual:charts": "playwright test --config playwright.charts.config.ts",
+    "test:visual:charts:update": "playwright test --config playwright.charts.config.ts --update-snapshots",
     "test:e2e:free-expiry": "node --import tsx scripts/test-free-expiry-e2e.mjs",
     "test:e2e:chat": "node scripts/test-chat-e2e.mjs",
     "ci": "node scripts/ci-local.mjs",
