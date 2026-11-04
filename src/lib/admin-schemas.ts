@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { displayDayToIso, isoDayDisplay } from "@/lib/admin-dates";
 import {
   assertSafeOpenAiBaseUrl,
   isAllowedAiSecretRef,
@@ -383,6 +384,14 @@ export const paymentListQuerySchema = listQuerySchema.extend({
   direction: z.enum(["asc", "desc"]).default("desc"),
   packageCode: z.string().trim().min(1).max(100).optional(),
 });
+
+const historyDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => displayDayToIso(isoDayDisplay(value)) === value, "กรุณาระบุวันที่ให้ถูกต้อง");
+export const paymentHistoryQuerySchema = listQuerySchema.extend({
+  status: z.enum(["APPROVED", "REJECTED"]).optional(),
+  reviewerId: z.string().trim().min(1).max(100).optional(),
+  from: historyDay.optional(),
+  to: historyDay.optional(),
+}).refine(q => !q.from || !q.to || q.from <= q.to, "วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด");
 
 export const paymentReviewSchema = z
   .object({
