@@ -32,7 +32,9 @@ export async function startAdminUiHarness({imports,render,mockNavigation=false,s
         res.setHeader("Content-Type",pathname.endsWith(".woff2")?"font/woff2":"application/octet-stream");
         return res.end(assets.get(pathname));
       }
-      if(!["/","/app.js","/style.css"].includes(pathname)){res.statusCode=404;return res.end("Not found")}
+      // Navigation fixtures (e.g. the 2FA /setup screen) share this entry point.
+      const fixtureRoute=mockNavigation&&!path.posix.extname(pathname);
+      if(!["/","/app.js","/style.css"].includes(pathname)&&!fixtureRoute){res.statusCode=404;return res.end("Not found")}
       res.setHeader("Content-Type",req.url==="/app.js"?"text/javascript":req.url==="/style.css"?"text/css":"text/html; charset=utf-8");
       res.end(req.url==="/app.js"?js:req.url==="/style.css"?css:'<!doctype html><html lang="th" data-theme="dark"><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>');
     });
