@@ -9,10 +9,10 @@ let invalidNextGrouping = false;
 let invalidAllGroupings = false;
 let failProvider = false;
 vi.mock("@/server/ai/router", () => ({ resolveConfig: async () => ({ id: "test-only" }), generateOnce: async (_id: string, input: { userPrompt: string }) => {
-  prompts.push(input.userPrompt);const rows = JSON.parse(input.userPrompt) as { id: number }[];
+  prompts.push(input.userPrompt);const payload = JSON.parse(input.userPrompt) as { role: string; items: { id: number }[] }; const rows = payload.items;
   if (failProvider) return { ok: false, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, errorCode: "OVERLOADED" };
   if (invalidNextGrouping || invalidAllGroupings) { invalidNextGrouping = false; return { ok: true, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, rawText: '{"groups":[{"label":"หัวข้อทดสอบ","ids":[0,0]}]}' }; }
-  return { ok: true, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, rawText: JSON.stringify({ groups: [{ label: "แนวโน้มด้านการงานโดยรวม", ids: rows.map(r => r.id) }] }) };
+  return { ok: true, provider: "GEMINI", modelId: "gemini-test-fixture", latencyMs: 1, rawText: JSON.stringify({ groups: [{ label: payload.role === "USER" ? "ควรเปลี่ยนงานเมื่อไหร่?" : "ควรเตรียมความพร้อมก่อนเปลี่ยนงาน", ids: rows.map(r => r.id) }] }) };
 } }));
 const { exportMembers } = await import("@/server/admin/member-export-service");
 const { getChatInsights, startChatInsights, runChatInsights } = await import("@/server/admin/chat-insights-service");
@@ -76,7 +76,7 @@ describe("real DB member export and private chat summary", () => {
     const result = await getChatInsights();
     expect(result.status).toBe("ready");
     expect(result.summary).toMatchObject({ questionsAnalyzed: 3, answersAnalyzed: 3, questions: [{ count: 3 }], answers: [{ count: 3 }] });
-    const sizes = prompts.slice(before).map(p => (JSON.parse(p) as unknown[]).length);
+    const sizes = prompts.slice(before).map(p => (JSON.parse(p).items as unknown[]).length);
     expect(sizes).toContain(1); expect(sizes).toContain(2);
   });
   it("bounds invalid-output retries and retains the previous aggregate instead of publishing partial counts", async () => {
