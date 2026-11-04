@@ -13,7 +13,7 @@ const member = { id: "synthetic-member", name: "สมาชิกตัวอ�
 const reviewer = { id: "admin-a", name: "ผู้ตรวจตัวอย่าง", email: "admin@example.invalid" };
 const receipt = { version: 1, member, reviewer, packageCode: "PACK40", packageName: "แพ็กเดิม 40 คำถาม", amount: 50, decision: "APPROVED", kind: "QUESTION_PACK", questionsAdded: 40, creditsAdded: 0, startsAt: "2026-11-04T05:00:00Z", expiresAt: "2027-02-02T05:00:00Z", expiryRule: { mode: "DAYS", days: 30 }, note: "ตรวจยอดตรงกับสลิป" };
 const entry = { id: "frozen-history", reviewedAt: "2026-11-04T05:00:00Z", submittedAt: "2026-11-03T05:00:00Z", transferredAt: "2026-11-03T04:00:00Z", member, reviewer, status: "APPROVED", amount: 50, packageCode: "PACK40", note: receipt.note, selfReview: false, receipt };
-let history = [entry, { ...entry, id: "legacy-history", receipt: null }, ...Array.from({ length: 19 }, (_, i) => ({ ...entry, id: `older-${i}`, member: { ...member, name: `สมาชิกย้อนหลัง ${i}` } }))];
+let history = [entry, { ...entry, id: "legacy-history", reviewedAt: null, receipt: null }, ...Array.from({ length: 19 }, (_, i) => ({ ...entry, id: `older-${i}`, member: { ...member, name: `สมาชิกย้อนหลัง ${i}` } }))];
 let queue = ["A", "B"].map(letter => ({ id: `pending-${letter}`, amount: 50, status: "PENDING", note: null, proofUrl: null, packageCode: "PACK40", createdAt: "2026-11-04T05:00Z", transferredAt: "2026-11-04T04:00Z", user: { ...member, id: `member-${letter}`, name: `Pending Member ${letter}` }, reviewer: null }));
 const requests = [], writes = [];
 let delayNext = false, releaseOld;
@@ -50,6 +50,7 @@ try {
   assert.match(await frozen.textContent(), /02\/02\/2027/);
   assert.match(await frozen.textContent(), /\+40 คำถาม/);
   assert.equal(await region.getByRole("row").filter({ hasText: "legacy-history" }).getByText("รายการเดิมไม่ได้บันทึกระยะเวลาไว้", { exact: true }).count(), 1);
+  assert.equal(await region.getByRole("row").filter({ hasText: "legacy-history" }).getByText("ไม่ได้บันทึกเวลาตรวจไว้", { exact: true }).count(), 1);
   assert.equal(await region.getByText("แพ็กปัจจุบันเปลี่ยนชื่อแล้ว", { exact: true }).count(), 0);
   console.log("PASS history is below the queue and shows frozen pack, actual expiry, reviewer and explicit legacy gaps");
   await region.getByRole("button", { name: "ประวัติหน้าถัดไป" }).click();
