@@ -7,6 +7,7 @@ describe("privacy-preserving chat insights", () => {
     expect(specificInsightLabel("ควรเปลี่ยนงานเมื่อไหร่?", "USER")).toBe(true);
     expect(specificInsightLabel("ทำไมความสัมพันธ์จึงไม่ราบรื่น?".normalize("NFKC"), "USER")).toBe(true);
     expect(specificInsightLabel("ควรเตรียมทักษะและเงินสำรองก่อนเปลี่ยนงาน", "ASSISTANT")).toBe(true);
+    expect(specificInsightLabel("มีโอกาสได้รับความช่วยเหลือจากผู้ใหญ่", "ASSISTANT")).toBe(true);
     expect(specificInsightLabel("ไม่สามารถอ่านดวงนวางค์ได้เมื่อไม่มีข้อมูลตำแหน่งดาว", "ASSISTANT")).toBe(true);
     expect(insightSystemPrompt("USER")).toContain("never collapse");
   });
