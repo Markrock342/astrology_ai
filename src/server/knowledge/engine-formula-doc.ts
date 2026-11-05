@@ -1,14 +1,9 @@
-import { prisma } from "@/server/db";
-
 /**
  * How the local engine computes a Thai chart, as a knowledge doc the team can
  * read in /admin/knowledge.
  *
- * It is created DISABLED: the AI never computes positions (it reads the
- * engine's blocks), so the numbers would only cost prompt budget. We cannot
- * write to the production database from outside, so the app creates the doc
- * itself the first time an admin lists the knowledge base — once, and never
- * over a copy an admin has since edited.
+ * Reference material for the team, intentionally excluded from AI knowledge.
+ * Merely opening the admin list must never create or restore database records.
  */
 export const ENGINE_FORMULA_DOC_ID = "kb-team-engine-formulas";
 
@@ -58,28 +53,3 @@ export const ENGINE_FORMULA_DOC = {
 ดวงที่คำนวณด้วยสูตรเก่าจะถูกคำนวณใหม่เองเมื่อเปลี่ยน FORMULA_LAGNA_METHOD ใน src/types/chart.ts
 อย่าเพิ่ม CHART_EVIDENCE_VERSION ระหว่างที่ myhora ยังบล็อก ไม่งั้นดวงจาก myhora จะถูกแทนด้วยดวงจากสูตร`,
 } as const;
-
-let ensured: Promise<void> | null = null;
-
-/** Create the doc once per server instance if it is missing. Never overwrites. */
-export function ensureEngineFormulaDoc(): Promise<void> {
-  ensured ??= prisma.knowledgeDoc
-    .upsert({
-      where: { id: ENGINE_FORMULA_DOC_ID },
-      create: {
-        id: ENGINE_FORMULA_DOC.id,
-        title: ENGINE_FORMULA_DOC.title,
-        content: ENGINE_FORMULA_DOC.content,
-        sortOrder: ENGINE_FORMULA_DOC.sortOrder,
-        enabled: false,
-        categoryId: null,
-      },
-      update: {},
-    })
-    .then(() => undefined)
-    .catch((err) => {
-      ensured = null;
-      console.warn("[knowledge] engine formula doc:", err instanceof Error ? err.message : err);
-    });
-  return ensured;
-}

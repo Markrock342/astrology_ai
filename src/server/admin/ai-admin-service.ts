@@ -15,7 +15,7 @@ import {
   isAllowedAiSecretRef,
 } from "@/lib/ai-config-guards";
 import { invalidateKeyCache } from "@/server/ai/secret-resolver";
-import { ensureEngineFormulaDoc } from "@/server/knowledge/engine-formula-doc";
+import { knowledgeSource, type KnowledgeProvenance } from "@/lib/knowledge-provenance";
 
 /**
  * Guard the AI CMS behind the current phase (defense in depth — the UI is also
@@ -643,11 +643,8 @@ const knowledgeSummarySelect = {
 
 /** List metadata only — omit large content bodies. */
 export async function listKnowledgeDocsSummary() {
-  // The engine's formula notes live here for the team; created on first view.
-  await ensureEngineFormulaDoc();
-  // Every enabled doc is concatenated into the system prompt on each AI call, so
-  // the admin needs the size. Measure it in the database rather than shipping the
-  // bodies over the wire just to call .length on them.
+  // Enabled documents are searched for relevant chunks within a bounded budget.
+  // Measure sizes in the database without sending full bodies to the list UI.
   const [rows, sizes] = await Promise.all([
     prisma.knowledgeDoc.findMany({
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -659,7 +656,32 @@ export async function listKnowledgeDocsSummary() {
   ]);
 
   const charsById = new Map(sizes.map((s) => [s.id, Number(s.chars)]));
-  return rows.map((r) => ({ ...r, contentChars: charsById.get(r.id) ?? 0 }));
+  const history = await prisma.$queryRaw<Array<{
+    id: string; creator: string | null; createdAuditId: string | null;
+    statusAt: Date | null; statusBy: string | null; reason: string | null; statusEnabled: boolean | null;
+  }>>`SELECT k.id, created.name AS creator, created.id AS "createdAuditId", changed.at AS "statusAt", changed.name AS "statusBy", changed.reason, changed.enabled AS "statusEnabled"
+    FROM knowledge_docs k
+    LEFT JOIN LATERAL (
+      SELECT l.id, COALESCE(u.name, u.email) AS name FROM admin_audit_logs l JOIN users u ON u.id = l."adminUserId"
+      WHERE l."entityType" = 'knowledge_doc' AND l."entityId" = k.id AND l.action = 'knowledge.create'
+      ORDER BY l."createdAt", l.id LIMIT 1
+    ) created ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT l."createdAt" AS at, COALESCE(u.name, u.email) AS name, l."afterJson"->>'reason' AS reason, (l."afterJson"->>'enabled')::boolean AS enabled
+      FROM admin_audit_logs l JOIN users u ON u.id = l."adminUserId"
+      WHERE l."entityType" = 'knowledge_doc' AND l."entityId" = k.id
+        AND jsonb_typeof(l."afterJson"->'enabled') = 'boolean'
+        AND l."beforeJson"->'enabled' IS DISTINCT FROM l."afterJson"->'enabled'
+      ORDER BY l."createdAt" DESC, l.id DESC LIMIT 1
+    ) changed ON TRUE`;
+  const states = new Map(rows.map(row => [row.id, row.enabled]));
+  const provenance = new Map(history.map(h => [h.id, {
+    source: knowledgeSource(h.id, Boolean(h.createdAuditId)), createdBy: h.creator,
+    statusChangedAt: h.statusEnabled === states.get(h.id) ? h.statusAt?.toISOString() ?? null : null,
+    statusChangedBy: h.statusEnabled === states.get(h.id) ? h.statusBy : null,
+    statusReason: h.statusEnabled === states.get(h.id) ? h.reason : null,
+  } satisfies KnowledgeProvenance]));
+  return rows.map((r) => ({ ...r, contentChars: charsById.get(r.id) ?? 0, provenance: provenance.get(r.id) }));
 }
 
 export async function getKnowledgeDocById(id: string) {
