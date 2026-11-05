@@ -13,7 +13,7 @@ export async function GET() {
   return handle(async () => {
     assertAiAdminEnabled();
     await requireAdmin();
-    return ok(await listKnowledgeDocs());
+    return ok(await listKnowledgeDocs(), { headers: { "Cache-Control": "private, no-store" } });
   });
 }
 

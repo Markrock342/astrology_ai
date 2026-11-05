@@ -20,6 +20,9 @@ import {
   Toggle,
 } from "./ui";
 import { KNOWLEDGE_MAX_CHARS } from "@/config/constants";
+import { KNOWLEDGE_SOURCE_LABELS, type KnowledgeProvenance, type KnowledgeSource } from "@/lib/knowledge-provenance";
+import { adminDay } from "@/lib/admin-dates";
+import { ConfirmModal } from "@/components/app/confirm-modal";
 
 type KnowledgeSummary = {
   id: string;
@@ -31,6 +34,7 @@ type KnowledgeSummary = {
   category: { id: string; nameTh: string } | null;
   /** char_length(content) — the body itself is only fetched when opened. */
   contentChars: number;
+  provenance?: KnowledgeProvenance;
 };
 
 type KnowledgeDoc = KnowledgeSummary & {
@@ -59,6 +63,9 @@ export function KnowledgeManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<KnowledgeSource | "ALL">("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [confirmToggle, setConfirmToggle] = useState<KnowledgeSummary | null>(null);
   const formCardRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const contentAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -236,20 +243,27 @@ export function KnowledgeManager() {
   }
 
   async function toggleEnabled(d: KnowledgeSummary) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
     try {
-      await adminFetch(`/api/admin/knowledge/${d.id}`, {
+      const updated = await adminFetch<KnowledgeDoc>(`/api/admin/knowledge/${d.id}`, {
         method: "PATCH",
         body: JSON.stringify({ enabled: !d.enabled }),
       });
+      if (editingId === d.id) setForm(current => ({ ...current, enabled: updated.enabled }));
+      setConfirmToggle(null);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "อัปเดตไม่สำเร็จ");
-    }
+    } finally { setBusy(false); }
   }
 
   const totalChars = docs
     .filter((d) => d.enabled)
     .reduce((s, d) => s + d.contentChars, 0);
+  const visibleDocs = docs.filter(d => (sourceFilter === "ALL" || (d.provenance?.source ?? "UNKNOWN") === sourceFilter)
+    && (statusFilter === "ALL" || d.enabled === (statusFilter === "ON")));
 
   return (
     <AdminPage>
@@ -258,6 +272,7 @@ export function KnowledgeManager() {
         description="วางเนื้อหา FAQ/ตำรา ให้ AI ใช้อ้างอิงตอบ — ระบบจะแบ่งเอกสารและค้นเฉพาะส่วนที่ตรงกับคำถาม หมวด และข้อมูลดวง"
         action={
           <Button
+            disabled={busy}
             onClick={() => {
               setEditingId(null);
               setForm(EMPTY_FORM);
@@ -275,6 +290,13 @@ export function KnowledgeManager() {
       </p>
 
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <Field label="แหล่งที่มา"><Select aria-label="แหล่งที่มาของเอกสาร" value={sourceFilter} onChange={e => setSourceFilter(e.target.value as typeof sourceFilter)}>
+          <option value="ALL">ทุกแหล่งที่มา</option>{Object.entries(KNOWLEDGE_SOURCE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        </Select></Field>
+        <Field label="สถานะการใช้งาน"><Select aria-label="สถานะเอกสารความรู้" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="ALL">ทุกสถานะ</option><option value="ON">AI ใช้อ้างอิง</option><option value="OFF">ไม่ส่งให้ AI</option></Select></Field>
+        <p className="pb-2 text-xs text-[var(--muted)]">แสดง {visibleDocs.length} / {docs.length} เอกสาร · เปิดใช้งาน {docs.filter(d => d.enabled).length}</p>
+      </div>
 
       {showForm && (
         <div ref={formCardRef}>
@@ -359,27 +381,36 @@ export function KnowledgeManager() {
         </div>
       ) : (
       <div className="mt-4 flex flex-col gap-3">
-        {docs.map((d) => (
+        {visibleDocs.map((d) => (
           <Card key={d.id}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium text-[var(--foreground)]">{d.title}</span>
               <Badge tone="gold">{d.category?.nameTh ?? "ทุกหมวด"}</Badge>
-              {!d.enabled && <Badge tone="red">ปิดอยู่</Badge>}
+              <Badge tone={d.enabled ? "green" : "muted"}>{d.enabled ? "AI ใช้อ้างอิง" : "ไม่ส่งให้ AI"}</Badge>
+              <Badge tone="muted">{KNOWLEDGE_SOURCE_LABELS[d.provenance?.source ?? "UNKNOWN"]}</Badge>
               {d.draftUpdatedAt ? <Badge tone="gold">มีแบบร่าง</Badge> : null}
               <div className="ml-auto flex gap-2">
-                <Button variant="ghost" onClick={() => toggleEnabled(d)}>
-                  {d.enabled ? "ปิด" : "เปิด"}
+                <Button variant="ghost" disabled={busy} onClick={() => setConfirmToggle(d)}>
+                  <span aria-hidden="true">{d.enabled ? "ปิด" : "เปิด"}</span>
+                  <span className="sr-only">{`${d.enabled ? "ปิด" : "เปิด"}การอ้างอิง ${d.title}`}</span>
                 </Button>
-                <Button variant="ghost" onClick={() => startEdit(d)}>
+                <Button variant="ghost" disabled={busy} onClick={() => startEdit(d)}>
                   แก้ไข
                 </Button>
-                <Button variant="danger" onClick={() => remove(d.id)}>
+                <Button variant="danger" disabled={busy} onClick={() => remove(d.id)}>
                   ลบ
                 </Button>
               </div>
             </div>
+            <div className="mt-2 space-y-1 text-[11px] text-[var(--muted)]">
+              {d.provenance?.createdBy && <p>ผู้เพิ่ม: {d.provenance.createdBy}</p>}
+              {d.provenance?.source === "SYSTEM_GUIDE" && <p>คู่มือสำหรับตรวจสอบการคำนวณ ไม่จำเป็นต้องเปิดเพื่อให้ AI ใช้อ้างอิง</p>}
+              {d.provenance?.statusChangedAt ? <p>บันทึกสถานะล่าสุด {adminDay(d.provenance.statusChangedAt)} โดย {d.provenance.statusChangedBy}{d.provenance.statusReason ? ` · ${d.provenance.statusReason}` : ""}</p>
+                : <p>ไม่พบประวัติผู้เปลี่ยนเป็นสถานะปัจจุบัน</p>}
+            </div>
           </Card>
         ))}
+        {visibleDocs.length === 0 && docs.length > 0 && <p className="text-sm text-[var(--muted)]">ไม่มีเอกสารที่ตรงกับตัวกรอง</p>}
         {docs.length === 0 && !showForm && (
           <p className="text-sm text-[var(--muted-2)]">
             ยังไม่มีเอกสารความรู้ — กด &quot;+ เพิ่มเอกสาร&quot; แล้ววางเนื้อหา FAQ/ตำราได้เลย
@@ -387,6 +418,11 @@ export function KnowledgeManager() {
         )}
       </div>
       )}
+      <ConfirmModal open={confirmToggle !== null} busy={busy} danger={Boolean(confirmToggle?.enabled)}
+        title={confirmToggle?.enabled ? "หยุดใช้เอกสารนี้ตอบคำถาม?" : "ให้ AI ใช้เอกสารนี้อ้างอิง?"}
+        message={confirmToggle ? `${confirmToggle.title}\n${confirmToggle.enabled ? "เนื้อหาจะยังอยู่ในคลัง แต่จะไม่ส่งให้ AI ในคำตอบใหม่" : "เนื้อหาที่เผยแพร่จะถูกค้นมาใช้อ้างอิงตามคำถามและหมวด"}` : undefined}
+        confirmLabel={confirmToggle?.enabled ? "ยืนยันปิดการอ้างอิง" : "ยืนยันเปิดการอ้างอิง"}
+        onCancel={() => setConfirmToggle(null)} onConfirm={() => { if (confirmToggle) void toggleEnabled(confirmToggle); }}/>
     </AdminPage>
   );
 }

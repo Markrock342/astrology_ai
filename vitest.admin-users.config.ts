@@ -5,7 +5,7 @@ export default defineConfig({
   ...base,
   test: {
     ...base.test,
-    include: ["tests/integration/admin-user-packages.integration.ts","tests/integration/admin-2fa-device.integration.ts","tests/integration/free-expiry.integration.ts","tests/integration/free-signup-default.integration.ts","tests/integration/admin-insights-export.integration.ts","tests/integration/payment-history.integration.ts"],
+    include: ["tests/integration/admin-user-packages.integration.ts","tests/integration/admin-2fa-device.integration.ts","tests/integration/free-expiry.integration.ts","tests/integration/free-signup-default.integration.ts","tests/integration/admin-insights-export.integration.ts","tests/integration/payment-history.integration.ts","tests/integration/knowledge-ownership.integration.ts"],
     fileParallelism: false,
   },
 });

@@ -1,9 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
-import {
-  MYHORA_STYLE_CATEGORY_DOCS,
-  MYHORA_STYLE_GLOBAL_DOCS,
-  KNOWLEDGE_IDS_TO_DISABLE,
-} from "./seed-knowledge-myhora";
+import { seedKnowledgeSafely } from "./seed-knowledge-safe";
+import { MYHORA_STYLE_CATEGORY_DOCS } from "./seed-knowledge-myhora";
 
 /** Demo prompts + knowledge for AI chat (editable in Admin CMS). */
 export async function seedAiContent(prisma: PrismaClient) {
@@ -70,58 +67,11 @@ export async function seedAiContent(prisma: PrismaClient) {
     },
   });
 
-  // Disable short demo globals so they don't steal the knowledge budget.
-  for (const oldId of KNOWLEDGE_IDS_TO_DISABLE) {
-    await prisma.knowledgeDoc.updateMany({
-      where: { id: oldId },
-      data: { enabled: false },
-    });
-  }
-
-  for (const doc of MYHORA_STYLE_GLOBAL_DOCS) {
-    await prisma.knowledgeDoc.upsert({
-      where: { id: doc.id },
-      update: {
-        title: doc.title,
-        content: doc.content,
-        sortOrder: doc.sortOrder,
-        categoryId: null,
-        enabled: true,
-      },
-      create: {
-        id: doc.id,
-        title: doc.title,
-        content: doc.content,
-        sortOrder: doc.sortOrder,
-        categoryId: null,
-        enabled: true,
-      },
-    });
-  }
+  await seedKnowledgeSafely(prisma, true);
 
   const categories = await prisma.horoscopeCategory.findMany();
-
   for (const cat of categories) {
-    const k = MYHORA_STYLE_CATEGORY_DOCS[cat.slug];
-    if (!k) continue;
-    await prisma.knowledgeDoc.upsert({
-      where: { id: `seed-knowledge-cat-${cat.slug}` },
-      update: {
-        title: k.title,
-        content: k.content,
-        categoryId: cat.id,
-        sortOrder: 10,
-        enabled: true,
-      },
-      create: {
-        id: `seed-knowledge-cat-${cat.slug}`,
-        title: k.title,
-        content: k.content,
-        categoryId: cat.id,
-        sortOrder: 10,
-        enabled: true,
-      },
-    });
+    if (!MYHORA_STYLE_CATEGORY_DOCS[cat.slug]) continue;
     await prisma.horoscopeCategory.update({
       where: { id: cat.id },
       data: {

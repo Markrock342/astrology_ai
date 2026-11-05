@@ -15,7 +15,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     assertAiAdminEnabled();
     await requireAdmin();
     const { id } = await ctx.params;
-    return ok(await getKnowledgeDocById(id));
+    return ok(await getKnowledgeDocById(id), { headers: { "Cache-Control": "private, no-store" } });
   });
 }
 
