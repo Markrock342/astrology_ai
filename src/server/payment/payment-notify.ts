@@ -1,3 +1,4 @@
+import { paymentReviewedEmail } from "@/server/email/templates";
 import type { SendEmailResult } from "@/server/email/mailer";
 import { prisma } from "@/server/db";
 import { sendEmail } from "@/server/email/mailer";
@@ -66,28 +67,18 @@ export async function notifyAdminsNewPayment(input: {
 
 export async function notifyUserPaymentReviewed(input: {
   userEmail: string;
+  userName?: string | null;
+  paymentId: string;
+  packageName: string;
+  paidAt: Date;
   approved: boolean;
   amount: number;
   note?: string | null;
 }): Promise<SendEmailResult> {
   const link = `${appBaseUrl()}/account`;
-  const title = input.approved
-    ? `อนุมัติการชำระเงิน ฿${input.amount} แล้ว`
-    : `คำขอชำระเงิน ฿${input.amount} ไม่ผ่าน`;
-  const text = [
-    title,
-    input.note ? `หมายเหตุ: ${input.note}` : "",
-    "",
-    `ดูบัญชี: ${link}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
   return sendEmail({
     to: input.userEmail,
-    subject: `[HoraSard] ${title}`,
-    text,
-    html: `<p>${escapeHtml(title)}</p>${input.note ? `<p>หมายเหตุ: ${escapeHtml(input.note)}</p>` : ""}<p><a href="${link}">เปิดหน้าบัญชี</a></p>`,
+    ...paymentReviewedEmail({ ...input, accountUrl: link }),
   });
 }
 

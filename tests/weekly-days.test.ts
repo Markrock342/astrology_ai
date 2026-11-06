@@ -1,14 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn(), sendEmail: vi.fn() }));
+const mocks = vi.hoisted(() => ({ findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn(), generate: vi.fn(), config: vi.fn(), log: vi.fn(), sendEmail: vi.fn() }));
 vi.mock("@/server/db", () => ({
-  prisma: { user: { findMany: mocks.findMany, update: mocks.update, updateMany: mocks.updateMany } },
+  prisma: { user: { findUnique: mocks.findUnique, findMany: mocks.findMany, update: mocks.update, updateMany: mocks.updateMany } },
 }));
 vi.mock("@/server/email/mailer", () => ({ sendEmail: mocks.sendEmail }));
 
+vi.mock("@/server/ai/router", () => ({ generateOnce: mocks.generate }));
+vi.mock("@/server/horoscope/follow-up-suggestions", () => ({ resolveAuxConfig: mocks.config }));
+vi.mock("@/server/ai/usage-logger", () => ({ logUsage: mocks.log }));
+
 import { computeNatalChartFormula } from "@/server/horoscope/engine/compute-chart";
 import {
-  composeWeeklyDays,
+  composeWeeklyDays, weeklyDates, weeklyFacts, weeklySummaryPrompt, parseWeeklyOverview, generateWeeklyOverview,
   isValidUnsubscribe,
   runWeeklyDaysEmails,
   unsubscribeUrl,
@@ -22,6 +26,9 @@ const NOW = new Date("2026-10-05T00:00:00Z"); // Monday 07:00 Bangkok
 describe("weekly good-days email", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.findUnique.mockResolvedValue({ weeklyDaysEmail: true, status: "ACTIVE" });
+    mocks.config.mockResolvedValue(null);
+    mocks.log.mockResolvedValue({});
     process.env.AUTH_SECRET = "test-secret";
     mocks.sendEmail.mockResolvedValue({ ok: true, via: "dev" });
     mocks.updateMany.mockResolvedValue({ count: 1 });
@@ -29,11 +36,60 @@ describe("weekly good-days email", () => {
 
   it("lists the week's best days and how to stop it", () => {
     const mail = composeWeeklyDays(natal, NOW, "เอ", unsubscribeUrl("u1"))!;
-    expect(mail.subject).toMatch(/^วันดีของคุณสัปดาห์นี้: วัน/);
-    expect(mail.text).toContain("วันเด่นของคุณสัปดาห์นี้");
+    expect(mail.subject).toContain("[HORASARD] เช็กดวงรายสัปดาห์ของคุณ (วันอาทิตย์ที่ 4 ต.ค. 2569 - วันเสาร์ที่ 10 ต.ค. 2569)");
+    expect(mail.text).toContain("สรุปจากผลคำนวณทั้ง 7 วัน");
     expect(mail.text).toMatch(/วัน\S+ที่ \d{1,2} ต\.ค\. 2569/);
     expect(mail.text).toContain("/api/notify/weekly-days/unsubscribe?u=u1&t=");
     expect(mail.html).not.toContain("<script");
+  });
+
+
+  it("normalizes Sunday–Saturday across month/year boundaries in Bangkok", () => {
+    const days = weeklyDates(new Date("2026-12-31T20:00:00Z"));
+    expect(days.map(d=>d.toISOString().slice(0,10))).toEqual(["2026-12-27","2026-12-28","2026-12-29","2026-12-30","2026-12-31","2027-01-01","2027-01-02"]);
+    expect(weeklyDates(new Date("2026-11-07T17:00:00Z"))[0].toISOString()).toBe("2026-11-08T02:00:00.000Z");
+  });
+
+  it("gives AI seven computed days without identity, birth details or conversations", () => {
+    const prompt = weeklySummaryPrompt(weeklyFacts(natal, NOW));
+    const days=JSON.parse(prompt.userPrompt);
+    expect(days).toHaveLength(7);
+    expect(days[0].weekday).toBe("อาทิตย์");expect(days[6].weekday).toBe("เสาร์");
+    expect(prompt.userPrompt).not.toContain("1992");
+    expect(prompt.userPrompt).not.toContain("07:45");
+    expect(prompt.timeoutMs).toBe(15000);
+  });
+
+  it("validates provider JSON and uses calculated fallback for bad output", async () => {
+    expect(parseWeeklyOverview("not json")).toBeNull();
+    expect(parseWeeklyOverview(JSON.stringify({overview:"<script>".repeat(20)}))).toBeNull();
+    mocks.config.mockResolvedValue({id:"cfg"});
+    mocks.generate.mockResolvedValue({ok:true,provider:"GEMINI",modelId:"test",latencyMs:1,rawText:"invalid"});
+    expect(await generateWeeklyOverview(weeklyFacts(natal,NOW),"u1")).toBeNull();
+    expect(mocks.log).toHaveBeenCalledWith(expect.objectContaining({userId:"u1",errorCode:"WEEKLY_EMAIL_SUMMARY"}));
+  });
+
+  it("sends an AI overview without consuming questions and escapes recipient HTML", async () => {
+    const overview="สัปดาห์นี้ค่อย ๆ จัดลำดับงานและพักผ่อนให้เพียงพอ ใช้จังหวะที่ราบรื่นในการประสานงาน และตรวจรายละเอียดก่อนตัดสินใจ";
+    mocks.config.mockResolvedValue({id:"cfg"});
+    mocks.generate.mockResolvedValue({ok:true,provider:"GEMINI",modelId:"test",latencyMs:1,rawText:JSON.stringify({overview})});
+    mocks.findMany.mockResolvedValue([{id:"u1",email:"a@x.co",name:'<img src=x onerror="x">',natalChart:{chartJson:natal}}]);
+    expect(await runWeeklyDaysEmails({now:NOW})).toMatchObject({sent:1,failed:0});
+    const message=mocks.sendEmail.mock.calls[0][0];
+    expect(message.text).toContain(overview);
+    expect(message.text).not.toContain("สรุปจากผลคำนวณทั้ง 7 วัน");
+    expect(message.html).not.toContain("<img");
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("falls back after provider failure and still honours an opt-out before sending", async () => {
+    mocks.config.mockResolvedValue({id:"cfg"});mocks.generate.mockRejectedValue(new Error("timeout"));
+    mocks.findMany.mockResolvedValue([{id:"u1",email:"a@x.co",natalChart:{chartJson:natal}}]);
+    expect(await runWeeklyDaysEmails({now:NOW})).toMatchObject({sent:1});
+    expect(mocks.sendEmail.mock.calls[0][0].text).toContain("สรุปจากผลคำนวณทั้ง 7 วัน");
+    mocks.sendEmail.mockClear();mocks.findUnique.mockResolvedValue({weeklyDaysEmail:false,status:"ACTIVE"});
+    expect(await runWeeklyDaysEmails({now:NOW})).toMatchObject({skipped:1,sent:0});
+    expect(mocks.sendEmail).not.toHaveBeenCalled();
   });
 
   it("only honours its own unsubscribe links", () => {
