@@ -1,6 +1,7 @@
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { env } from "@/config/env";
+import { verificationEmail } from "@/server/email/templates";
 import { sendEmail } from "@/server/email/mailer";
 import {
   generateResetToken,
@@ -21,7 +22,7 @@ function buildBaseUrl(): string {
 export async function sendVerificationEmail(userId: string): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, emailVerifiedAt: true, passwordHash: true, status: true },
+    select: { id: true, name: true, email: true, emailVerifiedAt: true, passwordHash: true, status: true },
   });
   if (!user || user.status === "DISABLED") return false;
   if (!user.passwordHash || user.emailVerifiedAt) return false;
@@ -42,15 +43,7 @@ export async function sendVerificationEmail(userId: string): Promise<boolean> {
   const link = `${buildBaseUrl()}/verify-email?token=${rawToken}`;
   await sendEmail({
     to: user.email,
-    subject: "ยืนยันอีเมล HoraSard",
-    text: [
-      "ขอบคุณที่สมัครใช้งาน HoraSard (โหราศาสตร์)",
-      "",
-      "กรุณาคลิกลิงก์ด้านล่างเพื่อยืนยันอีเมลของคุณ (ลิงก์หมดอายุใน 24 ชั่วโมง):",
-      link,
-      "",
-      "หากคุณไม่ได้สมัครบัญชีนี้ สามารถเพิกเฉยอีเมลนี้ได้",
-    ].join("\n"),
+    ...verificationEmail(user.name, link, EMAIL_VERIFICATION_TTL_MS / 3_600_000),
   });
   return true;
 }
