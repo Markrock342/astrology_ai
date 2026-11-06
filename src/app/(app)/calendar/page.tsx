@@ -252,7 +252,7 @@ function WeeklyEmailSwitch() {
       <div>
         <p className="text-sm font-medium text-[var(--foreground)]">อีเมลวันดีประจำสัปดาห์</p>
         <p className="mt-0.5 text-xs text-[var(--muted)]">
-          ทุกเช้าวันจันทร์ ส่งวันเด่น 3 วันของสัปดาห์และวันที่ควรระวัง {note ? `· ${note}` : ""}
+          ทุกเช้าวันจันทร์ ส่งสรุปดวงวันอาทิตย์–วันเสาร์ พร้อมวันเด่นและข้อควรระวัง {note ? `· ${note}` : ""}
         </p>
       </div>
       <button

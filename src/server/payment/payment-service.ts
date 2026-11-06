@@ -494,6 +494,10 @@ export async function reviewPayment(
   try {
     const notifyResult = await notifyUserPaymentReviewed({
       userEmail: payment.user.email,
+      userName: payment.user.name,
+      paymentId,
+      packageName: pkg?.name ?? packageCode ?? payment.packageCode ?? "แพ็กคำถาม",
+      paidAt: payment.transferredAt ?? result.payment.reviewedAt ?? new Date(),
       approved: input.status === "APPROVED",
       amount: payment.amount,
       note: input.note ?? payment.note,

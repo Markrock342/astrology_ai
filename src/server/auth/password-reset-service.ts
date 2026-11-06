@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
 import { env } from "@/config/env";
+import { passwordResetEmail } from "@/server/email/templates";
 import { sendEmail } from "@/server/email/mailer";
 import { normalizeEmail } from "@/server/auth/account-lookup";
 
@@ -66,15 +67,7 @@ export async function requestPasswordReset(rawEmail: string): Promise<void> {
   const link = `${buildBaseUrl()}/reset-password?token=${rawToken}`;
   const sent = await sendEmail({
     to: email,
-    subject: "รีเซ็ตรหัสผ่าน HoraSard",
-    text: [
-      "คุณ (หรือใครบางคน) ขอรีเซ็ตรหัสผ่านสำหรับบัญชี HoraSard นี้",
-      "",
-      "คลิกลิงก์ด้านล่างเพื่อตั้งรหัสผ่านใหม่ (ลิงก์หมดอายุใน 30 นาที):",
-      link,
-      "",
-      "หากคุณไม่ได้เป็นผู้ขอ สามารถเพิกเฉยอีเมลนี้ได้",
-    ].join("\n"),
+    ...passwordResetEmail(user.name, link, PASSWORD_RESET_TTL_MS / 60_000),
   });
 
   if (!sent.ok) {
