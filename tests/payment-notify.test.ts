@@ -50,6 +50,7 @@ describe("payment-notify (BE-E0.3)", () => {
       userEmail: "u@test.com",
       approved: true,
       amount: 199,
+      paymentId: "pay-1", packageName: "90 คำถาม", paidAt: new Date("2026-11-06T08:00:00Z"),
     });
     expect(result).toEqual({ ok: true, via: "dev" });
   });
