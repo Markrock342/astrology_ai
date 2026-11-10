@@ -26,7 +26,17 @@ export type SendEmailInput = {
 
 export type SendEmailResult = { ok: true; via: "resend" | "dev" } | { ok: false; error: string };
 
-const DEFAULT_FROM = "HoraSard <onboarding@resend.dev>";
+const DEFAULT_FROM = "HORASARD <onboarding@resend.dev>";
+/** Sender name in every inbox (A, 10 Nov 2026: "HoraSard" → "HORASARD"). */
+const SENDER_NAME = "HORASARD";
+
+/** EMAIL_FROM's address under our sender name, whatever name the server env carries. */
+export function senderFrom(configured: string | undefined): string {
+  const raw = configured?.trim();
+  if (!raw) return DEFAULT_FROM;
+  const address = raw.match(/<([^>]+)>/)?.[1]?.trim() ?? raw;
+  return `${SENDER_NAME} <${address}>`;
+}
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   let log;
@@ -44,7 +54,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
 }
 
 async function deliverEmail(input: SendEmailInput, logId: string): Promise<SendEmailResult> {
-  const from = env.EMAIL_FROM || DEFAULT_FROM;
+  const from = senderFrom(env.EMAIL_FROM);
 
   if (env.RESEND_API_KEY) {
     if (
