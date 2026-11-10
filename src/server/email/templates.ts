@@ -1,6 +1,14 @@
 export const FACEBOOK_URL = "https://www.facebook.com/horasard";
 type Block = string | { label: string; url: string };
 
+/**
+ * The logo at the top of every email (A, 10 Nov 2026). Served from the live
+ * site so it shows in every mail client; the alt text stands in where images
+ * are blocked.
+ */
+const EMAIL_ASSET_ORIGIN = "https://horasard.com";
+const EMAIL_HEADER = `<div style="text-align:center;padding:8px 0 20px;border-bottom:1px solid #eee;margin-bottom:20px"><a href="${EMAIL_ASSET_ORIGIN}" style="text-decoration:none"><img src="${EMAIL_ASSET_ORIGIN}/logo.png" width="56" height="56" alt="HORASARD" style="display:inline-block;vertical-align:middle;border:0"><img src="${EMAIL_ASSET_ORIGIN}/wordmark.png" width="160" height="26" alt="" style="display:inline-block;vertical-align:middle;margin-left:10px;border:0"></a></div>`;
+
 export function escapeEmailHtml(value: string): string {
   return value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
@@ -8,7 +16,7 @@ export function escapeEmailHtml(value: string): string {
 /** Plain-text and HTML always contain the same information and fallback URLs. */
 export function renderEmail(subject: string, blocks: Block[]) {
   const text = blocks.map(b => typeof b === "string" ? b : `${b.label}: ${b.url}`).join("\n\n");
-  const html = `<div lang="th" style="font-family:Arial,sans-serif;line-height:1.8;color:#222;max-width:640px;margin:auto;padding:24px">${blocks.map(b => typeof b === "string"
+  const html = `<div lang="th" style="font-family:Arial,sans-serif;line-height:1.8;color:#222;max-width:640px;margin:auto;padding:24px">${EMAIL_HEADER}${blocks.map(b => typeof b === "string"
     ? `<p style="white-space:pre-line">${escapeEmailHtml(b).replaceAll(FACEBOOK_URL, `<a href="${FACEBOOK_URL}">${FACEBOOK_URL}</a>`)}</p>`
     : `<p><a style="display:inline-block;background:#b89428;color:#111;padding:12px 20px;border-radius:8px;text-decoration:none" href="${escapeEmailHtml(b.url)}">${escapeEmailHtml(b.label)}</a></p><p style="font-size:12px;overflow-wrap:anywhere">หากคลิกปุ่มไม่ได้ ใช้ลิงก์นี้แทน: <a href="${escapeEmailHtml(b.url)}">${escapeEmailHtml(b.url)}</a></p>`).join("")}</div>`;
   return { subject, text, html };

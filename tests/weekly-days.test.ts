@@ -78,7 +78,8 @@ describe("weekly good-days email", () => {
     const message=mocks.sendEmail.mock.calls[0][0];
     expect(message.text).toContain(overview);
     expect(message.text).not.toContain("สรุปจากผลคำนวณทั้ง 7 วัน");
-    expect(message.html).not.toContain("<img");
+    // Only our own logo images; a name carrying <img> stays escaped text.
+    expect([...message.html.matchAll(/<img src="([^"]+)"/g)].map((m) => m[1])).toEqual(["https://horasard.com/logo.png", "https://horasard.com/wordmark.png"]);
     expect(mocks.update).not.toHaveBeenCalled();
   });
 

@@ -25,7 +25,8 @@ describe("owner email templates", () => {
     const mail=paymentReviewedEmail({paymentId:"pay-123",userName:"<script>x</script>",packageName:"40 คำถาม",amount:50,approved:false,paidAt:new Date(),note:'ยอดไม่ตรง <img src=x onerror="x">',accountUrl:"https://horasard.com/account"});
     expect(mail.subject).toContain("การชำระเงินไม่สำเร็จ");
     expect(mail.text).toContain("ยอดไม่ตรง");expect(mail.text).toContain("ไม่ต้องโอนซ้ำ");
-    expect(mail.html).not.toContain("<script>");expect(mail.html).not.toContain("<img");
+    expect(mail.html).not.toContain("<script>");// Only our own logo images; a name carrying <img> stays escaped text.
+    expect([...mail.html.matchAll(/<img src="([^"]+)"/g)].map((m) => m[1])).toEqual(["https://horasard.com/logo.png", "https://horasard.com/wordmark.png"]);
     expect(mail.html).toContain("&lt;script&gt;");
   });
 });
