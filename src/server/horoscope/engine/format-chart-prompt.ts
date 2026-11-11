@@ -53,6 +53,42 @@ export function houseFromLagna(lagna: string, planetSign: string): number | null
 
 
 
+/**
+ * ตรียางค์/นวางค์ for an engine planet, derived from its degree the same way
+ * the chart table on screen does (chart-evidence-table → fillSamrapRows).
+ * Without these the formula-path prompt carried sign and house only, and the
+ * reading told the user "ไม่มีข้อมูลนวางค์" under a table that showed it.
+ */
+function engineDivisional(
+  p: ChartJson["planets"][number],
+  lagna: string | null,
+): { triyang: string; nawamang: string; vargottama: boolean } | null {
+  const deg = p.degreeInSign;
+  if (deg == null || !Number.isFinite(deg)) return null;
+  const zodiac = normalizeSignName(p.siderealSign);
+  const row = fillSamrapRows(
+    [
+      {
+        planet: p.planet,
+        zodiac,
+        degree: String(Math.floor(deg)),
+        minute: String(Math.floor((deg % 1) * 60)),
+      } as MyhoraNatalPlanet,
+    ],
+    lagna,
+  )[0];
+  return {
+    triyang: formatDivisionalPosition(row.triyang) || "—",
+    nawamang: formatDivisionalPosition(row.nawamang) || "—",
+    vargottama: isVargottama(zodiac, row.nawamang),
+  };
+}
+
+function divisionalText(d: ReturnType<typeof engineDivisional>): string | null {
+  if (!d) return null;
+  return `ตรียางค์ ${d.triyang} | นวางค์ ${d.nawamang}${d.vargottama ? " (วรโคตมนวางค์)" : ""}`;
+}
+
 function pad(s: string, n: number): string {
   const t = s.slice(0, n);
   return t + " ".repeat(Math.max(0, n - [...t].length));
@@ -154,7 +190,7 @@ export function formatChartForPrompt(
     lines.push(
       "",
       "ตารางตำแหน่งดาว:",
-      `${pad("ดาว", 10)} | ${pad("ราศี", 8)} | ${pad("องศา", 10)} | ${pad("เรือน", 5)} | มาตรฐาน`,
+      `${pad("ดาว", 10)} | ${pad("ราศี", 8)} | ${pad("องศา", 10)} | ${pad("เรือน", 5)} | มาตรฐาน | ตรียางค์ | นวางค์`,
       `${"-".repeat(10)}-+-${"-".repeat(8)}-+-${"-".repeat(10)}-+-${"-".repeat(5)}-+-${"-".repeat(8)}`,
     );
 
@@ -166,6 +202,7 @@ export function formatChartForPrompt(
         deg: p.degreeText ?? (p.degreeInSign != null ? `${p.degreeInSign.toFixed(1)}°` : "—"),
         house,
         dignity: dignityLabel(p.planet, p.siderealSign),
+        divisional: divisionalText(engineDivisional(p, lagna === "—" ? null : lagna)),
       };
     });
 
@@ -174,7 +211,7 @@ export function formatChartForPrompt(
         `${pad(r.planet, 10)} | ${pad(r.sign, 8)} | ${pad(r.deg, 10)} | ${pad(
           r.house != null ? String(r.house) : "—",
           5,
-        )} | ${r.dignity}`,
+        )} | ${r.dignity}${r.divisional ? ` | ${r.divisional}` : ""}`,
       );
     }
 
@@ -318,8 +355,9 @@ export function formatChartCompactForPrompt(
     for (const p of chart.planets) {
       const house = houseFromLagna(lagna, p.siderealSign);
       const dignity = dignityLabel(p.planet, p.siderealSign);
+      const divisional = divisionalText(engineDivisional(p, lagna === "—" ? null : lagna));
       lines.push(
-        `${p.planet}: ${p.siderealSign} เรือน${house ?? "—"} (${dignity})`,
+        `${p.planet}: ${p.siderealSign} เรือน${house ?? "—"} (${dignity})${divisional ? ` | ${divisional}` : ""}`,
       );
     }
   }
