@@ -57,6 +57,19 @@ function normalizeMyhoraSign(raw: string): string {
   return SIGN_ABBR[abbreviation] ?? abbreviation;
 }
 
+/**
+ * วรโคตมนวางค์: the planet (or lagna) sits in the same sign in the rasi chart
+ * and in its navamsa — MyHora marks it "โคตม" beside the navamsa column
+ * (A, 11 Nov 2026). `nawamang` reads like "1:2:กฎ"; its last part is the sign.
+ */
+export function isVargottama(zodiac: string | null | undefined, nawamang: string | null | undefined): boolean {
+  if (!zodiac?.trim() || !nawamang?.trim()) return false;
+  const rasi = normalizeMyhoraSign(zodiac);
+  // The sign is the last part: "1:2:กฎ" read whole is sign index 1 (พฤษภ).
+  const navamsa = normalizeMyhoraSign(nawamang.split(":").at(-1)?.trim() ?? "");
+  return (SIGNS as readonly string[]).includes(rasi) && rasi === navamsa;
+}
+
 function normalizePlanet(raw: string): string {
   const direct = PLANET_ORDER.find((planet) => raw.includes(planet));
   return direct ?? raw.replace(/^[๐-๙0-9.\s]+/, "").trim();

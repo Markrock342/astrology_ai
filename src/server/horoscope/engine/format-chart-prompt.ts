@@ -1,6 +1,7 @@
 import { formatDivisionalPosition, normalizeSignName } from "@/lib/chart-theme";
 import "@/server/horoscope/engine/taksa-boundaries";
 import { fillSamrapRows } from "@/lib/samrap-derive";
+import { isVargottama } from "@/lib/chart-derivations";
 import { dignityLabel } from "@/lib/thai-dignity";
 import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet, MyhoraTriwaiCell } from "@/types/myhora";
@@ -66,7 +67,7 @@ function formatSamrapTable(rows: MyhoraNatalPlanet[]): string[] {
         : "—";
     lines.push([
       `- ${r.planet}: ราศี ${r.zodiac}, ${deg}, เรือน ${r.house || "—"}`,
-      `ตรียางค์ ${formatDivisionalPosition(r.triyang) || "—"}, พิษ ${r.poison || "—"}, นวางค์ ${formatDivisionalPosition(r.nawamang) || "—"}`,
+      `ตรียางค์ ${formatDivisionalPosition(r.triyang) || "—"}, พิษ ${r.poison || "—"}, นวางค์ ${formatDivisionalPosition(r.nawamang) || "—"}${isVargottama(r.zodiac, r.nawamang) ? " (วรโคตมนวางค์)" : ""}`,
       `ฤกษ์:นาที ${r.rerk || "—"}, นักษัตร ${r.rerkName || "—"}, บาท ${r.baht || "—"}`,
       `ฤกษ์ ${r.rerk2 || "—"}, ฤกษ์ใหญ่ ${r.rerkBig || "—"}, เจ้าเรือน ${r.rerkOwner || "—"}`,
       `มาตรฐาน/เกณฑ์ ${r.rerkStandard || "—"}`,
@@ -306,6 +307,7 @@ export function formatChartCompactForPrompt(
           `${r.planet}: ${r.zodiac} เรือน${r.house ?? "—"}`,
           `ตรียางค์ ${formatDivisionalPosition(r.triyang) || "—"}`,
           `นวางค์ ${formatDivisionalPosition(r.nawamang) || "—"}`,
+          isVargottama(r.zodiac, r.nawamang) ? "วรโคตมนวางค์" : null,
           r.rerkStandard ? `มาตรฐาน ${r.rerkStandard}` : null,
         ]
           .filter(Boolean)
