@@ -89,6 +89,10 @@ function divisionalText(d: ReturnType<typeof engineDivisional>): string | null {
   return `ตรียางค์ ${d.triyang} | นวางค์ ${d.nawamang}${d.vargottama ? " (วรโคตมนวางค์)" : ""}`;
 }
 
+/** The model read "8 : 1 : สิงห์" as "นวางค์ที่ 1" — the middle number is the sign lord. */
+const DIVISIONAL_LEGEND =
+  "รูปแบบช่องตรียางค์/นวางค์ = ส่วนที่ : เลขดาวเจ้าราศี : ราศี (เช่น 8 : 1 : สิงห์ = ส่วนที่ 8 อยู่ราศีสิงห์ เจ้าราศีคือดาว 1)";
+
 function pad(s: string, n: number): string {
   const t = s.slice(0, n);
   return t + " ".repeat(Math.max(0, n - [...t].length));
@@ -171,6 +175,8 @@ export function formatChartForPrompt(
   const lines: string[] = [
     title,
     options.preferTransitSamrap ? `ลัคนาเดิมของผู้ถาม (ใช้นับเรือนของดาวจร): ${lagna}` : `ลัคนา: ${lagna}`,
+
+    DIVISIONAL_LEGEND,
   ];
 
   if (chart.meta.birthDisplay) lines.push(`วันเวลา: ${chart.meta.birthDisplay}`);
@@ -330,6 +336,8 @@ export function formatChartCompactForPrompt(
   const lines: string[] = [
     title,
     options.preferTransitSamrap ? `ลัคนาเดิมของผู้ถาม (ใช้นับเรือนของดาวจร): ${lagna}` : `ลัคนา: ${lagna}`,
+
+    DIVISIONAL_LEGEND,
   ];
 
   const samrap = options.preferTransitSamrap
