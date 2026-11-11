@@ -4,7 +4,7 @@ import { memo, useEffect, useId, useMemo, useState } from "react";
 import type { ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet } from "@/types/myhora";
 import { formatDivisionalPosition, houseFromLagna, normalizeSignName, SIGNS } from "@/lib/chart-theme";
-import { formatMyhoraDegreeText, resolveLagnaDegreeInSign } from "@/lib/chart-derivations";
+import { formatMyhoraDegreeText, isVargottama, resolveLagnaDegreeInSign } from "@/lib/chart-derivations";
 import {
   collectAstrologyStandards,
   DEFAULT_STANDARD_GLOSSARY,
@@ -218,6 +218,7 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
                       {degreeText(r)}
                       {r.resolvedHouse ? ` · เรือน${r.resolvedHouse}` : ""}
                       {r.nawamang ? ` · นวางค์ ${formatDivisionalPosition(r.nawamang)}` : ""}
+                      {isVargottama(r.zodiac, r.nawamang) ? " · วรโคตม" : ""}
                       {r.rerkName || r.rerk
                         ? ` · ฤกษ์ ${r.rerkName || "—"}${r.rerk ? ` (${r.rerk})` : ""}`
                         : ""}
@@ -235,7 +236,7 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
             </ul>
             {/* Desktop table */}
             <div className={stack ? "hidden" : "hidden overflow-x-auto md:block"}>
-              <table className="w-full min-w-[1420px] border-collapse text-left text-[12px]">
+              <table className="w-full min-w-[1480px] border-collapse text-left text-[12px]">
                 <thead>
                   <tr className="border-b border-[var(--border)] text-[var(--primary)]/80">
                     <th className="px-3 py-2 font-medium">ดาว</th>
@@ -245,6 +246,7 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
                     <th className="px-3 py-2 font-medium">ตรียางค์</th>
                     <th className="px-3 py-2 font-medium">พิษ</th>
                     <th className="px-3 py-2 font-medium">นวางค์</th>
+                    <th className="px-3 py-2 font-medium" title="วรโคตมนวางค์ — ราศีเดียวกันทั้งราศีจักรและนวางค์">โคตม</th>
                     <th className="px-3 py-2 font-medium">ฤกษ์:นาที</th>
                     <th className="px-3 py-2 font-medium">นักษัตรฤกษ์</th>
                     <th className="px-3 py-2 font-medium">บาท</th>
@@ -279,6 +281,7 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
                       <td className="px-3 py-2">{formatDivisionalPosition(r.triyang) || "—"}</td>
                       <td className="px-3 py-2">{r.poison || "—"}</td>
                       <td className="px-3 py-2">{formatDivisionalPosition(r.nawamang) || "—"}</td>
+                      <td className="px-3 py-2 font-medium text-[var(--primary)]">{isVargottama(r.zodiac, r.nawamang) ? "โคตม" : ""}</td>
                       <td className="px-3 py-2">{r.rerk || "—"}</td>
                       <td className="px-3 py-2">{r.rerkName || "—"}</td>
                       <td className="px-3 py-2">{r.baht || "—"}</td>
