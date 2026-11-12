@@ -1,16 +1,25 @@
-# HoraSard Thailand reverse geocoder — deploy as a Coolify "Docker Compose"
-# resource on HoraSard's own server. Internal only: no published ports and no
-# public domain; the HoraSard app reaches it over the Coolify network.
+# HoraSard Thailand reverse geocoder — runs on HoraSard's own server only.
+# Internal only: no published ports and no public domain. It joins the
+# existing `coolify` network so the app reaches it as
+# http://horasard-nominatim:8080.
+#
+# Sized for the current server (2 vCPU / 8 GB RAM, no swap) which also runs
+# the app, its PostgreSQL (2 GB cap) and Coolify: one core and 3 GB at most.
+# The import's osm2pgsql node cache defaults to min(0.75 * free RAM,
+# 2 * extract size), i.e. well under 1 GB for Thailand.
 services:
   nominatim:
     image: mediagis/nominatim:5.3@sha256:7923a8e67197fc6d4f4ecb7c0e8bbedffeddcfdf4519596fe946e46a28f5a9f8
+    container_name: horasard-nominatim
     restart: unless-stopped
-    shm_size: 1gb
-    # Admin-only, reverse-only Thailand import is small. These caps leave the
-    # app and its PostgreSQL headroom on a shared server; raise them only after
-    # checking `free -g` / `nproc` on the host.
-    cpus: 2
-    mem_limit: 6g
+    shm_size: 512mb
+    cpus: 1
+    mem_limit: 3g
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     environment:
       PBF_URL: https://download.geofabrik.de/asia/thailand-latest.osm.pbf
       REPLICATION_URL: https://download.geofabrik.de/asia/thailand-updates/
@@ -20,19 +29,26 @@ services:
       IMPORT_STYLE: admin
       REVERSE_ONLY: "true"
       IMPORT_WIKIPEDIA: "false"
-      THREADS: "2"
-      GUNICORN_WORKERS: "2"
+      THREADS: "1"
+      GUNICORN_WORKERS: "1"
       WARMUP_ON_STARTUP: "true"
-      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:?set NOMINATIM_PASSWORD in Coolify environment variables}
-      POSTGRES_SHARED_BUFFERS: 1GB
-      POSTGRES_MAINTENANCE_WORK_MEM: 1GB
-      POSTGRES_AUTOVACUUM_WORK_MEM: 512MB
-      POSTGRES_WORK_MEM: 32MB
-      POSTGRES_EFFECTIVE_CACHE_SIZE: 4GB
-      POSTGRES_MAX_WAL_SIZE: 2GB
+      NOMINATIM_PASSWORD: ${NOMINATIM_PASSWORD:?set NOMINATIM_PASSWORD in .env next to this file}
+      POSTGRES_SHARED_BUFFERS: 512MB
+      POSTGRES_MAINTENANCE_WORK_MEM: 512MB
+      POSTGRES_AUTOVACUUM_WORK_MEM: 128MB
+      POSTGRES_WORK_MEM: 16MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+      POSTGRES_MAX_WAL_SIZE: 1GB
       POSTGRES_CHECKPOINT_TIMEOUT: 30min
     volumes:
       - nominatim-data:/var/lib/postgresql/16/main
+    networks:
+      - coolify
 
 volumes:
   nominatim-data:
+    name: horasard-nominatim-data
+
+networks:
+  coolify:
+    external: true
