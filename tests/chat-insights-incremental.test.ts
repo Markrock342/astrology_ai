@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 // cutoff go to the AI, and the run records what it cost.
 
 type Msg = { id: string; role: "USER" | "ASSISTANT"; content: string; createdAt: Date; userId: string };
-const db = vi.hoisted(() => ({ settings: new Map<string, { valueJson: unknown; updatedAt: Date }>(), messages: [] as Msg[], prompts: [] as string[] }));
+const db = vi.hoisted(() => ({ settings: new Map<string, { valueJson: unknown; updatedAt: Date }>(), messages: [] as Msg[], prompts: [] as string[], failAfter: Infinity, garble: false }));
 
 vi.mock("@/server/db", () => {
   const appSetting = {
@@ -16,7 +16,10 @@ vi.mock("@/server/db", () => {
     upsert: async ({ where, create, update }: { where: { key: string }; create: { valueJson: unknown }; update: { valueJson: unknown } }) => {
       db.settings.set(where.key, { valueJson: structuredClone(db.settings.has(where.key) ? update.valueJson : create.valueJson), updatedAt: new Date() });
     },
-    deleteMany: async ({ where }: { where: { key: string } }) => { db.settings.delete(where.key); return { count: 1 }; },
+    deleteMany: async ({ where }: { where: { key: string | { in: string[] } } }) => {
+      for (const key of typeof where.key === "string" ? [where.key] : where.key.in) db.settings.delete(key);
+      return { count: 1 };
+    },
     updateMany: async ({ where, data }: { where: { key: string; valueJson: { equals: string } }; data: { valueJson: unknown } }) => {
       const row = db.settings.get(where.key);
       if (!row || (row.valueJson as { runId?: string }).runId !== where.valueJson.equals) return { count: 0 };
@@ -43,11 +46,13 @@ vi.mock("@/server/db", () => {
 });
 vi.mock("@/server/audit/audit-service", () => ({ writeAudit: async () => {} }));
 vi.mock("@/server/ai/usage-logger", () => ({ logUsage: async () => {} }));
+vi.mock("@/server/horoscope/follow-up-suggestions", () => ({ resolveAuxConfig: async () => ({ id: "cfg" }) }));
 vi.mock("@/server/ai/router", () => ({
-  resolveConfig: async () => ({ id: "cfg" }),
   // A stand-in model: groups each item by a keyword in its text.
   generateOnce: async (_id: string, input: { userPrompt: string }) => {
+    if (db.prompts.length >= db.failAfter) return { ok: false, provider: "GEMINI", modelId: "gemini-3.5-flash-lite", latencyMs: 1, errorCode: "HTTP_500" };
     db.prompts.push(input.userPrompt);
+    if (db.garble) return { ok: true, provider: "GEMINI", modelId: "gemini-3.5-flash-lite", rawText: "not json", usage: { inputTokens: 10, outputTokens: 1 }, latencyMs: 1 };
     const { role, items } = JSON.parse(input.userPrompt) as { role: string; items: Array<{ id: number; text: string }> };
     const label = (t: string) => role === "USER"
       ? (t.includes("งาน") ? "จะได้งานใหม่เมื่อไหร่?" : "ความรักจะเป็นอย่างไร?")
@@ -116,5 +121,40 @@ describe("chat insights only send new chats to the AI", () => {
     const full = await press(true);
     expect(full.summary).toMatchObject({ mode: "full", newQuestions: 8, questionsAnalyzed: 8 });
     expect(db.prompts.join("\n")).toContain(" a[ตัวเลข]");
+  });
+});
+
+describe("a press that dies halfway is not paid for twice", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    db.settings.clear(); db.messages.length = 0; db.failAfter = Infinity; db.garble = false;
+  });
+
+  it("resumes from the last finished batch", async () => {
+    // 200 questions = 3 batches of 80, plus 200 answers.
+    for (let i = 0; i < 200; i++) chat(`m${String(i).padStart(3, "0")}`, `u${i % 5}`, i % 2 ? "งาน" : "รัก", clock - 10_000);
+
+    db.failAfter = 2; // the provider breaks on the third batch
+    const broken = await press();
+    expect(broken.status).toBe("error");
+    expect(db.prompts).toHaveLength(2);
+
+    db.failAfter = Infinity;
+    const resumed = await press();
+    expect(resumed.status).toBe("ready");
+    // The two question batches already paid for are not sent again.
+    const questionBatches = db.prompts.filter(p => p.includes('"role":"USER"') && p.includes("คําถามเรื่อง"));
+    expect(questionBatches).toHaveLength(1);
+    expect(resumed.summary).toMatchObject({ mode: "full", questionsAnalyzed: 200, answersAnalyzed: 200 });
+    expect(resumed.summary!.questions.reduce((n, q) => n + q.count, 0)).toBe(200);
+    expect(db.settings.has("admin.chatInsights.progress.v1")).toBe(false);
+  });
+
+  it("files what the model cannot group under «other» instead of failing the run", async () => {
+    for (const [i, u] of ["u1", "u2", "u3"].entries()) chat(`g${i}`, u, "งาน", clock - 10_000);
+    db.garble = true;
+    const result = await press();
+    expect(result.status).toBe("ready");
+    expect(result.summary).toMatchObject({ questionsAnalyzed: 3, questions: [], answers: [] });
   });
 });
