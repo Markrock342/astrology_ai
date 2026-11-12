@@ -14,7 +14,8 @@ export async function POST(req: Request) {
   return handle(async () => {
     const actor = await requireAdmin();
     await rateLimit(`chat-insights:${actor.id}`, 1, 300000);
-    const job = await startChatInsights({ id: actor.id, ip: clientIp(req) });
+    const full = new URL(req.url).searchParams.get("full") === "1";
+    const job = await startChatInsights({ id: actor.id, ip: clientIp(req) }, { full });
     after(() => runChatInsights(job, actor.id));
     return ok(job, { status: 202 });
   });

@@ -3,6 +3,13 @@ export const insightSummarySchema = z.object({
   generatedAt: z.string(), cutoff: z.string(), questionsAnalyzed: z.number().int().nonnegative(), answersAnalyzed: z.number().int().nonnegative(),
   questions: z.array(z.object({ label: z.string().max(200), count: z.number().int().positive() })).max(50),
   answers: z.array(z.object({ label: z.string().max(200), count: z.number().int().positive() })).max(50),
+  // What the last press cost (12 Nov 2026): A asked whether it burns credit.
+  mode: z.enum(["full", "incremental"]).optional(),
+  newQuestions: z.number().int().nonnegative().optional(),
+  newAnswers: z.number().int().nonnegative().optional(),
+  aiCalls: z.number().int().nonnegative().optional(),
+  costUsd: z.number().nonnegative().optional(),
+  costThb: z.number().nonnegative().optional(),
 });
 export type InsightSummary = z.infer<typeof insightSummarySchema>;
 export type InsightState = { status: "idle" | "running" | "ready" | "error"; runId?: string; startedAt?: string; processed?: number; error?: string; summary?: InsightSummary };
@@ -73,3 +80,19 @@ export function combineInsightGroups(raw: string, source: InsightGroup[], identi
 export function topInsights(groups: InsightGroup[]) {
   return groups.filter(g => g.members.size >= 3 && g.label !== INSIGHT_OTHER).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 50).map(({ label, count }) => ({ label, count }));
 }
+
+/**
+ * Every group found so far, kept between presses so the next one only sends
+ * the chats since `cutoff` to the AI. Re-reading every chat on each press cost
+ * more as the site grew (~6,000 messages by Nov 2026).
+ */
+const storedGroupSchema = z.object({ label: z.string().max(200), count: z.number().int().positive(), members: z.array(z.string()) });
+export const insightBaseSchema = z.object({
+  cutoff: z.string(),
+  totals: z.object({ USER: z.number().int().nonnegative(), ASSISTANT: z.number().int().nonnegative() }),
+  USER: z.array(storedGroupSchema),
+  ASSISTANT: z.array(storedGroupSchema),
+});
+export type InsightBase = z.infer<typeof insightBaseSchema>;
+export const toStoredGroups = (groups: InsightGroup[]) => groups.map(g => ({ label: g.label, count: g.count, members: [...g.members] }));
+export const fromStoredGroups = (groups: InsightBase["USER"]): InsightGroup[] => groups.map(g => ({ label: g.label, count: g.count, members: new Set(g.members) }));

@@ -2,12 +2,13 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { AppError } from "@/lib/errors";
-import { combineInsightGroups, insightSummarySchema, insightSystemPrompt, mergeInsightLabels, redactInsightText, topInsights, type InsightGroup, type InsightState } from "@/lib/chat-insights";
+import { combineInsightGroups, fromStoredGroups, insightBaseSchema, insightSummarySchema, toStoredGroups, type InsightBase, insightSystemPrompt, mergeInsightLabels, redactInsightText, topInsights, type InsightGroup, type InsightState } from "@/lib/chat-insights";
 import { generateOnce, resolveConfig } from "@/server/ai/router";
 import { logUsage } from "@/server/ai/usage-logger";
+import { estimateCostUsd, usdToThb } from "@/config/ai-pricing";
 import { writeAudit } from "@/server/audit/audit-service";
 
-const KEY = "admin.chatInsights.v1", LEASE_MS = 30 * 60000;
+const KEY = "admin.chatInsights.v1", BASE_KEY = "admin.chatInsights.groups.v1", LEASE_MS = 30 * 60000;
 function safeState(value: Prisma.JsonValue | undefined, updatedAt?: Date): InsightState {
   if (!value || typeof value !== "object" || Array.isArray(value)) return { status: "idle" };
   const state = value as unknown as InsightState;
@@ -22,15 +23,17 @@ export async function getChatInsights() {
   const [up, down] = await Promise.all(["UP", "DOWN"].map(value => prisma.messageFeedback.count({ where: { value: value as "UP" | "DOWN", message: { deletedAt: null } } })));
   return { ...safeState(row?.valueJson, row?.updatedAt), stats: { up, down, satisfactionPct: up + down ? up / (up + down) * 100 : null } };
 }
-export async function startChatInsights(actor: { id: string; ip?: string }) {
+export async function startChatInsights(actor: { id: string; ip?: string }, opts: { full?: boolean } = {}) {
   return prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(902641107)`;
     const row = await tx.appSetting.findUnique({ where: { key: KEY } });
     const previous = safeState(row?.valueJson, row?.updatedAt);
     if (previous.status === "running") throw new AppError("VALIDATION", "กำลังประมวลผลอยู่ กรุณารอให้งานเดิมเสร็จ");
+    // «ประมวลผลใหม่ทั้งหมด» drops the kept groups, so the run reads every chat again.
+    if (opts.full) await tx.appSetting.deleteMany({ where: { key: BASE_KEY } });
     const state: InsightState = { status: "running", runId: randomUUID(), startedAt: new Date().toISOString(), processed: 0, ...(previous.summary ? { summary: previous.summary } : {}) };
     await tx.appSetting.upsert({ where: { key: KEY }, create: { key: KEY, valueJson: state as object }, update: { valueJson: state as object } });
-    await writeAudit({ adminUserId: actor.id, action: "chat.insights.start", entityType: "chat_insights", entityId: state.runId, after: { cutoff: state.startedAt }, ipAddress: actor.ip }, tx);
+    await writeAudit({ adminUserId: actor.id, action: "chat.insights.start", entityType: "chat_insights", entityId: state.runId, after: { cutoff: state.startedAt, full: Boolean(opts.full) }, ipAddress: actor.ip }, tx);
     return state;
   });
 }
@@ -42,6 +45,11 @@ async function store(state: InsightState) {
 export async function runChatInsights(job: InsightState, actorId: string) {
   let phase = "load";
   try {
+    const baseRow = await prisma.appSetting.findUnique({ where: { key: BASE_KEY } });
+    const parsedBase = insightBaseSchema.safeParse(baseRow?.valueJson);
+    const base: InsightBase | null = parsedBase.success ? parsedBase.data : null;
+    const since = base ? new Date(base.cutoff) : null;
+    const spend = { calls: 0, usd: 0 };
     const identities = await prisma.user.findMany({ select: { name: true, email: true, birthProfile: { select: { nickname: true, birthLocation: true, birthDistrict: true } } } });
     const names = [...new Set(identities.flatMap(u => [u.email, u.name, ...(u.name?.split(/\s+/u) ?? []), u.birthProfile?.nickname, u.birthProfile?.birthLocation, u.birthProfile?.birthDistrict]).filter((n): n is string => Boolean(n && n.length >= 3)))].sort((a, b) => b.length - a.length);
     let configId: string | undefined;
@@ -57,6 +65,8 @@ export async function runChatInsights(job: InsightState, actorId: string) {
         userPrompt: JSON.stringify({ role, knownSpecificLabels: [...vocabulary[role]].sort((a, b) => b[1] - a[1]).slice(0, 120).map(([label]) => label), items: items.map((g, id) => ({ id, text: g.label, occurrences: g.count })) }),
         maxOutputTokens: 12000, timeoutMs: 90000,
       });
+      spend.calls += 1;
+      spend.usd += estimateCostUsd(result.modelId, result.usage?.inputTokens, result.usage?.outputTokens, result.usage?.cachedTokens);
       await logUsage({ userId: actorId, provider: result.provider, modelId: result.modelId, status: result.ok ? "SUCCESS" : "FAILED", inputUsage: result.usage?.inputTokens, outputUsage: result.usage?.outputTokens, cachedUsage: result.usage?.cachedTokens, latencyMs: result.latencyMs, errorCode: result.ok ? undefined : "ADMIN_INSIGHTS_FAILED" });
       if (!result.ok || !result.rawText) throw new Error("AI insight generation failed");
       phase = "validate-groups";
@@ -91,16 +101,19 @@ export async function runChatInsights(job: InsightState, actorId: string) {
     }
     const cutoff = new Date(job.startedAt!);
     const totals = { USER: 0, ASSISTANT: 0 };
+    const kept: InsightBase = { cutoff: cutoff.toISOString(), totals: { USER: 0, ASSISTANT: 0 }, USER: [], ASSISTANT: [] };
     const lists: Record<"USER" | "ASSISTANT", ReturnType<typeof topInsights>> = { USER: [], ASSISTANT: [] };
     for (const role of ["USER", "ASSISTANT"] as const) {
       const groups: InsightGroup[] = []; let cursor: string | undefined;
+      // New labels lean on the kept ones, so the same topic keeps one name.
+      for (const g of base?.[role] ?? []) vocabulary[role].set(g.label, (vocabulary[role].get(g.label) ?? 0) + g.count);
       async function consume(entries: InsightGroup[]) {
         totals[role] += entries.length;
         if (entries.length) groups.push(...await cluster(entries, role));
         job = { ...job, processed: totals.USER + totals.ASSISTANT }; await store(job);
       }
       for (;;) {
-        const rows = await prisma.message.findMany({ where: { role, deletedAt: null, status: "SUCCESS", content: { not: "" }, createdAt: { lte: cutoff }, ...(cursor ? { id: { gt: cursor } } : {}) }, orderBy: { id: "asc" }, take: 80, select: { id: true, content: true, conversation: { select: { userId: true } } } });
+        const rows = await prisma.message.findMany({ where: { role, deletedAt: null, status: "SUCCESS", content: { not: "" }, createdAt: { lte: cutoff, ...(since ? { gt: since } : {}) }, ...(cursor ? { id: { gt: cursor } } : {}) }, orderBy: { id: "asc" }, take: 80, select: { id: true, content: true, conversation: { select: { userId: true } } } });
         if (!rows.length) break;
         cursor = rows.at(-1)!.id;
         const entries = rows.filter(r => r.content.trim()).map(r => ({ label: redactInsightText(r.content, names).slice(0, role === "USER" ? 800 : 2000), count: 1, members: new Set([r.conversation.userId]) }));
@@ -114,6 +127,7 @@ export async function runChatInsights(job: InsightState, actorId: string) {
           SELECT r.id, r."userId", r.question, r."responseText", r."responseJson"
           FROM horoscope_readings r
           WHERE r.status = 'SUCCESS' AND r."createdAt" <= ${cutoff}
+            ${since ? Prisma.sql`AND r."createdAt" > ${since}` : Prisma.empty}
             AND r."idempotencyKey" IS NULL
             ${cursor ? Prisma.sql`AND r.id > ${cursor}` : Prisma.empty}
             AND NOT EXISTS (
@@ -127,11 +141,24 @@ export async function runChatInsights(job: InsightState, actorId: string) {
           .filter(({ text }) => text.trim()).map(({ row, text }) => ({ label: redactInsightText(text, names).slice(0, role === "USER" ? 800 : 2000), count: 1, members: new Set([row.userId]) }));
         await consume(entries);
       }
-      lists[role] = topInsights(await merge(groups, role));
+      const previous = fromStoredGroups(base?.[role] ?? []);
+      // Nothing new on this side: the kept groups stand as they are, no AI call.
+      const all = groups.length ? await merge([...previous, ...groups], role) : previous;
+      kept[role] = toStoredGroups(all);
+      kept.totals[role] = (base?.totals[role] ?? 0) + totals[role];
+      lists[role] = topInsights(all);
     }
-    const summary = insightSummarySchema.parse({ generatedAt: new Date().toISOString(), cutoff: cutoff.toISOString(), questionsAnalyzed: totals.USER, answersAnalyzed: totals.ASSISTANT, questions: lists.USER, answers: lists.ASSISTANT });
+    const summary = insightSummarySchema.parse({
+      generatedAt: new Date().toISOString(), cutoff: cutoff.toISOString(),
+      questionsAnalyzed: kept.totals.USER, answersAnalyzed: kept.totals.ASSISTANT,
+      questions: lists.USER, answers: lists.ASSISTANT,
+      mode: base ? "incremental" : "full", newQuestions: totals.USER, newAnswers: totals.ASSISTANT,
+      aiCalls: spend.calls, costUsd: Math.round(spend.usd * 10000) / 10000, costThb: Math.round(usdToThb(spend.usd) * 100) / 100,
+    });
+    phase = "store";
+    await prisma.appSetting.upsert({ where: { key: BASE_KEY }, create: { key: BASE_KEY, valueJson: kept as object }, update: { valueJson: kept as object } });
     await store({ ...job, status: "ready", summary });
-    await writeAudit({ adminUserId: actorId, action: "chat.insights.complete", entityType: "chat_insights", entityId: job.runId, after: { questionsAnalyzed: totals.USER, answersAnalyzed: totals.ASSISTANT } });
+    await writeAudit({ adminUserId: actorId, action: "chat.insights.complete", entityType: "chat_insights", entityId: job.runId, after: { newQuestions: totals.USER, newAnswers: totals.ASSISTANT, aiCalls: spend.calls, costUsd: spend.usd } });
   } catch {
     await store({ ...job, status: "error" }).catch(() => {});
     console.error(`[chat-insights] summary failed at ${phase}; processed=${job.processed ?? 0}; no source content logged`);

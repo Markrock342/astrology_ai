@@ -35,6 +35,8 @@ type StatRow = {
   ai_cost_month: number | null;
   pending_payments: bigint | number;
   pending_payments_overdue: bigint | number;
+  weekly_email_users: bigint | number;
+  weekly_email_cost_month: number | null;
 };
 
 function n(v: bigint | number | null | undefined): number {
@@ -74,7 +76,11 @@ async function loadDashboardStats() {
       (SELECT COUNT(*)::int FROM payments
          WHERE status = 'PENDING'
            AND "createdAt" < ${new Date(now.getTime() - 48 * 60 * 60 * 1000)}
-      ) AS pending_payments_overdue
+      ) AS pending_payments_overdue,
+      -- A asked (12 Nov 2026) how many have the weekly email on, and what it costs.
+      (SELECT COUNT(*)::int FROM users WHERE "weeklyDaysEmail" = true AND status = 'ACTIVE') AS weekly_email_users,
+      (SELECT COALESCE(SUM("estimatedCost"), 0)::float FROM ai_usage_logs
+         WHERE "errorCode" = 'WEEKLY_EMAIL_SUMMARY' AND "createdAt" >= ${monthStart}) AS weekly_email_cost_month
   `;
 
   const recentAudit = await prisma.adminAuditLog.findMany({
@@ -96,6 +102,8 @@ async function loadDashboardStats() {
       active: n(stats?.active_users),
       pro: n(stats?.pro_subs),
       newThisWeek: n(stats?.new_users_week),
+      weeklyEmail: n(stats?.weekly_email_users),
+      weeklyEmailCostMonthThb: Math.round(Number(stats?.weekly_email_cost_month ?? 0) * USD_TO_THB * 100) / 100,
     },
     ai: {
       requestsToday: n(stats?.ai_today),

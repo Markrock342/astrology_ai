@@ -33,7 +33,7 @@ import { AdminPage, Card, CardTitle, IconTile, PageHeader, StatCard, adminFetch 
 import { AdminPushEnable } from "./admin-push-enable";
 
 type DashboardStats = {
-  users: { total: number; active: number; pro: number; newThisWeek: number };
+  users: { total: number; active: number; pro: number; newThisWeek: number; weeklyEmail?: number; weeklyEmailCostMonthThb?: number };
   ai: { requestsToday: number; errorsToday: number; requestsThisMonth: number };
   money: { revenueThisMonth: number; revenueToday: number; aiCostThisMonthThb: number; answersThisMonth: number };
   payments: { pending: number; pendingOverdue?: number };
@@ -262,7 +262,13 @@ export function DashboardOverview({ initialStats }: { initialStats?: DashboardSt
                   label="ถูกระงับ"
                   value={stats ? stats.users.total - stats.users.active : undefined}
                 />
+                <UserRow dot="bg-[var(--warning,#f59e0b)]" label="เปิดรับอีเมลรายสัปดาห์" value={stats?.users.weeklyEmail} />
               </ul>
+              {stats?.users.weeklyEmailCostMonthThb != null && (
+                <p className="mt-2 text-[11px] text-[var(--muted)]">
+                  ค่า AI ของอีเมลรายสัปดาห์เดือนนี้ ≈ ฿{stats.users.weeklyEmailCostMonthThb.toLocaleString("th-TH", { maximumFractionDigits: 2 })}
+                </p>
+              )}
             </Card>
           </div>
 

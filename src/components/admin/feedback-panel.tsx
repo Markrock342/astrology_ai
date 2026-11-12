@@ -21,9 +21,10 @@ export function FeedbackPanel() {
     if (data?.status !== "running") return;
     const timer = window.setInterval(() => void load(), 5000); return () => window.clearInterval(timer);
   }, [data?.status, load]);
-  async function generate() {
+  async function generate(full = false) {
+    if (full && !window.confirm("ประมวลผลใหม่ทั้งหมดจะส่งแชตทุกข้อความให้ AI อีกครั้ง ใช้ค่า AI มากกว่าปกติหลายเท่า ต้องการทำต่อไหม?")) return;
     ++sequence.current; setStarting(true); setError("");
-    try { const job = await adminFetch<InsightState>("/api/admin/feedback", { method: "POST" }); setData(old => ({ ...old, ...job })); }
+    try { const job = await adminFetch<InsightState>(`/api/admin/feedback${full ? "?full=1" : ""}`, { method: "POST" }); setData(old => ({ ...old, ...job })); }
     catch (e) { setError(e instanceof Error ? e.message : "เริ่มสรุปไม่สำเร็จ"); } finally { setStarting(false); }
   }
   const summary = data?.summary, stats = data?.stats;
@@ -32,9 +33,11 @@ export function FeedbackPanel() {
     {stats && <div className="grid gap-3 sm:grid-cols-3"><StatCard label="👍 ดี" value={stats.up} tone="green" /><StatCard label="👎 ไม่ดี" value={stats.down} /><StatCard label="ความพึงพอใจ" value={stats.satisfactionPct == null ? "—" : `${stats.satisfactionPct.toFixed(0)}%`} /></div>}
     <Card className="mt-4">
       <p className="text-sm">แสดงสูงสุดฝั่งละ 50 หัวข้อ · ตัดข้อมูลระบุตัวตนก่อนส่งสรุป · ซ่อนหัวข้อที่มาจากสมาชิกน้อยกว่า 3 คน</p>
-      <p className="mt-2 text-xs leading-5 text-[var(--muted)]">นับจากประวัติที่ยังอยู่และคำทำนายเก่าที่ระบุแหล่งได้ ณ เวลาเริ่มประมวลผล คำตอบนับเฉพาะที่สำเร็จ แสดงข้อความสรุปแทนบทสนทนารายคน หากข้อมูลไม่พอจะไม่สร้างหัวข้อเพิ่มให้ครบ 50</p>
+      <p className="mt-2 text-xs leading-5 text-[var(--muted)]">ทุกครั้งที่กดจะใช้ค่า AI · «ประมวลผลข้อมูลล่าสุด» ส่งเฉพาะแชตใหม่ตั้งแต่ครั้งก่อน แล้วรวมกับหัวข้อเดิม · «ประมวลผลใหม่ทั้งหมด» อ่านทุกแชตอีกครั้ง (แพงกว่ามาก ใช้เมื่อมีการลบแชตจำนวนมาก) · คำตอบนับเฉพาะที่สำเร็จ หากข้อมูลไม่พอจะไม่สร้างหัวข้อเพิ่มให้ครบ 50</p>
       <div className="mt-3 flex flex-wrap items-center gap-3"><Button disabled={starting || data?.status === "running"} onClick={() => void generate()}>{starting || data?.status === "running" ? "กำลังประมวลผล…" : "ประมวลผลข้อมูลล่าสุด"}</Button>
+      {summary && <Button variant="ghost" disabled={starting || data?.status === "running"} onClick={() => void generate(true)}>ประมวลผลใหม่ทั้งหมด</Button>}
       {summary && <span className="text-xs text-[var(--muted)]">อัปเดต {adminDay(summary.generatedAt)} · ข้อความผู้ใช้ {summary.questionsAnalyzed.toLocaleString()} · คำตอบ {summary.answersAnalyzed.toLocaleString()}</span>}</div>
+      {summary?.costUsd != null && <p className="mt-2 text-xs text-[var(--muted)]">รอบล่าสุด ({summary.mode === "incremental" ? "เฉพาะแชตใหม่" : "ทั้งหมด"}): คำถามใหม่ {(summary.newQuestions ?? 0).toLocaleString()} · คำตอบใหม่ {(summary.newAnswers ?? 0).toLocaleString()} · เรียก AI {(summary.aiCalls ?? 0).toLocaleString()} ครั้ง · ค่า AI ประมาณ ฿{(summary.costThb ?? 0).toLocaleString("th-TH", { maximumFractionDigits: 2 })} (${summary.costUsd.toFixed(3)})</p>}
       {data?.status === "running" && <p role="status" className="mt-3 text-xs">กำลังจัดกลุ่ม {data.processed?.toLocaleString() ?? 0} ข้อความ สามารถออกจากหน้านี้แล้วกลับมาดูผลได้</p>}
       {(error || data?.error) && <p role="alert" className="mt-3 text-sm text-[var(--danger)]">{error || data?.error}</p>}
     </Card>
