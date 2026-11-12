@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { env } from "@/config/env";
 import { AppError } from "@/lib/errors";
+import { PUBLIC_NOMINATIM_URL, resolveGeocoderUrls } from "@/lib/geocoder-config";
 import { handle, ok } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { matchThaiReverseAddress } from "@/lib/thai-address";
@@ -19,13 +20,8 @@ type NominatimResult = {
 };
 
 const CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
-const PUBLIC_NOMINATIM_URL = "https://nominatim.openstreetmap.org";
-const GEOCODER_BASE_URL = (
-  env.GEOCODER_BASE_URL ?? "https://nominatim.187.77.155.129.nip.io"
-).replace(/\/+$/, "");
-const GEOCODER_FALLBACK_BASE_URL = (
-  env.GEOCODER_FALLBACK_BASE_URL ?? PUBLIC_NOMINATIM_URL
-).replace(/\/+$/, "");
+const { primary: GEOCODER_BASE_URL, fallback: GEOCODER_FALLBACK_BASE_URL } =
+  resolveGeocoderUrls(env);
 
 // The public fallback caps the whole application at 1 req/s. Coolify runs one
 // web process, so serialize fallback cache misses here in addition to per-user
