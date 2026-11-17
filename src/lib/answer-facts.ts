@@ -16,9 +16,9 @@ export type LordClaimIssue = {
 
 const PLANETS = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "พฤหัส", "ศุกร์", "เสาร์", "ราหู", "เกตุ", "มฤตยู"];
 const canon = (p: string) => (p === "พฤหัส" ? "พฤหัสบดี" : p);
-// Thai reckoning gives กุมภ์ to ราหู as well as เสาร์.
+// Thai reckoning gives กุมภ์ to ราหู, and เสาร์ keeps it as เจ้าเรือนเดิม.
 const alsoLord = (actual: string, claimed: string, sign: string) =>
-  sign.replace(/์/g, "") === "กุมภ" && actual === "เสาร์" && claimed === "ราหู";
+  sign.replace(/์/g, "") === "กุมภ" && [actual, claimed].sort().join() === ["ราหู", "เสาร์"].sort().join();
 
 export function findWrongLordClaims(answer: string, chains: HouseChain[]): LordClaimIssue[] {
   const lordOf = new Map<number, { lord: string; sign: string }>();

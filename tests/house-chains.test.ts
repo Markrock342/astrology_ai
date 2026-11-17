@@ -41,7 +41,13 @@ describe("dignity, lords and elements", () => {
   it("recognises Saturn at home whichever way กุมภ is spelled", () => {
     expect(dignityLabel("เสาร์", "กุมภ")).toBe("เกษตร");
     expect(dignityLabel("เสาร์", "กุมภ์")).toBe("เกษตร");
-    expect(lordOfSign("กุมภ์")).toBe("เสาร์");
+    // กุมภ์'s lord is ราหู (HoraSard's "ราหู เกษตรราศีกุมภ์"); เสาร์ is the
+    // เจ้าเรือนเดิม and still at home there (มูลเกษตร).
+    expect(lordOfSign("กุมภ์")).toBe("ราหู");
+    expect(lordOfSign("กุมภ")).toBe("ราหู");
+    expect(dignityLabel("ราหู", "กุมภ์")).toBe("เกษตร");
+    expect(dignityLabel("ราหู", "สิงห์")).toBe("ประ");
+    expect(dignityLabel("ราหู", "ตุลย์")).toBe("ปกติ");
   });
 
   it("uses only the team's element table", () => {
@@ -78,10 +84,19 @@ describe("ภพผสมภพ", () => {
   });
 
   it("stops when the story loops back", () => {
-    // กดุมภะ = กรกฎ → จันทร์ in กุมภ์ (9th) → ศุภะ's lord เสาร์ in กรกฎ (2nd) again.
-    const c = chain(2);
-    expect(c.steps.map((s) => s.lord)).toEqual(["จันทร์", "เสาร์"]);
+    // กดุมภะ = กรกฎ → จันทร์ in กุมภ์ (9th) → กุมภ์'s lord ราหู in กรกฎ (2nd) again.
+    const looped = buildHouseChains({
+      ...chart,
+      planets: chart.planets.map((p) => (p.planet === "ราหู" ? { ...p, siderealSign: "กรกฎ" } : p)),
+    });
+    const c = looped.find((x) => x.startHouse === 2)!;
+    expect(c.steps.map((s) => s.lord)).toEqual(["จันทร์", "ราหู"]);
     expect(c.ending).toContain("วนกลับมาที่ภพ 2");
+  });
+
+  it("follows ราหู as the lord of กุมภ์", () => {
+    // ศุภะ = กุมภ์ → ราหู in ตุลย์ (5th) → ศุกร์ → พฤหัสบดี at home.
+    expect(chain(9).steps.map((s) => s.lord)).toEqual(["ราหู", "ศุกร์", "พฤหัสบดี"]);
   });
 
   it("carries co-tenants, aspects, element pairs and ทักษา for each lord", () => {

@@ -1,5 +1,5 @@
 import { HOUSE_NAMES, normalizeSignName, SIGNS } from "@/lib/chart-theme";
-import { lordOfSign } from "@/lib/thai-dignity";
+import { lordLabel } from "@/lib/thai-dignity";
 
 /**
  * Which houses a question is about, from the team's 17-topic table (the
@@ -48,7 +48,7 @@ export function formatQuestionFocus(question: string, lagna: string | null | und
   if (idx < 0) return null;
   const house = (h: number) => {
     const sign = SIGNS[(idx + h - 1) % 12]!;
-    return `ภพ ${h} ${HOUSE_NAMES[h - 1]} (ราศี${sign} เจ้าเรือน${lordOfSign(sign) ?? "—"})`;
+    return `ภพ ${h} ${HOUSE_NAMES[h - 1]} (ราศี${sign} เจ้าเรือน${lordLabel(sign) ?? "—"})`;
   };
   return (
     "[question_focus] เรื่องที่ถามและภพที่ต้องใช้เป็นหลัก (ห้ามอ้างภพอื่นว่าเป็นเรือนของเรื่องนี้): " +

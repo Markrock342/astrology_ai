@@ -22,13 +22,28 @@ const LORDS: Record<string, string> = {
   พิจิก: "อังคาร",
   ธนู: "พฤหัสบดี",
   มกร: "เสาร์",
-  กุมภ: "เสาร์",
+  // HoraSard's setting (knowledge base, "ราหู (๘): เกษตรราศีกุมภ์") and
+  // myhora's เจ้าเรือน column: กุมภ์ belongs to ราหู; เสาร์ is its เจ้าเรือนเดิม
+  // (มูลเกษตร). A member asked why the program said เสาร์ (17 Nov 2026).
+  กุมภ: "ราหู",
   มีน: "พฤหัสบดี",
 };
 
 /** เจ้าเรือน of a sign (Thai rulership), or null for an unknown sign. */
 export function lordOfSign(sign: string | null | undefined): string | null {
   return LORDS[bareSign(sign)] ?? null;
+}
+
+/** The older lord a sign also keeps: only กุมภ์ → เสาร์. */
+export function originalLordOfSign(sign: string | null | undefined): string | null {
+  return bareSign(sign) === "กุมภ" ? "เสาร์" : null;
+}
+
+/** "ราหู (เจ้าเรือนเดิม เสาร์)" for กุมภ์, the plain lord elsewhere. */
+export function lordLabel(sign: string | null | undefined): string | null {
+  const lord = lordOfSign(sign);
+  const original = originalLordOfSign(sign);
+  return lord && original ? `${lord} (เจ้าเรือนเดิม ${original})` : lord;
 }
 
 const DIGNITY: Record<string, { own: string[]; exalt: string[]; fall: string[] }> = {
@@ -39,6 +54,8 @@ const DIGNITY: Record<string, { own: string[]; exalt: string[]; fall: string[] }
   พฤหัสบดี: { own: ["ธนู", "มีน"], exalt: ["กรกฎ"], fall: ["มกร"] },
   ศุกร์: { own: ["พฤษภ", "ตุลย"], exalt: ["มีน"], fall: ["กันย"] },
   เสาร์: { own: ["มกร", "กุมภ"], exalt: ["ตุลย"], fall: ["เมษ"] },
+  // เกษตร กุมภ์ → ประ สิงห์. Its อุจจ์/นิจ wait for the team's table.
+  ราหู: { own: ["กุมภ"], exalt: [], fall: [] },
 };
 
 const SIGN_ORDER = [
