@@ -271,20 +271,16 @@ export function computeTransitTaksaByAge(
     };
   }
 
-  // นับอายุจรตากลาง (client rule): year 1 sits on the natal บริวาร, year 2 on
-  // ตากลาง (๙ เกตุ), then the taksa cycle continues from the planet after
-  // บริวาร — nine steps per round. Sunday-born, อายุย่าง 51:
-  // ๑ ๙ ๒ ๓ ๔ ๗ ๕ ๘ ๖ | ๑ ๙ … → the 51st step lands on ๗.
-  const ninePath = [
-    natalBorivan,
-    9,
-    ...Array.from(
-      { length: 7 },
-      (_, index) =>
-        TAKSA_PLANET_CYCLE[(origin + 1 + index) % TAKSA_PLANET_CYCLE.length] ??
-        natalBorivan,
-    ),
-  ];
+  // นับอายุจรตากลาง: the year walks the grid's own ring, where ตากลาง (๙
+  // เกตุ) sits between ๑ and ๒ — the ↘ ↑ arrows drawn in the centre cell.
+  // Year 1 is the natal บริวาร, one step per year, nine steps per round.
+  //   Sunday-born, ย่าง 51 → ๗ (the team's first example, Sep 2026);
+  //   Tuesday-born, ย่าง 68 → ๘ ราหู (A, 22 Nov 2026).
+  // The centre used to be put right after each person's own บริวาร, which
+  // only matches the ring for Sunday-born, so every other day was off.
+  const ring = [1, 9, 2, 3, 4, 7, 5, 8, 6] as const;
+  const start = Math.max(0, ring.indexOf(natalBorivan as (typeof ring)[number]));
+  const ninePath = Array.from({ length: 9 }, (_, i) => ring[(start + i) % 9]!);
   const landing = ninePath[(yangKao - 1) % 9] ?? 9;
   if (landing === 9) {
     return {

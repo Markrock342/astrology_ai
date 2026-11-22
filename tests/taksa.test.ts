@@ -223,16 +223,28 @@ describe("ทักษาปีจร (อายุย่าง)", () => {
     expect(yangKaoAge(wednesdayNight, new Date(2027, 7, 26, 12))).toBe(2);
   });
 
-  it("walks บริวาร → ตากลาง → cycle when counting through the centre", () => {
-    // Wednesday-night birth: บริวาร = ราหู (๘); path ๘ ๙ ๖ ๑ ๒ ๓ ๔ ๗ ๕ | ๘ …
+  it("walks the grid's ring, where ตากลาง sits between ๑ and ๒", () => {
+    // Wednesday-night birth: บริวาร = ราหู (๘); ring ๑ ๙ ๒ ๓ ๔ ๗ ๕ ๘ ๖, so
+    // from ๘: ๘ ๖ ๑ ๙ ๒ … — year 3 lands on ๑, year 4 on ตากลาง.
     const asOf = new Date(2028, 7, 26, 12);
     expect(resolveTaksaBirthDay(wednesdayNight)).toBe("พุธกลางคืน");
     expect(yangKaoAge(wednesdayNight, asOf)).toBe(3);
     const withCenter = computeTransitTaksaByAge(wednesdayNight, asOf, true);
-    expect(withCenter.slots[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 6 });
-    // Without the centre the cycle simply continues: year 3 → ๑
+    expect(withCenter.slots[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 1 });
+    // Without the centre the cycle simply continues: year 3 → ๑ as well.
     const withoutCenter = computeTransitTaksaByAge(wednesdayNight, asOf, false);
     expect(withoutCenter.slots[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 1 });
+    const year4 = computeTransitTaksaByAge(wednesdayNight, new Date(2029, 7, 26, 12), true);
+    expect(year4.centerIsBorivanTransit).toBe(true);
+  });
+
+  it("Tuesday-born at อายุย่าง 68 lands บริวารจร on ราหู (๘) — A's member, 22 Nov 2026", () => {
+    const tuesday = { ...wednesdayNight, day: 18, month: 11, year: 1958, time: "12:00" };
+    expect(resolveTaksaBirthDay(tuesday)).toBe("อังคาร");
+    const asOf = new Date(2026, 10, 10, 12);
+    expect(yangKaoAge(tuesday, asOf)).toBe(68);
+    const byAge = computeTransitTaksaByAge(tuesday, asOf, true);
+    expect(byAge.slots[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 8 });
   });
 
   it("Sunday-born at อายุย่าง 51 lands บริวารจร on เสาร์ (๗) — the client's worked example", () => {
@@ -244,19 +256,21 @@ describe("ทักษาปีจร (อายุย่าง)", () => {
     expect(byAge.slots[0]).toMatchObject({ taksa: "บริวารจร", planetNum: 7 });
   });
 
-  it("lands บริวารจร on Ketu in year 2 (and every 9th year after) through the centre", () => {
-    const asOf = new Date(2027, 7, 26, 12);
-    expect(yangKaoAge(wednesdayNight, asOf)).toBe(2);
-    const withCenter = computeTransitTaksaByAge(wednesdayNight, asOf, true);
-    expect(withCenter.centerIsBorivanTransit).toBe(true);
-    expect(withCenter.slots.some((slot) => slot.taksa === "บริวารจร")).toBe(
-      false,
-    );
-    const withoutCenter = computeTransitTaksaByAge(wednesdayNight, asOf, false);
+  it("lands บริวารจร on Ketu when the walk reaches the centre (Sunday-born: year 2, then every 9th)", () => {
+    const sunday = { ...wednesdayNight, day: 26, month: 8, year: 1979, time: "12:00" };
+    for (const year of [2, 11, 20]) {
+      const asOf = new Date(1979 + year - 1, 7, 27, 12);
+      expect(yangKaoAge(sunday, asOf)).toBe(year);
+      const withCenter = computeTransitTaksaByAge(sunday, asOf, true);
+      expect(withCenter.centerIsBorivanTransit).toBe(true);
+      expect(withCenter.slots.some((slot) => slot.taksa === "บริวารจร")).toBe(false);
+    }
+    const asOf = new Date(1980, 7, 27, 12);
+    const withoutCenter = computeTransitTaksaByAge(sunday, asOf, false);
     expect(withoutCenter.centerIsBorivanTransit).toBe(false);
     expect(withoutCenter.slots[0]).toMatchObject({
       taksa: "บริวารจร",
-      planetNum: 6, // year 2 without the centre: one step past ราหู → ศุกร์,
+      planetNum: 2, // year 2 without the centre: one step past อาทิตย์ → จันทร์
     });
   });
 
