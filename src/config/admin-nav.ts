@@ -5,6 +5,7 @@ import {
   Cpu,
   Drama,
   FileSearch,
+  Grid3x3,
   History,
   House,
   LayoutDashboard,
@@ -63,6 +64,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/categories", label: "หมวดดูดวง", icon: Orbit, group: "reading" },
   { href: "/admin/prompts", label: "บุคลิก AI", icon: Drama, aiOnly: true, group: "reading" },
   { href: "/admin/knowledge", label: "คลังความรู้", icon: BookOpen, aiOnly: true, group: "reading" },
+  { href: "/admin/planet-standards", label: "ตารางมาตรฐานดาว", icon: Grid3x3, aiOnly: true, group: "reading" },
   { href: "/admin/chart-standards", label: "มาตรฐานและเกณฑ์", icon: ListChecks, aiOnly: true, group: "reading" },
 
   { href: "/admin/ai-configs", label: "โมเดล AI", icon: Cpu, aiOnly: true, group: "ai" },

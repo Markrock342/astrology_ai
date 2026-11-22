@@ -52,6 +52,7 @@ import {
   requireReadyNatalChart,
 } from "@/server/horoscope/chart-context";
 import { getOrRefreshChartMemory } from "@/server/horoscope/chart-memory-service";
+import { ensurePlanetStandardsLoaded } from "@/server/catalog/planet-standards-service";
 import {
   bangkokTimeHm,
   isOverviewQuestion,
@@ -278,6 +279,8 @@ async function runReading(
   onDelta?: (chunk: string) => void,
   shouldStop?: () => Promise<boolean>,
 ) {
+  // The team's ตารางมาตรฐานดาว: lords and standards for everything below.
+  await ensurePlanetStandardsLoaded();
   const {
     userId,
     categorySlug,

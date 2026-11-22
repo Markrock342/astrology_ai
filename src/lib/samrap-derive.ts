@@ -1,6 +1,6 @@
 import type { MyhoraNatalPlanet } from "@/types/myhora";
 import { HOUSE_NAMES, normalizeSignName, SIGNS } from "@/lib/chart-theme";
-import { dignityLabel } from "@/lib/thai-dignity";
+import { dignityLabel, extraStandardLabels, lordOfSign, originalLordOfSign } from "@/lib/thai-dignity";
 
 /**
  * Fill the columns of a สมผุส row that the source left empty.
@@ -21,10 +21,11 @@ const ABBR = ["มษ", "พภ", "มถ", "กฎ", "สห", "กน", "ต�
  * while its นวางศ์ and เจ้าเรือน columns name ราหู (๘) — both as printed.
  */
 const TRIYANG_LORD = [3, 6, 4, 2, 1, 4, 6, 3, 5, 7, 7, 5];
-const LORD_NUMBER = [3, 6, 4, 2, 1, 4, 6, 3, 5, 7, 8, 5];
-const LORD_NAME: Record<number, string> = {
-  1: "อาทิตย์", 2: "จันทร์", 3: "อังคาร", 4: "พุธ", 5: "พฤหัสบดี", 6: "ศุกร์", 7: "เสาร์", 8: "ราหู",
+const PLANET_NUMBER: Record<string, number> = {
+  อาทิตย์: 1, จันทร์: 2, อังคาร: 3, พุธ: 4, พฤหัสบดี: 5, ศุกร์: 6, เสาร์: 7, ราหู: 8, เกตุ: 9, มฤตยู: 0,
 };
+/** นวางศ์'s middle number: the navamsa sign's lord, from the team's table (กุมภ์ → ราหู ๘ by default). */
+const navamsaLords = () => SIGNS.map((sign) => PLANET_NUMBER[lordOfSign(sign) ?? ""] ?? 0);
 
 const NAKSHATRA = [
   // Spelled as myhora prints them (checked against 231 of its rows).
@@ -89,26 +90,28 @@ export function deriveSamrapColumns(
   const lagnaIdx = lagna ? (SIGNS as readonly string[]).indexOf(normalizeSignName(lagna)) : -1;
   const house = lagnaIdx >= 0 ? ((sign - lagnaIdx + 12) % 12) + 1 : null;
 
+  // The houses this planet rules, from the team's ตารางมาตรฐานดาว.
   const owned: string[] = [];
   if (lagnaIdx >= 0) {
-    LORD_NUMBER.forEach((lordNo, s) => {
-      if (LORD_NAME[lordNo] === name) owned.push(HOUSE_NAMES[(s - lagnaIdx + 12) % 12]!);
+    SIGNS.forEach((signName, s) => {
+      if (lordOfSign(signName) === name) owned.push(HOUSE_NAMES[(s - lagnaIdx + 12) % 12]!);
     });
   }
 
   const standard: string[] = [];
   const dignity = dignityLabel(name, SIGNS[sign]!);
   if (dignity === "อุจจ์") standard.push("มหาอุจจ์");
-  // กุมภ์ is ราหู's house in Thai reckoning; เสาร์ there is its original
-  // (มูล) เกษตร, as myhora prints it.
-  else if (dignity === "เกษตร" && name === "เสาร์" && sign === 10) standard.push("มูลเกษตร");
+  // A sign's เจ้าเรือนเดิม at home there is its original (มูล) เกษตร, as
+  // myhora prints it for เสาร์ in กุมภ์.
+  else if (dignity === "เกษตร" && originalLordOfSign(SIGNS[sign]!) === name) standard.push("มูลเกษตร");
   else if (dignity === "นิจ" || dignity === "เกษตร" || dignity === "ประ") standard.push(dignity);
+  standard.push(...extraStandardLabels(name, SIGNS[sign]!));
   // myhora marks เรือนเกณฑ์ on planets, not on the lagna itself, เกตุ or มฤตยู.
   if (house && [1, 4, 7, 10].includes(house) && !/ลัคนา|เกตุ|มฤตยู/.test(planet)) standard.push("เรือนเกณฑ์");
 
   return {
     triyang: part(dNo + 1, drekkana, TRIYANG_LORD),
-    nawamang: part(nNo + 1, navamsa, LORD_NUMBER),
+    nawamang: part(nNo + 1, navamsa, navamsaLords()),
     // myhora numbers อัศวินี 27, not 00.
     rerk: `${String(naksNo === 0 ? 27 : naksNo).padStart(2, "0")} : ${String(Math.floor((within * 60) / 800)).padStart(2, "0")}`,
     rerkName: NAKSHATRA[naksNo] ?? "",

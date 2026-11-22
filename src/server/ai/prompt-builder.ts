@@ -11,6 +11,7 @@ import {
 import { AppError } from "@/lib/errors";
 import { formatTransitNowLabel } from "@/lib/transit-label";
 import { assertUsableEngineChart } from "@/server/horoscope/chart-context";
+import { formatPlanetStandardsForPrompt } from "@/lib/planet-standards";
 import {
   formatChartCompactForPrompt,
   formatChartForPrompt,
@@ -53,8 +54,8 @@ export const ENGINE_CHART_RULE =
   // A (11 Nov 2026): the team's rule for วรโคตมนวางค์.
   "ถ้าลัคนาหรือดาวใดมีคำว่า วรโคตมนวางค์ ในตาราง ให้ถือว่าดาวดวงนั้นมีกำลังสูงสุดทันที แม้จะอยู่ในตำแหน่งนิจ ประ ภพเสีย หรือเป็นกาลกิณี " +
   "และพยากรณ์ผลด้านบวกเรื่องความยั่งยืน ความทนทาน การฟื้นตัวไว และความสำเร็จมั่นคงในบั้นปลายชีวิตเป็นหลัก โดยผลดีจะเด่นชัดหลังอายุ 35 ปีเป็นต้นไป " +
-  // HoraSard's setting "ราหู (๘): เกษตรราศีกุมภ์" (17 Nov 2026, a member's question).
-  "ราศีกุมภ์มีดาวราหูเป็นเจ้าเรือน (ราหูเกษตร) ส่วนเสาร์เป็นเจ้าเรือนเดิม (มูลเกษตร) ให้อ่านเจ้าเรือนกุมภ์เป็นราหูตามตาราง ห้ามบอกว่าราหูไม่มีเรือนครอง " +
+  // The team's ตารางมาตรฐานดาว (Admin → มาตรฐานดาว) arrives as [standards].
+  "เจ้าเรือนของแต่ละราศีและมาตรฐานดาว (อุจจ์ นิจ เกษตร ประ มหาจักร ราชาโชค เทวีโชค จุลจักร) ให้ยึดบล็อก [standards] ของทีมเท่านั้น ห้ามใช้ตารางจากตำราอื่นหรือความรู้เดิมของตนแทน " +
   "ตอบคำถามผู้ใช้ตรง ๆ — ห้ามพิมพ์อธิบายว่า 'นี่คือพื้นดวง' 'ระบบคำนวณให้' หรือสอนว่ากราฟคืออะไร " +
   "ห้ามวาดกราฟ ตารางจักร หรือผังดาวด้วย ASCII / code block / Markdown เพราะหน้าแชทแสดงกราฟ SVG จาก engine ให้อยู่แล้ว " +
   "วันเกิดในหัวข้อข้อมูลผู้ถามเป็นวันที่ปฏิทินท้องถิ่นไทย ห้ามแปลง UTC ห้ามลบหรือบวกวันเอง " +
@@ -550,6 +551,9 @@ export function buildUserPrompt(
         : "[natal] พื้นดวงที่คำนวณแล้ว (ใช้ตารางนี้เท่านั้น ห้ามแต่งดาว)",
       taksaAsOf,
     }),
+    "",
+    // The team's lords and standards, short enough to send every time.
+    ...formatPlanetStandardsForPrompt(),
     "",
   ];
 

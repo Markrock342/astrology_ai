@@ -15,6 +15,7 @@ import {
 } from "@/server/horoscope/engine/birth-input-mapper";
 import { computeNatalChart } from "@/server/horoscope/engine/compute-chart";
 import { upsertChartMemory } from "@/server/horoscope/chart-memory-service";
+import { ensurePlanetStandardsLoaded } from "@/server/catalog/planet-standards-service";
 import { withPrismaRetry } from "@/server/prisma-utils";
 import { invalidateUserBootstrap } from "@/server/app/bootstrap-cache";
 
@@ -79,6 +80,7 @@ async function persistReadyChart(
     }),
   );
 
+  await ensurePlanetStandardsLoaded();
   await upsertChartMemory(userId, chartJson).catch((err) => {
     console.warn(
       "[natal] chart memory upsert failed:",

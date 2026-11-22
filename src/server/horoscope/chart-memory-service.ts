@@ -1,3 +1,5 @@
+import { ensurePlanetStandardsLoaded } from "@/server/catalog/planet-standards-service";
+import { planetStandardsVersion } from "@/lib/planet-standards";
 import { prisma } from "@/server/db";
 import { CHART_MEMORY_VOCAB_VERSION } from "@/types/chart-memory";
 import type { ChartJson } from "@/types/chart";
@@ -63,13 +65,18 @@ export async function getOrRefreshChartMemory(
   const natalLagna = natalChart.chart?.lagna ?? natalChart.meta.lagna;
   const agreesWithChart = !natalLagna || stored?.lagna === natalLagna;
   const currentVocabulary = stored?.vocabVersion === CHART_MEMORY_VOCAB_VERSION;
+  // Lords and standards come from the team's table; a memory derived under an
+  // older table is re-derived. (Memories from before the table carry none.)
+  await ensurePlanetStandardsLoaded();
+  const currentStandards = stored?.standardsVersion === planetStandardsVersion();
   if (
     stored &&
     row?.birthHash === expectedHash &&
     hasCurrentTaksa &&
     !hasRetiredWording &&
     agreesWithChart &&
-    currentVocabulary
+    currentVocabulary &&
+    currentStandards
   ) {
     return stored;
   }

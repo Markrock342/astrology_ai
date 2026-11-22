@@ -13,6 +13,7 @@ import { SIGNS } from "@/server/horoscope/engine/newhora/data/astrologyConstants
 import { houseFromLagna } from "@/server/horoscope/engine/format-chart-prompt";
 import { resolveTaksaBirthDay } from "@/lib/taksa";
 import { dignityLabel, lordOfSign } from "@/lib/thai-dignity";
+import { planetStandardsVersion } from "@/lib/planet-standards";
 
 
 
@@ -141,6 +142,7 @@ export function deriveChartMemory(chart: ChartJson): UserChartMemoryJson {
   return {
     lagna,
     vocabVersion: CHART_MEMORY_VOCAB_VERSION,
+    standardsVersion: planetStandardsVersion(),
     source: chart.meta.calculationSource,
     birthHash,
     computedAt: new Date().toISOString(),

@@ -2,7 +2,7 @@ import { formatDivisionalPosition, normalizeSignName } from "@/lib/chart-theme";
 import "@/server/horoscope/engine/taksa-boundaries";
 import { fillSamrapRows } from "@/lib/samrap-derive";
 import { isVargottama } from "@/lib/chart-derivations";
-import { dignityLabel } from "@/lib/thai-dignity";
+import { dignityLabel, extraStandardLabels } from "@/lib/thai-dignity";
 import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet, MyhoraTriwaiCell } from "@/types/myhora";
 import { SIGNS } from "@/server/horoscope/engine/newhora/data/astrologyConstants";
@@ -207,7 +207,7 @@ export function formatChartForPrompt(
         sign: p.siderealSign,
         deg: p.degreeText ?? (p.degreeInSign != null ? `${p.degreeInSign.toFixed(1)}°` : "—"),
         house,
-        dignity: dignityLabel(p.planet, p.siderealSign),
+        dignity: [dignityLabel(p.planet, p.siderealSign), ...extraStandardLabels(p.planet, normalizeSignName(p.siderealSign).replace(/์$/u, ""))].join(" "),
         divisional: divisionalText(engineDivisional(p, lagna === "—" ? null : lagna)),
       };
     });

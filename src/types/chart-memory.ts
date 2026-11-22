@@ -39,6 +39,8 @@ export const CHART_MEMORY_VOCAB_VERSION = 2;
 export type UserChartMemoryJson = {
   /** See CHART_MEMORY_VOCAB_VERSION; absent on memories written before it. */
   vocabVersion?: number;
+  /** planetStandardsVersion() it was derived under — the team may change lords/standards. */
+  standardsVersion?: string;
   lagna: string;
   source?: CalculationSource | string;
   birthHash: string;

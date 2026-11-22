@@ -11,32 +11,32 @@ export function bareSign(sign: string | null | undefined): string {
   return (sign ?? "").replace(/^ราศี/, "").replace(/์$/u, "").trim();
 }
 
-const LORDS: Record<string, string> = {
-  เมษ: "อังคาร",
-  พฤษภ: "ศุกร์",
-  มิถุน: "พุธ",
-  กรกฎ: "จันทร์",
-  สิงห: "อาทิตย์",
-  กันย: "พุธ",
-  ตุลย: "ศุกร์",
-  พิจิก: "อังคาร",
-  ธนู: "พฤหัสบดี",
-  มกร: "เสาร์",
-  // HoraSard's setting (knowledge base, "ราหู (๘): เกษตรราศีกุมภ์") and
-  // myhora's เจ้าเรือน column: กุมภ์ belongs to ราหู; เสาร์ is its เจ้าเรือนเดิม
-  // (มูลเกษตร). A member asked why the program said เสาร์ (17 Nov 2026).
-  กุมภ: "ราหู",
-  มีน: "พฤหัสบดี",
+import {
+  STANDARD_SIGNS,
+  activePlanetStandards,
+  hasStandards,
+  standardsOf,
+  type StandardSign,
+} from "@/lib/planet-standards";
+
+const asSign = (sign: string | null | undefined): StandardSign | null => {
+  const s = bareSign(sign);
+  return (STANDARD_SIGNS as readonly string[]).includes(s) ? (s as StandardSign) : null;
 };
 
-/** เจ้าเรือน of a sign (Thai rulership), or null for an unknown sign. */
+/**
+ * เจ้าเรือน of a sign, from the team's ตารางมาตรฐานดาว (Admin → มาตรฐานดาว),
+ * or null for an unknown sign. By default กุมภ์ is ราหู's, as HoraSard sets it.
+ */
 export function lordOfSign(sign: string | null | undefined): string | null {
-  return LORDS[bareSign(sign)] ?? null;
+  const s = asSign(sign);
+  return s ? activePlanetStandards().lords[s] : null;
 }
 
-/** The older lord a sign also keeps: only กุมภ์ → เสาร์. */
+/** The older lord a sign also keeps (by default กุมภ์ → เสาร์). */
 export function originalLordOfSign(sign: string | null | undefined): string | null {
-  return bareSign(sign) === "กุมภ" ? "เสาร์" : null;
+  const s = asSign(sign);
+  return s ? (activePlanetStandards().originalLords[s] ?? null) : null;
 }
 
 /** "ราหู (เจ้าเรือนเดิม เสาร์)" for กุมภ์, the plain lord elsewhere. */
@@ -46,45 +46,25 @@ export function lordLabel(sign: string | null | undefined): string | null {
   return lord && original ? `${lord} (เจ้าเรือนเดิม ${original})` : lord;
 }
 
-const DIGNITY: Record<string, { own: string[]; exalt: string[]; fall: string[] }> = {
-  อาทิตย์: { own: ["สิงห"], exalt: ["เมษ"], fall: ["ตุลย"] },
-  จันทร์: { own: ["กรกฎ"], exalt: ["พฤษภ"], fall: ["พิจิก"] },
-  อังคาร: { own: ["เมษ", "พิจิก"], exalt: ["มกร"], fall: ["กรกฎ"] },
-  พุธ: { own: ["มิถุน", "กันย"], exalt: ["กันย"], fall: ["มีน"] },
-  พฤหัสบดี: { own: ["ธนู", "มีน"], exalt: ["กรกฎ"], fall: ["มกร"] },
-  ศุกร์: { own: ["พฤษภ", "ตุลย"], exalt: ["มีน"], fall: ["กันย"] },
-  เสาร์: { own: ["มกร", "กุมภ"], exalt: ["ตุลย"], fall: ["เมษ"] },
-  // เกษตร กุมภ์ → ประ สิงห์. Its อุจจ์/นิจ wait for the team's table.
-  ราหู: { own: ["กุมภ"], exalt: [], fall: [] },
-};
-
-const SIGN_ORDER = [
-  "เมษ", "พฤษภ", "มิถุน", "กรกฎ", "สิงห", "กันย",
-  "ตุลย", "พิจิก", "ธนู", "มกร", "กุมภ", "มีน",
-];
-
-function opposite(sign: string): string {
-  const idx = SIGN_ORDER.indexOf(sign);
-  return idx < 0 ? "" : SIGN_ORDER[(idx + 6) % 12]!;
-}
-
 export type DignityLabel = "อุจจ์" | "นิจ" | "เกษตร" | "ประ" | "ปกติ" | "—";
 
 /**
- * มาตรฐานดาว. "ประ" is the sign opposite a planet's own sign (as the ตำรา in
- * the knowledge base defines it); it was missing entirely. "นิจ" is spelled
- * the way the ตำรา and the team write it.
+ * มาตรฐานดาว from the team's table: อุจจ์, then นิจ, เกษตร, ประ, else ปกติ;
+ * "—" for a planet the table says nothing about (เกตุ, มฤตยู by default).
+ * "นิจ" is spelled the way the ตำรา and the team write it.
  */
 export function dignityLabel(planet: string, sign: string): DignityLabel {
   const name = planet === "พฤหัส" ? "พฤหัสบดี" : planet;
-  const d = DIGNITY[name];
-  if (!d) return "—";
-  const s = bareSign(sign);
-  if (d.exalt.includes(s)) return "อุจจ์";
-  if (d.fall.includes(s)) return "นิจ";
-  if (d.own.includes(s)) return "เกษตร";
-  if (d.own.some((own) => opposite(own) === s)) return "ประ";
+  if (!hasStandards(name)) return "—";
+  const found = standardsOf(name, bareSign(sign));
+  for (const kind of ["อุจจ์", "นิจ", "เกษตร", "ประ"] as const) if (found.includes(kind)) return kind;
   return "ปกติ";
+}
+
+/** มหาจักร, ราชาโชค, เทวีโชค, จุลจักร the planet holds in `sign`, if the team filled them in. */
+export function extraStandardLabels(planet: string, sign: string): string[] {
+  const name = planet === "พฤหัส" ? "พฤหัสบดี" : planet;
+  return standardsOf(name, bareSign(sign)).filter((k) => !["อุจจ์", "นิจ", "เกษตร", "ประ"].includes(k));
 }
 
 /**

@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { ChartJson } from "@/types/chart";
 import { prisma } from "@/server/db";
+import { ensurePlanetStandardsLoaded } from "@/server/catalog/planet-standards-service";
 import { sendEmail } from "@/server/email/mailer";
 import { scanDaysForChart } from "@/server/horoscope/day-scan-service";
 import { thaiDayLabel } from "@/lib/day-scan";
@@ -124,6 +125,7 @@ const RETRY_AFTER_FAIL_MS = 60 * 60_000;
 
 /** Send to everyone opted in who has not had this week's yet. */
 export async function runWeeklyDaysEmails(opts: { limit?: number; now?: Date } = {}) {
+  await ensurePlanetStandardsLoaded();
   const now = opts.now ?? new Date();
   const startedAt = Date.now();
   const fiveDaysAgo = new Date(now.getTime() - 5 * 86_400_000);

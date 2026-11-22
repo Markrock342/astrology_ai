@@ -12,6 +12,7 @@ import {
 } from "@/lib/astrology-standard-glossary";
 import { ChartAspectList } from "./chart-aspect-list";
 import { fillSamrapRows } from "@/lib/samrap-derive";
+import { applyPlanetStandards, planetStandardsVersion, validatePlanetStandards } from "@/lib/planet-standards";
 
 type Props = {
   chart: ChartJson;
@@ -138,6 +139,31 @@ function loadGlossary(): Promise<StandardGlossaryItem[] | null> {
   return glossaryPromise;
 }
 
+/**
+ * The team's ตารางมาตรฐานดาว (Admin → มาตรฐานดาว): the derived columns —
+ * เจ้าเรือน, นวางค์'s lord, มาตรฐาน — follow it, as the prompt does.
+ */
+let standardsPromise: Promise<boolean> | null = null;
+function loadPlanetStandardsTable(): Promise<boolean> {
+  if (!standardsPromise) {
+    standardsPromise = fetch("/api/astrology-standards/table")
+      .then((response) => response.json())
+      .then((json: { ok?: boolean; data?: unknown }) => {
+        if (!json?.ok) return false;
+        const result = validatePlanetStandards(json.data);
+        if (!result.ok) return false;
+        const before = planetStandardsVersion();
+        applyPlanetStandards(result.table);
+        return planetStandardsVersion() !== before;
+      })
+      .catch(() => {
+        standardsPromise = null;
+        return false;
+      });
+  }
+  return standardsPromise;
+}
+
 /** Evidence — card stack on phones, wide table from md up. */
 export const ChartEvidenceTable = memo(function ChartEvidenceTable({
   chart,
@@ -148,7 +174,9 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
   layout = "auto",
   showAspects = true,
 }: Props) {
-  const samrap = useMemo(() => pickRows(chart, mode), [chart, mode]);
+  const [standardsVersion, setStandardsVersion] = useState(planetStandardsVersion);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute when the team's table arrives
+  const samrap = useMemo(() => pickRows(chart, mode), [chart, mode, standardsVersion]);
   const lagna = chart.chart?.lagna ?? chart.meta.lagna ?? "—";
   const clickable = Boolean(onRowAsk);
   const [glossary, setGlossary] = useState<StandardGlossaryItem[]>(
@@ -162,6 +190,16 @@ export const ChartEvidenceTable = memo(function ChartEvidenceTable({
     () => collectAstrologyStandards(samrap, glossary),
     [samrap, glossary],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadPlanetStandardsTable().then(() => {
+      if (!cancelled) setStandardsVersion(planetStandardsVersion());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

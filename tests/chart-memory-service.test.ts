@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChartJson } from "@/types/chart";
 import { CHART_MEMORY_VOCAB_VERSION } from "@/types/chart-memory";
+import { planetStandardsVersion } from "@/lib/planet-standards";
 
 const mocks = vi.hoisted(() => ({
   findMemory: vi.fn(),
@@ -66,6 +67,7 @@ describe("chart-memory Taksa cache version", () => {
       birthHash: hashBirthInput(chart.input),
       computedAt: new Date().toISOString(),
       vocabVersion: CHART_MEMORY_VOCAB_VERSION,
+        standardsVersion: planetStandardsVersion(),
       taksaBirthDay: "เสาร์",
       taksa: chart.chart!.taksa.map((slot) => ({
         taksa: slot.taksa,
@@ -116,6 +118,7 @@ describe("chart-memory Taksa cache version", () => {
       birthHash: hashBirthInput(chart.input),
       computedAt: new Date().toISOString(),
       vocabVersion: CHART_MEMORY_VOCAB_VERSION,
+        standardsVersion: planetStandardsVersion(),
       taksaBirthDay: "เสาร์",
       taksa: chart.chart!.taksa.map((slot) => ({
         taksa: slot.taksa,
