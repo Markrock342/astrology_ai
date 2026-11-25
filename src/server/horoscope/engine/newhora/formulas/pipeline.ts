@@ -50,7 +50,7 @@ function signsToRows(signs: Record<string, { sign: string; degreeInSign?: number
   })
 }
 
-function fromFormulaPipeline(input: BirthInput, place: PlaceCoords): {
+export function fromFormulaPipeline(input: BirthInput, place: PlaceCoords): {
   planets: PlanetSignRow[]
   lagna: string
   lagnaDegreeInSign: number
@@ -138,6 +138,16 @@ function tableDayMidpointUt(input: BirthInput): number {
 // 50 right, the midday split 42.
 const JUDGED_BY_POSITION = new Set(['อาทิตย์', 'จันทร์', 'ราหู', 'เกตุ', 'พุธ', 'ศุกร์', 'อังคาร', 'พฤหัสบดี', 'เสาร์', 'มฤตยู'])
 
+/**
+ * Planets whose computed position beats the 100-year table on every day, not
+ * only on change days. Audit 2026-11-25, 250 random births vs
+ * astro.meemodel.com (myhora's planets): the table had อังคาร in the wrong
+ * sign 16 times (days to weeks around each sign change and station; 6% of
+ * all days 1941–2040 disagree), the fitted position 2 times, both within
+ * 0.3° of a sign edge.
+ */
+const POSITION_OVER_TABLE = ['อังคาร'] as const
+
 function settleSignChangesOnTheDay(
   lookup: NonNullable<ReturnType<typeof lookupSuryayatSync>>,
   formulaRows: PlanetSignRow[],
@@ -189,12 +199,19 @@ export function computeFullChartSync(
   const lookup = lookupSuryayatSync(input, place)
   if (lookup) {
     const formula = fromFormulaPipeline(input, place)
-    const suryayatRows = signsToRows(settleSignChangesOnTheDay(
-        lookup,
-        formula.planets,
-        birthAstroTime(input, place).ut,
-        tableDayMidpointUt(input),
-      ))
+    const settled = settleSignChangesOnTheDay(
+      lookup,
+      formula.planets,
+      birthAstroTime(input, place).ut,
+      tableDayMidpointUt(input),
+    )
+    if (lookup.source !== 'reference') {
+      for (const planet of POSITION_OVER_TABLE) {
+        const now = formula.planets.find((r) => r.planet === planet)?.siderealSign
+        if (now && now !== '—') settled[planet] = now.replace(/์/g, '') === 'กุมภ' ? 'กุมภ์' : now
+      }
+    }
+    const suryayatRows = signsToRows(settled)
     // The 100-year table carries planet signs for most days but a lagna for
     // few of them. The fallback here used to be a hard-coded 'เมษ', so every
     // birth on such a day got an Aries ascendant whatever the time — and every

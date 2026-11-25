@@ -5,7 +5,7 @@ import {
   type AspectKind,
 } from "@/lib/chart-aspects";
 import { HOUSE_NAMES, normalizeSignName, SIGNS } from "@/lib/chart-theme";
-import { dignityLabel, elementOf, lordOfSign } from "@/lib/thai-dignity";
+import { elementOf, lordOfSign, standardsText } from "@/lib/thai-dignity";
 
 /**
  * Two charts read together, computed rather than asked for.
@@ -172,7 +172,7 @@ export function formatCompanionChart(
       ? ` · ลัคนาราศี${lagna}`
       : " · ไม่ทราบเวลาเกิด — ห้ามพูดถึงลัคนาและภพของคนนี้ ใช้ได้แค่ราศีของดาว");
   const planets = rows(side.planets).map((p) => {
-    const dignity = dignityLabel(p.planet, p.sign);
+    const dignity = standardsText(p.planet, p.sign);
     const where = lagna ? ` ${houseName(houseFromSign(lagna, p.sign))}` : "";
     return `${p.planet} ราศี${p.sign}${where}${dignity !== "ปกติ" && dignity !== "—" ? ` (${dignity})` : ""}`;
   });

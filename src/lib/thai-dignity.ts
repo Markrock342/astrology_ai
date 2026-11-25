@@ -61,10 +61,31 @@ export function dignityLabel(planet: string, sign: string): DignityLabel {
   return "ปกติ";
 }
 
+const BASIC = ["อุจจ์", "นิจ", "เกษตร", "ประ"] as const;
+
+/**
+ * Every basic standard the planet holds in `sign` — a planet can hold two:
+ * พุธ in กันย์ is อุจจ์ and เกษตร, in มีน นิจ and ประ (as myhora and
+ * meemodel print them). dignityLabel keeps only the strongest.
+ */
+export function basicStandardLabels(planet: string, sign: string): DignityLabel[] {
+  const name = planet === "พฤหัส" ? "พฤหัสบดี" : planet;
+  const found = standardsOf(name, bareSign(sign));
+  return BASIC.filter((k) => found.includes(k));
+}
+
+/** All of the planet's standards in `sign` as one phrase: "อุจจ์ เกษตร มหาจักร", "ปกติ", or "—". */
+export function standardsText(planet: string, sign: string): string {
+  const name = planet === "พฤหัส" ? "พฤหัสบดี" : planet;
+  if (!hasStandards(name)) return "—";
+  const all = [...basicStandardLabels(name, sign), ...extraStandardLabels(name, sign)];
+  return all.length ? all.join(" ") : "ปกติ";
+}
+
 /** มหาจักร, ราชาโชค, อุจจาวิลาศ … (every column past the basic four) the planet holds in `sign`, if the team filled them in. */
 export function extraStandardLabels(planet: string, sign: string): string[] {
   const name = planet === "พฤหัส" ? "พฤหัสบดี" : planet;
-  return standardsOf(name, bareSign(sign)).filter((k) => !["อุจจ์", "นิจ", "เกษตร", "ประ"].includes(k));
+  return standardsOf(name, bareSign(sign)).filter((k) => !(BASIC as readonly string[]).includes(k));
 }
 
 /**

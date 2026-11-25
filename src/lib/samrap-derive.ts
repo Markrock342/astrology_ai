@@ -1,6 +1,6 @@
 import type { MyhoraNatalPlanet } from "@/types/myhora";
 import { HOUSE_NAMES, normalizeSignName, SIGNS } from "@/lib/chart-theme";
-import { dignityLabel, extraStandardLabels, lordOfSign, originalLordOfSign } from "@/lib/thai-dignity";
+import { basicStandardLabels, extraStandardLabels, lordOfSign, originalLordOfSign } from "@/lib/thai-dignity";
 
 /**
  * Fill the columns of a สมผุส row that the source left empty.
@@ -99,12 +99,15 @@ export function deriveSamrapColumns(
   }
 
   const standard: string[] = [];
-  const dignity = dignityLabel(name, SIGNS[sign]!);
-  if (dignity === "อุจจ์") standard.push("มหาอุจจ์");
-  // A sign's เจ้าเรือนเดิม at home there is its original (มูล) เกษตร, as
-  // myhora prints it for เสาร์ in กุมภ์.
-  else if (dignity === "เกษตร" && originalLordOfSign(SIGNS[sign]!) === name) standard.push("มูลเกษตร");
-  else if (dignity === "นิจ" || dignity === "เกษตร" || dignity === "ประ") standard.push(dignity);
+  // Every basic standard, not just the strongest: พุธ in กันย์ is มหาอุจจ์ and
+  // เกษตร, in มีน นิจ and ประ — myhora and meemodel print both.
+  for (const kind of basicStandardLabels(name, SIGNS[sign]!)) {
+    if (kind === "อุจจ์") standard.push("มหาอุจจ์");
+    // A sign's เจ้าเรือนเดิม at home there is its original (มูล) เกษตร, as
+    // myhora prints it for เสาร์ in กุมภ์.
+    else if (kind === "เกษตร" && originalLordOfSign(SIGNS[sign]!) === name) standard.push("มูลเกษตร");
+    else standard.push(kind);
+  }
   standard.push(...extraStandardLabels(name, SIGNS[sign]!));
   // myhora marks เรือนเกณฑ์ on planets, not on the lagna itself, เกตุ or มฤตยู.
   if (house && [1, 4, 7, 10].includes(house) && !/ลัคนา|เกตุ|มฤตยู/.test(planet)) standard.push("เรือนเกณฑ์");

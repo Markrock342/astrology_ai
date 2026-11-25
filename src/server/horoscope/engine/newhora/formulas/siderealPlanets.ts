@@ -64,21 +64,17 @@ function tropicalEclipticLongitude(body: Body, time: AstroTime): number {
 }
 
 /**
- * ลูกหลุมจันทร์เฉลี่ย (ราหู) — องศาเชิงสุริยะ
- *
- * Takes astronomy-engine's `ut`: days since J2000, not a Julian Day. This used
- * to subtract 2451545 again, which put Rahu signs away from the sky (มกร for a
- * Nov 2001 birth myhora has in มิถุน), and a rule that shifted Rahu by the
- * lagna was bolted on to hide it. Both are gone.
+ * ราหูไทย (สุริยยาตร์) — a steady backward motion in the sidereal zodiac, like
+ * เกตุ below. The mean node minus Lahiri sat 25′ (1905) to 47′ (2046) ahead of
+ * myhora's Rahu (via astro.meemodel.com), enough to move its นวางศ์ about one
+ * birth in five. Fitted to meemodel's Rahu (audit 2026-11-25, see
+ * tests/thai-rahu.test.ts): median error 0.3′. Sidereal already; no ayanamsa.
  */
-export function meanRahuTropicalLongitude(daysSinceJ2000: number): number {
-  const t = daysSinceJ2000 / 36525.0
-  const omega =
-    125.04452 -
-    1934.136261 * t +
-    0.0020708 * t * t +
-    (t * t * t) / 450000
-  return ((omega % 360) + 360) % 360
+export const THAI_RAHU_AT_J2000 = 100.5171
+export const THAI_RAHU_DEG_PER_DAY = -0.0529993621
+export function thaiRahuSiderealLongitude(daysSinceJ2000: number): number {
+  const lon = THAI_RAHU_AT_J2000 + THAI_RAHU_DEG_PER_DAY * daysSinceJ2000
+  return ((lon % 360) + 360) % 360
 }
 
 /**
@@ -114,15 +110,9 @@ export function computeSiderealPlanets(time: AstroTime): Map<string, SiderealPla
   const map = new Map<string, SiderealPlacement>()
 
   for (const label of PLANETS) {
-    if (label === 'ราหู') {
-      map.set(
-        label,
-        placementFromTropical(label, meanRahuTropicalLongitude(julianUt), julianUt),
-      )
-      continue
-    }
-    if (label === 'เกตุ') {
-      const siderealLongitude = thaiKetuSiderealLongitude(julianUt)
+    if (label === 'ราหู' || label === 'เกตุ') {
+      const siderealLongitude =
+        label === 'ราหู' ? thaiRahuSiderealLongitude(julianUt) : thaiKetuSiderealLongitude(julianUt)
       const { sign, degreeInSign } = signFromSiderealLongitude(siderealLongitude)
       map.set(label, {
         label,

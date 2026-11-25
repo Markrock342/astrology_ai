@@ -2,7 +2,7 @@ import { formatDivisionalPosition, normalizeSignName } from "@/lib/chart-theme";
 import "@/server/horoscope/engine/taksa-boundaries";
 import { fillSamrapRows } from "@/lib/samrap-derive";
 import { isVargottama } from "@/lib/chart-derivations";
-import { dignityLabel, extraStandardLabels } from "@/lib/thai-dignity";
+import { standardsText } from "@/lib/thai-dignity";
 import type { BirthInputSnapshot, ChartJson } from "@/types/chart";
 import type { MyhoraNatalPlanet, MyhoraTriwaiCell } from "@/types/myhora";
 import { SIGNS } from "@/server/horoscope/engine/newhora/data/astrologyConstants";
@@ -207,7 +207,7 @@ export function formatChartForPrompt(
         sign: p.siderealSign,
         deg: p.degreeText ?? (p.degreeInSign != null ? `${p.degreeInSign.toFixed(1)}°` : "—"),
         house,
-        dignity: [dignityLabel(p.planet, p.siderealSign), ...extraStandardLabels(p.planet, normalizeSignName(p.siderealSign).replace(/์$/u, ""))].join(" "),
+        dignity: standardsText(p.planet, p.siderealSign),
         divisional: divisionalText(engineDivisional(p, lagna === "—" ? null : lagna)),
       };
     });
@@ -362,7 +362,7 @@ export function formatChartCompactForPrompt(
   } else {
     for (const p of chart.planets) {
       const house = houseFromLagna(lagna, p.siderealSign);
-      const dignity = dignityLabel(p.planet, p.siderealSign);
+      const dignity = standardsText(p.planet, p.siderealSign);
       const divisional = divisionalText(engineDivisional(p, lagna === "—" ? null : lagna));
       lines.push(
         `${p.planet}: ${p.siderealSign} เรือน${house ?? "—"} (${dignity})${divisional ? ` | ${divisional}` : ""}`,
