@@ -3,6 +3,7 @@ import {
   DEFAULT_PLANET_STANDARDS,
   applyPlanetStandards,
   formatPlanetStandardsForPrompt,
+  parsePlanetStandards,
   planetStandardsVersion,
   validatePlanetStandards,
   type PlanetStandardsTable,
@@ -76,5 +77,22 @@ describe("ตารางมาตรฐานดาว", () => {
     const ok = validatePlanetStandards(t);
     expect(ok.ok && ok.table.originalLords.เมษ).toBeFalsy();
     expect(ok.ok && ok.table.planets.ราหู.ราชาโชค).toEqual(["ตุลย"]);
+  });
+
+  it("keeps a table saved before อุจจาวิลาศ/อุจจาภิมุข/ปกิณกโชค/จตุสดัย existed, and uses them once filled", () => {
+    const saved = JSON.parse(JSON.stringify(DEFAULT_PLANET_STANDARDS));
+    saved.planets.อาทิตย์.มหาจักร = ["ธนู"];
+    for (const p of Object.keys(saved.planets)) {
+      for (const k of ["อุจจาวิลาศ", "อุจจาภิมุข", "ปกิณกโชค", "จตุสดัย"]) delete saved.planets[p][k];
+    }
+    const table = parsePlanetStandards(saved);
+    expect(table.planets.อาทิตย์.มหาจักร).toEqual(["ธนู"]);
+    expect(table.planets.อาทิตย์.อุจจาวิลาศ).toEqual([]);
+
+    table.planets.อาทิตย์.อุจจาวิลาศ = ["ธนู"];
+    table.planets.อาทิตย์.จตุสดัย = ["ธนู"];
+    applyPlanetStandards(table);
+    expect(extraStandardLabels("อาทิตย์", "ธนู")).toEqual(["มหาจักร", "อุจจาวิลาศ", "จตุสดัย"]);
+    expect(formatPlanetStandardsForPrompt().join("\n")).toContain("อุจจาวิลาศ ธนู");
   });
 });

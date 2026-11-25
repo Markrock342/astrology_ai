@@ -36,7 +36,7 @@ type Payload = {
   updatedAt: string | null;
 };
 
-/** The four basic standards and the four เกณฑ์ the team asked for, coloured apart. */
+/** The four basic standards and the เกณฑ์ the team asked for, coloured apart. */
 const KIND_TONE: Record<StandardKind, string> = {
   อุจจ์: "text-emerald-300",
   นิจ: "text-rose-300",
@@ -46,6 +46,10 @@ const KIND_TONE: Record<StandardKind, string> = {
   ราชาโชค: "text-[var(--primary)]",
   เทวีโชค: "text-[var(--primary)]",
   จุลจักร: "text-[var(--primary)]",
+  อุจจาวิลาศ: "text-[var(--primary)]",
+  อุจจาภิมุข: "text-[var(--primary)]",
+  ปกิณกโชค: "text-[var(--primary)]",
+  จตุสดัย: "text-[var(--primary)]",
 };
 
 const clone = (t: PlanetStandardsTable): PlanetStandardsTable => JSON.parse(JSON.stringify(t));
@@ -190,7 +194,7 @@ export function PlanetStandardsManager() {
           <Card>
             <CardTitle icon={Grid3x3} title="มาตรฐานของแต่ละดาว" description="แตะช่องเพื่อเลือกราศี · ช่องที่ว่างไว้ ระบบและ AI จะไม่นับมาตรฐานนั้นให้ดาวดวงนั้น" />
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs">
+              <table className="w-full min-w-[1300px] border-separate border-spacing-0 text-xs">
                 <thead>
                   <tr>
                     <th className="sticky left-0 z-10 bg-[var(--surface)] px-2 py-2 text-left font-medium text-[var(--muted)]">ดาว</th>

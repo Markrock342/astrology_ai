@@ -30,9 +30,16 @@ export const STANDARD_PLANETS = [
 export type StandardPlanet = (typeof STANDARD_PLANETS)[number];
 
 /** Columns of the table, strongest first; the first four make the one-word มาตรฐาน. */
-export const STANDARD_KINDS = ["อุจจ์", "นิจ", "เกษตร", "ประ", "มหาจักร", "ราชาโชค", "เทวีโชค", "จุลจักร"] as const;
+export const STANDARD_KINDS = [
+  "อุจจ์", "นิจ", "เกษตร", "ประ",
+  "มหาจักร", "ราชาโชค", "เทวีโชค", "จุลจักร",
+  // A, 23 Nov 2026: "ยังขาดคอลัมน์ อุจจาวิลาศ อุจจาภิมุข ปกิณกโชค จตุสดัย"
+  "อุจจาวิลาศ", "อุจจาภิมุข", "ปกิณกโชค", "จตุสดัย",
+] as const;
 export type StandardKind = (typeof STANDARD_KINDS)[number];
-export const EXTRA_STANDARD_KINDS = ["มหาจักร", "ราชาโชค", "เทวีโชค", "จุลจักร"] as const satisfies readonly StandardKind[];
+export const EXTRA_STANDARD_KINDS = [
+  "มหาจักร", "ราชาโชค", "เทวีโชค", "จุลจักร", "อุจจาวิลาศ", "อุจจาภิมุข", "ปกิณกโชค", "จตุสดัย",
+] as const satisfies readonly StandardKind[];
 
 export type PlanetStandardsTable = {
   /** เจ้าเรือน of each sign. */
@@ -88,13 +95,14 @@ const opposite = (sign: StandardSign): StandardSign => STANDARD_SIGNS[(STANDARD_
 const row = (own: StandardSign[], exalt: StandardSign[], fall: StandardSign[]): Record<StandardKind, StandardSign[]> => ({
   อุจจ์: exalt, นิจ: fall, เกษตร: own, ประ: own.map(opposite),
   มหาจักร: [], ราชาโชค: [], เทวีโชค: [], จุลจักร: [],
+  อุจจาวิลาศ: [], อุจจาภิมุข: [], ปกิณกโชค: [], จตุสดัย: [],
 });
 
 /**
  * What the app used before the table was editable. ประ is the sign opposite
  * each เกษตร, as the ตำรา in the knowledge base defines it. ราหู holds กุมภ์
  * (HoraSard's setting "ราหู (๘): เกษตรราศีกุมภ์"), เสาร์ keeps it as its
- * เจ้าเรือนเดิม. The four เกณฑ์ columns start empty for the team to fill.
+ * เจ้าเรือนเดิม. The เกณฑ์ columns start empty for the team to fill.
  */
 export const DEFAULT_PLANET_STANDARDS: PlanetStandardsTable = {
   lords: {
