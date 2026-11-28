@@ -14,6 +14,12 @@ import { NavProgress } from "@/components/app/nav-progress";
 import { CMS_KEYS, type CmsSiteTheme } from "@/lib/cms-keys";
 import { buildSiteBrandBootPayload } from "@/lib/theme-colors";
 import { getPublishedSetting } from "@/server/settings/settings-service";
+import { GoogleAnalytics } from "@/components/analytics/google-analytics";
+import { CookieConsentBanner } from "@/components/analytics/cookie-consent-banner";
+import { validGaId } from "@/lib/analytics-consent";
+
+// GA4 stays off (no script, no banner) until NEXT_PUBLIC_GA_ID is set at build.
+const GA_ID = validGaId(process.env.NEXT_PUBLIC_GA_ID);
 
 export const metadata: Metadata = {
   title: `${APP_NAME_TH} — ${APP_TAGLINE_TH}`,
@@ -76,9 +82,11 @@ export default async function RootLayout({
               <NavProgress />
             </Suspense>
             {children}
+            {GA_ID && <CookieConsentBanner />}
           </SiteBrandProvider>
           </TextSizeProvider>
         </ThemeProvider>
+        {GA_ID && <GoogleAnalytics gaId={GA_ID} />}
       </body>
     </html>
   );

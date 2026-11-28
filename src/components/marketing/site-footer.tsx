@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-logo";
 import type { CmsSiteFooter } from "@/lib/cms-keys";
+import { CookieSettingsLink } from "@/components/analytics/cookie-consent-banner";
+import { validGaId } from "@/lib/analytics-consent";
+
+const ANALYTICS_ON = validGaId(process.env.NEXT_PUBLIC_GA_ID) !== null;
 
 const DESIGN_CREDIT_HREF = "https://limitcode.shop";
 
@@ -71,6 +75,14 @@ export function SiteFooter({ footer }: { footer: CmsSiteFooter }) {
 
       <div className="flex flex-col items-center justify-center gap-1 border-t border-[var(--border)] px-6 py-4 text-center text-xs leading-5 text-[var(--muted-2)] sm:flex-row sm:gap-2.5">
         <p>{footer.copyright}</p>
+        {ANALYTICS_ON && (
+          <>
+            <span className="hidden text-[var(--border)] sm:inline" aria-hidden>
+              ·
+            </span>
+            <CookieSettingsLink className="text-[var(--muted-2)] transition hover:text-[var(--primary)]" />
+          </>
+        )}
         <span className="hidden text-[var(--border)] sm:inline" aria-hidden>
           ·
         </span>

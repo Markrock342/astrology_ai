@@ -5,6 +5,10 @@ import { PackPurchase } from "./pack-purchase";
 import { ProfileAvatarCard } from "./profile-avatar-card";
 import { UsageSummary } from "./usage-summary";
 import { DeleteAccountCard } from "./delete-account-card";
+import { CookieSettingsLink } from "@/components/analytics/cookie-consent-banner";
+import { validGaId } from "@/lib/analytics-consent";
+
+const ANALYTICS_ON = validGaId(process.env.NEXT_PUBLIC_GA_ID) !== null;
 import type { UsageLimitsFallback } from "@/types/my-usage";
 import { PRO_EXPIRY_WARN_DAYS } from "@/config/constants";
 import { AiMemoryCard } from "./ai-memory-card";
@@ -365,6 +369,11 @@ export function AccountView({
         )}
 
         <DeleteAccountCard email={profile.email} />
+        {ANALYTICS_ON && (
+          <p className="text-center text-xs text-[var(--muted-2)]">
+            <CookieSettingsLink className="underline underline-offset-2 transition hover:text-[var(--primary)]" />
+          </p>
+        )}
       </div>
     </div>
   );
