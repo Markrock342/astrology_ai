@@ -107,14 +107,14 @@ export function CookieConsentBanner() {
               <button
                 type="button"
                 onClick={() => choose("granted")}
-                className="press-scale rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+                className="press-scale rounded-xl bg-[var(--primary-fill)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
               >
                 ยอมรับคุกกี้วิเคราะห์
               </button>
               <button
                 type="button"
                 onClick={() => choose("denied")}
-                className="press-scale rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+                className="press-scale rounded-xl bg-[var(--primary-fill)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
               >
                 ปฏิเสธคุกกี้วิเคราะห์
               </button>

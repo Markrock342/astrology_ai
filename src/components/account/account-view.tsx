@@ -217,12 +217,12 @@ export function AccountView({
               {packMode ? (
                 <a
                   href="#payment"
-                  className="press-scale rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)]"
+                  className="press-scale rounded-lg bg-[var(--primary-fill)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-fill-foreground)]"
                 >
                   ซื้อแพ็กเพิ่ม
                 </a>
               ) : (
-                <RenewLink className="press-scale rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)]">
+                <RenewLink className="press-scale rounded-lg bg-[var(--primary-fill)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-fill-foreground)]">
                   ต่ออายุ
                 </RenewLink>
               )}

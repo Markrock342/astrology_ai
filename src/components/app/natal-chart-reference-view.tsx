@@ -45,7 +45,7 @@ export function NatalChartReferenceView() {
         </h1>
         <a
           href="/account"
-          className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)]"
+          className="press-scale rounded-xl bg-[var(--primary-fill)] px-4 py-2 text-xs font-semibold text-[var(--primary-fill-foreground)]"
         >
           ปลดล็อกด้วย Pro
         </a>
@@ -528,7 +528,7 @@ function ChartUnavailableState({
           <button
             type="button"
             onClick={onRetry}
-            className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)]"
+            className="press-scale rounded-xl bg-[var(--primary-fill)] px-4 py-2 text-xs font-semibold text-[var(--primary-fill-foreground)]"
           >
             โหลดอีกครั้ง
           </button>

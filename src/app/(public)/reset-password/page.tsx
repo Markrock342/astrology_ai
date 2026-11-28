@@ -66,7 +66,7 @@ function ResetPasswordForm() {
           </p>
           <Link
             href="/login"
-            className="press-scale w-full rounded-xl bg-[var(--primary)] px-4 py-3 text-center text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+            className="press-scale w-full rounded-xl bg-[var(--primary-fill)] px-4 py-3 text-center text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
           >
             เข้าสู่ระบบ
           </Link>
@@ -104,7 +104,7 @@ function ResetPasswordForm() {
           <button
             type="submit"
             disabled={loading}
-            className="press-scale w-full rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
+            className="press-scale w-full rounded-xl bg-[var(--primary-fill)] px-4 py-3 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)] disabled:opacity-60"
           >
             {loading ? "กำลังบันทึก…" : "บันทึกรหัสผ่านใหม่"}
           </button>

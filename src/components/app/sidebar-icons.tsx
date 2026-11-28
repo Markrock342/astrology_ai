@@ -31,10 +31,11 @@ export function SearchIcon({ size = 16, className = "" }: IconProps) {
 export function NewChatIcon({ size = 20, className = "" }: IconProps) {
   return (
     <svg {...base(size)} className={className} aria-hidden>
-      <circle cx="12" cy="12" r="10" fill="var(--secondary-active)" />
+      {/* Sits on the gold New chat button: the button's text colour, not a second accent. */}
+      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.8" />
       <path
         d="M12 8v8M8 12h8"
-        stroke="var(--secondary-foreground)"
+        stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
       />

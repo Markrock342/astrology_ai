@@ -592,7 +592,7 @@ export function AppShell({
             }
             closeMobile();
           }}
-          className="press-scale flex min-h-11 items-center gap-2.5 rounded-xl border border-[var(--secondary)]/45 bg-[var(--secondary)]/10 px-3.5 py-2.5 text-sm font-semibold text-[var(--secondary-active)] transition hover:bg-[var(--secondary)]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--secondary-active)]"
+          className="press-scale flex min-h-11 items-center gap-2.5 rounded-xl bg-[var(--primary-fill)] px-3.5 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] shadow-sm transition hover:bg-[var(--primary-fill-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
         >
           <NewChatIcon /> เริ่มสนทนาใหม่
         </Link>
@@ -637,10 +637,10 @@ export function AppShell({
             {conversationThreads.map((t) => (
               <li
                 key={t.id}
-                className={`group flex items-center gap-0.5 rounded-lg pr-1 transition hover:bg-[var(--background)] ${
+                className={`group flex items-center gap-0.5 rounded-lg pr-1 transition ${
                   activeThread === t.id
-                    ? "bg-[var(--background)] shadow-[inset_0_0_0_1px_var(--border)]"
-                    : ""
+                    ? "bg-[var(--surface-3)]"
+                    : "hover:bg-[var(--surface-2)]"
                 }`}
               >
                 <button
@@ -649,9 +649,9 @@ export function AppShell({
                   onMouseEnter={() => {
                     void prefetchThread(t.id);
                   }}
-                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-left text-xs transition hover:text-[var(--foreground)] ${
+                  className={`flex min-w-0 flex-1 items-center gap-2 truncate px-3 py-2 text-left text-sm transition hover:text-[var(--foreground)] ${
                     activeThread === t.id
-                      ? "text-[var(--foreground)]"
+                      ? "font-medium text-[var(--foreground)]"
                       : "text-[var(--muted)]"
                   }`}
                 >
@@ -693,7 +693,7 @@ export function AppShell({
                     e.stopPropagation();
                     openRenameThread(t.id, t.title);
                   }}
-                  className={`min-h-11 shrink-0 rounded-md px-2 py-2 text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
+                  className={`min-h-11 shrink-0 rounded-md px-2 py-2 text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--foreground)] md:inline-flex md:items-center md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:focus-visible:opacity-100 ${
                     threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
                   }`}
                 >
@@ -708,7 +708,7 @@ export function AppShell({
                     e.stopPropagation();
                     void deleteThread(t.id);
                   }}
-                  className={`min-h-11 shrink-0 rounded-md px-2 py-2 text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] md:inline-flex md:items-center md:opacity-70 md:group-hover:opacity-100 ${
+                  className={`min-h-11 shrink-0 rounded-md px-2 py-2 text-[var(--muted-2)] transition hover:bg-[var(--surface-3)] hover:text-[var(--danger)] md:inline-flex md:items-center md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:focus-visible:opacity-100 ${
                     threadActionsOpen === t.id ? "inline-flex items-center" : "hidden"
                   }`}
                 >
@@ -985,7 +985,7 @@ function CollapsedRail({
 
       <Link
         href="/dashboard"
-        className="press-scale mt-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--secondary-active)] text-[var(--secondary-foreground)] transition hover:brightness-110"
+        className="press-scale mt-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary-fill)] text-[var(--primary-fill-foreground)] shadow-sm transition hover:bg-[var(--primary-fill-hover)]"
         aria-label="เริ่มสนทนาใหม่"
         title="เริ่มสนทนาใหม่"
         onClick={(e) => {
@@ -1092,7 +1092,7 @@ function SectionLabel({
 }) {
   return (
     <p
-      className={`px-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-[var(--muted-2)] ${className}`}
+      className={`px-3 pb-1 text-xs font-semibold text-[var(--muted)] ${className}`}
     >
       {children}
     </p>

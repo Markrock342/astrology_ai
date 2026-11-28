@@ -66,7 +66,7 @@ export function HeroSection({ hero }: { hero: CmsLandingHero }) {
         <div className="animate-fade-up stagger-4 mt-9 flex flex-wrap items-center justify-center gap-3">
           <Link
             href={hero.primaryCta.href}
-            className="press-scale rounded-full bg-[var(--primary)] px-7 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+            className="press-scale rounded-full bg-[var(--primary-fill)] px-7 py-3 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
           >
             {hero.primaryCta.text}
           </Link>

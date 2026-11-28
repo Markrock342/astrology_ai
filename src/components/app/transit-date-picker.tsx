@@ -382,7 +382,7 @@ export function TransitDatePicker({
               <button
                 type="button"
                 onClick={() => closePanel(true)}
-                className="min-h-8 rounded-lg bg-[var(--primary)] px-3 text-[12px] font-semibold text-[var(--primary-foreground)]"
+                className="min-h-8 rounded-lg bg-[var(--primary-fill)] px-3 text-[12px] font-semibold text-[var(--primary-fill-foreground)]"
               >
                 ตกลง
               </button>
@@ -479,7 +479,7 @@ function EraChip({
       aria-pressed={active}
       className={`min-h-7 rounded-md px-2 text-[11px] transition ${
         active
-          ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+          ? "bg-[var(--primary-fill)] text-[var(--primary-fill-foreground)]"
           : "text-[var(--muted)] hover:text-[var(--foreground)]"
       }`}
     >

@@ -29,6 +29,12 @@ html {
     --primary: #c9a24b; /* gold */
     --primary-hover: #d8b25c;
     --primary-foreground: #1a1508;
+    /* Solid gold fills (buttons): bright gold with dark ink in both themes.
+       --primary darkens to #8a6a22 in light so gold TEXT reads on white; as a
+       fill that turned every button brown. */
+    --primary-fill: #c9a24b;
+    --primary-fill-hover: #d8b25c;
+    --primary-fill-foreground: #1a1508;
     --accent: #c9a24b; /* gold (alias) */
     --secondary: #1f8f7a; /* turquoise green */
     --secondary-active: #12b886; /* active turquoise */
@@ -58,6 +64,9 @@ html {
     --primary: #8a6a22;
     --primary-hover: #6b5320;
     --primary-foreground: #faf6eb;
+    --primary-fill: #c9a24b;
+    --primary-fill-hover: #b8913c;
+    --primary-fill-foreground: #1a1508;
     --accent: #8a6a22;
     --secondary: #0f7668;
     --secondary-active: #0d9488;

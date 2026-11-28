@@ -183,7 +183,7 @@ export default async function PricingPage() {
             <>
               <Link
                 href="/login?tab=register"
-                className="rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+                className="rounded-full bg-[var(--primary-fill)] px-6 py-3 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
               >
                 สมัครสมาชิก
               </Link>
@@ -197,14 +197,14 @@ export default async function PricingPage() {
           ) : viewer === "FREE" ? (
             <Link
               href="/account#payment"
-              className="rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+              className="rounded-full bg-[var(--primary-fill)] px-6 py-3 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
             >
               {packs.length > 0 ? "โอนแล้ว — ส่งสลิป" : "โอนแล้ว — ส่งสลิปอัปเกรด Pro"}
             </Link>
           ) : packs.length > 0 ? (
             <Link
               href="/account#payment"
-              className="rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+              className="rounded-full bg-[var(--primary-fill)] px-6 py-3 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
             >
               ซื้อแพ็กคำถามเพิ่ม
             </Link>

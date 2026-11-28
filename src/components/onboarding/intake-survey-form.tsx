@@ -258,7 +258,7 @@ export function IntakeSurveyForm() {
               type="button"
               onClick={goNext}
               disabled={!currentComplete}
-              className="min-h-11 w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-0 sm:flex-[1.5]"
+              className="min-h-11 w-full rounded-xl bg-[var(--primary-fill)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-0 sm:flex-[1.5]"
             >
               ไปขั้นถัดไป
             </button>
@@ -266,7 +266,7 @@ export function IntakeSurveyForm() {
             <button
               type="submit"
               disabled={submitting || !complete}
-              className="min-h-11 w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-0 sm:flex-[1.5]"
+              className="min-h-11 w-full rounded-xl bg-[var(--primary-fill)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)] disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-0 sm:flex-[1.5]"
             >
               {submitting ? "กำลังบันทึก…" : "ดูสรุปพื้นดวง"}
             </button>

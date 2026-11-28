@@ -197,7 +197,7 @@ export default function CalendarPage() {
             <button
               type="button"
               onClick={() => askAbout(picked)}
-              className="press-scale mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]"
+              className="press-scale mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--primary-fill)] px-4 py-2 text-sm font-semibold text-[var(--primary-fill-foreground)] hover:bg-[var(--primary-fill-hover)]"
             >
               <MessageCircle size={15} aria-hidden /> ถามหมอดูเรื่องวันนี้
             </button>

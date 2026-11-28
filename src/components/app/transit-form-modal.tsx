@@ -301,7 +301,7 @@ export function TransitFormModal({
             </p>
             <a
               href="/account"
-              className="press-scale inline-flex rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+              className="press-scale inline-flex rounded-full bg-[var(--primary-fill)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
             >
               ดูแพ็กเกจ Pro
             </a>
@@ -322,7 +322,7 @@ export function TransitFormModal({
                 disabled={locating}
                 className="press-scale flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[var(--primary)]/45 bg-[var(--primary)]/10 px-4 py-3 text-left transition hover:border-[var(--primary)] hover:bg-[var(--primary)]/15 disabled:cursor-wait disabled:opacity-70"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary-fill)] text-[var(--primary-fill-foreground)]">
                   <CurrentLocationIcon locating={locating} />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -494,7 +494,7 @@ export function TransitFormModal({
               <button
                 type="submit"
                 disabled={submitting}
-                className="press-scale flex-1 rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
+                className="press-scale flex-1 rounded-xl bg-[var(--primary-fill)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)] disabled:opacity-60"
               >
                 {submitting ? "กำลังสร้าง…" : "เริ่มสนทนา"}
               </button>

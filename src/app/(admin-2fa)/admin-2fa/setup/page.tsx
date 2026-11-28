@@ -86,7 +86,7 @@ export default function Admin2faSetupPage() {
           </ul>
           <button
             type="button"
-            className="w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)]"
+            className="w-full rounded-xl bg-[var(--primary-fill)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)]"
             onClick={() => router.replace("/admin")}
           >
             เข้าแอดมิน
@@ -127,7 +127,7 @@ export default function Admin2faSetupPage() {
             type="button"
             disabled={busy || code.trim().length < 6}
             onClick={() => void confirm()}
-            className="w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] disabled:opacity-50"
+            className="w-full rounded-xl bg-[var(--primary-fill)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] disabled:opacity-50"
           >
             {busy ? "กำลังยืนยัน…" : "ยืนยันและเปิด 2FA"}
           </button>

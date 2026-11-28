@@ -95,7 +95,7 @@ export function TextSizeSettingsControl() {
             onClick={() => setTextSize(option.id)}
             className={`press-scale flex min-h-11 flex-col items-center justify-center rounded-lg px-2 py-1.5 transition ${
               active
-                ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                ? "bg-[var(--primary-fill)] text-[var(--primary-fill-foreground)]"
                 : "text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
             }`}
           >

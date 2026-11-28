@@ -21,6 +21,7 @@ import {
 import { softNavigate, useChatRouteSearchParams, isPlainLeftClick } from "./chat-nav";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { HoroscopeChartPanel } from "./horoscope-chart-panel";
+import { BrandMark } from "@/components/brand-logo";
 import { ChartDisclosure } from "./chart-disclosure";
 import { ChartEvidenceTable } from "./chart-evidence-table";
 import { CopyMessageButton } from "./copy-message-button";
@@ -2696,7 +2697,7 @@ function ErrorBanner({
                 event.preventDefault();
               }
             }}
-            className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+            className="press-scale rounded-xl bg-[var(--primary-fill)] px-4 py-2 text-xs font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
           >
             {scopeTarget.requiresPro
               ? `ปลดล็อกหมวด${scopeTarget.label}`
@@ -2721,7 +2722,7 @@ function ErrorBanner({
                   "/account#payment"
                 : "/account"
             }
-            className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+            className="press-scale rounded-xl bg-[var(--primary-fill)] px-4 py-2 text-xs font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
           >
             {quotaExceeded
               ? "ดูแพ็กเกจ / รอวันใหม่"
@@ -2757,7 +2758,11 @@ const STARTER_GROUPS: Array<{ topic: string; questions: string[]; pro?: boolean 
 
 const GUIDE_SEEN_KEY = "horasard.firstVisitGuide.v1";
 
-/** A one-time card on how the chat works. Dismissed for good on this device. */
+/**
+ * How the chat works, folded into one line under the welcome. It used to open
+ * as a four-step card above the example questions on every first visit and
+ * pushed them below the fold on phones. "เข้าใจแล้ว" hides it on this device.
+ */
 function FirstVisitGuide({ copy }: { copy: CmsChatUi }) {
   const [show, setShow] = useState(false);
   useEffect(() => {
@@ -2777,31 +2782,64 @@ function FirstVisitGuide({ copy }: { copy: CmsChatUi }) {
       /* private mode: shows again next time, harmless */
     }
   };
-  const steps = copy.guideSteps;
   return (
-    <div className="animate-fade-up mt-5 w-full rounded-2xl border border-[var(--primary)]/35 bg-[var(--primary)]/8 p-4 text-left">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-[var(--primary)]">{copy.guideTitle}</p>
-        <button type="button" onClick={close} className="rounded-md px-2 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)]">
-          เข้าใจแล้ว
-        </button>
+    <details className="group/guide animate-fade-up stagger-3 mt-6 w-full max-w-xl text-left">
+      <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] [&::-webkit-details-marker]:hidden">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-[var(--primary)]">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 16v-4M12 8h.01" />
+        </svg>
+        {copy.guideTitle}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="transition group-open/guide:rotate-180">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </summary>
+      <div className="mt-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm">
+        <ol className="space-y-2 text-[14px] leading-6 text-[var(--foreground)]">
+          {copy.guideSteps.map((step, i) => (
+            <li key={`${step.title}-${i}`} className="flex gap-2.5">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--primary-fill)] text-[11px] font-semibold text-[var(--primary-fill-foreground)]">
+                {i + 1}
+              </span>
+              <span>
+                <b className="font-semibold">{step.title}</b>{" "}
+                <span className="text-[var(--muted)]">{step.body}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={close}
+            className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-[var(--primary)] transition hover:bg-[var(--surface-2)]"
+          >
+            เข้าใจแล้ว
+          </button>
+        </div>
       </div>
-      <ol className="space-y-1.5 text-[13px] leading-6 text-[var(--foreground)]">
-        {steps.map((step, i) => (
-          <li key={`${step.title}-${i}`} className="flex gap-2">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[11px] font-semibold text-[var(--primary-foreground)]">
-              {i + 1}
-            </span>
-            <span>
-              <b>{step.title}</b> — <span className="text-[var(--muted)]">{step.body}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-    </div>
+    </details>
   );
 }
 
+/** Four starters: the first question of each topic, topped up with seconds. */
+function starterCards(plan: "FREE" | "PRO"): Array<{ topic: string; question: string }> {
+  const groups = STARTER_GROUPS.filter((g) => plan === "PRO" || !g.pro);
+  const out: Array<{ topic: string; question: string }> = [];
+  for (let round = 0; out.length < 4 && round < 2; round++) {
+    for (const g of groups) {
+      const question = g.questions[round];
+      if (question && out.length < 4) out.push({ topic: g.topic, question });
+    }
+  }
+  return out;
+}
+
+/**
+ * The new-chat screen, after assistant-ui's ThreadWelcome (MIT): a centred
+ * welcome and a 2×2 grid of example questions, each card naming its topic.
+ * Was a row of pills per topic under a tutorial card, pinned to the top.
+ */
 function EmptyState({
   plan,
   onPick,
@@ -2818,38 +2856,38 @@ function EmptyState({
   emailGate?: boolean;
   chatUi: CmsChatUi;
 }) {
-  const groups = STARTER_GROUPS.filter((g) => plan === "PRO" || !g.pro);
+  const cards = starterCards(plan);
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col items-center pt-6 text-center">
-      <h1 className="animate-fade-up text-xl font-semibold leading-relaxed text-[var(--primary)] sm:text-2xl">
+    <div className="mx-auto flex min-h-[calc(100dvh-17rem)] w-full max-w-2xl flex-col items-center justify-center py-6 text-center">
+      <div className="animate-fade-up flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm">
+        <BrandMark size={30} />
+      </div>
+      <h1 className="animate-fade-up stagger-1 mt-5 text-[1.625rem] font-semibold leading-snug text-[var(--foreground)]">
         ถามดวงได้เลย
       </h1>
-      <p className="animate-fade-up stagger-1 mt-2 text-sm leading-relaxed text-[var(--muted)]">
-        ถามให้เจาะจง: <b className="text-[var(--foreground)]">เรื่องอะไร + ช่วงไหน</b> แล้วอาจารย์จะดูดวงจรของช่วงนั้นให้
+      <p className="animate-fade-up stagger-1 mt-2 max-w-md text-[15px] leading-relaxed text-[var(--muted)]">
+        ถามให้เจาะจงว่า <b className="font-semibold text-[var(--foreground)]">เรื่องอะไร ช่วงไหน</b>{" "}
+        แล้วอาจารย์จะดูดวงจรของช่วงนั้นให้
       </p>
-      <FirstVisitGuide copy={chatUi} />
-      <div className="mt-5 w-full space-y-2.5 text-left">
-        {groups.map((g, gi) => (
-          <div key={g.topic} className={`animate-fade-up stagger-${Math.min(gi + 2, 6)} flex flex-wrap items-center gap-2`}>
-            <span className="w-16 shrink-0 text-xs font-semibold text-[var(--primary)]">{g.topic}</span>
-            {g.questions.map((q) => (
-              <button
-                key={q}
-                type="button"
-                disabled={emailGate}
-                onClick={() => {
-                  if (emailGate) return;
-                  onPick(q);
-                }}
-                className="press-scale rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2 text-xs text-[var(--muted)] transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 md:py-1.5"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
+      <div className="mt-8 grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2">
+        {cards.map((c, i) => (
+          <button
+            key={c.question}
+            type="button"
+            disabled={emailGate}
+            onClick={() => {
+              if (emailGate) return;
+              onPick(c.question);
+            }}
+            className={`animate-fade-up stagger-${Math.min(i + 2, 6)} press-scale group/card flex min-h-[4.5rem] flex-col items-start justify-center rounded-[1rem] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left shadow-sm transition hover:border-[var(--primary)]/60 hover:bg-[var(--surface-2)] disabled:cursor-not-allowed disabled:opacity-40`}
+          >
+            <span className="text-[12px] font-semibold text-[var(--primary)]">{c.topic}</span>
+            <span className="mt-0.5 text-[15px] leading-snug text-[var(--foreground)]">{c.question}</span>
+          </button>
         ))}
       </div>
+      <FirstVisitGuide copy={chatUi} />
     </div>
   );
 }
@@ -2914,7 +2952,7 @@ function LockedState({ category }: { category?: string }) {
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
         <a
           href="/account#payment"
-          className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+          className="rounded-xl bg-[var(--primary-fill)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
         >
           ซื้อแพ็กคำถาม
         </a>
@@ -3217,7 +3255,7 @@ const Composer = forwardRef<
                 usageExhausted ||
                 !value.trim()
               }
-              className="press-scale flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm transition hover:bg-[var(--primary-hover)] disabled:bg-[var(--surface-3)] disabled:text-[var(--muted-2)] disabled:shadow-none md:size-9"
+              className="press-scale flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary-fill)] text-[var(--primary-fill-foreground)] shadow-sm transition hover:bg-[var(--primary-fill-hover)] disabled:bg-[var(--surface-3)] disabled:text-[var(--muted-2)] disabled:shadow-none md:size-9"
               aria-label="ส่ง"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

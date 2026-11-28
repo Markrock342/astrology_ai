@@ -253,7 +253,7 @@ export function CompanionPicker({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="press-scale w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)]"
+                className="press-scale w-full rounded-xl bg-[var(--primary-fill)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)]"
               >
                 {value.length ? `ใช้ ${value.length} คนนี้` : "ปิด"}
               </button>
@@ -430,7 +430,7 @@ function AddPersonForm({
         <button
           type="button"
           onClick={submit}
-          className="press-scale flex-1 rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-[var(--primary-foreground)]"
+          className="press-scale flex-1 rounded-lg bg-[var(--primary-fill)] px-3 py-2 text-sm font-semibold text-[var(--primary-fill-foreground)]"
         >
           เพิ่ม
         </button>

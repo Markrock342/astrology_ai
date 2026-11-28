@@ -240,7 +240,7 @@ export function PricingSection({
                           action.current
                             ? "border border-[var(--secondary-active)]/50 bg-[var(--secondary-active)]/10 text-[var(--secondary-active)] hover:bg-[var(--secondary-active)]/15"
                             : highlight
-                              ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]"
+                              ? "bg-[var(--primary-fill)] text-[var(--primary-fill-foreground)] hover:bg-[var(--primary-fill-hover)]"
                               : "border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)]/40 hover:bg-[var(--surface-2)]"
                         }`}
                       >

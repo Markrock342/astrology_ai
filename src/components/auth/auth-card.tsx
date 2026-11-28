@@ -269,7 +269,7 @@ export function AuthCard({
           <button
             type="submit"
             disabled={busy}
-            className="press-scale mt-1 w-full rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
+            className="press-scale mt-1 w-full rounded-xl bg-[var(--primary-fill)] px-4 py-3 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)] disabled:opacity-60"
           >
             {loading === "login" ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
           </button>

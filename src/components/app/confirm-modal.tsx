@@ -83,7 +83,7 @@ export function ConfirmModal({
             className={`press-scale rounded-xl px-4 py-2 text-xs font-semibold transition disabled:opacity-60 ${
               danger
                 ? "bg-[var(--danger)] text-[var(--danger-foreground)] hover:opacity-90"
-                : "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]"
+                : "bg-[var(--primary-fill)] text-[var(--primary-fill-foreground)] hover:bg-[var(--primary-fill-hover)]"
             }`}
           >
             {busy ? "กำลังทำ…" : confirmLabel}
@@ -186,7 +186,7 @@ export function ThreadRenameModal({
             <button
               type="submit"
               disabled={busy || !title.trim()}
-              className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
+              className="press-scale rounded-xl bg-[var(--primary-fill)] px-4 py-2 text-xs font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)] disabled:opacity-60"
             >
               {busy ? "กำลังบันทึก…" : "บันทึกชื่อ"}
             </button>

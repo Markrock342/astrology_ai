@@ -161,7 +161,7 @@ export function ContactForm() {
           <button
             type="submit"
             disabled={state === "loading"}
-            className="min-h-11 rounded-full bg-[var(--primary)] px-8 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
+            className="min-h-11 rounded-full bg-[var(--primary-fill)] px-8 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
           >
             {state === "loading" ? "กำลังส่ง…" : "ส่งข้อความ"}
           </button>

@@ -128,7 +128,7 @@ export function Button({
 }) {
   const styles =
     variant === "primary"
-      ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]"
+      ? "bg-[var(--primary-fill)] text-[var(--primary-fill-foreground)] hover:bg-[var(--primary-fill-hover)]"
       : variant === "danger"
         ? "border border-[var(--danger)]/40 text-[var(--danger)] hover:bg-[var(--danger)]/10"
         : "border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-2)]";

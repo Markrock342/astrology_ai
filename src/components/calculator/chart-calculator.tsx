@@ -386,7 +386,7 @@ export function ChartCalculator() {
         <button
           type="submit"
           disabled={submitting}
-          className="press-scale mt-6 rounded-xl bg-[var(--primary)] px-10 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:opacity-60"
+          className="press-scale mt-6 rounded-xl bg-[var(--primary-fill)] px-10 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)] disabled:opacity-60"
         >
           {submitting ? "กำลังคำนวณ…" : "คำนวณราศีจักร"}
         </button>

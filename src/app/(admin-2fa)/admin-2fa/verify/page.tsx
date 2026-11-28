@@ -106,7 +106,7 @@ export default function Admin2faVerifyPage() {
         type="button"
         disabled={busy || code.length < required}
         onClick={() => void verify(code)}
-        className="mt-4 w-full rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] disabled:opacity-50"
+        className="mt-4 w-full rounded-xl bg-[var(--primary-fill)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] disabled:opacity-50"
       >
         {busy ? "กำลังตรวจ…" : "ยืนยัน"}
       </button>

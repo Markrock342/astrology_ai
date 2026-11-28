@@ -223,6 +223,10 @@ export function buildThemeVars(colors: BrandColors): Record<string, string> {
     "--primary": primary,
     "--primary-hover": primaryHover,
     "--primary-foreground": contrastInk(primary),
+    // Fills keep the brand's own colour; only text needs fitting to the surface.
+    "--primary-fill": rawPrimary,
+    "--primary-fill-hover": darkBase ? lighten(rawPrimary, 0.08) : darken(rawPrimary, 0.08),
+    "--primary-fill-foreground": contrastInk(rawPrimary),
     "--accent": primary,
     "--secondary": secondary,
     "--secondary-active": secondaryActive,

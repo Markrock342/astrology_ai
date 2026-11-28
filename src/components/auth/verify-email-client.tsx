@@ -60,7 +60,7 @@ export function VerifyEmailClient() {
             <p className="mt-3 text-sm text-[var(--muted)]">{message}</p>
             <Link
               href="/dashboard"
-              className="press-scale mt-6 inline-block rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)]"
+              className="press-scale mt-6 inline-block rounded-xl bg-[var(--primary-fill)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)]"
             >
               ไปหน้าแชท
             </Link>

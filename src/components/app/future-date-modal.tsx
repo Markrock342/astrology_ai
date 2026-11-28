@@ -108,7 +108,7 @@ export function FutureDateModal({
             <button
               type="submit"
               disabled={!date}
-              className="min-h-11 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-11 rounded-xl bg-[var(--primary-fill)] px-4 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               ยืนยันวันที่และถาม
             </button>

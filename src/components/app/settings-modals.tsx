@@ -116,7 +116,7 @@ export function RenameModal({
         <button
           type="submit"
           disabled={saving || !name.trim()}
-          className="rounded-xl bg-[var(--primary)] py-2.5 text-sm font-semibold text-[var(--primary-foreground)] disabled:opacity-50"
+          className="rounded-xl bg-[var(--primary-fill)] py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] disabled:opacity-50"
         >
           {saving ? "กำลังบันทึก…" : "บันทึก"}
         </button>
@@ -204,7 +204,7 @@ export function ChangePasswordModal({
           <button
             type="submit"
             disabled={saving || currentPassword.length < 8 || newPassword.length < 8}
-            className="rounded-xl bg-[var(--primary)] py-2.5 text-sm font-semibold text-[var(--primary-foreground)] disabled:opacity-50"
+            className="rounded-xl bg-[var(--primary-fill)] py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] disabled:opacity-50"
           >
             {saving ? "กำลังบันทึก…" : "เปลี่ยนรหัสผ่าน"}
           </button>

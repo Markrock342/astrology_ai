@@ -64,7 +64,7 @@ export function ErrorFallback({
         <button
           type="button"
           onClick={handleRetry}
-          className="press-scale rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+          className="press-scale rounded-full bg-[var(--primary-fill)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
         >
           ลองใหม่
         </button>

@@ -93,7 +93,7 @@ function RejectedPaymentCard({
         <button
           type="button"
           onClick={onResubmit}
-          className="press-scale rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition hover:bg-[var(--primary-hover)]"
+          className="press-scale rounded-xl bg-[var(--primary-fill)] px-4 py-2 text-xs font-semibold text-[var(--primary-fill-foreground)] transition hover:bg-[var(--primary-fill-hover)]"
         >
           ส่งสลิปใหม่
         </button>
