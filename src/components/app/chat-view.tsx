@@ -7,7 +7,6 @@ import {
   useImperativeHandle,
   useRef,
   useState,
-  useSyncExternalStore,
   forwardRef,
 } from "react";
 import dynamic from "next/dynamic";
@@ -19,7 +18,6 @@ import {
   useAppData,
   useCategory,
 } from "./app-data-provider";
-import { BrandMark } from "@/components/brand-logo";
 import { softNavigate, useChatRouteSearchParams, isPlainLeftClick } from "./chat-nav";
 import { ExpandableRasiWheel } from "./expandable-rasi-wheel";
 import { HoroscopeChartPanel } from "./horoscope-chart-panel";
@@ -74,23 +72,6 @@ const FutureDateModal = dynamic(
 type ThinkingPhase = "chart" | "memory" | "writing";
 type AnswerMode = "brief" | "detailed";
 type FeedbackValue = "up" | "down";
-
-// Coarse-pointer (touch) detection as an external store — the compiler-safe way
-// to read matchMedia without setState-in-effect. Drives the composer hint, which
-// must not mention Shift+Enter on phones that have no such shortcut.
-function subscribeCoarsePointer(onChange: () => void): () => void {
-  if (typeof window === "undefined" || !window.matchMedia) return () => {};
-  const mq = window.matchMedia("(pointer: coarse)");
-  mq.addEventListener("change", onChange);
-  return () => mq.removeEventListener("change", onChange);
-}
-function getCoarsePointerSnapshot(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    !!window.matchMedia &&
-    window.matchMedia("(pointer: coarse)").matches
-  );
-}
 
 const THINKING_PHASE_LABEL: Record<ThinkingPhase, string> = {
   chart: "กำลังคำนวณพื้นดวง…",
@@ -2277,7 +2258,7 @@ export function ChatView({ chatUi }: { chatUi: CmsChatUi }) {
         ) : (
           <div
             ref={pinToBottomRef}
-            className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-2"
+            className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-6"
           >
             {messages.map((m, idx) => {
               // Natal never changes, so its wheel stays on the first answer.
@@ -2306,7 +2287,7 @@ export function ChatView({ chatUi }: { chatUi: CmsChatUi }) {
                   className="animate-msg-in group flex scroll-mt-20 flex-col items-end md:scroll-mt-6"
                 >
                   <div
-                    className={`max-w-[min(85%,42rem)] overflow-hidden whitespace-pre-wrap break-words rounded-2xl rounded-br-[6px] px-4 py-3 text-[15px] leading-6 text-[var(--foreground)] shadow-[inset_0_0_0_1px_var(--border)] ${
+                    className={`max-w-[min(85%,36rem)] overflow-hidden whitespace-pre-wrap break-words rounded-3xl px-4 py-2.5 text-base leading-7 text-[var(--foreground)] ${
                       editingMessageId === m.id
                         ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/40"
                         : "bg-[var(--surface-3)]"
@@ -2325,20 +2306,10 @@ export function ChatView({ chatUi }: { chatUi: CmsChatUi }) {
                   ) : null}
                 </div>
               ) : (
-                <div key={m.id} className="animate-msg-in group flex flex-col gap-1.5 sm:flex-row sm:gap-4">
-                  {/* The assistant speaks as the brand, so it wears the brand —
-                      a generic sparkle said nothing about whose answer this is.
-                      On phones the avatar rides the name as a header row so the
-                      answer body drops to full width below it; only on sm+ does
-                      the avatar become a left column that indents the text. */}
-                  <div className="flex items-center gap-2 sm:block">
-                    <div
-                      className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--primary)]/35 bg-[var(--surface-2)] sm:mt-0.5 sm:h-8 sm:w-8"
-                      aria-hidden
-                    >
-                      <BrandMark size={18} />
-                    </div>
-                  </div>
+                // No avatar column: like ChatGPT and Claude, the answer reads as a page
+                // across the full column. The avatar indented every line by 48px
+                // on desktop and took its own row on phones.
+                <div key={m.id} className="animate-msg-in group">
                   <div className="min-w-0 flex-1">
                     {m.basis && m.content ? (
                       <p className="mb-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[11px] text-[var(--muted)]">
@@ -2429,7 +2400,7 @@ export function ChatView({ chatUi }: { chatUi: CmsChatUi }) {
                       </>
                     )}
                     {!isStreamingTurn && m.content && (
-                      <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-[var(--border)]/70 pt-2">
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
                         {!isBusy && sid ? (
                           <MessageActions
                             role="assistant"
@@ -2451,6 +2422,7 @@ export function ChatView({ chatUi }: { chatUi: CmsChatUi }) {
                             }
                             feedback={feedbackById[sid] ?? null}
                             onFeedback={(value) => setMessageFeedback(sid, value)}
+                            pinned={idx === messages.length - 1}
                           />
                         ) : (
                           <CopyMessageButton text={m.content} />
@@ -2458,7 +2430,7 @@ export function ChatView({ chatUi }: { chatUi: CmsChatUi }) {
                       </div>
                     )}
                     {!isBusy && !isStreamingTurn && m.status === "SUCCESS" ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-4 flex flex-wrap gap-2">
                         {/* A truncated answer told the user to TYPE "เล่าต่อ".
                             Asking someone to type what a button should do is a
                             button that doesn't exist yet — here it is. The
@@ -2483,7 +2455,7 @@ export function ChatView({ chatUi }: { chatUi: CmsChatUi }) {
                             type="button"
                             disabled={emailGate}
                             onClick={() => void send(q)}
-                            className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2.5 text-left text-xs text-[var(--muted)] transition hover:border-[var(--primary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 md:py-1.5"
+                            className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-left text-[13px] text-[var(--foreground)] transition hover:border-[var(--primary)]/60 hover:bg-[var(--surface-2)] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             {q}
                           </button>
@@ -2497,19 +2469,13 @@ export function ChatView({ chatUi }: { chatUi: CmsChatUi }) {
                             type="button"
                             disabled={emailGate}
                             onClick={() => void send("ช่วยสรุปใจความสำคัญของดวงจากที่คุยมาทั้งหมดในแชทนี้")}
-                            className="press-scale rounded-full border border-[var(--primary)]/50 bg-[var(--primary)]/10 px-3.5 py-2.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-40 md:py-1.5"
+                            className="press-scale max-w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-left text-[13px] text-[var(--foreground)] transition hover:border-[var(--primary)]/60 hover:bg-[var(--surface-2)] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             สรุปทั้งแชท
                           </button>
                         ) : null}
                       </div>
                     ) : null}
-                    {!isStreamingTurn && (
-                      <p className="mt-2 text-[11px] leading-relaxed text-[var(--muted-2)]">
-                        คำทำนายนี้มีไว้เพื่อความบันเทิงและเป็นแนวทางเท่านั้น
-                        ไม่ใช่คำแนะนำทางการเงิน กฎหมาย หรือการแพทย์
-                      </p>
-                    )}
                   </div>
                 </div>
               );
@@ -2588,7 +2554,7 @@ export function ChatView({ chatUi }: { chatUi: CmsChatUi }) {
       {showingNatalChart ? null : (
       <div
         ref={composerBoxRef}
-        className="sticky bottom-0 z-20 shrink-0 border-t border-[var(--border)]/60 bg-[var(--background)] pt-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
+        className="sticky bottom-0 z-20 shrink-0 bg-[var(--background)] pb-[max(0.25rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-[var(--background)] before:to-transparent"
       >
           {editingMessageId ? (
             <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 pb-2 md:px-8">
@@ -3118,14 +3084,6 @@ const Composer = forwardRef<
     }
   }, [value, draftKey]);
 
-  // Touch devices have no Shift+Enter — that desktop hint only confused phone
-  // users, who send with the keyboard's own return/newline keys.
-  const coarsePointer = useSyncExternalStore(
-    subscribeCoarsePointer,
-    getCoarsePointerSnapshot,
-    () => false,
-  );
-
   const remaining = usageRemainingPercent ?? 0;
   const lowUsage = remaining <= 20;
   const usageExhausted = remaining <= 0;
@@ -3136,9 +3094,7 @@ const Composer = forwardRef<
       ? "ยืนยันอีเมลก่อนใช้คำถามทดลอง"
       : categoryLocked
         ? "หมวดนี้ใช้ได้เมื่อซื้อแพ็กคำถาม"
-        : coarsePointer
-          ? "สอบถามเราได้เลย…"
-          : "สอบถามเราได้เลย — Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่";
+        : "ถามเรื่องดวงของคุณได้เลย";
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -3156,7 +3112,7 @@ const Composer = forwardRef<
   const submit = () => onSend(readValue());
 
   return (
-    <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-8">
+    <div className="px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 md:px-8">
       {emailGate ? (
         <div className="mx-auto mb-2 flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--foreground)]">
           <span>
@@ -3185,34 +3141,11 @@ const Composer = forwardRef<
           แล้วใส่วันเกิดอีกฝ่าย จะได้วิเคราะห์จากดวงของทั้งสองคนจริง ๆ
         </p>
       ) : null}
-      {/* Wraps instead of clipping: with a large system font the three items do
-          not fit one phone row, and the usage figure was cut off the screen. */}
-      <div className="mx-auto mb-1 flex max-w-3xl flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
-        {/* The กระชับ / ละเอียด toggle is gone: one mode, length set by the question. */}
-        <TransitDatePicker
-          value={transitDate}
-          onChange={(next) => onTransitDateChange?.(next)}
-          disabled={!aiEnabled || emailGate}
-        />
-        <CompanionPicker
-          value={companions}
-          onChange={(next) => onCompanionsChange?.(next)}
-          disabled={!aiEnabled || emailGate}
-        />
-        {aiEnabled ? (
-          <p className="shrink-0 whitespace-nowrap text-[11px] text-[var(--muted)]">
-            เหลือ{" "}
-            <span
-              className="font-semibold tabular-nums text-[var(--foreground)]"
-              title="ประมาณจากคำถามทั่วไป คำถามยาว แชทยาว หรือโหมดละเอียดอาจใช้มากกว่านี้"
-            >
-              {formatRemainingUsage(remaining, usageRemainingQuestions)}
-            </span>
-          </p>
-        ) : null}
-      </div>
-
-      <div className="mx-auto flex max-w-3xl items-end gap-2.5 rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-1.5 transition-colors md:py-2 duration-200 focus-within:border-[var(--primary)]/70 focus-within:ring-1 focus-within:ring-[var(--primary)]/30">
+      {/* One card, the way ChatGPT / Claude / assistant-ui lay it out: the
+          question on top, its tools and the send button on a row inside the
+          card. The tools used to sit in a separate row above it, which took a
+          quarter of a phone screen before the user typed anything. */}
+      <div className="mx-auto max-w-3xl rounded-[1.5rem] border border-[var(--border)] bg-[var(--surface)] shadow-[0_6px_24px_-12px_var(--shadow-color,rgba(0,0,0,0.5))] transition-colors duration-200 focus-within:border-[var(--primary)]/60">
         <textarea
           ref={textareaRef}
           value={value}
@@ -3230,44 +3163,75 @@ const Composer = forwardRef<
           }}
           disabled={!aiEnabled || emailGate || disabled || usageExhausted}
           placeholder={placeholder}
-          className="max-h-[200px] min-h-6 w-full resize-none bg-transparent text-base font-medium leading-6 text-[var(--foreground)] antialiased outline-none placeholder:font-normal placeholder:text-[var(--muted)] disabled:cursor-not-allowed md:text-[15px]"
+          className="block max-h-[200px] min-h-6 w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-base leading-6 text-[var(--foreground)] antialiased outline-none placeholder:text-[var(--muted)] disabled:cursor-not-allowed"
         />
-        {streaming ? (
-          <button
-            type="button"
-            onClick={onStop}
-            className="press-scale -my-1 flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--foreground)] text-[var(--background)] transition hover:opacity-80 md:my-0 md:size-8"
-            aria-label="หยุดคำตอบ"
-            title="หยุดคำตอบ"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="5" y="5" width="14" height="14" rx="2.5" />
-            </svg>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={submit}
-            disabled={
-              disabled ||
-              !aiEnabled ||
-              categoryLocked ||
-              emailGate ||
-              usageExhausted ||
-              !value.trim()
-            }
-            className="press-scale -my-1 flex size-11 shrink-0 items-center justify-center rounded-full text-[var(--primary)] transition hover:bg-[var(--background)] hover:text-[var(--primary-hover)] disabled:opacity-40 md:my-0 md:size-8"
-            aria-label="ส่ง"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3.4 20.4l17.6-8.4a.9.9 0 0 0 0-1.6L3.4 2A.7.7 0 0 0 2.4 3l2.3 6.9c.1.4.4.6.8.7l7.3 1c.2 0 .2.3 0 .4l-7.3 1c-.4 0-.7.3-.8.7L2.4 21a.7.7 0 0 0 1 .9z" />
-            </svg>
-          </button>
-        )}
+        <div className="flex items-center gap-1 px-2 pb-2 pt-1">
+          {/* Wraps instead of clipping with a large system font. */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+            {/* The กระชับ / ละเอียด toggle is gone: one mode, length set by the question. */}
+            <TransitDatePicker
+              inline
+              value={transitDate}
+              onChange={(next) => onTransitDateChange?.(next)}
+              disabled={!aiEnabled || emailGate}
+            />
+            <CompanionPicker
+              inline
+              value={companions}
+              onChange={(next) => onCompanionsChange?.(next)}
+              disabled={!aiEnabled || emailGate}
+            />
+          </div>
+          {aiEnabled ? (
+            <p className="hidden shrink-0 whitespace-nowrap px-1 text-[12px] text-[var(--muted)] sm:block">
+              เหลือ{" "}
+              <span
+                className="font-semibold tabular-nums text-[var(--foreground)]"
+                title="ประมาณจากคำถามทั่วไป คำถามยาว แชทยาว หรือโหมดละเอียดอาจใช้มากกว่านี้"
+              >
+                {formatRemainingUsage(remaining, usageRemainingQuestions)}
+              </span>
+            </p>
+          ) : null}
+          {streaming ? (
+            <button
+              type="button"
+              onClick={onStop}
+              className="press-scale flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--foreground)] text-[var(--background)] transition hover:opacity-80 md:size-9"
+              aria-label="หยุดคำตอบ"
+              title="หยุดคำตอบ"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="5" y="5" width="14" height="14" rx="2.5" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={
+                disabled ||
+                !aiEnabled ||
+                categoryLocked ||
+                emailGate ||
+                usageExhausted ||
+                !value.trim()
+              }
+              className="press-scale flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm transition hover:bg-[var(--primary-hover)] disabled:bg-[var(--surface-3)] disabled:text-[var(--muted-2)] disabled:shadow-none md:size-9"
+              aria-label="ส่ง"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 19V5M5 12l7-7 7 7" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
+      {/* The one disclaimer on the chat screen. It also used to sit under every
+          answer and again in a dismissible banner — four copies on one screen. */}
       <p
         data-compact-hide
-        className="mt-1.5 text-center text-[10px] leading-4 text-[var(--muted-2)] md:text-[11px]"
+        className="mx-auto mt-2 max-w-3xl text-balance text-center text-[11px] leading-4 text-[var(--muted-2)] sm:text-[12px]"
       >
         {compactDisclaimer} ·{" "}
         <a href="/disclaimer" className="underline hover:text-[var(--muted)]">
@@ -3275,59 +3239,6 @@ const Composer = forwardRef<
         </a>
       </p>
       <SocialFollowLinks />
-      <ChatDisclaimerNotice />
     </div>
   );
 });
-
-function subscribeNoop() {
-  return () => {};
-}
-
-function readChatDisclaimerVisible(): boolean {
-  try {
-    return sessionStorage.getItem("horasard:chatDisclaimerDismissed") !== "1";
-  } catch {
-    return true;
-  }
-}
-
-function ChatDisclaimerNotice() {
-  const storedVisible = useSyncExternalStore(
-    subscribeNoop,
-    readChatDisclaimerVisible,
-    () => true,
-  );
-  const [dismissed, setDismissed] = useState(false);
-  if (!storedVisible || dismissed) return null;
-
-  return (
-    <div
-      data-compact-hide
-      className="mx-auto mt-2 hidden max-w-3xl items-start justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)] md:flex"
-    >
-      <p>
-        คำทำนายเพื่อความบันเทิงและเป็นแนวทางเท่านั้น ไม่ใช่คำแนะนำทางการเงิน กฎหมาย
-        หรือการแพทย์ —{" "}
-        <a href="/disclaimer" className="text-[var(--primary)] underline">
-          อ่านเพิ่ม
-        </a>
-      </p>
-      <button
-        type="button"
-        className="shrink-0 text-[var(--muted-2)] hover:text-[var(--foreground)]"
-        aria-label="ปิดคำเตือน"
-        onClick={() => {
-          try {
-            sessionStorage.setItem("horasard:chatDisclaimerDismissed", "1");
-          } catch {
-            /* ignore */
-          }
-          setDismissed(true);
-        }}
-      >
-        ✕
-      </button>
-    </div>
-  );
-}

@@ -13,22 +13,22 @@ import { linkChatNavigationCtas } from "@/lib/chat-navigation-links";
 
 const components: Components = {
   h1: ({ children }) => (
-    <h1 className="mb-3 mt-6 text-[1.35rem] font-semibold tracking-tight text-[var(--foreground)] first:mt-0 sm:text-2xl">
+    <h1 className="mb-3 mt-8 text-[1.375rem] font-semibold leading-snug text-[var(--foreground)] first:mt-0">
       {children}
     </h1>
   ),
   h2: ({ children }) => (
-    <h2 className="mb-2.5 mt-5 text-lg font-semibold tracking-tight text-[var(--foreground)] first:mt-0 sm:text-xl">
+    <h2 className="mb-2 mt-8 text-[1.1875rem] font-semibold leading-snug text-[var(--foreground)] first:mt-0">
       {children}
     </h2>
   ),
   h3: ({ children }) => (
-    <h3 className="mb-2 mt-4 text-base font-semibold text-[var(--foreground)] first:mt-0">
+    <h3 className="mb-1.5 mt-6 text-[1.0625rem] font-semibold leading-snug text-[var(--foreground)] first:mt-0">
       {children}
     </h3>
   ),
   h4: ({ children }) => (
-    <h4 className="mb-1.5 mt-3 text-sm font-semibold text-[var(--foreground)] first:mt-0">
+    <h4 className="mb-1 mt-5 text-base font-semibold text-[var(--foreground)] first:mt-0">
       {children}
     </h4>
   ),
@@ -37,28 +37,28 @@ const components: Components = {
     // at a glance — users asked for a plain conclusion they don't have to dig for.
     if (isSummaryParagraph(children)) {
       return (
-        <div className="mb-3 mt-4 rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/8 px-4 py-3 text-[15px] leading-7 text-[var(--foreground)] last:mb-0">
+        <div className="mb-4 mt-6 rounded-2xl border-l-[3px] border-[var(--primary)] bg-[var(--surface-2)] px-4 py-3 text-base leading-[1.8] text-[var(--foreground)] last:mb-0">
           {children}
         </div>
       );
     }
     return (
-      <p className="mb-3 text-[15px] leading-7 text-[var(--foreground)] last:mb-0">
+      <p className="mb-4 text-base leading-[1.8] text-[var(--foreground)] last:mb-0">
         {withGlossary(children)}
       </p>
     );
   },
   ul: ({ children }) => (
-    <ul className="mb-3 list-disc space-y-1.5 pl-5 text-[15px] leading-7 text-[var(--foreground)] last:mb-0">
+    <ul className="mb-4 list-disc space-y-1.5 pl-6 text-base leading-[1.8] text-[var(--foreground)] last:mb-0 [&_ul]:mb-0 [&_ul]:mt-1.5">
       {children}
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="mb-3 list-decimal space-y-1.5 pl-5 text-[15px] leading-7 text-[var(--foreground)] last:mb-0">
+    <ol className="mb-4 list-decimal space-y-1.5 pl-6 text-base leading-[1.8] text-[var(--foreground)] last:mb-0 marker:font-semibold">
       {children}
     </ol>
   ),
-  li: ({ children }) => <li className="pl-0.5 marker:text-[var(--primary)]">{withGlossary(children)}</li>,
+  li: ({ children }) => <li className="pl-1 marker:text-[var(--muted-2)]">{withGlossary(children)}</li>,
   strong: ({ children }) => (
     <strong className="font-semibold text-[var(--foreground)]">{children}</strong>
   ),
@@ -98,11 +98,11 @@ const components: Components = {
     );
   },
   blockquote: ({ children }) => (
-    <blockquote className="mb-3 border-l-2 border-[var(--primary)]/50 bg-[var(--surface-2)]/60 py-1 pl-3 pr-2 text-[15px] leading-7 text-[var(--muted)] last:mb-0">
+    <blockquote className="mb-4 border-l-[3px] border-[var(--border-strong)] py-0.5 pl-4 text-base leading-[1.8] text-[var(--muted)] last:mb-0">
       {children}
     </blockquote>
   ),
-  hr: () => <hr className="my-5 border-0 border-t border-[var(--border)]" />,
+  hr: () => <hr className="my-8 border-0 border-t border-[var(--border)]" />,
   code: ({ className, children }) => {
     const isBlock = Boolean(className?.includes("language-"));
     if (isBlock) {
@@ -141,7 +141,7 @@ const components: Components = {
     );
   },
   table: ({ children }) => (
-    <div className="mb-4 overflow-x-auto rounded-2xl border border-[var(--border)] last:mb-0">
+    <div className="my-5 overflow-x-auto rounded-xl border border-[var(--border)] first:mt-0 last:mb-0">
       <table className="min-w-full border-collapse text-left text-sm">{children}</table>
     </div>
   ),
@@ -151,12 +151,12 @@ const components: Components = {
   tbody: ({ children }) => <tbody className="divide-y divide-[var(--border)]">{children}</tbody>,
   tr: ({ children }) => <tr className="border-b border-[var(--border)] last:border-0">{children}</tr>,
   th: ({ children }) => (
-    <th className="whitespace-nowrap px-3 py-2.5 text-xs font-semibold uppercase tracking-wide">
+    <th className="whitespace-nowrap px-3.5 py-2.5 text-[13px] font-semibold text-[var(--foreground)]">
       {children}
     </th>
   ),
   td: ({ children }) => (
-    <td className="px-3 py-2.5 align-top text-[14px] leading-6 text-[var(--foreground)]">
+    <td className="px-3.5 py-2.5 align-top text-[15px] leading-7 text-[var(--foreground)]">
       {children}
     </td>
   ),

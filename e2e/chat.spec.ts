@@ -194,7 +194,7 @@ test("a long answer starts at its first line instead of scrolling past it", asyn
   ).join("\n\n");
   await stubChat(page, { events: happyTurn(longAnswer) });
   await page.goto("/dashboard");
-  await page.getByPlaceholder(/สอบถามเราได้เลย/).fill("ขอคำทำนายยาว ๆ");
+  await page.getByPlaceholder(/ถามเรื่องดวงของคุณได้เลย/).fill("ขอคำทำนายยาว ๆ");
   await page.keyboard.press("Enter");
   await expect(
     page.locator("p").filter({ hasText: "บรรทัดที่ 60 " }).first(),

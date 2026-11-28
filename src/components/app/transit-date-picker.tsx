@@ -247,10 +247,13 @@ export function TransitDatePicker({
   value,
   onChange,
   disabled,
+  inline = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  /** Borderless tool button inside the composer card. */
+  inline?: boolean;
 }) {
   const panelId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -412,7 +415,13 @@ export function TransitDatePicker({
           if (open) closePanel(true);
           else openPanel();
         }}
-        className="flex min-h-9 max-w-[16rem] items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 text-left text-[12px] text-[var(--muted)] transition hover:border-[var(--primary)]/50 disabled:opacity-50"
+        className={
+          inline
+            ? `flex min-h-8 max-w-[16rem] items-center gap-1.5 rounded-full px-2.5 text-left text-[13px] transition hover:bg-[var(--surface-3)] disabled:opacity-50 ${
+                label ? "bg-[var(--primary)]/10 text-[var(--foreground)]" : "text-[var(--muted)] hover:text-[var(--foreground)]"
+              }`
+            : "flex min-h-9 max-w-[16rem] items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 text-left text-[12px] text-[var(--muted)] transition hover:border-[var(--primary)]/50 disabled:opacity-50"
+        }
       >
         <svg
           width="14"
@@ -436,7 +445,14 @@ export function TransitDatePicker({
         ) : (
           // "เลือกวันที่ต้องการเช็คดวง" read as booking an astrologer's slot.
           // A's wording (9 Oct 2026).
-          <span className="min-w-0 truncate">ดูดวงของวันที่ต้องการทราบ (เลือกวันจร)</span>
+          inline ? (
+            <>
+              <span className="min-w-0 truncate sm:hidden">เลือกวันจร</span>
+              <span className="hidden min-w-0 truncate sm:inline">ดูดวงของวันที่ต้องการทราบ (เลือกวันจร)</span>
+            </>
+          ) : (
+            <span className="min-w-0 truncate">ดูดวงของวันที่ต้องการทราบ (เลือกวันจร)</span>
+          )
         )}
       </button>
       {panel}

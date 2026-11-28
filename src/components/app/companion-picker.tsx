@@ -64,10 +64,13 @@ export function CompanionPicker({
   value,
   onChange,
   disabled = false,
+  inline = false,
 }: {
   value: Companion[];
   onChange: (next: Companion[]) => void;
   disabled?: boolean;
+  /** Borderless tool button inside the composer card. */
+  inline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState<Companion[]>([]);
@@ -98,15 +101,32 @@ export function CompanionPicker({
           setSaved(loadSaved());
           setOpen(true);
         }}
-        className={`press-scale inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs transition ${
-          value.length
-            ? "border-[var(--primary)]/60 bg-[var(--primary)]/10 text-[var(--primary)]"
-            : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--primary)]/50 hover:text-[var(--foreground)]"
-        } disabled:opacity-50`}
+        className={
+          inline
+            ? `press-scale inline-flex min-h-8 max-w-[16rem] items-center gap-1.5 rounded-full px-2.5 text-[13px] transition hover:bg-[var(--surface-3)] disabled:opacity-50 ${
+                value.length
+                  ? "bg-[var(--primary)]/10 text-[var(--foreground)]"
+                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
+              }`
+            : `press-scale inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs transition ${
+                value.length
+                  ? "border-[var(--primary)]/60 bg-[var(--primary)]/10 text-[var(--primary)]"
+                  : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--primary)]/50 hover:text-[var(--foreground)]"
+              } disabled:opacity-50`
+        }
       >
-        <span aria-hidden>♡</span>
+        <span aria-hidden className={inline ? "text-[var(--primary)]" : undefined}>♡</span>
         {/* "ดูดวงคู่" alone didn't say what it does; สมพงษ์ is the word people know. */}
-        {value.length ? `ดูดวงคู่กับ ${value.map((p) => p.nickname).join(", ")}` : "ดูดวงสมพงษ์ (ดวงคู่)"}
+        {value.length ? (
+          <span className="min-w-0 truncate">ดูดวงคู่กับ {value.map((p) => p.nickname).join(", ")}</span>
+        ) : inline ? (
+          <>
+            <span className="sm:hidden">ดวงสมพงษ์</span>
+            <span className="hidden sm:inline">ดูดวงสมพงษ์ (ดวงคู่)</span>
+          </>
+        ) : (
+          "ดูดวงสมพงษ์ (ดวงคู่)"
+        )}
       </button>
 
       {/* Portalled to <body>: inside the composer the dialog shared its stacking

@@ -18,6 +18,8 @@ type MessageActionsProps = {
   /** Local thumbs until BE feedback API ships. */
   feedback?: FeedbackValue | null;
   onFeedback?: (value: FeedbackValue) => void;
+  /** Always visible on desktop (the newest answer), as ChatGPT and Claude do. */
+  pinned?: boolean;
 };
 
 /** ChatGPT-style hover actions; collapses to ⋯ on small screens. */
@@ -33,6 +35,7 @@ export function MessageActions({
   failed,
   feedback,
   onFeedback,
+  pinned = false,
 }: MessageActionsProps) {
   if (!content.trim() && !failed) return null;
 
@@ -47,7 +50,7 @@ export function MessageActions({
           is what tells the two apart. */}
       <div
         data-testid="message-actions"
-        className="mt-2 hidden flex-wrap items-center gap-0.5 opacity-100 transition md:flex md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+        className={`mt-2 hidden flex-wrap items-center gap-0.5 opacity-100 transition md:flex ${pinned ? "" : "md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"}`}
       >
         <CopyMessageButton text={content} />
         {role === "user" && canEdit && onEdit ? (
