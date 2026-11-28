@@ -66,7 +66,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "web-push": "^3.6.7",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
@@ -85,5 +85,12 @@
     "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "effect": "3.22.4",
+      "deepmerge-ts": "8.0.2"
+    },
+    "@vercel/cli-config": "0.4.0"
   }
 }
