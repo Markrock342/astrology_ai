@@ -32,7 +32,7 @@ describe("persistent canonical authentication", () => {
   });
 
   it("locks the audited Next.js and Auth.js security releases", () => {
-    expect(packageLock.packages["node_modules/next"]?.version).toBe("16.4.2");
+    expect(packageLock.packages["node_modules/next"]?.version).toBe("16.4.6");
     expect(packageLock.packages["node_modules/next-auth"]?.version).toBe("5.0.0-beta.32");
     expect(packageLock.packages["node_modules/@auth/core"]?.version).toBe("0.41.3");
     expect(packageLock.packages["node_modules/@auth/prisma-adapter"]?.version).toBe("2.11.3");
