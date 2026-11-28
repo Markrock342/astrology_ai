@@ -1,3 +1,4 @@
+import { AuthError } from "@auth/core/errors";
 import { signIn } from "@/auth";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
@@ -31,6 +32,9 @@ export async function signInCredentials(
     return "ok";
   } catch (err) {
     if (isRedirectError(err)) return "ok";
+    // Auth.js v5 throws CredentialsSignin when authorize() returns null instead
+    // of returning { error }. Left uncaught it became a 500 "temporary error".
+    if (err instanceof AuthError && err.type === "CredentialsSignin") return "invalid";
     throw err;
   }
 }

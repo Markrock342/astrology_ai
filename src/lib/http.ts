@@ -56,7 +56,12 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
     return await fn();
   } catch (err) {
     if (err instanceof AppError) {
-      return fail(err.code, err.message, err.status, err.details);
+      const res = fail(err.code, err.message, err.status, err.details);
+      const retry = (err.details as { retryAfterSeconds?: unknown } | undefined)?.retryAfterSeconds;
+      if (err.code === "RATE_LIMITED" && typeof retry === "number") {
+        res.headers.set("Retry-After", String(retry));
+      }
+      return res;
     }
     if (err instanceof ZodError) {
       // Our own refinements speak Thai; Zod's built-ins are English. Users saw
